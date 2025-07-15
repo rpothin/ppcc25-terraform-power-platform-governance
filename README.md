@@ -34,16 +34,20 @@ Before using this repository, ensure you have:
 ## 📁 Repository Structure
 
 ```
-├── .devcontainer/     # Development container configuration
-├── .github/           # GitHub workflows
-├── configurations/    # Ready-to-use Terraform configurations
-├── docs/              # Documentation and guides
-├── modules/           # Reusable Terraform modules
-├── scripts/           # Helper scripts for setup and deployments
-├── .gitignore         # Git ignore file
-├── CHANGELOG.md       # Version history and changes
-├── LICENSE            # MIT License
-└── README.md          # This file
+├── .devcontainer/                  # Development container configuration
+├── .github/                        # GitHub workflows
+├── configurations/                 # Ready-to-use Terraform configurations
+│   ├── 01-dlp-policies-inventory/  # Example for DLP policies inventory
+│   ├── 02-dlp-policy/              # Example for DLP policy
+│   ├── 03-environment/             # Example for environment configuration
+│   └── ...                         # More configurations as needed
+├── docs/                           # Documentation and guides
+├── modules/                        # Reusable Terraform modules
+├── scripts/                        # Helper scripts for setup and deployments
+├── .gitignore                      # Git ignore file
+├── CHANGELOG.md                    # Version history and changes
+├── LICENSE                         # MIT License
+└── README.md                       # This file
 ```
 
 ## 🎉 PPCC25 Attendees
