@@ -35,20 +35,66 @@ Before using this repository, ensure you have:
 
 ```
 ├── .devcontainer/                  # Development container configuration
-├── .github/                        # GitHub workflows
+├── .github/                        # GitHub workflows and actions
 ├── configurations/                 # Ready-to-use Terraform configurations
-│   ├── 01-dlp-policies-inventory/  # Example for DLP policies inventory
-│   ├── 02-dlp-policy/              # Example for DLP policy
-│   ├── 03-environment/             # Example for environment configuration
-│   └── ...                         # More configurations as needed
-├── docs/                           # Documentation and guides
-├── modules/                        # Reusable Terraform modules
-├── scripts/                        # Helper scripts for setup and deployments
-├── .gitignore                      # Git ignore file
-├── CHANGELOG.md                    # Version history and changes
-├── LICENSE                         # MIT License
-└── README.md                       # This file
+│   ├── 02-dlp-policy/             # DLP policy configuration
+│   │   ├── tfvars/                # Multiple DLP policy tfvars
+│   │   │   ├── dlp-finance.tfvars # Finance-specific DLP policy
+│   │   │   ├── dlp-hr.tfvars      # HR-specific DLP policy
+│   │   │   └── dlp-general.tfvars # General business DLP policy
+│   │   ├── main.tf                # Main Terraform configuration
+│   │   └── README.md              # Configuration documentation
+│   ├── 03-environment/            # Environment configuration
+│   │   ├── tfvars/                # Multiple environment tfvars
+│   │   │   ├── env-production.tfvars    # Production environment
+│   │   │   ├── env-development.tfvars   # Development environment
+│   │   │   └── env-sandbox.tfvars       # Sandbox environment
+│   │   ├── main.tf                # Main Terraform configuration
+│   │   └── README.md              # Configuration documentation
+│   └── ...                        # Additional configurations
+├── docs/                          # Documentation and guides
+├── modules/                       # Reusable Terraform modules
+├── scripts/                       # Helper scripts for setup and deployments
+├── terraform.tfvars               # Root-level shared configuration
+├── .gitignore                     # Git ignore file
+├── CHANGELOG.md                   # Version history and changes
+├── LICENSE                        # MIT License
+└── README.md                      # This file
 ```
+
+## 🏗️ tfvars Management Strategy
+
+This project uses a **configuration-scoped tfvars approach** that aligns with Power Platform's tenant-level nature:
+
+### Structure
+- **Root level**: `terraform.tfvars` - Shared tenant-wide configuration
+- **Configuration level**: `configurations/<config>/tfvars/<specific>.tfvars` - Required specific configurations
+
+### Usage Examples
+```bash
+# Deploy Finance-specific DLP policy  
+Configuration: 02-dlp-policy
+tfvars file: dlp-finance
+
+# Deploy HR-specific DLP policy
+Configuration: 02-dlp-policy
+tfvars file: dlp-hr
+
+# Deploy production environment
+Configuration: 03-environment
+tfvars file: env-production
+
+# Deploy development environment
+Configuration: 03-environment
+tfvars file: env-development
+```
+
+### Key Benefits
+- **Explicit Configuration**: No default fallback - requires intentional tfvars selection
+- **Clear Intent**: Each deployment explicitly states which configuration variant to use
+- **Simplified Input**: Only specify the meaningful name (e.g., `dlp-finance`) without file extension
+- **Maintainability**: Easy to add new variants without affecting existing configurations
+- **Governance**: Enforces deliberate decision-making for each deployment
 
 ## 🎉 PPCC25 Attendees
 
