@@ -34,10 +34,13 @@ Before using this repository, ensure you have:
 ## 📁 Repository Structure
 
 ```
+├── .devcontainer/     # Development container configuration
+├── .github/           # GitHub workflows
 ├── configurations/    # Ready-to-use Terraform configurations
 ├── docs/              # Documentation and guides
 ├── modules/           # Reusable Terraform modules
-├── scripts/           # Helper scripts for setup and deployment
+├── scripts/           # Helper scripts for setup and deployments
+├── .gitignore         # Git ignore file
 ├── CHANGELOG.md       # Version history and changes
 ├── LICENSE            # MIT License
 └── README.md          # This file
