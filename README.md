@@ -34,7 +34,7 @@ Before using this repository, ensure you have:
 ## 📁 Repository Structure
 
 ```
-├── configurations/     # Ready-to-use Terraform configurations
+├── configurations/    # Ready-to-use Terraform configurations
 ├── docs/              # Documentation and guides
 ├── modules/           # Reusable Terraform modules
 ├── scripts/           # Helper scripts for setup and deployment
