@@ -17,7 +17,8 @@
 			"extensions": [
 				"GitHub.copilot",
 				"yzhang.markdown-all-in-one",
-				"microsoft-IsvExpTools.powerplatform-vscode"
+				"microsoft-IsvExpTools.powerplatform-vscode",
+				"ms-azuretools.vscode-bicep"
 			]
 		}
 	}
