@@ -143,9 +143,9 @@ get_user_input() {
     
     print_status "Configuration:"
     print_status "  GitHub Repository: $GITHUB_REPOSITORY"
-    print_status "  Azure Client ID: $AZURE_CLIENT_ID"
-    print_status "  Azure Tenant ID: $AZURE_TENANT_ID"
-    print_status "  Azure Subscription ID: $AZURE_SUBSCRIPTION_ID"
+    print_status "  Azure Client ID: [REDACTED - will be stored securely]"
+    print_status "  Azure Tenant ID: [REDACTED - will be stored securely]"
+    print_status "  Azure Subscription ID: [REDACTED - will be stored securely]"
     print_status "  Terraform Resource Group: $TERRAFORM_RESOURCE_GROUP"
     print_status "  Terraform Storage Account: $TERRAFORM_STORAGE_ACCOUNT"
     print_status "  Terraform Container: $TERRAFORM_CONTAINER"
@@ -203,14 +203,20 @@ create_github_secrets() {
         
         print_status "Creating secret: $secret_name"
         
-        # Create or update the secret
-        if echo "$secret_value" | gh secret set "$secret_name" --repo "$GITHUB_REPOSITORY"; then
+        # Create or update the secret securely (value is not logged)
+        if echo "$secret_value" | gh secret set "$secret_name" --repo "$GITHUB_REPOSITORY" 2>/dev/null; then
             print_success "✓ Secret $secret_name created successfully"
         else
             print_error "✗ Failed to create secret $secret_name"
             exit 1
         fi
     done
+    
+    # Clear sensitive variables from memory
+    unset SECRETS
+    unset AZURE_CLIENT_ID
+    unset AZURE_TENANT_ID  
+    unset AZURE_SUBSCRIPTION_ID
 }
 
 # Function to verify secrets were created
@@ -280,6 +286,9 @@ output_instructions() {
     print_status "  ✓ TERRAFORM_STORAGE_ACCOUNT"
     print_status "  ✓ TERRAFORM_CONTAINER"
     print_status ""
+    print_status "SECURITY NOTICE: All sensitive values have been securely stored"
+    print_status "as GitHub secrets and have been cleared from local memory."
+    print_status ""
     print_status "Next Steps:"
     print_status "1. Go to your GitHub repository: https://github.com/$GITHUB_REPOSITORY"
     print_status "2. Navigate to Actions tab"
@@ -290,10 +299,36 @@ output_instructions() {
     print_status "You can now use the Terraform configurations to manage your Power Platform governance."
 }
 
+# Function to clean up sensitive variables from environment
+cleanup_sensitive_vars() {
+    print_status "Cleaning up sensitive variables from memory..."
+    
+    # Clear all sensitive variables
+    unset AZURE_CLIENT_ID
+    unset AZURE_TENANT_ID
+    unset AZURE_SUBSCRIPTION_ID
+    unset TERRAFORM_RESOURCE_GROUP
+    unset TERRAFORM_STORAGE_ACCOUNT
+    unset TERRAFORM_CONTAINER
+    unset GITHUB_REPOSITORY
+    unset GITHUB_OWNER
+    unset GITHUB_REPO
+    
+    # Clear bash history of this session (if running interactively)
+    if [[ $- == *i* ]]; then
+        history -c
+    fi
+    
+    print_success "Sensitive variables cleared from memory"
+}
+
 # Main execution
 main() {
     print_status "Starting GitHub secrets setup for Power Platform Terraform governance..."
     print_status "======================================================================="
+    
+    # Set up trap to clean up on exit
+    trap cleanup_sensitive_vars EXIT
     
     validate_prerequisites
     authenticate_github
@@ -303,6 +338,7 @@ main() {
     verify_secrets
     create_github_environment
     output_instructions
+    cleanup_sensitive_vars
     
     print_success "Script completed successfully!"
 }

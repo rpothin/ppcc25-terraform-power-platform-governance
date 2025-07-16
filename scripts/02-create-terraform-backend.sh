@@ -113,13 +113,13 @@ get_user_input() {
     AZURE_TENANT_ID=$(az account show --query tenantId -o tsv)
     
     print_status "Configuration:"
-    print_status "  Service Principal ID: $AZURE_CLIENT_ID"
+    print_status "  Service Principal ID: [REDACTED - will be used securely]"
     print_status "  Resource Group: $RESOURCE_GROUP_NAME"
     print_status "  Storage Account: $STORAGE_ACCOUNT_NAME"
     print_status "  Container: $CONTAINER_NAME"
     print_status "  Location: $LOCATION"
-    print_status "  Subscription: $AZURE_SUBSCRIPTION_ID"
-    print_status "  Tenant: $AZURE_TENANT_ID"
+    print_status "  Subscription: [REDACTED - current authenticated subscription]"
+    print_status "  Tenant: [REDACTED - current authenticated tenant]"
     
     echo -n "Continue with this configuration? (y/n): "
     read -r CONFIRM
@@ -211,24 +211,18 @@ create_storage_account() {
 create_storage_container() {
     print_status "Creating storage container: $CONTAINER_NAME"
     
-    # Get storage account key
-    STORAGE_KEY=$(az storage account keys list \
-        --account-name "$STORAGE_ACCOUNT_NAME" \
-        --resource-group "$RESOURCE_GROUP_NAME" \
-        --query "[0].value" -o tsv)
-    
-    # Check if container already exists
+    # Check if container already exists using Azure CLI without exposing keys
     if az storage container show \
         --name "$CONTAINER_NAME" \
         --account-name "$STORAGE_ACCOUNT_NAME" \
-        --account-key "$STORAGE_KEY" &> /dev/null; then
+        --auth-mode login &> /dev/null; then
         print_warning "Storage container $CONTAINER_NAME already exists"
     else
-        # Create container
+        # Create container using Azure CLI with managed identity authentication
         az storage container create \
             --name "$CONTAINER_NAME" \
             --account-name "$STORAGE_ACCOUNT_NAME" \
-            --account-key "$STORAGE_KEY" \
+            --auth-mode login \
             --public-access off
         
         if [[ $? -eq 0 ]]; then
@@ -242,7 +236,7 @@ create_storage_container() {
 
 # Function to configure service principal permissions
 configure_permissions() {
-    print_status "Configuring service principal permissions..."
+    print_status "Validating service principal permissions..."
     
     # Get storage account resource ID
     STORAGE_ACCOUNT_ID=$(az storage account show \
@@ -250,35 +244,30 @@ configure_permissions() {
         --resource-group "$RESOURCE_GROUP_NAME" \
         --query id -o tsv)
     
-    # Assign Storage Blob Data Contributor role to service principal
-    az role assignment create \
+    # Verify Owner role assignment (should already exist from previous script)
+    print_status "Verifying Owner role assignment..."
+    if az role assignment list \
         --assignee "$AZURE_CLIENT_ID" \
-        --role "Storage Blob Data Contributor" \
-        --scope "$STORAGE_ACCOUNT_ID" \
-        --description "Terraform state storage access"
-    
-    if [[ $? -eq 0 ]]; then
-        print_success "Storage Blob Data Contributor role assigned"
+        --scope "/subscriptions/$AZURE_SUBSCRIPTION_ID" \
+        --role "Owner" \
+        --query "[0].roleDefinitionName" -o tsv | grep -q "Owner"; then
+        print_success "✓ Owner role confirmed at subscription level"
+        print_status "  This provides all required permissions including:"
+        print_status "    - Storage Blob Data Contributor (for Terraform state)"
+        print_status "    - Contributor (for resource management)"
+        print_status "    - User Access Administrator (for role assignments)"
     else
-        print_warning "Failed to assign Storage Blob Data Contributor role"
+        print_error "Owner role not found. Please run 01-create-service-principal.sh first"
+        exit 1
     fi
     
-    # Assign Contributor role to resource group for service principal
-    RESOURCE_GROUP_ID=$(az group show \
-        --name "$RESOURCE_GROUP_NAME" \
-        --query id -o tsv)
+    # The Owner role already includes all necessary permissions:
+    # - Storage Blob Data Contributor (for Terraform state storage)
+    # - Contributor (for resource group and storage account management)
+    # - User Access Administrator (for managing access permissions)
+    # No additional role assignments needed
     
-    az role assignment create \
-        --assignee "$AZURE_CLIENT_ID" \
-        --role "Contributor" \
-        --scope "$RESOURCE_GROUP_ID" \
-        --description "Resource group management access"
-    
-    if [[ $? -eq 0 ]]; then
-        print_success "Contributor role assigned to resource group"
-    else
-        print_warning "Failed to assign Contributor role to resource group"
-    fi
+    print_success "Service principal permissions validated successfully"
 }
 
 # Function to test backend configuration
@@ -348,6 +337,9 @@ output_results() {
     print_status "TERRAFORM_RESOURCE_GROUP: $RESOURCE_GROUP_NAME"
     print_status "TERRAFORM_STORAGE_ACCOUNT: $STORAGE_ACCOUNT_NAME"
     print_status "TERRAFORM_CONTAINER: $CONTAINER_NAME"
+    print_status ""
+    print_status "NOTE: You will also need the Service Principal Client ID, Tenant ID,"
+    print_status "and Subscription ID from the previous script for the GitHub secrets setup."
     print_status ""
     print_status "You can now proceed to run the next script: 03-create-github-secrets.sh"
 }

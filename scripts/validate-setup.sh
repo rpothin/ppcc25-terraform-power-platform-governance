@@ -57,7 +57,14 @@ validate_azure_resources() {
     read -r STORAGE_ACCOUNT_NAME
     
     echo -n "Enter the Service Principal Client ID: "
-    read -r CLIENT_ID
+    read -r -s CLIENT_ID  # -s flag hides input
+    echo ""  # Add newline after hidden input
+    
+    # Validate input format without displaying the value
+    if [[ ! "$CLIENT_ID" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then
+        print_error "Invalid Client ID format. Please enter a valid GUID."
+        return 1
+    fi
     
     # Check if Azure CLI is authenticated
     if ! az account show &> /dev/null; then

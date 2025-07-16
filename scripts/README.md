@@ -2,6 +2,24 @@
 
 This directory contains automated setup scripts to quickly configure the Power Platform Terraform governance solution. These scripts will set up all the necessary Azure resources, service principals, and GitHub secrets required to run the Terraform configurations.
 
+## ⚠️ **Important: Fresh Setup Only**
+
+**These scripts are designed for creating NEW resources from scratch and do NOT support using existing resources:**
+
+- ✅ **Creates NEW Service Principal** - No option to use existing service principal
+- ✅ **Creates NEW Storage Account** - No option to use existing storage account  
+- ✅ **Creates NEW Resource Group** - No option to use existing resource group
+- ✅ **Creates NEW GitHub Secrets** - Overwrites existing secrets with same names
+
+**Why this approach?**
+- **Exploration Focus**: Perfect for learning and testing scenarios
+- **Clean Environment**: Ensures consistent, predictable setup
+- **Easy Cleanup**: All resources can be deleted cleanly after exploration
+- **No Conflicts**: Avoids issues with existing resource configurations
+- **Security**: Fresh credentials eliminate potential security issues
+
+**For Production Use**: Consider adapting these scripts or manually configuring existing resources with the same permissions and settings.
+
 ## Prerequisites
 
 Before running these scripts, ensure you have the following tools installed and configured:
@@ -14,7 +32,8 @@ Before running these scripts, ensure you have the following tools installed and 
 - **openssl** - For generating random values
 
 ### Required Permissions
-- **Azure**: Contributor access to the Azure subscription
+- **Azure**: Owner or Contributor + User Access Administrator on the Azure subscription
+- **Azure AD**: Global Administrator or Application Administrator (for Graph API permissions)
 - **Power Platform**: Tenant Administrator privileges
 - **GitHub**: Admin access to the target repository
 
@@ -42,6 +61,93 @@ For a complete automated setup, run the main setup script:
 
 This will guide you through the entire setup process, running all individual scripts in the correct order.
 
+## Script Behavior Analysis
+
+### Resource Creation vs. Existing Resources
+
+#### 1. Service Principal Script (`01-create-service-principal.sh`)
+- **Always creates NEW service principal** using `az ad sp create-for-rbac`
+- **No check for existing service principal** with the same name
+- **Fails if service principal with same name already exists**
+- **Creates new federated credentials** (overwrites if app already exists)
+- **Registers with Power Platform** (safe if already registered)
+
+#### 2. Terraform Backend Script (`02-create-terraform-backend.sh`)
+- **Always creates NEW resource group** (skips if already exists with warning)
+- **Always creates NEW storage account** (skips if already exists with warning)
+- **Always creates NEW storage container** (skips if already exists with warning)
+- **No validation of existing resource compatibility**
+
+#### 3. GitHub Secrets Script (`03-create-github-secrets.sh`)
+- **Always creates/overwrites GitHub secrets** using `gh secret set`
+- **No backup of existing secrets**
+- **Replaces any existing secrets with same names**
+- **Creates new GitHub environment** (updates if already exists)
+
+### Idempotency Behavior
+
+| Script | Resource | Behavior if Exists | Idempotent |
+|--------|----------|-------------------|------------|
+| Script 1 | Service Principal | **FAILS** | ❌ No |
+| Script 1 | Federated Credentials | **OVERWRITES** | ⚠️ Partial |
+| Script 2 | Resource Group | **SKIPS** | ✅ Yes |
+| Script 2 | Storage Account | **SKIPS** | ✅ Yes |
+| Script 2 | Storage Container | **SKIPS** | ✅ Yes |
+| Script 3 | GitHub Secrets | **OVERWRITES** | ⚠️ Partial |
+| Script 3 | GitHub Environment | **UPDATES** | ✅ Yes |
+
+### Cleanup Instructions
+
+Since these scripts create NEW resources, you may want to clean up after exploration:
+
+### 1. Service Principal Cleanup
+```bash
+# List service principals (find your SP)
+az ad sp list --display-name "terraform-powerplatform-sp" --query "[].{DisplayName:displayName, AppId:appId, ObjectId:id}" --output table
+
+# Delete the service principal
+az ad sp delete --id "<service-principal-object-id>"
+
+# Or by app ID
+az ad sp delete --id "<client-id>"
+```
+
+### 2. Azure Resource Cleanup
+```bash
+# Delete the entire resource group (removes storage account and container)
+az group delete --name "rg-terraform-backend" --yes --no-wait
+
+# Or delete individual resources
+az storage account delete --name "<storage-account-name>" --resource-group "rg-terraform-backend"
+```
+
+### 3. GitHub Secrets Cleanup
+```bash
+# List repository secrets
+gh secret list
+
+# Delete individual secrets
+gh secret delete AZURE_CLIENT_ID
+gh secret delete AZURE_TENANT_ID
+gh secret delete AZURE_SUBSCRIPTION_ID
+gh secret delete TERRAFORM_BACKEND_CONFIG
+
+# Delete GitHub environment
+gh api repos/:owner/:repo/environments/production --method DELETE
+```
+
+### 4. Power Platform Cleanup
+The service principal registration with Power Platform will be removed automatically when the service principal is deleted from Azure AD.
+
+### Cost Considerations
+
+- **Service Principal**: Free
+- **Storage Account**: ~$0.05/month for minimal usage
+- **GitHub Secrets**: Free (part of GitHub repository)
+- **Resource Group**: Free (container only)
+
+**Total Monthly Cost**: < $0.10 for exploration purposes
+
 ## Individual Scripts
 
 You can also run the individual scripts if you prefer a step-by-step approach:
@@ -49,8 +155,9 @@ You can also run the individual scripts if you prefer a step-by-step approach:
 ### 1. Create Service Principal (`01-create-service-principal.sh`)
 
 Creates an Azure AD Service Principal with:
+- **Owner role** at subscription level for comprehensive governance capabilities
+- **Microsoft Graph API permissions** for Entra ID security group management
 - OIDC trust configuration for GitHub Actions
-- Required Azure permissions for Terraform
 - Power Platform tenant admin registration
 
 ```bash
@@ -58,10 +165,23 @@ Creates an Azure AD Service Principal with:
 ```
 
 **What it does:**
-- Creates a new Service Principal in Azure AD
+- Creates a new Service Principal in Azure AD with Owner permissions
 - Configures federated credentials for GitHub OIDC
-- Assigns necessary Azure roles
+- Assigns Owner role (includes Contributor + User Access Administrator)
+- Grants Microsoft Graph API permissions for security group management
+- Provides admin consent for Graph API permissions
 - Registers the Service Principal with Power Platform using `pac admin application register`
+
+**Security Considerations:**
+- **Owner Role**: Required for comprehensive Power Platform governance scenarios
+- **Graph API Permissions**: Enables Entra ID security group creation and management
+- **Capabilities**: Enables Azure resource deployment, identity management, and access control
+- **Admin Consent**: Required for Graph API permissions (may need Global Admin role)
+- **OIDC Authentication**: No long-lived secrets, uses secure token exchange
+
+**Required Permissions:**
+- Azure subscription Owner or Contributor + User Access Administrator
+- Azure AD Global Administrator or Application Administrator (for Graph API consent)
 
 ### 2. Create Terraform Backend (`02-create-terraform-backend.sh`)
 
@@ -125,8 +245,10 @@ The setup scripts follow security best practices:
 
 ### Service Principal
 - Uses OIDC authentication (no long-lived secrets)
-- Follows principle of least privilege
-- Scoped to specific subscription and resources
+- **Owner role at subscription level** for comprehensive governance capabilities
+- **Microsoft Graph API permissions** for Entra ID security group management
+- Scoped to specific subscription and directory tenant
+- Required for Azure resource deployment, identity management, and security group operations
 
 ### Storage Account
 - Private access only (no public blob access)
@@ -186,6 +308,40 @@ After completing the setup:
 3. Run the "Terraform Plan and Apply" GitHub Actions workflow
 4. Choose a configuration (e.g., `02-dlp-policy`) and tfvars file
 5. Monitor the workflow execution in the Actions tab
+
+## Resource Management and Cleanup
+
+### Created Resources That Need Management
+- **Azure AD Service Principal**: `terraform-powerplatform-governance` (or custom name)
+- **Azure Resource Group**: `rg-terraform-powerplatform-governance`
+- **Azure Storage Account**: `stterraformpp<random>` (globally unique name)
+- **Power Platform App Registration**: Registered application with tenant admin privileges
+- **GitHub Secrets**: 8 repository secrets for CI/CD authentication
+
+### Cleanup Instructions
+When you're done exploring, clean up the resources to avoid ongoing costs:
+
+```bash
+# 1. Delete the Azure Resource Group (includes storage account)
+az group delete --name rg-terraform-powerplatform-governance --yes --no-wait
+
+# 2. Delete the Service Principal
+az ad sp delete --id <service-principal-client-id>
+
+# 3. Unregister from Power Platform (optional)
+pac admin application unregister --application-id <service-principal-client-id>
+
+# 4. Delete GitHub Secrets (manual via GitHub UI or CLI)
+gh secret delete AZURE_CLIENT_ID --repo owner/repo
+gh secret delete AZURE_TENANT_ID --repo owner/repo
+# ... repeat for all secrets
+```
+
+### Cost Considerations
+- **Storage Account**: Minimal cost (~$1-5/month) for Terraform state files
+- **Service Principal**: Free (no direct costs)
+- **GitHub Actions**: Free tier includes 2000 minutes/month
+- **Power Platform**: Uses existing tenant (no additional cost for app registration)
 
 ## Script Structure
 
