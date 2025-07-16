@@ -46,7 +46,7 @@ cleanup_service_principal() {
     # - App ID: 55a94b50-7ecf-4d38-9bdd-75bcedd6a854 (current correct ID from latest run)
     
     SP_NAME="terraform-powerplatform-governance"
-    APP_ID="fe9d3bce-9cad-4d8e-97d7-3ac606d4b51f"
+    APP_ID="2c650f10-cc0e-45ac-934f-f53ef7111e01"
     
     # Method 1: Delete by App ID (most reliable)
     print_status "Deleting service principal by App ID: $APP_ID"

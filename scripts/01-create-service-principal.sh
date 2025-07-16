@@ -401,51 +401,160 @@ assign_graph_permissions() {
         else
             print_status "Step 3: Providing admin consent for application permissions..."
             
+            # Get the service principal object ID for proper verification
+            SP_OBJECT_ID=$(az ad sp show --id "$AZURE_CLIENT_ID" --query "id" -o tsv)
+            
+            # Get Microsoft Graph service principal object ID for app role assignments
+            GRAPH_SP_OBJECT_ID=$(az ad sp show --id 00000003-0000-0000-c000-000000000000 --query "id" -o tsv)
+            
+            print_status "  Attempting admin consent with enhanced verification..."
             print_status "  Running: az ad app permission admin-consent --id $AZURE_CLIENT_ID --debug"
             ADMIN_CONSENT_OUTPUT=$(az ad app permission admin-consent --id "$AZURE_CLIENT_ID" --debug 2>&1)
             ADMIN_CONSENT_RESULT=$?
             
             if [[ $ADMIN_CONSENT_RESULT -eq 0 ]]; then
-                print_success "✓ Admin consent granted programmatically"
+                print_success "✓ Admin consent command executed successfully"
                 
-                # Verify the consent was actually granted with retry logic
+                # Enhanced verification with detailed checking
                 print_status "Verifying admin consent status..."
                 
-                # Get the service principal object ID for proper verification
-                SP_OBJECT_ID=$(az ad sp show --id "$AZURE_CLIENT_ID" --query "id" -o tsv)
+                # Define expected permissions for verification
+                declare -A EXPECTED_PERMISSIONS=(
+                    ["Directory.Read.All"]="7ab1d382-f21e-4acd-a863-ba3e13f7da61"
+                    ["Group.ReadWrite.All"]="62a82d76-70ea-41e2-9197-370581804d09"
+                    ["Application.Read.All"]="9a5d68dd-52b0-4cc2-bd40-abcf44ac3a30"
+                )
                 
-                # Retry verification up to 3 times with increasing delays
+                # Retry verification up to 5 times with increasing delays
                 VERIFICATION_SUCCESS=false
-                for attempt in 1 2 3; do
-                    print_status "  Verification attempt $attempt/3..."
-                    sleep $((attempt * 3))  # 3, 6, 9 seconds
+                ALL_PERMISSIONS_GRANTED=false
+                
+                for attempt in 1 2 3 4 5; do
+                    print_status "  Verification attempt $attempt/5..."
+                    sleep $((attempt * 2))  # 2, 4, 6, 8, 10 seconds
                     
                     # Check if permissions are actually consented using the service principal object ID
                     CONSENT_STATUS=$(az rest --method GET --url "https://graph.microsoft.com/v1.0/servicePrincipals/$SP_OBJECT_ID/appRoleAssignments" --query "value" -o json 2>/dev/null)
                     
                     if [[ -n "$CONSENT_STATUS" && "$CONSENT_STATUS" != "[]" ]]; then
-                        print_success "✓ Admin consent verified after granting"
                         CONSENT_COUNT=$(echo "$CONSENT_STATUS" | jq length)
-                        print_status "  Consented application permissions: $CONSENT_COUNT"
+                        print_status "    Found $CONSENT_COUNT consented permissions"
                         
-                        # Show the specific permissions that are consented
-                        print_status "  Consented permissions:"
-                        echo "$CONSENT_STATUS" | jq -r '.[] | "    - \(.resourceDisplayName): \(.appRoleId) (granted: \(.createdDateTime))"'
+                        # Check if all expected permissions are granted
+                        GRANTED_PERMISSIONS=()
+                        MISSING_PERMISSIONS=()
                         
-                        print_status "  This enables the service principal to:"
-                        print_status "    - Create and manage security groups in Entra ID"
-                        print_status "    - Read directory information"
-                        print_status "    - Read application information"
-                        ADMIN_CONSENT_GRANTED=true
-                        VERIFICATION_SUCCESS=true
-                        break
+                        for permission_name in "${!EXPECTED_PERMISSIONS[@]}"; do
+                            permission_id="${EXPECTED_PERMISSIONS[$permission_name]}"
+                            
+                            if echo "$CONSENT_STATUS" | jq -r '.[].appRoleId' | grep -q "$permission_id"; then
+                                GRANTED_PERMISSIONS+=("$permission_name")
+                            else
+                                MISSING_PERMISSIONS+=("$permission_name")
+                            fi
+                        done
+                        
+                        print_status "    Granted permissions: ${#GRANTED_PERMISSIONS[@]}/3"
+                        
+                        if [[ ${#GRANTED_PERMISSIONS[@]} -eq 3 ]]; then
+                            print_success "✓ All required permissions have admin consent"
+                            ALL_PERMISSIONS_GRANTED=true
+                            VERIFICATION_SUCCESS=true
+                            break
+                        elif [[ ${#GRANTED_PERMISSIONS[@]} -gt 0 ]]; then
+                            print_warning "    ⚠ Partial consent detected - ${#GRANTED_PERMISSIONS[@]} of 3 permissions granted"
+                            print_status "    Granted: ${GRANTED_PERMISSIONS[*]}"
+                            print_status "    Missing: ${MISSING_PERMISSIONS[*]}"
+                            
+                            # For partial consent, try to grant the missing permissions individually
+                            if [[ $attempt -eq 3 ]]; then
+                                print_status "    Attempting to fix partial consent by granting missing permissions..."
+                                
+                                for missing_perm in "${MISSING_PERMISSIONS[@]}"; do
+                                    missing_id="${EXPECTED_PERMISSIONS[$missing_perm]}"
+                                    print_status "    Granting individual consent for $missing_perm..."
+                                    
+                                    # Use Microsoft Graph API to directly grant the app role assignment
+                                    GRANT_BODY=$(cat <<EOF
+{
+    "principalId": "$SP_OBJECT_ID",
+    "resourceId": "$GRAPH_SP_OBJECT_ID",
+    "appRoleId": "$missing_id"
+}
+EOF
+)
+                                    
+                                    if az rest --method POST \
+                                        --url "https://graph.microsoft.com/v1.0/servicePrincipals/$SP_OBJECT_ID/appRoleAssignments" \
+                                        --headers "Content-Type=application/json" \
+                                        --body "$GRANT_BODY" &>/dev/null; then
+                                        print_success "      ✓ Individual consent granted for $missing_perm"
+                                    else
+                                        print_warning "      ⚠ Individual consent failed for $missing_perm"
+                                    fi
+                                done
+                                
+                                # Brief wait for the individual grants to propagate
+                                sleep 3
+                                
+                                # Re-verify after individual grants
+                                print_status "    Re-verifying consent status after individual grants..."
+                                CONSENT_STATUS_AFTER=$(az rest --method GET --url "https://graph.microsoft.com/v1.0/servicePrincipals/$SP_OBJECT_ID/appRoleAssignments" --query "value" -o json 2>/dev/null)
+                                
+                                if [[ -n "$CONSENT_STATUS_AFTER" && "$CONSENT_STATUS_AFTER" != "[]" ]]; then
+                                    CONSENT_COUNT_AFTER=$(echo "$CONSENT_STATUS_AFTER" | jq length)
+                                    
+                                    # Re-check granted permissions
+                                    GRANTED_PERMISSIONS_AFTER=()
+                                    for permission_name in "${!EXPECTED_PERMISSIONS[@]}"; do
+                                        permission_id="${EXPECTED_PERMISSIONS[$permission_name]}"
+                                        if echo "$CONSENT_STATUS_AFTER" | jq -r '.[].appRoleId' | grep -q "$permission_id"; then
+                                            GRANTED_PERMISSIONS_AFTER+=("$permission_name")
+                                        fi
+                                    done
+                                    
+                                    if [[ ${#GRANTED_PERMISSIONS_AFTER[@]} -eq 3 ]]; then
+                                        print_success "    ✓ All permissions now have admin consent after individual grants"
+                                        print_status "    Total consented application permissions: $CONSENT_COUNT_AFTER"
+                                        ALL_PERMISSIONS_GRANTED=true
+                                        VERIFICATION_SUCCESS=true
+                                        break
+                                    else
+                                        print_warning "    ⚠ Still missing $((3 - ${#GRANTED_PERMISSIONS_AFTER[@]})) permissions after individual grants"
+                                        print_status "    Granted after fix: ${GRANTED_PERMISSIONS_AFTER[*]}"
+                                    fi
+                                fi
+                            fi
+                        else
+                            print_warning "    ⚠ No consented permissions found yet - permissions may still be propagating"
+                        fi
                     else
                         print_warning "    ⚠ Verification attempt $attempt failed - permissions may still be propagating"
                     fi
                 done
                 
-                if [[ "$VERIFICATION_SUCCESS" != "true" ]]; then
-                    print_warning "⚠ Admin consent verification failed after 3 attempts"
+                if [[ "$ALL_PERMISSIONS_GRANTED" == "true" ]]; then
+                    print_success "✓ Admin consent verified - all permissions granted"
+                    CONSENT_COUNT=$(echo "$CONSENT_STATUS" | jq length)
+                    print_status "  Total consented application permissions: $CONSENT_COUNT"
+                    
+                    # Show the specific permissions that are consented
+                    print_status "  Consented permissions:"
+                    echo "$CONSENT_STATUS" | jq -r '.[] | "    - \(.resourceDisplayName): \(.appRoleId) (granted: \(.createdDateTime))"'
+                    
+                    print_status "  This enables the service principal to:"
+                    print_status "    - Create and manage security groups in Entra ID"
+                    print_status "    - Read directory information"
+                    print_status "    - Read application information"
+                    ADMIN_CONSENT_GRANTED=true
+                    VERIFICATION_SUCCESS=true
+                elif [[ "$VERIFICATION_SUCCESS" == "true" ]]; then
+                    print_warning "⚠ Partial admin consent detected after 5 attempts"
+                    print_status "  Some permissions may still be propagating"
+                    print_status "  Check the Azure Portal for manual verification"
+                    ADMIN_CONSENT_GRANTED=false
+                else
+                    print_warning "⚠ Admin consent verification failed after 5 attempts"
                     print_status "  Admin consent API call succeeded but verification failed"
                     print_status "  This may indicate a timing issue - permissions may be propagating"
                     print_status "  You can manually verify at: https://portal.azure.com"
@@ -761,12 +870,6 @@ main() {
     trap - EXIT
     
     print_success "Script completed successfully!"
-    print_status ""
-    print_status "You can now proceed with Terraform configurations using the service principal:"
-    print_status "  App ID: $AZURE_CLIENT_ID"
-    print_status ""
-    print_status "To validate the setup at any time, run:"
-    print_status "  ./validate-pp-registration.sh"
 }
 
 # Run the main function
