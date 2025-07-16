@@ -27,6 +27,41 @@ NC='\033[0m' # No Color
 # Global variables
 ADMIN_CONSENT_CAPABLE=false
 ADMIN_CONSENT_GRANTED=false
+AZURE_CLIENT_ID=""
+AZURE_TENANT_ID=""
+AZURE_SUBSCRIPTION_ID=""
+SP_NAME=""
+
+# Cleanup function for error handling
+cleanup_on_error() {
+    local exit_code=$?
+    
+    if [[ $exit_code -ne 0 ]]; then
+        print_error "Script failed with exit code: $exit_code"
+        print_status ""
+        print_status "CLEANUP AND RECOVERY:"
+        print_status "===================="
+        
+        if [[ -n "$AZURE_CLIENT_ID" ]]; then
+            print_status "If you want to start over, you can clean up the created resources:"
+            print_status "  ./cleanup-service-principal.sh"
+            print_status ""
+            print_status "Or you can continue from where it failed:"
+            print_status "  - Azure AD service principal: $AZURE_CLIENT_ID"
+            print_status "  - Use the validation script to check status:"
+            print_status "    ./validate-pp-registration.sh"
+        fi
+        
+        print_status ""
+        print_status "For troubleshooting, check:"
+        print_status "1. Azure AD permissions (Global Admin or Application Admin role)"
+        print_status "2. Power Platform authentication: pac auth list"
+        print_status "3. Power Platform admin privileges"
+    fi
+}
+
+# Set up error handling
+trap cleanup_on_error EXIT
 
 # Function to print colored output
 print_status() {
@@ -493,11 +528,14 @@ register_with_power_platform() {
     
     # Check current Power Platform authentication
     print_status "Validating Power Platform authentication..."
-    CURRENT_PP_USER=$(pac auth list --json | jq -r '.[] | select(.IsActive == true) | .Name' 2>/dev/null)
+    
+    # Parse the regular output for the active user (marked with *)
+    CURRENT_PP_USER=$(pac auth list 2>/dev/null | grep '\*' | awk '{print $4}' 2>/dev/null)
     
     if [[ -z "$CURRENT_PP_USER" ]]; then
         print_error "No active Power Platform authentication found"
         print_error "Please run 'pac auth create' to authenticate with Power Platform"
+        print_error "You need Power Platform tenant admin privileges for this operation"
         exit 1
     fi
     
@@ -506,31 +544,133 @@ register_with_power_platform() {
     # Register the application with Power Platform
     # This grants the service principal access to Power Platform APIs
     print_status "Registering application with Power Platform tenant..."
+    print_status "App ID: $AZURE_CLIENT_ID"
+    
+    # First, check if it's already registered
+    print_status "Checking if service principal is already registered..."
+    PP_APP_LIST=$(pac admin application list 2>/dev/null)
+    PP_LIST_RESULT=$?
+    
+    if [[ $PP_LIST_RESULT -ne 0 ]]; then
+        print_error "Failed to list Power Platform applications"
+        print_error "Please ensure you have Power Platform tenant admin privileges"
+        print_error "Required roles: Global Administrator, Power Platform Administrator, or System Administrator"
+        exit 1
+    fi
+    
+    if echo "$PP_APP_LIST" | grep -q "$AZURE_CLIENT_ID"; then
+        print_success "✓ Service principal is already registered with Power Platform"
+        print_status "  Skipping registration step"
+        return 0
+    fi
+    
+    # Proceed with registration
+    print_status "Service principal not found in Power Platform - proceeding with registration..."
     
     PP_OUTPUT=$(pac admin application register --application-id "$AZURE_CLIENT_ID" 2>&1)
+    PP_REGISTER_RESULT=$?
     
-    if [[ $? -eq 0 ]]; then
-        print_success "Service principal registered with Power Platform"
-        print_status "The service principal now has Power Platform tenant admin privileges"
+    if [[ $PP_REGISTER_RESULT -eq 0 ]]; then
+        print_success "✓ Service principal registered with Power Platform"
+        print_status "  The service principal now has Power Platform tenant admin privileges"
         
-        # Validate the registration
+        # Wait a moment for registration to propagate
+        print_status "Waiting for registration to propagate..."
+        sleep 3
+        
+        # Validate the registration with retry logic
         print_status "Validating Power Platform registration..."
-        if pac admin application list --application-id "$AZURE_CLIENT_ID" &> /dev/null; then
-            print_success "✓ Power Platform registration validated"
-        else
-            print_warning "⚠ Could not validate Power Platform registration"
-            print_status "  Registration may still be propagating"
+        
+        VALIDATION_SUCCESS=false
+        for attempt in 1 2 3; do
+            print_status "  Validation attempt $attempt/3..."
+            
+            # List all applications and check if ours is in the list
+            PP_APP_LIST_VALIDATION=$(pac admin application list 2>/dev/null)
+            if [[ $? -eq 0 ]] && echo "$PP_APP_LIST_VALIDATION" | grep -q "$AZURE_CLIENT_ID"; then
+                print_success "✓ Power Platform registration validated"
+                VALIDATION_SUCCESS=true
+                break
+            else
+                print_warning "    ⚠ Validation attempt $attempt failed - registration may still be propagating"
+                if [[ $attempt -lt 3 ]]; then
+                    sleep 5
+                fi
+            fi
+        done
+        
+        if [[ "$VALIDATION_SUCCESS" != "true" ]]; then
+            print_error "Registration validation failed after 3 attempts"
+            print_error "The registration command succeeded but validation failed"
+            print_error "This may indicate a timing issue or propagation delay"
+            print_status ""
+            print_status "TROUBLESHOOTING:"
+            print_status "1. Wait a few minutes and run the validation script:"
+            print_status "   ./validate-pp-registration.sh"
+            print_status "2. If validation still fails, check Power Platform admin center"
+            print_status "3. Ensure you have proper admin privileges"
+            exit 1
         fi
+        
     else
         print_error "Failed to register service principal with Power Platform"
+        print_error "Registration command failed with exit code: $PP_REGISTER_RESULT"
         print_error "Error output: $PP_OUTPUT"
         
-        # Check for common issues
-        if echo "$PP_OUTPUT" | grep -q "unauthorized\|forbidden\|permission"; then
-            print_error "Insufficient permissions detected"
-            print_error "Please ensure you have Power Platform tenant admin privileges"
-            print_status "Required roles: Global Administrator, Power Platform Administrator, or System Administrator"
+        # Check for common issues and provide specific guidance
+        if echo "$PP_OUTPUT" | grep -q "unauthorized\|forbidden\|permission\|access.*denied"; then
+            print_error ""
+            print_error "PERMISSION ERROR DETECTED:"
+            print_error "- You don't have sufficient permissions to register applications"
+            print_error "- Required roles: Global Administrator, Power Platform Administrator, or System Administrator"
+            print_error ""
+            print_error "RESOLUTION:"
+            print_error "1. Contact your tenant administrator to grant you the required role"
+            print_error "2. Or ask them to run this command manually:"
+            print_error "   pac admin application register --application-id $AZURE_CLIENT_ID"
+        elif echo "$PP_OUTPUT" | grep -q "already.*registered\|exists\|duplicate"; then
+            print_warning ""
+            print_warning "APPLICATION ALREADY REGISTERED:"
+            print_warning "- The service principal may already be registered"
+            print_warning "- This can happen if a previous registration was partially successful"
+            print_warning ""
+            print_warning "RESOLUTION:"
+            print_warning "1. Run the validation script to verify:"
+            print_warning "   ./validate-pp-registration.sh"
+            print_warning "2. If validation passes, you can continue with the setup"
+        elif echo "$PP_OUTPUT" | grep -q "application.*not.*found\|invalid.*application"; then
+            print_error ""
+            print_error "APPLICATION NOT FOUND ERROR:"
+            print_error "- The Azure AD application may not exist or may not be accessible"
+            print_error "- This could be due to timing issues or permission problems"
+            print_error ""
+            print_error "RESOLUTION:"
+            print_error "1. Verify the application exists in Azure AD:"
+            print_error "   az ad app show --id $AZURE_CLIENT_ID"
+            print_error "2. Wait a few minutes and try again (propagation delay)"
+            print_error "3. Check if you have the right permissions in both Azure AD and Power Platform"
+        else
+            print_error ""
+            print_error "UNKNOWN ERROR:"
+            print_error "- An unexpected error occurred during registration"
+            print_error "- Check the error output above for details"
+            print_error ""
+            print_error "RESOLUTION:"
+            print_error "1. Try running the registration command manually:"
+            print_error "   pac admin application register --application-id $AZURE_CLIENT_ID"
+            print_error "2. If manual registration succeeds, continue with the setup"
+            print_error "3. If it fails, contact your Power Platform administrator"
         fi
+        
+        print_status ""
+        print_status "CURRENT STATUS:"
+        print_status "- Azure AD service principal: ✓ Created successfully"
+        print_status "- Azure permissions: ✓ Assigned successfully"
+        print_status "- GitHub OIDC: ✓ Configured successfully"
+        print_status "- Power Platform registration: ✗ Failed"
+        print_status ""
+        print_status "You can continue with other setup steps, but Power Platform"
+        print_status "functionality will not work until this registration is completed."
         
         exit 1
     fi
@@ -617,7 +757,16 @@ main() {
     register_with_power_platform
     output_results
     
+    # Disable error trap on successful completion
+    trap - EXIT
+    
     print_success "Script completed successfully!"
+    print_status ""
+    print_status "You can now proceed with Terraform configurations using the service principal:"
+    print_status "  App ID: $AZURE_CLIENT_ID"
+    print_status ""
+    print_status "To validate the setup at any time, run:"
+    print_status "  ./validate-pp-registration.sh"
 }
 
 # Run the main function
