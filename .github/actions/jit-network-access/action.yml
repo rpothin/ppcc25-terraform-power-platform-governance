@@ -1,0 +1,67 @@
+# GitHub composite action for managing Just-In-Time (JIT) network access
+# This action dynamically manages firewall rules for Azure Storage Account containing Terraform state
+# It enables secure access by temporarily allowing the GitHub runner's IP address
+name: 'JIT Network Access for Terraform Backend'
+description: 'Manages Just-In-Time network access for Terraform backend storage account'
+
+# Input parameters that can be provided when using this action
+inputs:
+  action:
+    description: 'Action to perform (add/remove)'
+    required: true
+    default: 'add'
+  storage-account-name:
+    description: 'Name of the storage account'
+    required: true
+  resource-group-name:
+    description: 'Name of the resource group'
+    required: true
+  runner-ip:
+    description: 'IP address of the runner (auto-detected if not provided)'
+    required: false
+
+# Define this as a composite action that runs shell commands
+runs:
+  using: 'composite'
+  steps:
+    # Step 1: Auto-detect the runner's public IP address if not provided
+    # This uses the ipify.org service to determine the external IP of the GitHub runner
+    - name: Get runner IP address
+      id: get-ip
+      if: inputs.runner-ip == ''
+      shell: bash
+      run: |
+        RUNNER_IP=$(curl -s https://api.ipify.org)
+        echo "RUNNER_IP=$RUNNER_IP" >> $GITHUB_ENV
+        echo "Auto-detected runner IP: $RUNNER_IP"
+        
+    # Step 2: Use the provided IP address if one was supplied as input
+    # This allows manual override of the IP detection for testing or specific scenarios
+    - name: Set runner IP from input
+      if: inputs.runner-ip != ''
+      shell: bash
+      run: |
+        echo "RUNNER_IP=${{ inputs.runner-ip }}" >> $GITHUB_ENV
+        echo "Using provided runner IP: ${{ inputs.runner-ip }}"
+        
+    # Step 3: Execute the main JIT network access management script
+    # This script handles adding/removing firewall rules for the storage account
+    # It uses the jit-network-access.sh script located in the repository's scripts folder
+    - name: Manage JIT network access
+      shell: bash
+      run: |
+        # Export environment variables for the script to use
+        export STORAGE_ACCOUNT_NAME="${{ inputs.storage-account-name }}"
+        export RESOURCE_GROUP_NAME="${{ inputs.resource-group-name }}"
+        export RUNNER_IP="${{ env.RUNNER_IP }}"
+        
+        # Log the configuration being used for transparency and debugging
+        echo "Managing JIT network access:"
+        echo "  Action: ${{ inputs.action }}"
+        echo "  Storage Account: $STORAGE_ACCOUNT_NAME"
+        echo "  Resource Group: $RESOURCE_GROUP_NAME"
+        echo "  Runner IP: $RUNNER_IP"
+        
+        # Execute the JIT network access script with the specified action (add/remove)
+        # The script path is relative to the action's directory structure
+        ${{ github.action_path }}/../../scripts/jit-network-access.sh ${{ inputs.action }}

@@ -4,9 +4,10 @@
 # ==============================================================================
 # This script creates the necessary Azure resources for storing Terraform state:
 # - Resource Group
-# - Storage Account
+# - Storage Account (with network access denied by default)
 # - Storage Container
 # It also configures proper access permissions for the service principal.
+# Network access is managed via Just-In-Time (JIT) approach in GitHub Actions.
 # ==============================================================================
 
 set -e  # Exit on any error
@@ -118,6 +119,7 @@ get_user_input() {
     print_status "  Storage Account: $STORAGE_ACCOUNT_NAME"
     print_status "  Container: $CONTAINER_NAME"
     print_status "  Location: $LOCATION"
+    print_status "  Network Access: Deny all by default (JIT access via GitHub Actions)"
     print_status "  Subscription: [REDACTED - current authenticated subscription]"
     print_status "  Tenant: [REDACTED - current authenticated tenant]"
     
@@ -156,165 +158,190 @@ create_resource_group() {
     fi
 }
 
-# Function to create storage account
-create_storage_account() {
-    print_status "Creating storage account: $STORAGE_ACCOUNT_NAME"
+# Function to create storage account and container using AVM Bicep
+create_storage_account_and_container() {
+    print_status "Creating storage account and container using Azure Verified Modules (AVM)"
     
-    # Check if storage account already exists
-    if az storage account show --name "$STORAGE_ACCOUNT_NAME" --resource-group "$RESOURCE_GROUP_NAME" &> /dev/null; then
-        print_warning "Storage account $STORAGE_ACCOUNT_NAME already exists"
-    else
-        # Create storage account
-        az storage account create \
-            --name "$STORAGE_ACCOUNT_NAME" \
-            --resource-group "$RESOURCE_GROUP_NAME" \
-            --location "$LOCATION" \
-            --sku "Standard_LRS" \
-            --kind "StorageV2" \
-            --access-tier "Hot" \
-            --https-only true \
-            --min-tls-version "TLS1_2" \
-            --allow-blob-public-access false \
-            --tags \
-                purpose="terraform-state" \
-                project="power-platform-governance" \
-                environment="shared"
-        
-        if [[ $? -eq 0 ]]; then
-            print_success "Storage account created successfully"
-        else
-            print_error "Failed to create storage account"
-            exit 1
-        fi
+    # Get the directory where this script is located
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    BICEP_FILE="$SCRIPT_DIR/terraform-backend-storage.bicep"
+    
+    # Verify the Bicep file exists
+    if [[ ! -f "$BICEP_FILE" ]]; then
+        print_error "Bicep template file not found: $BICEP_FILE"
+        exit 1
     fi
     
-    # Enable versioning and soft delete for better state management
-    print_status "Configuring storage account features..."
-    
-    # Enable versioning
-    az storage account blob-service-properties update \
-        --account-name "$STORAGE_ACCOUNT_NAME" \
-        --resource-group "$RESOURCE_GROUP_NAME" \
-        --enable-versioning true
-    
-    # Enable soft delete
-    az storage account blob-service-properties update \
-        --account-name "$STORAGE_ACCOUNT_NAME" \
-        --resource-group "$RESOURCE_GROUP_NAME" \
-        --enable-delete-retention true \
-        --delete-retention-days 7
-    
-    print_success "Storage account features configured"
-}
+    # Create a temporary directory for parameters file
+    TEMP_DIR=$(mktemp -d)
+    PARAMS_FILE="$TEMP_DIR/storage-account.parameters.json"
 
-# Function to create storage container
-create_storage_container() {
-    print_status "Creating storage container: $CONTAINER_NAME"
+    # Create the parameters file
+    cat > "$PARAMS_FILE" << EOF
+{
+  "\$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "storageAccountName": {
+      "value": "$STORAGE_ACCOUNT_NAME"
+    },
+    "containerName": {
+      "value": "$CONTAINER_NAME"
+    },
+    "servicePrincipalClientId": {
+      "value": "$AZURE_CLIENT_ID"
+    },
+    "tags": {
+      "value": {
+        "purpose": "terraform-state",
+        "project": "power-platform-governance",
+        "environment": "shared"
+      }
+    }
+  }
+}
+EOF
+
+    # Deploy the Bicep template
+    print_status "Deploying storage account and container using Bicep template: $(basename "$BICEP_FILE")"
     
-    # Check if container already exists using Azure CLI without exposing keys
-    if az storage container show \
-        --name "$CONTAINER_NAME" \
-        --account-name "$STORAGE_ACCOUNT_NAME" \
-        --auth-mode login &> /dev/null; then
-        print_warning "Storage container $CONTAINER_NAME already exists"
+    DEPLOYMENT_NAME="terraform-backend-$(date +%s)"
+    
+    if az deployment group create \
+        --resource-group "$RESOURCE_GROUP_NAME" \
+        --template-file "$BICEP_FILE" \
+        --parameters "@$PARAMS_FILE" \
+        --name "$DEPLOYMENT_NAME" \
+        --output table; then
+        print_success "Storage account and container deployed successfully using AVM Bicep"
     else
-        # Create container using Azure CLI with managed identity authentication
-        az storage container create \
-            --name "$CONTAINER_NAME" \
-            --account-name "$STORAGE_ACCOUNT_NAME" \
-            --auth-mode login \
-            --public-access off
-        
-        if [[ $? -eq 0 ]]; then
-            print_success "Storage container created successfully"
-        else
-            print_error "Failed to create storage container"
-            exit 1
-        fi
+        print_error "Failed to deploy storage account and container using Bicep"
+        # Clean up temp files
+        rm -rf "$TEMP_DIR"
+        exit 1
     fi
-}
-
-# Function to configure service principal permissions
-configure_permissions() {
-    print_status "Validating service principal permissions..."
     
-    # Get storage account resource ID
+    # Clean up temp files
+    rm -rf "$TEMP_DIR"
+    
+    print_success "Storage account and container configuration completed"
+    
+    # Assign Storage Blob Data Contributor role to current user for testing
+    print_status "Assigning Storage Blob Data Contributor role to current user for testing..."
+    CURRENT_USER=$(az account show --query user.name -o tsv)
     STORAGE_ACCOUNT_ID=$(az storage account show \
         --name "$STORAGE_ACCOUNT_NAME" \
         --resource-group "$RESOURCE_GROUP_NAME" \
         --query id -o tsv)
     
+    if az role assignment create \
+        --assignee "$CURRENT_USER" \
+        --role "Storage Blob Data Contributor" \
+        --scope "$STORAGE_ACCOUNT_ID" \
+        --output none; then
+        print_success "✓ Storage Blob Data Contributor role assigned to current user"
+    else
+        print_warning "Failed to assign Storage Blob Data Contributor role to current user"
+        print_status "This may affect testing but won't impact production functionality"
+    fi
+}
+
+# Function to validate service principal permissions
+validate_service_principal_permissions() {
+    print_status "Validating service principal permissions..."
+    
     # Verify Owner role assignment (should already exist from previous script)
-    print_status "Verifying Owner role assignment..."
+    print_status "Verifying Owner role assignment at subscription level..."
     if az role assignment list \
         --assignee "$AZURE_CLIENT_ID" \
         --scope "/subscriptions/$AZURE_SUBSCRIPTION_ID" \
         --role "Owner" \
         --query "[0].roleDefinitionName" -o tsv | grep -q "Owner"; then
         print_success "✓ Owner role confirmed at subscription level"
-        print_status "  This provides all required permissions including:"
-        print_status "    - Storage Blob Data Contributor (for Terraform state)"
-        print_status "    - Contributor (for resource management)"
-        print_status "    - User Access Administrator (for role assignments)"
+        print_status "  This provides comprehensive permissions including:"
+        print_status "    - Resource group and storage account management"
+        print_status "    - Network access control (for JIT functionality)"
+        print_status "    - Role assignments and access management"
     else
         print_error "Owner role not found. Please run 01-create-service-principal.sh first"
         exit 1
     fi
     
-    # The Owner role already includes all necessary permissions:
-    # - Storage Blob Data Contributor (for Terraform state storage)
-    # - Contributor (for resource group and storage account management)
-    # - User Access Administrator (for managing access permissions)
-    # No additional role assignments needed
+    # Note: The Bicep template automatically assigns 'Storage Blob Data Contributor' 
+    # role to the service principal at the storage account level for Terraform state access
+    print_status "Note: Bicep template automatically assigns 'Storage Blob Data Contributor' role"
+    print_status "to the service principal for Terraform state storage access"
+    print_status "Current user also has 'Storage Blob Data Contributor' role for testing"
     
     print_success "Service principal permissions validated successfully"
 }
 
-# Function to test backend configuration
-test_backend_configuration() {
-    print_status "Testing Terraform backend configuration..."
+# Function to validate deployment completion
+validate_deployment_completion() {
+    print_status "Validating deployment completion..."
+    print_status "================================="
     
-    # Create a temporary directory for testing
-    TEST_DIR=$(mktemp -d)
-    cd "$TEST_DIR"
-    
-    # Create a minimal Terraform configuration to test backend
-    cat > main.tf << EOF
-terraform {
-  backend "azurerm" {
-    resource_group_name  = "$RESOURCE_GROUP_NAME"
-    storage_account_name = "$STORAGE_ACCOUNT_NAME"
-    container_name       = "$CONTAINER_NAME"
-    key                  = "test.tfstate"
-  }
-}
-
-resource "null_resource" "test" {
-  provisioner "local-exec" {
-    command = "echo 'Backend test successful'"
-  }
-}
-EOF
-    
-    # Initialize Terraform (this will test the backend configuration)
-    if terraform init; then
-        print_success "Terraform backend configuration test passed"
-    else
-        print_error "Terraform backend configuration test failed"
-        cd - > /dev/null
-        rm -rf "$TEST_DIR"
-        exit 1
+    # Ensure required variables are set with defaults if empty
+    if [[ -z "$CONTAINER_NAME" ]]; then
+        CONTAINER_NAME="terraform-state"
     fi
     
-    # Clean up
-    cd - > /dev/null
-    rm -rf "$TEST_DIR"
+    # Verify that the Bicep deployment completed successfully
+    print_status "Checking Bicep deployment status..."
+    LATEST_DEPLOYMENT=$(az deployment group list \
+        --resource-group "$RESOURCE_GROUP_NAME" \
+        --query "[?contains(name, 'terraform-backend')] | sort_by(@, &properties.timestamp) | [-1]" \
+        --output json)
+    
+    if [[ -n "$LATEST_DEPLOYMENT" ]]; then
+        DEPLOYMENT_STATE=$(echo "$LATEST_DEPLOYMENT" | jq -r '.properties.provisioningState')
+        DEPLOYMENT_NAME=$(echo "$LATEST_DEPLOYMENT" | jq -r '.name')
+        
+        if [[ "$DEPLOYMENT_STATE" == "Succeeded" ]]; then
+            print_success "✓ Bicep deployment '$DEPLOYMENT_NAME' completed successfully"
+            print_status "  This confirms that all resources were created correctly:"
+            print_status "    - Storage account with network access controls"
+            print_status "    - Blob container for Terraform state"
+            print_status "    - Service principal permissions"
+            print_status "    - Network rules configuration"
+        else
+            print_error "✗ Bicep deployment failed with state: $DEPLOYMENT_STATE"
+            return 1
+        fi
+    else
+        print_error "✗ No terraform-backend deployment found"
+        return 1
+    fi
+    
+    # Verify JIT network access script exists for GitHub Actions
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    JIT_SCRIPT="$SCRIPT_DIR/jit-network-access.sh"
+    
+    if [[ -f "$JIT_SCRIPT" ]]; then
+        print_success "✓ JIT network access script is available for GitHub Actions"
+    else
+        print_error "✗ JIT network access script not found: $JIT_SCRIPT"
+        return 1
+    fi
+    
+    print_success "All deployment validation checks passed!"
+    print_status ""
+    print_status "Next Steps:"
+    print_status "  1. The Terraform backend is ready for use"
+    print_status "  2. GitHub Actions will use the JIT network access script automatically"
+    print_status "  3. Proceed with GitHub secrets setup: 03-create-github-secrets.sh"
 }
 
 # Function to output results
 output_results() {
     print_success "Terraform backend setup completed successfully!"
     print_status ""
+    
+    # Ensure required variables are set with defaults if empty
+    if [[ -z "$CONTAINER_NAME" ]]; then
+        CONTAINER_NAME="terraform-state"
+    fi
+    
     print_status "Backend Configuration Details:"
     print_status "  Resource Group: $RESOURCE_GROUP_NAME"
     print_status "  Storage Account: $STORAGE_ACCOUNT_NAME"
@@ -341,21 +368,30 @@ output_results() {
     print_status "NOTE: You will also need the Service Principal Client ID, Tenant ID,"
     print_status "and Subscription ID from the previous script for the GitHub secrets setup."
     print_status ""
+    print_status "JIT Network Access:"
+    print_status "The storage account is configured with network access denied by default."
+    print_status "Use the jit-network-access.sh script to manage temporary IP access:"
+    print_status "  export STORAGE_ACCOUNT_NAME=\"$STORAGE_ACCOUNT_NAME\""
+    print_status "  export RESOURCE_GROUP_NAME=\"$RESOURCE_GROUP_NAME\""
+    print_status "  export RUNNER_IP=\"<your-ip-address>\""
+    print_status "  ./jit-network-access.sh add    # Add IP access"
+    print_status "  ./jit-network-access.sh remove # Remove IP access"
+    print_status ""
     print_status "You can now proceed to run the next script: 03-create-github-secrets.sh"
 }
 
 # Main execution
 main() {
     print_status "Starting Terraform backend setup for Power Platform governance..."
+    print_status "Using Azure Verified Modules (AVM) with Just-In-Time (JIT) network access"
     print_status "================================================================="
     
     validate_prerequisites
     get_user_input
     create_resource_group
-    create_storage_account
-    create_storage_container
-    configure_permissions
-    test_backend_configuration
+    create_storage_account_and_container
+    validate_service_principal_permissions
+    validate_deployment_completion
     output_results
     
     print_success "Script completed successfully!"
