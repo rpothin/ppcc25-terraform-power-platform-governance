@@ -178,8 +178,10 @@ save_runtime_config() {
     local config_file="$(dirname "${BASH_SOURCE[0]}")/config.env"
     local temp_file=$(mktemp)
     
-    # Create a backup
+    # Create a backup of the current configuration (pre-setup state)
+    # This backup represents the configuration before setup modifications
     cp "$config_file" "${config_file}.backup"
+    print_status "Pre-setup configuration backed up to: ${config_file}.backup"
     
     # Update the config file with runtime values
     {

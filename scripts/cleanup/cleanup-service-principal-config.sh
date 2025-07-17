@@ -163,17 +163,18 @@ update_config() {
     if [[ -f "$config_file" ]]; then
         # Remove the AZURE_CLIENT_ID line from config file
         if grep -q "AZURE_CLIENT_ID" "$config_file"; then
-            # Create a backup
-            cp "$config_file" "${config_file}.backup"
-            
-            # Remove the AZURE_CLIENT_ID line
+            # Remove the AZURE_CLIENT_ID line (no backup needed - cleanup operation)
             sed -i '/^AZURE_CLIENT_ID=/d' "$config_file"
             
             print_success "✓ Removed AZURE_CLIENT_ID from configuration file"
-            print_status "Configuration backup saved as: ${config_file}.backup"
+            print_status "Original configuration backup is preserved at: ${config_file}.backup"
         else
             print_status "AZURE_CLIENT_ID not found in configuration file"
         fi
+        
+        print_status ""
+        print_status "To restore pre-setup configuration, run:"
+        print_status "  cd ../setup && ./restore-config.sh"
     else
         print_warning "Configuration file not found: $config_file"
     fi

@@ -234,8 +234,8 @@ update_config() {
     local config_file="$SCRIPT_DIR/../setup/config.env"
     
     if [[ -f "$config_file" ]]; then
-        # Create a backup
-        cp "$config_file" "${config_file}.backup"
+        # Update configuration file (no backup needed - cleanup operation)
+        # Original backup from setup is preserved
         
         # If resource group was deleted, remove it from config too
         if [[ "$DELETE_RESOURCE_GROUP" == "y" || "$DELETE_RESOURCE_GROUP" == "Y" ]]; then
@@ -249,7 +249,11 @@ update_config() {
             print_success "✓ Removed storage account name from config file"
         fi
         
-        print_status "Configuration backup saved as: ${config_file}.backup"
+        print_status "Original configuration backup is preserved at: ${config_file}.backup"
+        
+        print_status ""
+        print_status "To restore pre-setup configuration, run:"
+        print_status "  cd ../setup && ./restore-config.sh"
     else
         print_warning "Configuration file not found: $config_file"
     fi
