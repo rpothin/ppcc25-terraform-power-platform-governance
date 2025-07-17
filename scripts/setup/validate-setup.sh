@@ -12,12 +12,8 @@ set -e  # Exit on any error
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_FILE="$SCRIPT_DIR/config.env"
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+# Load utility functions
+source "$SCRIPT_DIR/../utils/utils.sh"
 
 # Configuration variables (will be loaded from config.env)
 GITHUB_OWNER=""
@@ -35,34 +31,9 @@ TERRAFORM_RESOURCE_GROUP=""
 TERRAFORM_STORAGE_ACCOUNT=""
 TERRAFORM_CONTAINER=""
 
-# Function to print colored output
-print_status() {
-    echo -e "${BLUE}[INFO]${NC} $1"
-}
-
-print_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
-
-print_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
-
-print_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
-
-print_check() {
-    echo -e "${BLUE}[CHECK]${NC} $1"
-}
-
 # Function to display banner
 show_banner() {
-    echo -e "${BLUE}"
-    echo "============================================================================="
-    echo "  Power Platform Terraform Governance - Setup Validation"
-    echo "============================================================================="
-    echo -e "${NC}"
+    print_banner "Power Platform Terraform Governance - Setup Validation"
 }
 
 # Function to show help
@@ -171,110 +142,13 @@ load_configuration() {
 check_prerequisites() {
     print_status "Checking prerequisites..."
     
-    # Check if jq is installed
-    if ! command -v jq &> /dev/null; then
-        print_error "jq is not installed. Please install jq for JSON parsing."
-        print_status "Install with: apt-get install jq (Ubuntu/Debian) or brew install jq (macOS)"
-        exit 1
-    fi
-    
-    # Check if Azure CLI is installed
-    if ! command -v az &> /dev/null; then
-        print_error "Azure CLI is not installed. Please install Azure CLI."
-        exit 1
-    fi
-    
-    # Check if Power Platform CLI is installed
-    if ! command -v pac &> /dev/null; then
-        print_error "Power Platform CLI is not installed. Please install pac CLI."
-        exit 1
-    fi
-    
-    # Check if GitHub CLI is installed
-    if ! command -v gh &> /dev/null; then
-        print_error "GitHub CLI is not installed. Please install gh CLI."
-        exit 1
-    fi
-    
-    # Check if Terraform is installed
-    if ! command -v terraform &> /dev/null; then
-        print_error "Terraform is not installed. Please install Terraform."
-        exit 1
-    fi
-    
-    print_success "✓ All prerequisites are installed"
+    # Use the common validation function
+    validate_common_prerequisites true true true true false
 }
 
-# Function to perform GitHub login
-perform_github_login() {
-    print_status "🔐 Authenticating with GitHub (this will open your browser)..."
-    
-    # Clear any existing token that might have insufficient scopes
-    unset GITHUB_TOKEN
-    
-    # Authenticate with required scopes for secrets management
-    if gh auth login --scopes "repo"; then
-        print_success "✅ GitHub authentication successful!"
-        
-        # Verify the new authentication works
-        if gh api user --silent &> /dev/null; then
-            print_success "✅ GitHub authentication verified and working"
-            return 0
-        else
-            print_error "GitHub authentication succeeded but API access failed"
-            return 1
-        fi
-    else
-        print_error "GitHub authentication failed"
-        return 1
-    fi
-}
 
-# Function to authenticate with GitHub
-authenticate_github() {
-    print_status "Checking GitHub authentication..."
-    
-    # First, check if user is logged in to GitHub at all
-    if ! gh auth status &> /dev/null; then
-        print_status "Not logged in to GitHub. Authentication required."
-        perform_github_login
-        return $?
-    fi
-    
-    # Check if we have the repo scope needed for secrets
-    if gh auth status --show-token &> /dev/null; then
-        print_status "Testing GitHub authentication with current token..."
-        
-        if gh api user --silent &> /dev/null; then
-            print_success "GitHub authentication verified and working"
-            return 0
-        else
-            print_warning "Current GitHub token has insufficient permissions"
-        fi
-    fi
-    
-    # If we get here, we need to re-authenticate
-    print_status "GitHub re-authentication required for secrets management..."
-    perform_github_login
-    return $?
-}
 
-# Function to test GitHub secrets access
-test_github_secrets_access() {
-    local test_repo="$1"
-    local environment_name="$2"
-    
-    # Try to list environment secrets from the repository to test access
-    print_status "Testing environment secrets access for repository: $test_repo (environment: $environment_name)"
-    
-    if gh secret list --repo "$test_repo" --env "$environment_name" --json name &> /dev/null; then
-        print_success "✅ GitHub environment secrets access confirmed"
-        return 0
-    else
-        print_warning "❌ GitHub environment secrets access failed"
-        return 1
-    fi
-}
+
 validate_azure_resources() {
     # This function is kept for backward compatibility
     # It now calls the more specific validation functions

@@ -13,47 +13,13 @@
 
 set -e  # Exit on any error
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-BOLD='\033[1m'
-NC='\033[0m' # No Color
-
-# Function to print colored output
-print_status() {
-    echo -e "${BLUE}[INFO]${NC} $1"
-}
-
-print_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
-
-print_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
-
-print_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
-
-print_header() {
-    echo -e "${CYAN}${BOLD}$1${NC}"
-}
-
-print_step() {
-    echo -e "${YELLOW}[STEP]${NC} $1"
-}
+# Load utility functions
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../utils/utils.sh"
 
 # Function to display banner
 show_banner() {
-    echo -e "${CYAN}${BOLD}"
-    echo "============================================================================="
-    echo "  Power Platform Terraform Governance - Complete Cleanup"
-    echo "============================================================================="
-    echo -e "${NC}"
+    print_banner "Power Platform Terraform Governance - Complete Cleanup"
     echo "This script will clean up everything created by the setup process,"
     echo "including:"
     echo ""
@@ -61,7 +27,7 @@ show_banner() {
     echo "  2. Azure resources for Terraform state storage"
     echo "  3. Azure AD Service Principal and Power Platform registration"
     echo ""
-    echo -e "${RED}${BOLD}WARNING: This will permanently delete all resources!${NC}"
+    print_danger_zone "This will permanently delete all resources!"
     echo ""
     echo "What will be removed:"
     echo "  - All GitHub secrets for CI/CD authentication"
@@ -77,8 +43,8 @@ show_banner() {
     echo "  - GitHub CLI installed and authenticated"
     echo "  - config.env file from setup process must exist"
     echo ""
-    echo -e "${YELLOW}Note: You must have admin privileges to complete this cleanup.${NC}"
-    echo -e "${YELLOW}Note: This script uses configuration from the config.env file created during setup.${NC}"
+    print_warning "Note: You must have admin privileges to complete this cleanup."
+    print_warning "Note: This script uses configuration from the config.env file created during setup."
     echo ""
 }
 
@@ -86,63 +52,8 @@ show_banner() {
 validate_prerequisites() {
     print_header "Validating Prerequisites"
     
-    local all_good=true
-    
-    # Check Azure CLI
-    if command -v az &> /dev/null; then
-        print_success "✓ Azure CLI is installed"
-        if az account show &> /dev/null; then
-            print_success "✓ Azure CLI is authenticated"
-        else
-            print_error "✗ Azure CLI is not authenticated. Please run 'az login'"
-            all_good=false
-        fi
-    else
-        print_error "✗ Azure CLI is not installed"
-        all_good=false
-    fi
-    
-    # Check Power Platform CLI (optional for cleanup)
-    if command -v pac &> /dev/null; then
-        print_success "✓ Power Platform CLI is installed"
-        if pac auth list &> /dev/null; then
-            print_success "✓ Power Platform CLI is authenticated"
-        else
-            print_warning "⚠ Power Platform CLI is not authenticated. Power Platform cleanup will be skipped."
-        fi
-    else
-        print_warning "⚠ Power Platform CLI is not installed. Power Platform cleanup will be skipped."
-    fi
-    
-    # Check GitHub CLI
-    if command -v gh &> /dev/null; then
-        print_success "✓ GitHub CLI is installed"
-        if gh auth status &> /dev/null; then
-            print_success "✓ GitHub CLI is authenticated"
-        else
-            print_error "✗ GitHub CLI is not authenticated. Please run 'gh auth login'"
-            all_good=false
-        fi
-    else
-        print_error "✗ GitHub CLI is not installed"
-        all_good=false
-    fi
-    
-    # Check jq
-    if command -v jq &> /dev/null; then
-        print_success "✓ jq is installed"
-    else
-        print_error "✗ jq is not installed"
-        all_good=false
-    fi
-    
-    if [[ "$all_good" != true ]]; then
-        print_error "Prerequisites validation failed. Please install missing tools and try again."
-        exit 1
-    fi
-    
-    print_success "All prerequisites validated successfully"
-    echo ""
+    # Use the common validation function (all tools required, PowerPlatform optional)
+    validate_common_prerequisites true true true true false
 }
 
 # Function to get script directory
@@ -181,41 +92,7 @@ run_script() {
     local script_name="$2"
     local is_optional="${3:-false}"
     
-    print_step "Running $script_name..."
-    echo ""
-    
-    if [[ -f "$script_path" ]]; then
-        if bash "$script_path"; then
-            print_success "$script_name completed successfully"
-            echo ""
-            return 0
-        else
-            if [[ "$is_optional" == "true" ]]; then
-                print_warning "$script_name failed but continuing cleanup..."
-                echo ""
-                return 1
-            else
-                print_error "$script_name failed"
-                echo ""
-                echo -n "Do you want to continue with the remaining cleanup steps? (y/N): "
-                read -r CONTINUE
-                if [[ "$CONTINUE" == "y" || "$CONTINUE" == "Y" ]]; then
-                    print_status "Continuing with remaining cleanup steps..."
-                    echo ""
-                    return 1
-                else
-                    print_error "Cleanup aborted by user"
-                    exit 1
-                fi
-            fi
-        fi
-    else
-        print_error "Script not found: $script_path"
-        if [[ "$is_optional" != "true" ]]; then
-            exit 1
-        fi
-        return 1
-    fi
+    return $(run_script_with_handling "$script_path" "$script_name" "$is_optional")
 }
 
 # Function to prompt for continuation
@@ -300,9 +177,8 @@ get_cleanup_scope() {
 # Function to confirm cleanup
 confirm_cleanup() {
     print_header "Final Confirmation"
-    echo -e "${RED}${BOLD}⚠️  DANGER ZONE ⚠️${NC}"
-    echo ""
-    echo "You are about to permanently delete resources. This action cannot be undone!"
+    
+    print_danger_zone "You are about to permanently delete resources. This action cannot be undone!"
     echo ""
     echo "Selected cleanup scope:"
     
@@ -319,20 +195,10 @@ confirm_cleanup() {
     fi
     
     echo ""
-    echo -e "${YELLOW}Make sure you have backed up any important data before proceeding.${NC}"
+    print_warning "Make sure you have backed up any important data before proceeding."
     echo ""
     
-    echo -n "Are you absolutely sure you want to proceed? (y/N): "
-    read -r FINAL_CONFIRM
-    if [[ "$FINAL_CONFIRM" != "y" && "$FINAL_CONFIRM" != "Y" ]]; then
-        print_error "Cleanup cancelled by user"
-        exit 1
-    fi
-    
-    echo -n "Type 'DELETE' to confirm: "
-    read -r DELETE_CONFIRM
-    if [[ "$DELETE_CONFIRM" != "DELETE" ]]; then
-        print_error "Cleanup cancelled - confirmation not received"
+    if ! get_deletion_confirmation "the selected resources"; then
         exit 1
     fi
     
@@ -412,11 +278,7 @@ show_final_summary() {
 
 # Function to handle script interruption
 cleanup_handler() {
-    print_warning "Cleanup interrupted by user"
-    print_status "Some resources may have been partially cleaned up"
-    print_status "You can run this script again to complete the cleanup"
-    print_status "or use individual cleanup scripts for specific components"
-    exit 1
+    handle_script_interruption "Cleanup"
 }
 
 # Main execution function

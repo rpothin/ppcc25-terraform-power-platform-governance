@@ -10,15 +10,11 @@ set -e  # Exit on any error
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Source the configuration loader
-source "$SCRIPT_DIR/config-loader.sh"
+# Load utility functions
+source "$SCRIPT_DIR/../utils/utils.sh"
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+# Source the configuration loader (keep for compatibility)
+source "$SCRIPT_DIR/config-loader.sh"
 
 # Global variables
 ADMIN_CONSENT_CAPABLE=false
@@ -68,85 +64,17 @@ cleanup_existing_permissions() {
     print_success "✓ Cleanup completed"
 }
 
-# Function to print colored output
-print_status() {
-    echo -e "${BLUE}[INFO]${NC} $1"
-}
-
-print_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
-
-print_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
-
-print_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
-
 # Function to validate prerequisites
 validate_prerequisites() {
     print_status "Validating prerequisites..."
     
-    # Check if Azure CLI is installed
-    if ! command -v az &> /dev/null; then
-        print_error "Azure CLI is not installed. Please install it first."
+    # Use the comprehensive validation function
+    if ! validate_common_prerequisites true false true false true; then
         exit 1
     fi
     
-    # Check if jq is installed (needed for JSON parsing)
-    if ! command -v jq &> /dev/null; then
-        print_error "jq is not installed. Please install it first."
-        exit 1
-    fi
-    
-    # Check if Power Platform CLI is installed
-    if ! command -v pac &> /dev/null; then
-        print_error "Power Platform CLI is not installed. Please install it first."
-        exit 1
-    fi
-    
-    # Check if user is logged in to Azure
-    if ! az account show &> /dev/null; then
-        print_error "You are not logged in to Azure. Please run 'az login' first."
-        exit 1
-    fi
-    
-    # Check if user has sufficient Azure AD permissions
-    print_status "Validating Azure AD permissions..."
-    CURRENT_USER=$(az account show --query user.name -o tsv)
-    
-    # Check if user can read Azure AD (minimum requirement)
-    if ! az ad user show --id "$CURRENT_USER" &> /dev/null; then
-        print_warning "Limited Azure AD permissions detected"
-        print_status "You may need Global Administrator or Application Administrator role"
-        print_status "to grant Microsoft Graph API permissions and admin consent."
-    else
-        print_success "✓ Azure AD access confirmed"
-    fi
-    
-    # Check for admin consent capable roles
-    print_status "Checking for admin consent permissions..."
-    USER_ROLES=$(az rest --method GET --url "https://graph.microsoft.com/v1.0/me/memberOf" --query "value[].displayName" -o tsv 2>/dev/null)
-    
-    ADMIN_CONSENT_CAPABLE=false
-    if echo "$USER_ROLES" | grep -q "Global Administrator\|Privileged Role Administrator\|Cloud Application Administrator\|Application Administrator"; then
-        ADMIN_CONSENT_CAPABLE=true
-        print_success "✓ Admin consent permissions detected"
-    else
-        print_warning "⚠ Limited admin consent permissions detected"
-        print_status "  You may need to grant consent manually via Azure Portal"
-        print_status "  Required roles: Global Administrator, Privileged Role Administrator,"
-        print_status "                  Cloud Application Administrator, or Application Administrator"
-    fi
-    
-    # Check if user is logged in to Power Platform
-    if ! pac auth list &> /dev/null; then
-        print_warning "You are not logged in to Power Platform. Please run 'pac auth create' first."
-        print_status "You need to authenticate with Power Platform tenant admin privileges."
-        exit 1
-    fi
+    # Additional Azure AD permission checks
+    check_azure_ad_permissions
     
     print_success "Prerequisites validated successfully"
 }

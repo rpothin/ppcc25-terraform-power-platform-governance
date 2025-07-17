@@ -10,53 +10,18 @@ set -e  # Exit on any error
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Load utility functions
+source "$SCRIPT_DIR/../utils/utils.sh"
+
 # Source the configuration loader from setup directory
 source "$SCRIPT_DIR/../setup/config-loader.sh"
-
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
-
-# Function to print colored output
-print_status() {
-    echo -e "${BLUE}[INFO]${NC} $1"
-}
-
-print_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
-
-print_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
-
-print_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
 
 # Function to validate prerequisites
 validate_prerequisites() {
     print_status "Validating prerequisites..."
     
-    # Check if Azure CLI is installed
-    if ! command -v az &> /dev/null; then
-        print_error "Azure CLI is not installed. Please install it first."
-        exit 1
-    fi
-    
-    # Check if Power Platform CLI is installed
-    if ! command -v pac &> /dev/null; then
-        print_warning "Power Platform CLI is not installed. Power Platform cleanup will be skipped."
-    fi
-    
-    # Check if user is logged in to Azure
-    if ! az account show &> /dev/null; then
-        print_error "You are not logged in to Azure. Please run 'az login' first."
-        exit 1
-    fi
+    # Use utility function for common validation
+    validate_common_prerequisites true false true false false
     
     print_success "Prerequisites validated successfully"
 }

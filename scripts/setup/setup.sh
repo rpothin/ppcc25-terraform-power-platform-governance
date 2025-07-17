@@ -11,38 +11,15 @@ set -e  # Exit on any error
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Source the configuration loader
+# Load utility functions
+source "$SCRIPT_DIR/../utils/utils.sh"
+
+# Source the configuration loader (keep for compatibility)
 source "$SCRIPT_DIR/config-loader.sh"
-
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
-
-# Function to print colored output
-print_status() {
-    echo -e "${BLUE}[INFO]${NC} $1"
-}
-
-print_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
-
-print_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
-
-print_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
 
 # Function to display header
 display_header() {
-    print_status "==============================================================="
-    print_status "Power Platform Terraform Governance - Complete Setup"
-    print_status "==============================================================="
+    print_banner "Power Platform Terraform Governance - Complete Setup"
     print_status ""
     print_status "This script will:"
     print_status "  1. Create Azure AD Service Principal with OIDC"
@@ -59,74 +36,22 @@ run_setup_script() {
     local script_path="$SCRIPT_DIR/$script_name"
     local description="$2"
     
-    print_status ""
-    print_status "STEP: $description"
-    print_status "Running: $script_name"
-    print_status "----------------------------------------"
-    
-    if [[ ! -f "$script_path" ]]; then
-        print_error "Script not found: $script_path"
-        return 1
-    fi
-    
-    # Make script executable
-    chmod +x "$script_path"
-    
-    # Run the script
-    if "$script_path"; then
-        print_success "✓ $description completed successfully"
-        return 0
-    else
-        print_error "✗ $description failed"
-        return 1
-    fi
+    return $(run_script_with_handling "$script_path" "$description")
 }
 
 # Function to validate prerequisites
 validate_prerequisites() {
     print_status "Validating prerequisites..."
     
-    local errors=0
-    
-    # Check Azure CLI
-    if ! command -v az &> /dev/null; then
-        print_error "Azure CLI is not installed"
-        errors=$((errors + 1))
-    fi
-    
-    # Check Power Platform CLI
-    if ! command -v pac &> /dev/null; then
-        print_error "Power Platform CLI is not installed"
-        errors=$((errors + 1))
-    fi
-    
-    # Check GitHub CLI
-    if ! command -v gh &> /dev/null; then
-        print_error "GitHub CLI is not installed"
-        errors=$((errors + 1))
-    fi
-    
-    # Check jq
-    if ! command -v jq &> /dev/null; then
-        print_error "jq is not installed"
-        errors=$((errors + 1))
-    fi
-    
-    if [[ $errors -gt 0 ]]; then
-        print_error "Prerequisites validation failed with $errors errors"
-        print_error "Please install the missing tools and try again"
-        return 1
-    fi
-    
-    print_success "Prerequisites validated successfully"
-    return 0
+    # Use the common validation function
+    validate_common_prerequisites true false true false true
 }
 
 # Function to check Azure authentication
 check_azure_auth() {
     print_status "Checking Azure authentication..."
     
-    if ! az account show &> /dev/null; then
+    if ! validate_azure_auth; then
         print_error "You are not logged in to Azure"
         print_error "Please run: az login"
         return 1
