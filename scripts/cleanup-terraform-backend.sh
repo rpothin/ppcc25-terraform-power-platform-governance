@@ -107,10 +107,17 @@ get_user_input() {
         print_warning "  - The entire resource group and ALL its resources"
     fi
     
-    echo -n "Are you sure you want to proceed? Type 'DELETE' to confirm: "
+    echo -n "Are you sure you want to proceed? (y/n): "
     read -r CONFIRM
-    if [[ "$CONFIRM" != "DELETE" ]]; then
+    if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
         print_error "Cleanup cancelled by user"
+        exit 1
+    fi
+    
+    echo -n "Type 'DELETE' to confirm: "
+    read -r DELETE_CONFIRM
+    if [[ "$DELETE_CONFIRM" != "DELETE" ]]; then
+        print_error "Cleanup cancelled - confirmation not received"
         exit 1
     fi
 }

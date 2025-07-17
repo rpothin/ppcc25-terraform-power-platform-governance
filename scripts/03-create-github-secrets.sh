@@ -47,20 +47,24 @@ validate_prerequisites() {
     print_success "Prerequisites validated successfully"
 }
 
-# Function to authenticate with GitHub
-authenticate_github() {
-    print_status "Checking GitHub authentication..."
+# Function to test GitHub secrets access
+test_github_secrets_access() {
+    local test_repo="$1"
     
-    # Check if user is logged in to GitHub with proper scopes
-    if gh auth status --show-token &> /dev/null; then
-        # Check if we have the repo scope needed for secrets
-        if gh auth token | gh api user --input-token - &> /dev/null; then
-            print_success "GitHub authentication verified"
-            return 0
-        fi
+    # Try to list secrets from the repository to test access
+    print_status "Testing secrets access for repository: $test_repo"
+    
+    if gh secret list --repo "$test_repo" --json name &> /dev/null; then
+        print_success "✅ GitHub secrets access confirmed"
+        return 0
+    else
+        print_warning "❌ GitHub secrets access failed"
+        return 1
     fi
-    
-    print_status "GitHub authentication required for secrets management..."
+}
+
+# Function to perform GitHub login
+perform_github_login() {
     print_status "🔐 Authenticating with GitHub (this will open your browser)..."
     
     # Clear any existing token that might have insufficient scopes
@@ -69,10 +73,49 @@ authenticate_github() {
     # Authenticate with required scopes for secrets management
     if gh auth login --scopes "repo"; then
         print_success "✅ GitHub authentication successful!"
+        
+        # Verify the new authentication works
+        if gh api user --silent &> /dev/null; then
+            print_success "✅ GitHub authentication verified and working"
+            return 0
+        else
+            print_error "GitHub authentication succeeded but API access failed"
+            return 1
+        fi
     else
         print_error "GitHub authentication failed"
-        exit 1
+        return 1
     fi
+}
+
+# Function to authenticate with GitHub
+authenticate_github() {
+    print_status "Checking GitHub authentication..."
+    
+    # First, check if user is logged in to GitHub at all
+    if ! gh auth status &> /dev/null; then
+        print_status "Not logged in to GitHub. Authentication required."
+        perform_github_login
+        return $?
+    fi
+    
+    # Check if we have the repo scope needed for secrets by testing a simple API call
+    if gh auth status --show-token &> /dev/null; then
+        # Test if we can actually use the current token for API operations
+        print_status "Testing GitHub authentication with current token..."
+        
+        if gh api user --silent &> /dev/null; then
+            print_success "GitHub authentication verified and working"
+            return 0
+        else
+            print_warning "Current GitHub token has insufficient permissions"
+        fi
+    fi
+    
+    # If we get here, we need to re-authenticate
+    print_status "GitHub re-authentication required for secrets management..."
+    perform_github_login
+    return $?
 }
 
 # Function to get user input with validation
@@ -172,13 +215,31 @@ verify_repository_access() {
     fi
     
     # Check if user has admin access (required for secrets)
-    PERMISSION=$(gh api "repos/$GITHUB_REPOSITORY" --jq '.permissions.admin')
+    PERMISSION=$(gh api "repos/$GITHUB_REPOSITORY" --jq '.permissions.admin' 2>/dev/null)
     if [[ "$PERMISSION" != "true" ]]; then
         print_error "You need admin access to the repository to create secrets"
         exit 1
     fi
     
     print_success "Admin access confirmed"
+    
+    # Test secrets access specifically
+    if ! test_github_secrets_access "$GITHUB_REPOSITORY"; then
+        print_warning "Secrets access test failed. Attempting re-authentication..."
+        
+        if perform_github_login; then
+            # Test again after re-authentication
+            if test_github_secrets_access "$GITHUB_REPOSITORY"; then
+                print_success "Secrets access restored after re-authentication"
+            else
+                print_error "Secrets access still failed after re-authentication"
+                exit 1
+            fi
+        else
+            print_error "Re-authentication failed"
+            exit 1
+        fi
+    fi
 }
 
 # Function to create GitHub secrets

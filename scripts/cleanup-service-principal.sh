@@ -37,16 +37,67 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+# Function to validate required tools
+validate_prerequisites() {
+    print_status "Validating prerequisites..."
+    
+    # Check if Azure CLI is installed
+    if ! command -v az &> /dev/null; then
+        print_error "Azure CLI is not installed. Please install it first."
+        exit 1
+    fi
+    
+    # Check if Power Platform CLI is installed
+    if ! command -v pac &> /dev/null; then
+        print_warning "Power Platform CLI is not installed. Power Platform cleanup will be skipped."
+    fi
+    
+    # Check if user is logged in to Azure
+    if ! az account show &> /dev/null; then
+        print_error "You are not logged in to Azure. Please run 'az login' first."
+        exit 1
+    fi
+    
+    print_success "Prerequisites validated successfully"
+}
+
+# Function to get user input
+get_user_input() {
+    print_status "Gathering cleanup information..."
+    
+    # Get user input for service principal details
+    echo -n "Enter Service Principal Name (default: terraform-powerplatform-governance): "
+    read -r SP_NAME
+    if [[ -z "$SP_NAME" ]]; then
+        SP_NAME="terraform-powerplatform-governance"
+    fi
+    
+    echo -n "Enter App ID (Service Principal Application ID): "
+    read -r APP_ID
+    if [[ -z "$APP_ID" ]]; then
+        print_error "App ID is required for cleanup"
+        exit 1
+    fi
+    
+    print_status "Configuration:"
+    print_status "  Service Principal Name: $SP_NAME"
+    print_status "  App ID: $APP_ID"
+}
+
 # Function to cleanup service principal
 cleanup_service_principal() {
     print_status "Cleaning up service principal..."
     
-    # Based on the terminal output, we know:
-    # - Service Principal Name: terraform-powerplatform-governance  
-    # - App ID: 55a94b50-7ecf-4d38-9bdd-75bcedd6a854 (current correct ID from latest run)
+    # Validate that required variables are set
+    if [[ -z "$SP_NAME" ]]; then
+        print_error "Service Principal Name is not set"
+        exit 1
+    fi
     
-    SP_NAME="terraform-powerplatform-governance"
-    APP_ID="2c650f10-cc0e-45ac-934f-f53ef7111e01"
+    if [[ -z "$APP_ID" ]]; then
+        print_error "App ID is not set"
+        exit 1
+    fi
     
     # Method 1: Delete by App ID (most reliable)
     print_status "Deleting service principal by App ID: $APP_ID"
@@ -76,8 +127,6 @@ cleanup_service_principal() {
 cleanup_power_platform() {
     print_status "Cleaning up Power Platform registration..."
     
-    APP_ID="64af8fc4-4467-49d2-a751-95cb8c281602"
-    
     # Check if user is logged in to Power Platform
     if ! pac auth list &> /dev/null; then
         print_warning "Not logged in to Power Platform. Skipping Power Platform cleanup."
@@ -98,9 +147,6 @@ cleanup_power_platform() {
 # Function to verify cleanup
 verify_cleanup() {
     print_status "Verifying cleanup..."
-    
-    APP_ID="64af8fc4-4467-49d2-a751-95cb8c281602"
-    SP_NAME="terraform-powerplatform-governance"
     
     # Check if service principal still exists
     if az ad sp show --id "$APP_ID" &> /dev/null; then
@@ -130,15 +176,39 @@ verify_cleanup() {
     fi
 }
 
+# Function to clean up variables from environment
+cleanup_vars() {
+    print_status "Cleaning up variables from memory..."
+    
+    # Clear variables
+    unset SP_NAME
+    unset APP_ID
+    unset CONFIRM
+    unset DELETE_CONFIRM
+    
+    # Clear bash history of this session (if running interactively)
+    if [[ $- == *i* ]]; then
+        history -c
+    fi
+    
+    print_success "Variables cleared from memory"
+}
+
 # Main execution
 main() {
     print_status "Starting cleanup of service principal and associated resources..."
     print_status "=============================================================="
     
+    # Set up trap to clean up on exit
+    trap cleanup_vars EXIT
+    
+    validate_prerequisites
+    get_user_input
+    
     # Confirm cleanup
     print_warning "This will delete:"
-    print_warning "  - Service Principal: terraform-powerplatform-governance"
-    print_warning "  - App Registration: 64af8fc4-4467-49d2-a751-95cb8c281602"
+    print_warning "  - Service Principal: $SP_NAME"
+    print_warning "  - App Registration: $APP_ID"
     print_warning "  - All associated permissions and federated credentials"
     print_warning "  - Power Platform registration"
     print_warning ""
@@ -151,9 +221,17 @@ main() {
         exit 1
     fi
     
+    echo -n "Type 'DELETE' to confirm service principal removal: "
+    read -r DELETE_CONFIRM
+    if [[ "$DELETE_CONFIRM" != "DELETE" ]]; then
+        print_error "Cleanup cancelled - confirmation not received"
+        exit 1
+    fi
+    
     cleanup_service_principal
     cleanup_power_platform
     verify_cleanup
+    cleanup_vars
     
     print_success "Cleanup completed successfully!"
     print_status ""
