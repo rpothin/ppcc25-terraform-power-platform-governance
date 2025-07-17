@@ -80,7 +80,7 @@ perform_github_login() {
     # Clear any existing token that might have insufficient scopes
     unset GITHUB_TOKEN
     
-    # Authenticate with required scopes for secrets management
+    # Authenticate with required scopes for secrets and environment management
     if gh auth login --scopes "repo"; then
         print_success "✅ GitHub authentication successful!"
         
@@ -102,6 +102,9 @@ perform_github_login() {
 authenticate_github() {
     print_status "Checking GitHub authentication..."
     
+    # Clear any existing GITHUB_TOKEN that might interfere
+    unset GITHUB_TOKEN
+    
     # First, check if user is logged in to GitHub at all
     if ! gh auth status &> /dev/null; then
         print_status "Not logged in to GitHub. Authentication required."
@@ -109,20 +112,27 @@ authenticate_github() {
         return $?
     fi
     
-    # Check if we have the repo scope needed for secrets
+    # Check if we have the repo scope needed for secrets and environments
     if gh auth status --show-token &> /dev/null; then
         print_status "Testing GitHub authentication with current token..."
         
-        if gh api user --silent &> /dev/null; then
-            print_success "GitHub authentication verified and working"
-            return 0
+        # Check if we have the proper token scopes
+        local token_scopes=$(gh auth status --show-token 2>/dev/null | grep "Token scopes:" | cut -d: -f2 | tr -d ' ')
+        
+        if [[ "$token_scopes" == *"repo"* ]]; then
+            if gh api user --silent &> /dev/null; then
+                print_success "GitHub authentication verified and working"
+                return 0
+            else
+                print_warning "API access failed with current token"
+            fi
         else
-            print_warning "Current GitHub token has insufficient permissions"
+            print_warning "Current GitHub token has insufficient scopes: $token_scopes"
         fi
     fi
     
     # If we get here, we need to re-authenticate
-    print_status "GitHub re-authentication required for secrets management..."
+    print_status "GitHub re-authentication required for secrets and environment management..."
     perform_github_login
     return $?
 }
@@ -170,11 +180,12 @@ verify_repository_access() {
     fi
 }
 
-# Function to create GitHub secrets
+# Function to create GitHub secrets in the production environment
 create_github_secrets() {
-    print_status "Creating GitHub secrets..."
+    print_status "Creating GitHub secrets in production environment..."
     
     local github_repository="$GITHUB_OWNER/$GITHUB_REPO"
+    local environment_name="production"
     
     # Array of secrets to create
     declare -A SECRETS=(
@@ -188,17 +199,17 @@ create_github_secrets() {
         ["TERRAFORM_CONTAINER"]="$CONTAINER_NAME"
     )
     
-    # Create each secret
+    # Create each secret in the production environment
     for secret_name in "${!SECRETS[@]}"; do
         secret_value="${SECRETS[$secret_name]}"
         
-        print_status "Creating secret: $secret_name"
+        print_status "Creating environment secret: $secret_name"
         
-        # Create or update the secret securely
-        if echo "$secret_value" | gh secret set "$secret_name" --repo "$github_repository" 2>/dev/null; then
-            print_success "✓ Secret $secret_name created successfully"
+        # Create or update the secret securely in the production environment
+        if echo "$secret_value" | gh secret set "$secret_name" --repo "$github_repository" --env "$environment_name" 2>/dev/null; then
+            print_success "✓ Environment secret $secret_name created successfully"
         else
-            print_error "✗ Failed to create secret $secret_name"
+            print_error "✗ Failed to create environment secret $secret_name"
             exit 1
         fi
     done
@@ -207,14 +218,15 @@ create_github_secrets() {
     unset SECRETS
 }
 
-# Function to verify secrets were created
+# Function to verify secrets were created in the production environment
 verify_secrets() {
-    print_status "Verifying created secrets..."
+    print_status "Verifying created environment secrets..."
     
     local github_repository="$GITHUB_OWNER/$GITHUB_REPO"
+    local environment_name="production"
     
-    # List all secrets
-    EXISTING_SECRETS=$(gh secret list --repo "$github_repository" --json name --jq '.[].name')
+    # List all environment secrets
+    EXISTING_SECRETS=$(gh secret list --repo "$github_repository" --env "$environment_name" --json name --jq '.[].name' 2>/dev/null)
     
     # Required secrets
     REQUIRED_SECRETS=(
@@ -231,44 +243,59 @@ verify_secrets() {
     # Check each required secret
     for secret in "${REQUIRED_SECRETS[@]}"; do
         if echo "$EXISTING_SECRETS" | grep -q "^$secret$"; then
-            print_success "✓ Secret $secret verified"
+            print_success "✓ Environment secret $secret verified"
         else
-            print_error "✗ Secret $secret not found"
+            print_error "✗ Environment secret $secret not found"
             exit 1
         fi
     done
     
-    print_success "All secrets verified successfully"
+    print_success "All environment secrets verified successfully"
 }
 
-# Function to create GitHub environment (optional)
+# Function to create GitHub environment (required for secure secrets)
 create_github_environment() {
-    print_status "Creating GitHub environment for additional security..."
+    print_status "Creating GitHub environment for secure secrets management..."
     
     local github_repository="$GITHUB_OWNER/$GITHUB_REPO"
     
-    # Create production environment
-    gh api "repos/$github_repository/environments/production" \
-        --method PUT \
-        --field wait_timer=0 \
-        --field prevent_self_review=true \
-        --field reviewers='[]' \
-        --field deployment_branch_policy='{"protected_branches":true,"custom_branch_policies":false}' \
-        > /dev/null 2>&1
+    # Ensure we're using the correct authentication token
+    unset GITHUB_TOKEN
     
-    if [[ $? -eq 0 ]]; then
-        print_success "Production environment created"
-        print_status "You can configure additional protection rules in the GitHub repository settings"
+    # Create production environment - this is now required for secure secrets
+    print_status "Creating 'production' environment..."
+    
+    # Use basic environment creation without advanced protection rules
+    # Advanced rules (wait_timer, prevent_self_review) require higher billing plans
+    if gh api \
+        --method PUT \
+        -H "Accept: application/vnd.github+json" \
+        -H "X-GitHub-Api-Version: 2022-11-28" \
+        "/repos/$github_repository/environments/production" \
+        -F "deployment_branch_policy[protected_branches]=true" \
+        -F "deployment_branch_policy[custom_branch_policies]=false" \
+        > /dev/null 2>&1; then
+        
+        print_success "Production environment created successfully"
+        print_status "Environment configured with protected branches policy"
+        print_status "Secrets will be stored securely within this environment"
+        return 0
     else
-        print_warning "Failed to create production environment (this is optional)"
+        print_error "Failed to create production environment"
+        print_error "This is required for secure secrets management"
+        print_error "Please ensure you have admin access to the repository"
+        exit 1
     fi
 }
 
 # Function to output final instructions
 output_instructions() {
-    print_success "GitHub secrets setup completed successfully!"
+    print_success "GitHub environment and secrets setup completed successfully!"
     print_status ""
-    print_status "Created Secrets:"
+    print_status "Created Environment:"
+    print_status "  ✓ Production environment with protected branches policy"
+    print_status ""
+    print_status "Created Environment Secrets:"
     print_status "  ✓ AZURE_CLIENT_ID"
     print_status "  ✓ AZURE_TENANT_ID"
     print_status "  ✓ AZURE_SUBSCRIPTION_ID"
@@ -280,6 +307,7 @@ output_instructions() {
     print_status ""
     print_status "Configuration Summary:"
     print_status "  • GitHub Repository: $GITHUB_OWNER/$GITHUB_REPO"
+    print_status "  • Environment: production"
     print_status "  • Resource Group: $RESOURCE_GROUP_NAME"
     print_status "  • Storage Account: $STORAGE_ACCOUNT_NAME"
     print_status "  • Container: $CONTAINER_NAME"
@@ -289,6 +317,7 @@ output_instructions() {
     print_status "2. Navigate to Actions tab"
     print_status "3. Run the 'Terraform Plan and Apply' workflow"
     print_status "4. Select your desired configuration and tfvars file"
+    print_status "5. Ensure your workflow uses environment: production"
     print_status ""
     print_status "Repository Setup is now complete!"
 }
@@ -325,8 +354,8 @@ cleanup_sensitive_vars() {
 
 # Main function
 main() {
-    print_status "Starting GitHub secrets setup (configuration-driven)..."
-    print_status "========================================================"
+    print_status "Starting GitHub environment and secrets setup (configuration-driven)..."
+    print_status "====================================================================="
     
     # Set up trap to clean up on exit
     trap cleanup_sensitive_vars EXIT
@@ -345,14 +374,14 @@ main() {
     # Verify repository access
     verify_repository_access
     
-    # Create GitHub secrets
+    # Create GitHub environment (required for secure secrets)
+    create_github_environment
+    
+    # Create GitHub secrets in the production environment
     create_github_secrets
     
     # Verify secrets were created
     verify_secrets
-    
-    # Create GitHub environment (optional)
-    create_github_environment
     
     # Output instructions
     output_instructions
