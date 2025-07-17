@@ -2,15 +2,16 @@
 # ==============================================================================
 # Create Azure Resources for Terraform Backend
 # ==============================================================================
-# This script creates the necessary Azure resources for storing Terraform state:
-# - Resource Group
-# - Storage Account (with network access denied by default)
-# - Storage Container
-# It also configures proper access permissions for the service principal.
-# Network access is managed via Just-In-Time (JIT) approach in GitHub Actions.
+# Configuration-driven version that uses config.env for streamlined setup
 # ==============================================================================
 
 set -e  # Exit on any error
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Source the configuration loader
+source "$SCRIPT_DIR/config-loader.sh"
 
 # Colors for output
 RED='\033[0;31m'
@@ -36,7 +37,7 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# Function to validate required tools
+# Function to validate prerequisites
 validate_prerequisites() {
     print_status "Validating prerequisites..."
     
@@ -58,77 +59,14 @@ validate_prerequisites() {
         exit 1
     fi
     
-    print_success "Prerequisites validated successfully"
-}
-
-# Function to get user input with validation
-get_user_input() {
-    print_status "Gathering configuration information..."
-    
-    # Get service principal client ID
-    echo -n "Enter the service principal client ID from previous step: "
-    read -r AZURE_CLIENT_ID
+    # Check if AZURE_CLIENT_ID is set (from previous step)
     if [[ -z "$AZURE_CLIENT_ID" ]]; then
-        print_error "Service principal client ID cannot be empty"
+        print_error "AZURE_CLIENT_ID not found in configuration"
+        print_error "Please run 01-create-service-principal-config.sh first"
         exit 1
     fi
     
-    # Get resource group name
-    echo -n "Enter resource group name (default: rg-terraform-powerplatform-governance): "
-    read -r RESOURCE_GROUP_NAME
-    if [[ -z "$RESOURCE_GROUP_NAME" ]]; then
-        RESOURCE_GROUP_NAME="rg-terraform-powerplatform-governance"
-    fi
-    
-    # Get storage account name
-    echo -n "Enter storage account name (default: stterraformpp<random>): "
-    read -r STORAGE_ACCOUNT_NAME
-    if [[ -z "$STORAGE_ACCOUNT_NAME" ]]; then
-        # Generate a random suffix for storage account name
-        RANDOM_SUFFIX=$(openssl rand -hex 4)
-        STORAGE_ACCOUNT_NAME="stterraformpp${RANDOM_SUFFIX}"
-    fi
-    
-    # Validate storage account name
-    if [[ ! "$STORAGE_ACCOUNT_NAME" =~ ^[a-z0-9]{3,24}$ ]]; then
-        print_error "Storage account name must be 3-24 characters, lowercase letters and numbers only"
-        exit 1
-    fi
-    
-    # Get container name
-    echo -n "Enter container name (default: terraform-state): "
-    read -r CONTAINER_NAME
-    if [[ -z "$CONTAINER_NAME" ]]; then
-        CONTAINER_NAME="terraform-state"
-    fi
-    
-    # Get location
-    echo -n "Enter Azure location (default: East US): "
-    read -r LOCATION
-    if [[ -z "$LOCATION" ]]; then
-        LOCATION="East US"
-    fi
-    
-    # Get current subscription and tenant info
-    AZURE_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
-    AZURE_TENANT_ID=$(az account show --query tenantId -o tsv)
-    
-    print_status "Configuration:"
-    print_status "  Service Principal ID: [REDACTED - will be used securely]"
-    print_status "  Resource Group: $RESOURCE_GROUP_NAME"
-    print_status "  Storage Account: $STORAGE_ACCOUNT_NAME"
-    print_status "  Container: $CONTAINER_NAME"
-    print_status "  Location: $LOCATION"
-    print_status "  Network Access: Deny all by default (JIT access via GitHub Actions)"
-    print_status "  Subscription: [REDACTED - current authenticated subscription]"
-    print_status "  Tenant: [REDACTED - current authenticated tenant]"
-    
-    echo -n "Continue with this configuration? (y/n): "
-    read -r CONFIRM
-    if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
-        print_error "Setup cancelled by user"
-        exit 1
-    fi
+    print_success "Prerequisites validated successfully"
 }
 
 # Function to create resource group
@@ -162,8 +100,7 @@ create_resource_group() {
 create_storage_account_and_container() {
     print_status "Creating storage account and container using Azure Verified Modules (AVM)"
     
-    # Get the directory where this script is located
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    # Bicep file path
     BICEP_FILE="$SCRIPT_DIR/terraform-backend-storage.bicep"
     
     # Verify the Bicep file exists
@@ -203,7 +140,7 @@ create_storage_account_and_container() {
 EOF
 
     # Deploy the Bicep template
-    print_status "Deploying storage account and container using Bicep template: $(basename "$BICEP_FILE")"
+    print_status "Deploying storage account and container using Bicep template..."
     
     DEPLOYMENT_NAME="terraform-backend-$(date +%s)"
     
@@ -250,7 +187,7 @@ EOF
 validate_service_principal_permissions() {
     print_status "Validating service principal permissions..."
     
-    # Verify Owner role assignment (should already exist from previous script)
+    # Verify Owner role assignment
     print_status "Verifying Owner role assignment at subscription level..."
     if az role assignment list \
         --assignee "$AZURE_CLIENT_ID" \
@@ -263,15 +200,12 @@ validate_service_principal_permissions() {
         print_status "    - Network access control (for JIT functionality)"
         print_status "    - Role assignments and access management"
     else
-        print_error "Owner role not found. Please run 01-create-service-principal.sh first"
+        print_error "Owner role not found. Please run 01-create-service-principal-config.sh first"
         exit 1
     fi
     
-    # Note: The Bicep template automatically assigns 'Storage Blob Data Contributor' 
-    # role to the service principal at the storage account level for Terraform state access
     print_status "Note: Bicep template automatically assigns 'Storage Blob Data Contributor' role"
     print_status "to the service principal for Terraform state storage access"
-    print_status "Current user also has 'Storage Blob Data Contributor' role for testing"
     
     print_success "Service principal permissions validated successfully"
 }
@@ -279,12 +213,6 @@ validate_service_principal_permissions() {
 # Function to validate deployment completion
 validate_deployment_completion() {
     print_status "Validating deployment completion..."
-    print_status "================================="
-    
-    # Ensure required variables are set with defaults if empty
-    if [[ -z "$CONTAINER_NAME" ]]; then
-        CONTAINER_NAME="terraform-state"
-    fi
     
     # Verify that the Bicep deployment completed successfully
     print_status "Checking Bicep deployment status..."
@@ -313,9 +241,8 @@ validate_deployment_completion() {
         return 1
     fi
     
-    # Verify JIT network access script exists for GitHub Actions
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    JIT_SCRIPT="$SCRIPT_DIR/jit-network-access.sh"
+    # Verify JIT network access script exists
+    JIT_SCRIPT="$SCRIPT_DIR/../jit-network-access.sh"
     
     if [[ -f "$JIT_SCRIPT" ]]; then
         print_success "✓ JIT network access script is available for GitHub Actions"
@@ -325,31 +252,20 @@ validate_deployment_completion() {
     fi
     
     print_success "All deployment validation checks passed!"
-    print_status ""
-    print_status "Next Steps:"
-    print_status "  1. The Terraform backend is ready for use"
-    print_status "  2. GitHub Actions will use the JIT network access script automatically"
-    print_status "  3. Proceed with GitHub secrets setup: 03-create-github-secrets.sh"
 }
 
 # Function to output results
 output_results() {
     print_success "Terraform backend setup completed successfully!"
     print_status ""
-    
-    # Ensure required variables are set with defaults if empty
-    if [[ -z "$CONTAINER_NAME" ]]; then
-        CONTAINER_NAME="terraform-state"
-    fi
-    
-    print_status "Backend Configuration Details:"
-    print_status "  Resource Group: $RESOURCE_GROUP_NAME"
-    print_status "  Storage Account: $STORAGE_ACCOUNT_NAME"
-    print_status "  Container: $CONTAINER_NAME"
-    print_status "  Location: $LOCATION"
+    print_status "Created Resources:"
+    print_status "  ✓ Resource Group: $RESOURCE_GROUP_NAME"
+    print_status "  ✓ Storage Account: $STORAGE_ACCOUNT_NAME"
+    print_status "  ✓ Container: $CONTAINER_NAME"
+    print_status "  ✓ Location: $LOCATION"
+    print_status "  ✓ JIT Network Access: Configured"
     print_status ""
-    print_status "Add these values to your Terraform configuration:"
-    print_status ""
+    print_status "Terraform Backend Configuration:"
     print_status "terraform {"
     print_status "  backend \"azurerm\" {"
     print_status "    resource_group_name  = \"$RESOURCE_GROUP_NAME\""
@@ -359,39 +275,35 @@ output_results() {
     print_status "  }"
     print_status "}"
     print_status ""
-    print_status "Save the following values for the GitHub secrets setup:"
-    print_status ""
-    print_status "TERRAFORM_RESOURCE_GROUP: $RESOURCE_GROUP_NAME"
-    print_status "TERRAFORM_STORAGE_ACCOUNT: $STORAGE_ACCOUNT_NAME"
-    print_status "TERRAFORM_CONTAINER: $CONTAINER_NAME"
-    print_status ""
-    print_status "NOTE: You will also need the Service Principal Client ID, Tenant ID,"
-    print_status "and Subscription ID from the previous script for the GitHub secrets setup."
-    print_status ""
-    print_status "JIT Network Access:"
-    print_status "The storage account is configured with network access denied by default."
-    print_status "Use the jit-network-access.sh script to manage temporary IP access:"
-    print_status "  export STORAGE_ACCOUNT_NAME=\"$STORAGE_ACCOUNT_NAME\""
-    print_status "  export RESOURCE_GROUP_NAME=\"$RESOURCE_GROUP_NAME\""
-    print_status "  export RUNNER_IP=\"<your-ip-address>\""
-    print_status "  ./jit-network-access.sh add    # Add IP access"
-    print_status "  ./jit-network-access.sh remove # Remove IP access"
-    print_status ""
-    print_status "You can now proceed to run the next script: 03-create-github-secrets.sh"
+    print_status "Configuration saved in: $SCRIPT_DIR/config.env"
 }
 
-# Main execution
+# Main function
 main() {
-    print_status "Starting Terraform backend setup for Power Platform governance..."
-    print_status "Using Azure Verified Modules (AVM) with Just-In-Time (JIT) network access"
-    print_status "================================================================="
+    print_status "Starting Terraform backend setup (configuration-driven)..."
+    print_status "==========================================================="
     
+    # Initialize configuration
+    if ! init_config; then
+        exit 1
+    fi
+    
+    # Validate prerequisites
     validate_prerequisites
-    get_user_input
+    
+    # Create resource group
     create_resource_group
+    
+    # Create storage account and container
     create_storage_account_and_container
+    
+    # Validate service principal permissions
     validate_service_principal_permissions
+    
+    # Validate deployment completion
     validate_deployment_completion
+    
+    # Output results
     output_results
     
     print_success "Script completed successfully!"

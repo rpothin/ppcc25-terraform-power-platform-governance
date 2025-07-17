@@ -1,21 +1,24 @@
 #!/bin/bash
 # ==============================================================================
-# Power Platform Terraform Governance - Complete Setup Script
+# Master Setup Script for Power Platform Terraform Governance
 # ==============================================================================
-# This script orchestrates the complete setup process for the Power Platform
-# Terraform governance solution. It runs all the necessary setup scripts in
-# the correct order and provides a streamlined setup experience.
+# This script orchestrates the complete setup process using configuration
+# from config.env file for a streamlined, secure experience
 # ==============================================================================
 
 set -e  # Exit on any error
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Source the configuration loader
+source "$SCRIPT_DIR/config-loader.sh"
 
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-BOLD='\033[1m'
 NC='\033[0m' # No Color
 
 # Function to print colored output
@@ -35,265 +38,241 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-print_header() {
-    echo -e "${CYAN}${BOLD}$1${NC}"
+# Function to display header
+display_header() {
+    print_status "==============================================================="
+    print_status "Power Platform Terraform Governance - Complete Setup"
+    print_status "==============================================================="
+    print_status ""
+    print_status "This script will:"
+    print_status "  1. Create Azure AD Service Principal with OIDC"
+    print_status "  2. Create Terraform backend storage"
+    print_status "  3. Create GitHub repository secrets"
+    print_status ""
+    print_status "Using configuration-driven approach for better UX and security"
+    print_status ""
 }
 
-print_step() {
-    echo -e "${YELLOW}[STEP]${NC} $1"
-}
-
-# Function to display banner
-show_banner() {
-    echo -e "${CYAN}${BOLD}"
-    echo "============================================================================="
-    echo "  Power Platform Terraform Governance - Complete Setup"
-    echo "============================================================================="
-    echo -e "${NC}"
-    echo "This script will set up everything needed to run Terraform configurations"
-    echo "for Power Platform governance, including:"
-    echo ""
-    echo "  1. Azure AD Service Principal with OIDC for GitHub"
-    echo "  2. Power Platform registration with tenant admin privileges"
-    echo "  3. Azure resources for Terraform state storage"
-    echo "  4. GitHub repository secrets for CI/CD"
-    echo ""
-    echo "Prerequisites:"
-    echo "  - Azure CLI installed and authenticated"
-    echo "  - Power Platform CLI installed and authenticated (with tenant admin)"
-    echo "  - GitHub CLI installed and authenticated"
-    echo "  - jq installed for JSON processing"
-    echo ""
-    echo -e "${YELLOW}Note: You must have Power Platform tenant admin privileges to complete this setup.${NC}"
-    echo ""
-}
-
-# Function to validate prerequisites
-validate_prerequisites() {
-    print_header "Validating Prerequisites"
+# Function to run a setup script with configuration
+run_setup_script() {
+    local script_name="$1"
+    local script_path="$SCRIPT_DIR/$script_name"
+    local description="$2"
     
-    local all_good=true
+    print_status ""
+    print_status "STEP: $description"
+    print_status "Running: $script_name"
+    print_status "----------------------------------------"
     
-    # Check Azure CLI
-    if command -v az &> /dev/null; then
-        print_success "✓ Azure CLI is installed"
-        if az account show &> /dev/null; then
-            print_success "✓ Azure CLI is authenticated"
-        else
-            print_error "✗ Azure CLI is not authenticated. Please run 'az login'"
-            all_good=false
-        fi
-    else
-        print_error "✗ Azure CLI is not installed"
-        all_good=false
+    if [[ ! -f "$script_path" ]]; then
+        print_error "Script not found: $script_path"
+        return 1
     fi
     
-    # Check Power Platform CLI
-    if command -v pac &> /dev/null; then
-        print_success "✓ Power Platform CLI is installed"
-        if pac auth list &> /dev/null; then
-            print_success "✓ Power Platform CLI is authenticated"
-        else
-            print_error "✗ Power Platform CLI is not authenticated. Please run 'pac auth create'"
-            all_good=false
-        fi
-    else
-        print_error "✗ Power Platform CLI is not installed"
-        all_good=false
-    fi
+    # Make script executable
+    chmod +x "$script_path"
     
-    # Check GitHub CLI
-    if command -v gh &> /dev/null; then
-        print_success "✓ GitHub CLI is installed"
-        if gh auth status &> /dev/null; then
-            print_success "✓ GitHub CLI is authenticated"
-        else
-            print_error "✗ GitHub CLI is not authenticated. Please run 'gh auth login'"
-            all_good=false
-        fi
-    else
-        print_error "✗ GitHub CLI is not installed"
-        all_good=false
-    fi
-    
-    # Check jq
-    if command -v jq &> /dev/null; then
-        print_success "✓ jq is installed"
-    else
-        print_error "✗ jq is not installed"
-        all_good=false
-    fi
-    
-    # Check openssl (for random generation)
-    if command -v openssl &> /dev/null; then
-        print_success "✓ openssl is installed"
-    else
-        print_error "✗ openssl is not installed"
-        all_good=false
-    fi
-    
-    if [[ "$all_good" != true ]]; then
-        print_error "Prerequisites validation failed. Please install missing tools and try again."
-        exit 1
-    fi
-    
-    print_success "All prerequisites validated successfully"
-    echo ""
-}
-
-# Function to get script directory
-get_script_dir() {
-    local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    echo "$script_dir"
-}
-
-# Function to check if script exists
-check_script() {
-    local script_path="$1"
-    if [[ -f "$script_path" ]]; then
+    # Run the script
+    if "$script_path"; then
+        print_success "✓ $description completed successfully"
         return 0
     else
-        print_error "Script not found: $script_path"
+        print_error "✗ $description failed"
         return 1
     fi
 }
 
-# Function to make scripts executable
-make_scripts_executable() {
-    local script_dir="$1"
+# Function to validate prerequisites
+validate_prerequisites() {
+    print_status "Validating prerequisites..."
     
-    print_status "Making scripts executable..."
+    local errors=0
     
-    chmod +x "$script_dir/01-create-service-principal.sh"
-    chmod +x "$script_dir/02-create-terraform-backend.sh"
-    chmod +x "$script_dir/03-create-github-secrets.sh"
-    
-    print_success "Scripts made executable"
-}
-
-# Function to run script with error handling
-run_script() {
-    local script_path="$1"
-    local script_name="$2"
-    
-    print_step "Running $script_name..."
-    echo ""
-    
-    if [[ -f "$script_path" ]]; then
-        if bash "$script_path"; then
-            print_success "$script_name completed successfully"
-            echo ""
-        else
-            print_error "$script_name failed"
-            exit 1
-        fi
-    else
-        print_error "Script not found: $script_path"
-        exit 1
+    # Check Azure CLI
+    if ! command -v az &> /dev/null; then
+        print_error "Azure CLI is not installed"
+        errors=$((errors + 1))
     fi
+    
+    # Check Power Platform CLI
+    if ! command -v pac &> /dev/null; then
+        print_error "Power Platform CLI is not installed"
+        errors=$((errors + 1))
+    fi
+    
+    # Check GitHub CLI
+    if ! command -v gh &> /dev/null; then
+        print_error "GitHub CLI is not installed"
+        errors=$((errors + 1))
+    fi
+    
+    # Check jq
+    if ! command -v jq &> /dev/null; then
+        print_error "jq is not installed"
+        errors=$((errors + 1))
+    fi
+    
+    if [[ $errors -gt 0 ]]; then
+        print_error "Prerequisites validation failed with $errors errors"
+        print_error "Please install the missing tools and try again"
+        return 1
+    fi
+    
+    print_success "Prerequisites validated successfully"
+    return 0
 }
 
-# Function to prompt for continuation
-prompt_continue() {
-    local message="$1"
-    echo -e "${YELLOW}$message${NC}"
-    echo -n "Press Enter to continue or Ctrl+C to abort..."
-    read -r
-    echo ""
+# Function to check Azure authentication
+check_azure_auth() {
+    print_status "Checking Azure authentication..."
+    
+    if ! az account show &> /dev/null; then
+        print_error "You are not logged in to Azure"
+        print_error "Please run: az login"
+        return 1
+    fi
+    
+    local current_account=$(az account show --query name -o tsv)
+    print_success "Azure authentication confirmed: $current_account"
+    return 0
+}
+
+# Function to check Power Platform authentication
+check_power_platform_auth() {
+    print_status "Checking Power Platform authentication..."
+    
+    if ! pac auth list &> /dev/null; then
+        print_error "You are not logged in to Power Platform"
+        print_error "Please run: pac auth create"
+        print_error "You need Power Platform tenant admin privileges"
+        return 1
+    fi
+    
+    local current_user=$(pac auth list 2>/dev/null | grep '\*' | awk '{print $4}' 2>/dev/null)
+    print_success "Power Platform authentication confirmed: $current_user"
+    return 0
+}
+
+# Function to run the complete setup process
+run_complete_setup() {
+    print_status "Starting complete setup process..."
+    
+    # Step 1: Create Service Principal
+    if ! run_setup_script "01-create-service-principal-config.sh" "Create Azure AD Service Principal with OIDC"; then
+        return 1
+    fi
+    
+    # Step 2: Create Terraform Backend
+    if ! run_setup_script "02-create-terraform-backend-config.sh" "Create Terraform Backend Storage"; then
+        return 1
+    fi
+    
+    # Step 3: Create GitHub Secrets
+    if ! run_setup_script "03-create-github-secrets-config.sh" "Create GitHub Repository Secrets"; then
+        return 1
+    fi
+    
+    return 0
 }
 
 # Function to display final summary
-show_final_summary() {
-    print_header "Setup Complete!"
-    echo ""
-    print_success "🎉 Power Platform Terraform Governance setup completed successfully!"
-    echo ""
-    print_status "What was created:"
-    print_status "  ✓ Azure AD Service Principal with OIDC trust for GitHub"
-    print_status "  ✓ Power Platform registration with tenant admin privileges"
-    print_status "  ✓ Azure Resource Group for Terraform state storage"
-    print_status "  ✓ Azure Storage Account with proper security configuration"
-    print_status "  ✓ GitHub repository secrets for CI/CD authentication"
-    print_status "  ✓ GitHub environment for additional security"
-    echo ""
-    print_status "Next steps:"
-    print_status "  1. Review the created Azure resources in the Azure Portal"
-    print_status "  2. Check the GitHub secrets in your repository settings"
-    print_status "  3. Run the GitHub Actions workflow to deploy your first configuration"
-    print_status "  4. Monitor the workflow execution in the Actions tab"
-    echo ""
-    print_status "Available configurations:"
-    print_status "  - 02-dlp-policy: Data Loss Prevention policies"
-    print_status "  - 03-environment: Power Platform environments"
-    echo ""
-    print_status "Documentation:"
-    print_status "  - Check the configurations/ folder for detailed README files"
-    print_status "  - Review the .github/workflows/ folder for CI/CD configuration"
-    echo ""
-    print_success "Happy governance! 🚀"
+display_final_summary() {
+    print_success ""
+    print_success "==============================================================="
+    print_success "SETUP COMPLETED SUCCESSFULLY!"
+    print_success "==============================================================="
+    print_success ""
+    print_success "What was created:"
+    print_success "  ✓ Azure AD Service Principal with OIDC for GitHub"
+    print_success "  ✓ Terraform backend storage with JIT network access"
+    print_success "  ✓ GitHub repository secrets for CI/CD"
+    print_success ""
+    print_success "Configuration used:"
+    print_success "  • GitHub Repository: $GITHUB_OWNER/$GITHUB_REPO"
+    print_success "  • Resource Group: $RESOURCE_GROUP_NAME"
+    print_success "  • Storage Account: $STORAGE_ACCOUNT_NAME"
+    print_success "  • Container: $CONTAINER_NAME"
+    print_success ""
+    print_success "Next steps:"
+    print_success "  1. Go to: https://github.com/$GITHUB_OWNER/$GITHUB_REPO"
+    print_success "  2. Navigate to the Actions tab"
+    print_success "  3. Run the 'Terraform Plan and Apply' workflow"
+    print_success "  4. Select your configuration and environment"
+    print_success ""
+    print_success "The Power Platform Terraform governance is now ready for use!"
+    print_success ""
+    print_status "Configuration file: $SCRIPT_DIR/config.env"
+    print_status "This file is excluded from version control for security."
 }
 
-# Function to handle script interruption
-cleanup() {
-    print_warning "Setup interrupted by user"
-    print_status "You can resume the setup by running this script again"
-    print_status "Already completed steps will be skipped automatically"
-    exit 1
+# Function to handle errors and cleanup
+handle_error() {
+    local exit_code=$?
+    
+    if [[ $exit_code -ne 0 ]]; then
+        print_error ""
+        print_error "==============================================================="
+        print_error "SETUP FAILED"
+        print_error "==============================================================="
+        print_error ""
+        print_error "The setup process failed at step: $1"
+        print_error "Exit code: $exit_code"
+        print_error ""
+        print_error "Troubleshooting:"
+        print_error "  • Check the error messages above"
+        print_error "  • Verify your configuration in: $SCRIPT_DIR/config.env"
+        print_error "  • Ensure you have the required permissions"
+        print_error "  • Run individual scripts manually if needed"
+        print_error ""
+        print_error "You can resume setup by running this script again."
+        print_error "Already completed steps will be skipped or updated."
+    fi
 }
 
-# Main execution function
+# Main function
 main() {
-    # Set up signal handlers
-    trap cleanup SIGINT SIGTERM
+    # Set up error handling
+    trap 'handle_error "unknown"' EXIT
     
-    # Get script directory
-    local script_dir
-    script_dir="$(get_script_dir)"
+    # Display header
+    display_header
     
-    # Show banner
-    show_banner
-    
-    # Ask for confirmation before starting
-    echo -n "Do you want to proceed with the complete setup? (y/N): "
-    read -r CONFIRM
-    if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
-        print_error "Setup cancelled by user"
+    # Initialize configuration
+    if ! init_config; then
         exit 1
     fi
-    echo ""
+    
+    # Confirm configuration with user
+    if ! confirm_config; then
+        exit 1
+    fi
     
     # Validate prerequisites
-    validate_prerequisites
+    if ! validate_prerequisites; then
+        exit 1
+    fi
     
-    # Make scripts executable
-    make_scripts_executable "$script_dir"
+    # Check authentication
+    if ! check_azure_auth; then
+        exit 1
+    fi
     
-    # Step 1: Create Service Principal
-    print_header "Step 1: Create Service Principal with OIDC"
-    print_status "This step will create an Azure AD Service Principal with OIDC trust for GitHub"
-    print_status "and register it with Power Platform for tenant admin access."
-    prompt_continue "Make sure you have both Azure and Power Platform admin privileges."
+    if ! check_power_platform_auth; then
+        exit 1
+    fi
     
-    run_script "$script_dir/01-create-service-principal.sh" "Service Principal Creation"
+    # Run complete setup
+    if ! run_complete_setup; then
+        exit 1
+    fi
     
-    # Step 2: Create Terraform Backend
-    print_header "Step 2: Create Terraform Backend Resources"
-    print_status "This step will create Azure resources for storing Terraform state files"
-    print_status "including Resource Group, Storage Account, and Container."
-    prompt_continue "This will create billable Azure resources."
+    # Display final summary
+    display_final_summary
     
-    run_script "$script_dir/02-create-terraform-backend.sh" "Terraform Backend Creation"
+    # Disable error trap on successful completion
+    trap - EXIT
     
-    # Step 3: Create GitHub Secrets
-    print_header "Step 3: Create GitHub Secrets"
-    print_status "This step will create all required GitHub secrets for the CI/CD workflow"
-    print_status "including Azure credentials and Terraform backend configuration."
-    prompt_continue "Make sure you have admin access to the GitHub repository."
-    
-    run_script "$script_dir/03-create-github-secrets.sh" "GitHub Secrets Creation"
-    
-    # Show final summary
-    show_final_summary
+    print_success "Setup script completed successfully!"
 }
 
 # Run the main function

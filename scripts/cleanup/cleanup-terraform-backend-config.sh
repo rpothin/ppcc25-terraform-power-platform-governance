@@ -2,14 +2,16 @@
 # ==============================================================================
 # Cleanup Azure Resources for Terraform Backend
 # ==============================================================================
-# This script removes the Azure resources created for Terraform state storage:
-# - Storage Container
-# - Storage Account
-# - Resource Group (optional)
-# WARNING: This will permanently delete all Terraform state files!
+# Configuration-driven version that uses config.env for streamlined cleanup
 # ==============================================================================
 
 set -e  # Exit on any error
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Source the configuration loader from setup directory
+source "$SCRIPT_DIR/../setup/config-loader.sh"
 
 # Colors for output
 RED='\033[0;31m'
@@ -35,7 +37,7 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# Function to validate required tools
+# Function to validate prerequisites
 validate_prerequisites() {
     print_status "Validating prerequisites..."
     
@@ -60,31 +62,9 @@ validate_prerequisites() {
     print_success "Prerequisites validated successfully"
 }
 
-# Function to get user input with validation
-get_user_input() {
-    print_status "Gathering cleanup configuration information..."
-    
-    # Get resource group name
-    echo -n "Enter resource group name (default: rg-terraform-powerplatform-governance): "
-    read -r RESOURCE_GROUP_NAME
-    if [[ -z "$RESOURCE_GROUP_NAME" ]]; then
-        RESOURCE_GROUP_NAME="rg-terraform-powerplatform-governance"
-    fi
-    
-    # Get storage account name
-    echo -n "Enter storage account name (from previous setup): "
-    read -r STORAGE_ACCOUNT_NAME
-    if [[ -z "$STORAGE_ACCOUNT_NAME" ]]; then
-        print_error "Storage account name is required for cleanup"
-        exit 1
-    fi
-    
-    # Get container name
-    echo -n "Enter container name (default: terraform-state): "
-    read -r CONTAINER_NAME
-    if [[ -z "$CONTAINER_NAME" ]]; then
-        CONTAINER_NAME="terraform-state"
-    fi
+# Function to get additional user input
+get_additional_input() {
+    print_status "Additional cleanup options..."
     
     # Ask if user wants to delete the entire resource group
     echo -n "Delete entire resource group? This will remove ALL resources in the group (y/n, default: n): "
@@ -105,20 +85,6 @@ get_user_input() {
     print_warning "  - The storage account"
     if [[ "$DELETE_RESOURCE_GROUP" == "y" || "$DELETE_RESOURCE_GROUP" == "Y" ]]; then
         print_warning "  - The entire resource group and ALL its resources"
-    fi
-    
-    echo -n "Are you sure you want to proceed? (y/n): "
-    read -r CONFIRM
-    if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
-        print_error "Cleanup cancelled by user"
-        exit 1
-    fi
-    
-    echo -n "Type 'DELETE' to confirm: "
-    read -r DELETE_CONFIRM
-    if [[ "$DELETE_CONFIRM" != "DELETE" ]]; then
-        print_error "Cleanup cancelled - confirmation not received"
-        exit 1
     fi
 }
 
@@ -172,8 +138,10 @@ cleanup_deployment_history() {
         print_status "No deployment history found to clean up"
     fi
 }
-delete_storage_account_avm() {
-    print_status "Deleting AVM-deployed storage account and container: $STORAGE_ACCOUNT_NAME"
+
+# Function to delete storage account
+delete_storage_account() {
+    print_status "Deleting storage account and container: $STORAGE_ACCOUNT_NAME"
     
     # Check if storage account exists
     if ! az storage account show --name "$STORAGE_ACCOUNT_NAME" --resource-group "$RESOURCE_GROUP_NAME" &> /dev/null; then
@@ -181,35 +149,6 @@ delete_storage_account_avm() {
         return 0
     fi
     
-    # Create a temporary directory for Bicep cleanup
-    TEMP_DIR=$(mktemp -d)
-    BICEP_FILE="$TEMP_DIR/cleanup-storage-account.bicep"
-    
-    # Create a simple Bicep file to clean up the storage account
-    cat > "$BICEP_FILE" << 'EOF'
-@description('Name of the Storage Account to delete.')
-param storageAccountName string
-
-@description('Location for the deployment.')
-param location string = resourceGroup().location
-
-// This will effectively remove the storage account by not deploying anything
-// The actual deletion will be handled by the Azure CLI command
-resource placeholder 'Microsoft.Resources/deployments@2022-09-01' = {
-  name: 'placeholder-${utcNow()}'
-  properties: {
-    mode: 'Incremental'
-    template: {
-      '$schema': 'https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#'
-      contentVersion: '1.0.0.0'
-      resources: []
-    }
-  }
-}
-
-output message string = 'Storage account ${storageAccountName} will be deleted via Azure CLI'
-EOF
-
     # First, try to delete the container if it exists
     print_status "Attempting to delete container: $CONTAINER_NAME"
     if az storage container delete \
@@ -231,13 +170,8 @@ EOF
         print_success "Storage account deleted successfully"
     else
         print_error "Failed to delete storage account"
-        # Clean up temp files
-        rm -rf "$TEMP_DIR"
         exit 1
     fi
-    
-    # Clean up temp files
-    rm -rf "$TEMP_DIR"
 }
 
 # Function to delete resource group
@@ -293,6 +227,34 @@ verify_cleanup() {
     print_success "Cleanup verification completed"
 }
 
+# Function to update configuration file
+update_config() {
+    print_status "Updating configuration file..."
+    
+    local config_file="$SCRIPT_DIR/../setup/config.env"
+    
+    if [[ -f "$config_file" ]]; then
+        # Create a backup
+        cp "$config_file" "${config_file}.backup"
+        
+        # If resource group was deleted, remove it from config too
+        if [[ "$DELETE_RESOURCE_GROUP" == "y" || "$DELETE_RESOURCE_GROUP" == "Y" ]]; then
+            sed -i '/^RESOURCE_GROUP_NAME=/d' "$config_file"
+            sed -i '/^STORAGE_ACCOUNT_NAME=/d' "$config_file"
+            sed -i '/^CONTAINER_NAME=/d' "$config_file"
+            print_success "✓ Removed backend configuration from config file"
+        else
+            # Just remove storage account name to indicate it needs to be recreated
+            sed -i '/^STORAGE_ACCOUNT_NAME=/d' "$config_file"
+            print_success "✓ Removed storage account name from config file"
+        fi
+        
+        print_status "Configuration backup saved as: ${config_file}.backup"
+    else
+        print_warning "Configuration file not found: $config_file"
+    fi
+}
+
 # Function to output cleanup summary
 output_cleanup_summary() {
     print_success "Terraform backend cleanup completed!"
@@ -309,7 +271,27 @@ output_cleanup_summary() {
     print_warning "IMPORTANT: All Terraform state files have been permanently deleted!"
     print_warning "You will need to re-import any existing resources if you recreate the backend."
     print_status ""
-    print_status "If you need to recreate the backend, run: 02-create-terraform-backend.sh"
+    print_status "If you need to recreate the backend, run: ./setup.sh"
+}
+
+# Function to clean up variables from environment
+cleanup_vars() {
+    print_status "Cleaning up variables from memory..."
+    
+    # Clear variables
+    unset RESOURCE_GROUP_NAME
+    unset STORAGE_ACCOUNT_NAME
+    unset CONTAINER_NAME
+    unset DELETE_RESOURCE_GROUP
+    unset CONFIRM
+    unset DELETE_CONFIRM
+    
+    # Clear bash history of this session (if running interactively)
+    if [[ $- == *i* ]]; then
+        history -c 2>/dev/null || true
+    fi
+    
+    print_success "Variables cleared from memory"
 }
 
 # Main execution
@@ -317,16 +299,59 @@ main() {
     print_status "Starting Terraform backend cleanup for Power Platform governance..."
     print_status "======================================================================"
     
+    # Set up trap to clean up on exit
+    trap cleanup_vars EXIT
+    
+    # Initialize configuration
+    if ! init_config "$SCRIPT_DIR/../setup/config.env"; then
+        print_error "Failed to load configuration"
+        exit 1
+    fi
+    
+    # Display configuration summary
+    print_status "Configuration Summary:"
+    print_status "  Resource Group: $RESOURCE_GROUP_NAME"
+    print_status "  Storage Account: $STORAGE_ACCOUNT_NAME"
+    print_status "  Container: $CONTAINER_NAME"
+    print_status "  Location: $LOCATION"
+    
+    # Validate prerequisites
     validate_prerequisites
-    get_user_input
+    
+    # Get additional user input
+    get_additional_input
+    
+    # Confirm cleanup
+    echo -n "Are you sure you want to proceed? (y/n): "
+    read -r CONFIRM
+    if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
+        print_error "Cleanup cancelled by user"
+        exit 1
+    fi
+    
+    echo -n "Type 'DELETE' to confirm: "
+    read -r DELETE_CONFIRM
+    if [[ "$DELETE_CONFIRM" != "DELETE" ]]; then
+        print_error "Cleanup cancelled - confirmation not received"
+        exit 1
+    fi
+    
+    # Perform cleanup
     list_terraform_state_files
     cleanup_deployment_history
-    delete_storage_account_avm
+    delete_storage_account
     delete_resource_group
     verify_cleanup
+    update_config
     output_cleanup_summary
     
+    # Clean up variables
+    cleanup_vars
+    
     print_success "Cleanup script completed successfully!"
+    
+    # Disable trap since we're cleaning up manually
+    trap - EXIT
 }
 
 # Run the main function

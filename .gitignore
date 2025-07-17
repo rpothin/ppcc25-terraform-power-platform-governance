@@ -8,6 +8,11 @@
 tfplan
 *.log
 
+# Environment configuration files (sensitive)
+*.env
+*.env.*
+!*.env.example
+
 # IDE files
 .vscode/
 .idea/

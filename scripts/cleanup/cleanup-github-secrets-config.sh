@@ -2,12 +2,16 @@
 # ==============================================================================
 # Cleanup GitHub Secrets for Terraform Power Platform Governance
 # ==============================================================================
-# This script removes all GitHub secrets created by the 03-create-github-secrets.sh
-# script. It uses the GitHub CLI to securely remove the secrets from the repository.
+# Configuration-driven version that uses config.env for streamlined cleanup
 # ==============================================================================
 
 # Note: Not using set -e here to allow graceful handling of partial failures
-# set -e  # Exit on any error
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Source the configuration loader from setup directory
+source "$SCRIPT_DIR/../setup/config-loader.sh"
 
 # Colors for output
 RED='\033[0;31m'
@@ -33,7 +37,7 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# Function to validate required tools
+# Function to validate prerequisites
 validate_prerequisites() {
     print_status "Validating prerequisites..."
     
@@ -63,36 +67,6 @@ test_github_secrets_access() {
     fi
 }
 
-# Function to authenticate with GitHub
-authenticate_github() {
-    print_status "Checking GitHub authentication..."
-    
-    # First, check if user is logged in to GitHub at all
-    if ! gh auth status &> /dev/null; then
-        print_status "Not logged in to GitHub. Authentication required."
-        perform_github_login
-        return $?
-    fi
-    
-    # Check if we have the repo scope needed for secrets by testing a simple API call
-    if gh auth status --show-token &> /dev/null; then
-        # Test if we can actually use the current token for API operations
-        print_status "Testing GitHub authentication with current token..."
-        
-        if gh api user --silent &> /dev/null; then
-            print_success "GitHub authentication verified and working"
-            return 0
-        else
-            print_warning "Current GitHub token has insufficient permissions"
-        fi
-    fi
-    
-    # If we get here, we need to re-authenticate
-    print_status "GitHub re-authentication required for secrets management..."
-    perform_github_login
-    return $?
-}
-
 # Function to perform GitHub login
 perform_github_login() {
     print_status "🔐 Authenticating with GitHub (this will open your browser)..."
@@ -118,65 +92,52 @@ perform_github_login() {
     fi
 }
 
-# Function to get user input with validation
-get_user_input() {
-    print_status "Gathering repository information..."
+# Function to authenticate with GitHub
+authenticate_github() {
+    print_status "Checking GitHub authentication..."
     
-    # Get GitHub repository information
-    echo -n "Enter GitHub repository (owner/repo format): "
-    read -r GITHUB_REPOSITORY
-    if [[ -z "$GITHUB_REPOSITORY" ]]; then
-        print_error "GitHub repository cannot be empty"
-        return 1
+    # First, check if user is logged in to GitHub at all
+    if ! gh auth status &> /dev/null; then
+        print_status "Not logged in to GitHub. Authentication required."
+        perform_github_login
+        return $?
     fi
     
-    # Validate repository format
-    if [[ ! "$GITHUB_REPOSITORY" =~ ^[^/]+/[^/]+$ ]]; then
-        print_error "Repository must be in owner/repo format"
-        return 1
+    # Check if we have the repo scope needed for secrets
+    if gh auth status --show-token &> /dev/null; then
+        print_status "Testing GitHub authentication with current token..."
+        
+        if gh api user --silent &> /dev/null; then
+            print_success "GitHub authentication verified and working"
+            return 0
+        else
+            print_warning "Current GitHub token has insufficient permissions"
+        fi
     fi
     
-    # Split repository into owner and repo
-    GITHUB_OWNER=$(echo "$GITHUB_REPOSITORY" | cut -d'/' -f1)
-    GITHUB_REPO=$(echo "$GITHUB_REPOSITORY" | cut -d'/' -f2)
-    
-    print_status "Repository: $GITHUB_REPOSITORY"
-    
-    # Warning confirmation
-    print_warning "⚠️  This will permanently remove all Power Platform Terraform secrets from the repository!"
-    print_warning "This action cannot be undone. Make sure you have saved any necessary values."
-    print_status ""
-    
-    echo -n "Are you sure you want to continue? (y/n): "
-    read -r CONFIRM
-    if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
-        print_error "Cleanup cancelled by user"
-        return 1
-    fi
-    
-    echo -n "Type 'DELETE' to confirm secret removal: "
-    read -r DELETE_CONFIRM
-    if [[ "$DELETE_CONFIRM" != "DELETE" ]]; then
-        print_error "Cleanup cancelled - confirmation not received"
-        return 1
-    fi
+    # If we get here, we need to re-authenticate
+    print_status "GitHub re-authentication required for secrets management..."
+    perform_github_login
+    return $?
 }
 
 # Function to verify repository access
 verify_repository_access() {
     print_status "Verifying repository access..."
     
+    local github_repository="$GITHUB_OWNER/$GITHUB_REPO"
+    
     # Check if repository exists and user has access
-    if gh repo view "$GITHUB_REPOSITORY" &> /dev/null; then
+    if gh repo view "$github_repository" &> /dev/null; then
         print_success "Repository access verified"
     else
-        print_error "Cannot access repository $GITHUB_REPOSITORY"
+        print_error "Cannot access repository $github_repository"
         print_error "Please ensure the repository exists and you have admin access"
         return 1
     fi
     
     # Check if user has admin access (required for secrets)
-    PERMISSION=$(gh api "repos/$GITHUB_REPOSITORY" --jq '.permissions.admin' 2>/dev/null)
+    PERMISSION=$(gh api "repos/$github_repository" --jq '.permissions.admin' 2>/dev/null)
     if [[ "$PERMISSION" != "true" ]]; then
         print_error "You need admin access to the repository to manage secrets"
         return 1
@@ -185,12 +146,12 @@ verify_repository_access() {
     print_success "Admin access confirmed"
     
     # Test secrets access specifically
-    if ! test_github_secrets_access "$GITHUB_REPOSITORY"; then
+    if ! test_github_secrets_access "$github_repository"; then
         print_warning "Secrets access test failed. Attempting re-authentication..."
         
         if perform_github_login; then
             # Test again after re-authentication
-            if test_github_secrets_access "$GITHUB_REPOSITORY"; then
+            if test_github_secrets_access "$github_repository"; then
                 print_success "Secrets access restored after re-authentication"
             else
                 print_error "Secrets access still failed after re-authentication"
@@ -209,8 +170,10 @@ verify_repository_access() {
 list_existing_secrets() {
     print_status "Checking existing secrets..."
     
+    local github_repository="$GITHUB_OWNER/$GITHUB_REPO"
+    
     # Get list of existing secrets
-    EXISTING_SECRETS=$(gh secret list --repo "$GITHUB_REPOSITORY" --json name --jq '.[].name')
+    EXISTING_SECRETS=$(gh secret list --repo "$github_repository" --json name --jq '.[].name')
     
     if [[ -z "$EXISTING_SECRETS" ]]; then
         print_warning "No secrets found in repository"
@@ -230,6 +193,8 @@ list_existing_secrets() {
 # Function to remove Power Platform secrets
 remove_secrets() {
     print_status "Removing Power Platform Terraform secrets..."
+    
+    local github_repository="$GITHUB_OWNER/$GITHUB_REPO"
     
     # Array of secrets to remove (same as created by create-github-secrets.sh)
     SECRETS_TO_REMOVE=(
@@ -253,12 +218,12 @@ remove_secrets() {
         print_status "Removing secret: $secret_name"
         
         # Try to remove the secret
-        if gh secret delete "$secret_name" --repo "$GITHUB_REPOSITORY" 2>/dev/null; then
+        if gh secret delete "$secret_name" --repo "$github_repository" 2>/dev/null; then
             print_success "✓ Secret $secret_name removed successfully"
             ((REMOVED_COUNT++))
         else
             # Check if secret exists to determine if it's a failure or not found
-            EXISTING_SECRETS_CHECK=$(gh secret list --repo "$GITHUB_REPOSITORY" --json name --jq '.[].name' 2>/dev/null || echo "")
+            EXISTING_SECRETS_CHECK=$(gh secret list --repo "$github_repository" --json name --jq '.[].name' 2>/dev/null || echo "")
             
             if echo "$EXISTING_SECRETS_CHECK" | grep -q "^$secret_name$" 2>/dev/null; then
                 print_error "✗ Failed to remove secret $secret_name"
@@ -294,8 +259,10 @@ remove_secrets() {
 verify_removal() {
     print_status "Verifying secrets were removed..."
     
+    local github_repository="$GITHUB_OWNER/$GITHUB_REPO"
+    
     # Get current secrets
-    CURRENT_SECRETS=$(gh secret list --repo "$GITHUB_REPOSITORY" --json name --jq '.[].name')
+    CURRENT_SECRETS=$(gh secret list --repo "$github_repository" --json name --jq '.[].name')
     
     # Check if any Power Platform secrets still exist
     REMAINING_SECRETS=(
@@ -329,14 +296,16 @@ verify_removal() {
 remove_github_environment() {
     print_status "Checking for GitHub environment..."
     
+    local github_repository="$GITHUB_OWNER/$GITHUB_REPO"
+    
     # Check if production environment exists
-    if gh api "repos/$GITHUB_REPOSITORY/environments/production" &> /dev/null; then
+    if gh api "repos/$github_repository/environments/production" &> /dev/null; then
         print_status "Found production environment"
         
         echo -n "Do you want to remove the production environment as well? (y/n): "
         read -r REMOVE_ENV
         if [[ "$REMOVE_ENV" == "y" || "$REMOVE_ENV" == "Y" ]]; then
-            if gh api "repos/$GITHUB_REPOSITORY/environments/production" --method DELETE &> /dev/null; then
+            if gh api "repos/$github_repository/environments/production" --method DELETE &> /dev/null; then
                 print_success "Production environment removed"
             else
                 print_warning "Failed to remove production environment (this is optional)"
@@ -363,11 +332,13 @@ output_instructions() {
     print_status "  ✓ TERRAFORM_STORAGE_ACCOUNT"
     print_status "  ✓ TERRAFORM_CONTAINER"
     print_status ""
+    print_status "Repository: $GITHUB_OWNER/$GITHUB_REPO"
+    print_status ""
     print_status "SECURITY NOTICE: All Power Platform Terraform secrets have been"
     print_status "permanently removed from the GitHub repository."
     print_status ""
     print_status "Next Steps:"
-    print_status "1. If you plan to use this repository again, run 03-create-github-secrets.sh"
+    print_status "1. If you plan to use this repository again, run: ./setup.sh"
     print_status "2. Any existing GitHub Actions workflows will fail until secrets are recreated"
     print_status "3. Consider cleaning up the Azure Service Principal if no longer needed"
     print_status "4. Consider cleaning up the Terraform backend storage if no longer needed"
@@ -377,10 +348,14 @@ output_instructions() {
 
 # Function to clean up variables from environment
 cleanup_vars() {
+    # Prevent double cleanup
+    if [[ "${CLEANUP_DONE:-}" == "true" ]]; then
+        return 0
+    fi
+    
     print_status "Cleaning up variables from memory..."
     
     # Clear variables
-    unset GITHUB_REPOSITORY
     unset GITHUB_OWNER
     unset GITHUB_REPO
     unset CONFIRM
@@ -389,8 +364,11 @@ cleanup_vars() {
     
     # Clear bash history of this session (if running interactively)
     if [[ $- == *i* ]]; then
-        history -c
+        history -c 2>/dev/null || true
     fi
+    
+    # Mark cleanup as done
+    CLEANUP_DONE=true
     
     print_success "Variables cleared from memory"
 }
@@ -402,6 +380,16 @@ main() {
     
     # Set up trap to clean up on exit
     trap cleanup_vars EXIT
+    
+    # Initialize configuration
+    if ! init_config "$SCRIPT_DIR/../setup/config.env"; then
+        print_error "Failed to load configuration"
+        exit 1
+    fi
+    
+    # Display configuration summary
+    print_status "Configuration Summary:"
+    print_status "  GitHub Repository: $GITHUB_OWNER/$GITHUB_REPO"
     
     # Validate prerequisites
     if ! validate_prerequisites; then
@@ -415,16 +403,29 @@ main() {
         return 1
     fi
     
-    # Get user input
-    if ! get_user_input; then
-        print_error "User input validation failed"
-        return 1
-    fi
-    
     # Verify repository access
     if ! verify_repository_access; then
         print_error "Repository access verification failed"
         return 1
+    fi
+    
+    # Confirm cleanup
+    print_warning "⚠️  This will permanently remove all Power Platform Terraform secrets from the repository!"
+    print_warning "This action cannot be undone. Make sure you have saved any necessary values."
+    print_status ""
+    
+    echo -n "Are you sure you want to continue? (y/n): "
+    read -r CONFIRM
+    if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
+        print_error "Cleanup cancelled by user"
+        exit 1
+    fi
+    
+    echo -n "Type 'DELETE' to confirm secret removal: "
+    read -r DELETE_CONFIRM
+    if [[ "$DELETE_CONFIRM" != "DELETE" ]]; then
+        print_error "Cleanup cancelled - confirmation not received"
+        exit 1
     fi
     
     # Check if there are any secrets to remove
@@ -440,6 +441,10 @@ main() {
     cleanup_vars
     
     print_success "Cleanup script completed successfully!"
+    
+    # Disable trap since we're cleaning up manually
+    trap - EXIT
+    
     return 0
 }
 

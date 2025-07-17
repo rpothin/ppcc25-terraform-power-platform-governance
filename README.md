@@ -21,6 +21,46 @@ The repository provides practical examples and reusable patterns to help organiz
 - **Best practices** for enterprise Power Platform governance
 - **Integration scenarios** with Azure
 
+## 🚀 Quick Start
+
+### 1. Setup Infrastructure
+
+The fastest way to get started is using the configuration-driven setup:
+
+```bash
+# Navigate to setup scripts
+cd scripts/setup
+
+# Copy configuration template
+cp config.env.example config.env
+
+# Edit with your values (only GitHub owner/repo required)
+vim config.env
+
+# Run complete setup
+./setup.sh
+```
+
+This will automatically:
+- ✅ Create Azure AD Service Principal with OIDC
+- ✅ Create Terraform backend storage with JIT access
+- ✅ Create GitHub repository secrets
+- ✅ Configure everything for CI/CD
+
+### 2. Deploy Power Platform Governance
+
+After setup, go to your GitHub repository and run the **Terraform Plan and Apply** workflow:
+
+1. Navigate to **Actions** tab
+2. Select **Terraform Plan and Apply** workflow
+3. Choose your configuration (e.g., `02-dlp-policy`)
+4. Select your tfvars file (e.g., `dlp-finance`)
+5. Click **Run workflow**
+
+### Alternative: Manual Setup
+
+If you prefer step-by-step setup, see the [setup documentation](scripts/setup/README.md).
+
 ## 📋 Prerequisites
 
 Before using this repository, ensure you have:

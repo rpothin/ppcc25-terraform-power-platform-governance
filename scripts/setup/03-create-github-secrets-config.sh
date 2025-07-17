@@ -2,12 +2,16 @@
 # ==============================================================================
 # Create GitHub Secrets for Terraform Power Platform Governance
 # ==============================================================================
-# This script creates all the required GitHub secrets for running the
-# Terraform plan and apply workflow. It uses the GitHub CLI to securely
-# store the secrets in the repository.
+# Configuration-driven version that uses config.env for streamlined setup
 # ==============================================================================
 
 set -e  # Exit on any error
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Source the configuration loader
+source "$SCRIPT_DIR/config-loader.sh"
 
 # Colors for output
 RED='\033[0;31m'
@@ -33,7 +37,7 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# Function to validate required tools
+# Function to validate prerequisites
 validate_prerequisites() {
     print_status "Validating prerequisites..."
     
@@ -44,6 +48,13 @@ validate_prerequisites() {
         exit 1
     fi
     
+    # Check if required configuration values are set
+    if [[ -z "$AZURE_CLIENT_ID" ]]; then
+        print_error "AZURE_CLIENT_ID not found in configuration"
+        print_error "Please run previous setup scripts first"
+        exit 1
+    fi
+    
     print_success "Prerequisites validated successfully"
 }
 
@@ -51,7 +62,6 @@ validate_prerequisites() {
 test_github_secrets_access() {
     local test_repo="$1"
     
-    # Try to list secrets from the repository to test access
     print_status "Testing secrets access for repository: $test_repo"
     
     if gh secret list --repo "$test_repo" --json name &> /dev/null; then
@@ -99,9 +109,8 @@ authenticate_github() {
         return $?
     fi
     
-    # Check if we have the repo scope needed for secrets by testing a simple API call
+    # Check if we have the repo scope needed for secrets
     if gh auth status --show-token &> /dev/null; then
-        # Test if we can actually use the current token for API operations
         print_status "Testing GitHub authentication with current token..."
         
         if gh api user --silent &> /dev/null; then
@@ -118,104 +127,23 @@ authenticate_github() {
     return $?
 }
 
-# Function to get user input with validation
-get_user_input() {
-    print_status "Gathering configuration information..."
-    
-    # Get GitHub repository information
-    echo -n "Enter GitHub repository (owner/repo format): "
-    read -r GITHUB_REPOSITORY
-    if [[ -z "$GITHUB_REPOSITORY" ]]; then
-        print_error "GitHub repository cannot be empty"
-        exit 1
-    fi
-    
-    # Validate repository format
-    if [[ ! "$GITHUB_REPOSITORY" =~ ^[^/]+/[^/]+$ ]]; then
-        print_error "Repository must be in owner/repo format"
-        exit 1
-    fi
-    
-    # Split repository into owner and repo
-    GITHUB_OWNER=$(echo "$GITHUB_REPOSITORY" | cut -d'/' -f1)
-    GITHUB_REPO=$(echo "$GITHUB_REPOSITORY" | cut -d'/' -f2)
-    
-    # Get Azure information
-    echo -n "Enter Azure Client ID (Service Principal): "
-    read -r AZURE_CLIENT_ID
-    if [[ -z "$AZURE_CLIENT_ID" ]]; then
-        print_error "Azure Client ID cannot be empty"
-        exit 1
-    fi
-    
-    echo -n "Enter Azure Tenant ID: "
-    read -r AZURE_TENANT_ID
-    if [[ -z "$AZURE_TENANT_ID" ]]; then
-        print_error "Azure Tenant ID cannot be empty"
-        exit 1
-    fi
-    
-    echo -n "Enter Azure Subscription ID: "
-    read -r AZURE_SUBSCRIPTION_ID
-    if [[ -z "$AZURE_SUBSCRIPTION_ID" ]]; then
-        print_error "Azure Subscription ID cannot be empty"
-        exit 1
-    fi
-    
-    # Get Terraform backend information
-    echo -n "Enter Terraform Resource Group Name: "
-    read -r TERRAFORM_RESOURCE_GROUP
-    if [[ -z "$TERRAFORM_RESOURCE_GROUP" ]]; then
-        print_error "Terraform Resource Group cannot be empty"
-        exit 1
-    fi
-    
-    echo -n "Enter Terraform Storage Account Name: "
-    read -r TERRAFORM_STORAGE_ACCOUNT
-    if [[ -z "$TERRAFORM_STORAGE_ACCOUNT" ]]; then
-        print_error "Terraform Storage Account cannot be empty"
-        exit 1
-    fi
-    
-    echo -n "Enter Terraform Container Name: "
-    read -r TERRAFORM_CONTAINER
-    if [[ -z "$TERRAFORM_CONTAINER" ]]; then
-        print_error "Terraform Container cannot be empty"
-        exit 1
-    fi
-    
-    print_status "Configuration:"
-    print_status "  GitHub Repository: $GITHUB_REPOSITORY"
-    print_status "  Azure Client ID: [REDACTED - will be stored securely]"
-    print_status "  Azure Tenant ID: [REDACTED - will be stored securely]"
-    print_status "  Azure Subscription ID: [REDACTED - will be stored securely]"
-    print_status "  Terraform Resource Group: $TERRAFORM_RESOURCE_GROUP"
-    print_status "  Terraform Storage Account: $TERRAFORM_STORAGE_ACCOUNT"
-    print_status "  Terraform Container: $TERRAFORM_CONTAINER"
-    
-    echo -n "Continue with this configuration? (y/n): "
-    read -r CONFIRM
-    if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
-        print_error "Setup cancelled by user"
-        exit 1
-    fi
-}
-
 # Function to verify repository access
 verify_repository_access() {
     print_status "Verifying repository access..."
     
+    local github_repository="$GITHUB_OWNER/$GITHUB_REPO"
+    
     # Check if repository exists and user has access
-    if gh repo view "$GITHUB_REPOSITORY" &> /dev/null; then
+    if gh repo view "$github_repository" &> /dev/null; then
         print_success "Repository access verified"
     else
-        print_error "Cannot access repository $GITHUB_REPOSITORY"
+        print_error "Cannot access repository $github_repository"
         print_error "Please ensure the repository exists and you have admin access"
         exit 1
     fi
     
     # Check if user has admin access (required for secrets)
-    PERMISSION=$(gh api "repos/$GITHUB_REPOSITORY" --jq '.permissions.admin' 2>/dev/null)
+    PERMISSION=$(gh api "repos/$github_repository" --jq '.permissions.admin' 2>/dev/null)
     if [[ "$PERMISSION" != "true" ]]; then
         print_error "You need admin access to the repository to create secrets"
         exit 1
@@ -224,12 +152,12 @@ verify_repository_access() {
     print_success "Admin access confirmed"
     
     # Test secrets access specifically
-    if ! test_github_secrets_access "$GITHUB_REPOSITORY"; then
+    if ! test_github_secrets_access "$github_repository"; then
         print_warning "Secrets access test failed. Attempting re-authentication..."
         
         if perform_github_login; then
             # Test again after re-authentication
-            if test_github_secrets_access "$GITHUB_REPOSITORY"; then
+            if test_github_secrets_access "$github_repository"; then
                 print_success "Secrets access restored after re-authentication"
             else
                 print_error "Secrets access still failed after re-authentication"
@@ -246,6 +174,8 @@ verify_repository_access() {
 create_github_secrets() {
     print_status "Creating GitHub secrets..."
     
+    local github_repository="$GITHUB_OWNER/$GITHUB_REPO"
+    
     # Array of secrets to create
     declare -A SECRETS=(
         ["AZURE_CLIENT_ID"]="$AZURE_CLIENT_ID"
@@ -253,9 +183,9 @@ create_github_secrets() {
         ["AZURE_SUBSCRIPTION_ID"]="$AZURE_SUBSCRIPTION_ID"
         ["POWER_PLATFORM_CLIENT_ID"]="$AZURE_CLIENT_ID"
         ["POWER_PLATFORM_TENANT_ID"]="$AZURE_TENANT_ID"
-        ["TERRAFORM_RESOURCE_GROUP"]="$TERRAFORM_RESOURCE_GROUP"
-        ["TERRAFORM_STORAGE_ACCOUNT"]="$TERRAFORM_STORAGE_ACCOUNT"
-        ["TERRAFORM_CONTAINER"]="$TERRAFORM_CONTAINER"
+        ["TERRAFORM_RESOURCE_GROUP"]="$RESOURCE_GROUP_NAME"
+        ["TERRAFORM_STORAGE_ACCOUNT"]="$STORAGE_ACCOUNT_NAME"
+        ["TERRAFORM_CONTAINER"]="$CONTAINER_NAME"
     )
     
     # Create each secret
@@ -264,8 +194,8 @@ create_github_secrets() {
         
         print_status "Creating secret: $secret_name"
         
-        # Create or update the secret securely (value is not logged)
-        if echo "$secret_value" | gh secret set "$secret_name" --repo "$GITHUB_REPOSITORY" 2>/dev/null; then
+        # Create or update the secret securely
+        if echo "$secret_value" | gh secret set "$secret_name" --repo "$github_repository" 2>/dev/null; then
             print_success "✓ Secret $secret_name created successfully"
         else
             print_error "✗ Failed to create secret $secret_name"
@@ -275,17 +205,16 @@ create_github_secrets() {
     
     # Clear sensitive variables from memory
     unset SECRETS
-    unset AZURE_CLIENT_ID
-    unset AZURE_TENANT_ID  
-    unset AZURE_SUBSCRIPTION_ID
 }
 
 # Function to verify secrets were created
 verify_secrets() {
     print_status "Verifying created secrets..."
     
+    local github_repository="$GITHUB_OWNER/$GITHUB_REPO"
+    
     # List all secrets
-    EXISTING_SECRETS=$(gh secret list --repo "$GITHUB_REPOSITORY" --json name --jq '.[].name')
+    EXISTING_SECRETS=$(gh secret list --repo "$github_repository" --json name --jq '.[].name')
     
     # Required secrets
     REQUIRED_SECRETS=(
@@ -316,8 +245,10 @@ verify_secrets() {
 create_github_environment() {
     print_status "Creating GitHub environment for additional security..."
     
+    local github_repository="$GITHUB_OWNER/$GITHUB_REPO"
+    
     # Create production environment
-    gh api "repos/$GITHUB_REPOSITORY/environments/production" \
+    gh api "repos/$github_repository/environments/production" \
         --method PUT \
         --field wait_timer=0 \
         --field prevent_self_review=true \
@@ -347,59 +278,90 @@ output_instructions() {
     print_status "  ✓ TERRAFORM_STORAGE_ACCOUNT"
     print_status "  ✓ TERRAFORM_CONTAINER"
     print_status ""
-    print_status "SECURITY NOTICE: All sensitive values have been securely stored"
-    print_status "as GitHub secrets and have been cleared from local memory."
+    print_status "Configuration Summary:"
+    print_status "  • GitHub Repository: $GITHUB_OWNER/$GITHUB_REPO"
+    print_status "  • Resource Group: $RESOURCE_GROUP_NAME"
+    print_status "  • Storage Account: $STORAGE_ACCOUNT_NAME"
+    print_status "  • Container: $CONTAINER_NAME"
     print_status ""
     print_status "Next Steps:"
-    print_status "1. Go to your GitHub repository: https://github.com/$GITHUB_REPOSITORY"
+    print_status "1. Go to: https://github.com/$GITHUB_OWNER/$GITHUB_REPO"
     print_status "2. Navigate to Actions tab"
     print_status "3. Run the 'Terraform Plan and Apply' workflow"
     print_status "4. Select your desired configuration and tfvars file"
     print_status ""
     print_status "Repository Setup is now complete!"
-    print_status "You can now use the Terraform configurations to manage your Power Platform governance."
 }
 
 # Function to clean up sensitive variables from environment
 cleanup_sensitive_vars() {
+    # Prevent double cleanup
+    if [[ "${CLEANUP_DONE:-}" == "true" ]]; then
+        return 0
+    fi
+    
     print_status "Cleaning up sensitive variables from memory..."
     
     # Clear all sensitive variables
     unset AZURE_CLIENT_ID
     unset AZURE_TENANT_ID
     unset AZURE_SUBSCRIPTION_ID
-    unset TERRAFORM_RESOURCE_GROUP
-    unset TERRAFORM_STORAGE_ACCOUNT
-    unset TERRAFORM_CONTAINER
-    unset GITHUB_REPOSITORY
+    unset RESOURCE_GROUP_NAME
+    unset STORAGE_ACCOUNT_NAME
+    unset CONTAINER_NAME
     unset GITHUB_OWNER
     unset GITHUB_REPO
     
     # Clear bash history of this session (if running interactively)
     if [[ $- == *i* ]]; then
-        history -c
+        history -c 2>/dev/null || true
     fi
+    
+    # Mark cleanup as done
+    CLEANUP_DONE=true
     
     print_success "Sensitive variables cleared from memory"
 }
 
-# Main execution
+# Main function
 main() {
-    print_status "Starting GitHub secrets setup for Power Platform Terraform governance..."
-    print_status "======================================================================="
+    print_status "Starting GitHub secrets setup (configuration-driven)..."
+    print_status "========================================================"
     
     # Set up trap to clean up on exit
     trap cleanup_sensitive_vars EXIT
     
+    # Initialize configuration
+    if ! init_config; then
+        exit 1
+    fi
+    
+    # Validate prerequisites
     validate_prerequisites
+    
+    # Authenticate with GitHub
     authenticate_github
-    get_user_input
+    
+    # Verify repository access
     verify_repository_access
+    
+    # Create GitHub secrets
     create_github_secrets
+    
+    # Verify secrets were created
     verify_secrets
+    
+    # Create GitHub environment (optional)
     create_github_environment
+    
+    # Output instructions
     output_instructions
+    
+    # Clean up sensitive variables
     cleanup_sensitive_vars
+    
+    # Disable the EXIT trap since we're cleaning up manually
+    trap - EXIT
     
     print_success "Script completed successfully!"
 }

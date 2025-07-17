@@ -5,6 +5,10 @@
 # This script orchestrates the complete cleanup process for the Power Platform
 # Terraform governance solution. It runs all the necessary cleanup scripts in
 # reverse order and provides a streamlined cleanup experience.
+#
+# This script uses the configuration-driven approach, loading settings from
+# the config.env file created during setup. This eliminates the need for
+# repetitive prompts and provides a consistent user experience.
 # ==============================================================================
 
 set -e  # Exit on any error
@@ -71,8 +75,10 @@ show_banner() {
     echo "  - Azure CLI installed and authenticated"
     echo "  - Power Platform CLI installed and authenticated (optional)"
     echo "  - GitHub CLI installed and authenticated"
+    echo "  - config.env file from setup process must exist"
     echo ""
     echo -e "${YELLOW}Note: You must have admin privileges to complete this cleanup.${NC}"
+    echo -e "${YELLOW}Note: This script uses configuration from the config.env file created during setup.${NC}"
     echo ""
 }
 
@@ -162,9 +168,9 @@ make_scripts_executable() {
     
     print_status "Making cleanup scripts executable..."
     
-    chmod +x "$script_dir/cleanup-github-secrets.sh"
-    chmod +x "$script_dir/cleanup-terraform-backend.sh"
-    chmod +x "$script_dir/cleanup-service-principal.sh"
+    chmod +x "$script_dir/cleanup-github-secrets-config.sh"
+    chmod +x "$script_dir/cleanup-terraform-backend-config.sh"
+    chmod +x "$script_dir/cleanup-service-principal-config.sh"
     
     print_success "Scripts made executable"
 }
@@ -458,7 +464,7 @@ main() {
         print_status "created during the setup process."
         prompt_continue "This will break any existing GitHub Actions workflows."
         
-        if run_script "$script_dir/cleanup-github-secrets.sh" "GitHub Secrets Cleanup"; then
+        if run_script "$script_dir/cleanup-github-secrets-config.sh" "GitHub Secrets Cleanup"; then
             GITHUB_CLEANUP_SUCCESS=true
         else
             GITHUB_CLEANUP_SUCCESS=false
@@ -472,7 +478,7 @@ main() {
         print_status "including Storage Account, Container, and optionally Resource Group."
         prompt_continue "This will permanently delete all Terraform state files."
         
-        if run_script "$script_dir/cleanup-terraform-backend.sh" "Terraform Backend Cleanup"; then
+        if run_script "$script_dir/cleanup-terraform-backend-config.sh" "Terraform Backend Cleanup"; then
             BACKEND_CLEANUP_SUCCESS=true
         else
             BACKEND_CLEANUP_SUCCESS=false
@@ -486,7 +492,7 @@ main() {
         print_status "as well as the Power Platform application registration."
         prompt_continue "This will remove all authentication credentials."
         
-        if run_script "$script_dir/cleanup-service-principal.sh" "Service Principal Cleanup"; then
+        if run_script "$script_dir/cleanup-service-principal-config.sh" "Service Principal Cleanup"; then
             SP_CLEANUP_SUCCESS=true
         else
             SP_CLEANUP_SUCCESS=false
