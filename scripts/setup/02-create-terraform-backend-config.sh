@@ -13,9 +13,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Load utility functions
 source "$SCRIPT_DIR/../utils/utils.sh"
 
-# Source the configuration loader
-source "$SCRIPT_DIR/config-loader.sh"
-
 # Function to validate prerequisites
 validate_prerequisites() {
     print_status "Validating prerequisites..."

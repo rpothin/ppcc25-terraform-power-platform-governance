@@ -152,7 +152,29 @@ export_config_vars() {
 
 # Function to save runtime values to config
 save_runtime_config() {
-    local config_file="${1:-$(dirname "${BASH_SOURCE[0]}")/../setup/config.env}"
+    local config_file="$1"
+    
+    if [[ -z "$config_file" ]]; then
+        # Try to find config.env in common locations, prioritizing root
+        local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        local repo_root="$script_dir/../.."
+        local setup_dir="$script_dir/../setup"
+        local current_dir="$(pwd)"
+        
+        # Check locations in order of preference
+        if [[ -f "$repo_root/config.env" ]]; then
+            config_file="$repo_root/config.env"
+        elif [[ -f "$current_dir/config.env" ]]; then
+            config_file="$current_dir/config.env"
+        elif [[ -f "$setup_dir/config.env" ]]; then
+            config_file="$setup_dir/config.env"
+        elif [[ -f "$current_dir/scripts/setup/config.env" ]]; then
+            config_file="$current_dir/scripts/setup/config.env"
+        else
+            config_file="$repo_root/config.env"  # Default fallback to root
+        fi
+    fi
+    
     local temp_file=$(mktemp)
     
     # Create a backup of the current configuration (pre-setup state)
@@ -191,7 +213,24 @@ load_config() {
     local config_file="$1"
     
     if [[ -z "$config_file" ]]; then
-        config_file="$(dirname "${BASH_SOURCE[0]}")/../setup/config.env"
+        # Try to find config.env in common locations, prioritizing root
+        local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        local repo_root="$script_dir/../.."
+        local setup_dir="$script_dir/../setup"
+        local current_dir="$(pwd)"
+        
+        # Check locations in order of preference
+        if [[ -f "$repo_root/config.env" ]]; then
+            config_file="$repo_root/config.env"
+        elif [[ -f "$current_dir/config.env" ]]; then
+            config_file="$current_dir/config.env"
+        elif [[ -f "$setup_dir/config.env" ]]; then
+            config_file="$setup_dir/config.env"
+        elif [[ -f "$current_dir/scripts/setup/config.env" ]]; then
+            config_file="$current_dir/scripts/setup/config.env"
+        else
+            config_file="$repo_root/config.env"  # Default fallback to root
+        fi
     fi
     
     if [[ ! -f "$config_file" ]]; then
@@ -218,7 +257,28 @@ load_config() {
 
 # Function to check if config.env exists and guide user
 check_config_exists() {
-    local config_file="${1:-$(dirname "${BASH_SOURCE[0]}")/../setup/config.env}"
+    local config_file="$1"
+    
+    if [[ -z "$config_file" ]]; then
+        # Try to find config.env in common locations, prioritizing root
+        local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        local repo_root="$script_dir/../.."
+        local setup_dir="$script_dir/../setup"
+        local current_dir="$(pwd)"
+        
+        # Check locations in order of preference
+        if [[ -f "$repo_root/config.env" ]]; then
+            config_file="$repo_root/config.env"
+        elif [[ -f "$current_dir/config.env" ]]; then
+            config_file="$current_dir/config.env"
+        elif [[ -f "$setup_dir/config.env" ]]; then
+            config_file="$setup_dir/config.env"
+        elif [[ -f "$current_dir/scripts/setup/config.env" ]]; then
+            config_file="$current_dir/scripts/setup/config.env"
+        else
+            config_file="$repo_root/config.env"  # Default fallback to root
+        fi
+    fi
     
     if [[ ! -f "$config_file" ]]; then
         print_warning "Configuration file not found: $config_file"

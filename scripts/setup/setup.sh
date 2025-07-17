@@ -14,9 +14,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Load utility functions
 source "$SCRIPT_DIR/../utils/utils.sh"
 
-# Source the configuration loader (keep for compatibility)
-source "$SCRIPT_DIR/config-loader.sh"
-
 # Function to display header
 display_header() {
     print_banner "Power Platform Terraform Governance - Complete Setup"

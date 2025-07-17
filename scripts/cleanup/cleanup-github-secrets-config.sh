@@ -13,9 +13,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Load utility functions
 source "$SCRIPT_DIR/../utils/utils.sh"
 
-# Source the configuration loader from setup directory
-source "$SCRIPT_DIR/../setup/config-loader.sh"
-
 # Function to validate prerequisites
 validate_prerequisites() {
     print_status "Validating prerequisites..."
@@ -244,7 +241,7 @@ main() {
     trap cleanup_vars EXIT
     
     # Initialize configuration
-    if ! init_config "$SCRIPT_DIR/../setup/config.env"; then
+    if ! init_config; then
         print_error "Failed to load configuration"
         exit 1
     fi

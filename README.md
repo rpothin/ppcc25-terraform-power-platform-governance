@@ -28,9 +28,6 @@ The repository provides practical examples and reusable patterns to help organiz
 The fastest way to get started is using the configuration-driven setup:
 
 ```bash
-# Navigate to setup scripts
-cd scripts/setup
-
 # Copy configuration template
 cp config.env.example config.env
 
@@ -38,6 +35,7 @@ cp config.env.example config.env
 vim config.env
 
 # Run complete setup
+./scripts/setup/setup.sh
 ./setup.sh
 ```
 

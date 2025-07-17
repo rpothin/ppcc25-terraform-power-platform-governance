@@ -13,9 +13,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Load utility functions
 source "$SCRIPT_DIR/../utils/utils.sh"
 
-# Source the configuration loader (keep for compatibility)
-source "$SCRIPT_DIR/config-loader.sh"
-
 # Global variables
 ADMIN_CONSENT_CAPABLE=false
 ADMIN_CONSENT_GRANTED=false
