@@ -50,7 +50,6 @@ jobs:
   # Creates execution plans and uploads them as artifacts for potential apply phase
   terraform-plan:
     runs-on: ubuntu-latest
-    environment: production    # Uses production environment for secrets and protection rules
     
     # Output values that can be used by dependent jobs
     outputs:
@@ -212,8 +211,6 @@ jobs:
       needs.terraform-plan.result == 'success' && 
       needs.terraform-plan.outputs.plan-changed == 'true' &&
       github.event.inputs.apply == 'true'
-    
-    environment: production    # Uses production environment for additional security
     
     steps:
     # Step 1: Checkout repository code (needed for accessing configuration files)
