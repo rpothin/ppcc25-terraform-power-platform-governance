@@ -54,15 +54,16 @@ validate_prerequisites() {
 # Function to test GitHub secrets access
 test_github_secrets_access() {
     local test_repo="$1"
+    local environment_name="$2"
     
-    # Try to list secrets from the repository to test access
-    print_status "Testing secrets access for repository: $test_repo"
+    # Try to list environment secrets from the repository to test access
+    print_status "Testing environment secrets access for repository: $test_repo (environment: $environment_name)"
     
-    if gh secret list --repo "$test_repo" --json name &> /dev/null; then
-        print_success "✅ GitHub secrets access confirmed"
+    if gh secret list --repo "$test_repo" --env "$environment_name" --json name &> /dev/null; then
+        print_success "✅ GitHub environment secrets access confirmed"
         return 0
     else
-        print_warning "❌ GitHub secrets access failed"
+        print_warning "❌ GitHub environment secrets access failed"
         return 1
     fi
 }
@@ -146,15 +147,15 @@ verify_repository_access() {
     print_success "Admin access confirmed"
     
     # Test secrets access specifically
-    if ! test_github_secrets_access "$github_repository"; then
-        print_warning "Secrets access test failed. Attempting re-authentication..."
+    if ! test_github_secrets_access "$github_repository" "production"; then
+        print_warning "Environment secrets access test failed. Attempting re-authentication..."
         
         if perform_github_login; then
             # Test again after re-authentication
-            if test_github_secrets_access "$github_repository"; then
-                print_success "Secrets access restored after re-authentication"
+            if test_github_secrets_access "$github_repository" "production"; then
+                print_success "Environment secrets access restored after re-authentication"
             else
-                print_error "Secrets access still failed after re-authentication"
+                print_error "Environment secrets access still failed after re-authentication"
                 return 1
             fi
         else
@@ -168,19 +169,26 @@ verify_repository_access() {
 
 # Function to list existing secrets
 list_existing_secrets() {
-    print_status "Checking existing secrets..."
+    print_status "Checking existing environment secrets..."
     
     local github_repository="$GITHUB_OWNER/$GITHUB_REPO"
+    local environment_name="production"
     
-    # Get list of existing secrets
-    EXISTING_SECRETS=$(gh secret list --repo "$github_repository" --json name --jq '.[].name')
-    
-    if [[ -z "$EXISTING_SECRETS" ]]; then
-        print_warning "No secrets found in repository"
+    # Check if production environment exists
+    if ! gh api "repos/$github_repository/environments/$environment_name" &> /dev/null; then
+        print_warning "Production environment not found"
         return 1
     fi
     
-    print_status "Found secrets in repository:"
+    # Get list of existing environment secrets
+    EXISTING_SECRETS=$(gh secret list --repo "$github_repository" --env "$environment_name" --json name --jq '.[].name' 2>/dev/null)
+    
+    if [[ -z "$EXISTING_SECRETS" ]]; then
+        print_warning "No environment secrets found in production environment"
+        return 1
+    fi
+    
+    print_status "Found environment secrets in production environment:"
     echo "$EXISTING_SECRETS" | while read -r secret; do
         if [[ -n "$secret" ]]; then
             print_status "  - $secret"
@@ -192,11 +200,18 @@ list_existing_secrets() {
 
 # Function to remove Power Platform secrets
 remove_secrets() {
-    print_status "Removing Power Platform Terraform secrets..."
+    print_status "Removing Power Platform Terraform environment secrets..."
     
     local github_repository="$GITHUB_OWNER/$GITHUB_REPO"
+    local environment_name="production"
     
-    # Array of secrets to remove (same as created by create-github-secrets.sh)
+    # Check if production environment exists
+    if ! gh api "repos/$github_repository/environments/$environment_name" &> /dev/null; then
+        print_warning "Production environment not found - secrets may have been already cleaned up"
+        return 0
+    fi
+    
+    # Array of environment secrets to remove (same as created by create-github-secrets.sh)
     SECRETS_TO_REMOVE=(
         "AZURE_CLIENT_ID"
         "AZURE_TENANT_ID"
@@ -213,23 +228,23 @@ remove_secrets() {
     NOT_FOUND_COUNT=0
     FAILED_COUNT=0
     
-    # Remove each secret
+    # Remove each environment secret
     for secret_name in "${SECRETS_TO_REMOVE[@]}"; do
-        print_status "Removing secret: $secret_name"
+        print_status "Removing environment secret: $secret_name"
         
-        # Try to remove the secret
-        if gh secret delete "$secret_name" --repo "$github_repository" 2>/dev/null; then
-            print_success "✓ Secret $secret_name removed successfully"
+        # Try to remove the environment secret
+        if gh secret delete "$secret_name" --repo "$github_repository" --env "$environment_name" 2>/dev/null; then
+            print_success "✓ Environment secret $secret_name removed successfully"
             ((REMOVED_COUNT++))
         else
             # Check if secret exists to determine if it's a failure or not found
-            EXISTING_SECRETS_CHECK=$(gh secret list --repo "$github_repository" --json name --jq '.[].name' 2>/dev/null || echo "")
+            EXISTING_SECRETS_CHECK=$(gh secret list --repo "$github_repository" --env "$environment_name" --json name --jq '.[].name' 2>/dev/null || echo "")
             
             if echo "$EXISTING_SECRETS_CHECK" | grep -q "^$secret_name$" 2>/dev/null; then
-                print_error "✗ Failed to remove secret $secret_name"
+                print_error "✗ Failed to remove environment secret $secret_name"
                 ((FAILED_COUNT++))
             else
-                print_warning "⚠ Secret $secret_name not found (may have been already removed)"
+                print_warning "⚠ Environment secret $secret_name not found (may have been already removed)"
                 ((NOT_FOUND_COUNT++))
             fi
         fi
@@ -237,34 +252,41 @@ remove_secrets() {
     
     # Summary
     print_status ""
-    print_status "Cleanup Summary:"
-    print_status "  ✓ Successfully removed: $REMOVED_COUNT secrets"
+    print_status "Environment Secrets Cleanup Summary:"
+    print_status "  ✓ Successfully removed: $REMOVED_COUNT environment secrets"
     if [[ $NOT_FOUND_COUNT -gt 0 ]]; then
-        print_status "  ⚠ Not found: $NOT_FOUND_COUNT secrets"
+        print_status "  ⚠ Not found: $NOT_FOUND_COUNT environment secrets"
     fi
     if [[ $FAILED_COUNT -gt 0 ]]; then
-        print_status "  ✗ Failed to remove: $FAILED_COUNT secrets"
-        print_warning "Some secrets could not be removed, but continuing with cleanup"
+        print_status "  ✗ Failed to remove: $FAILED_COUNT environment secrets"
+        print_warning "Some environment secrets could not be removed, but continuing with cleanup"
     fi
     
     if [[ $REMOVED_COUNT -eq 0 && $NOT_FOUND_COUNT -eq ${#SECRETS_TO_REMOVE[@]} ]]; then
-        print_warning "No Power Platform secrets were found to remove"
+        print_warning "No Power Platform environment secrets were found to remove"
         return 0
     fi
     
-    print_success "Secret cleanup completed successfully"
+    print_success "Environment secrets cleanup completed successfully"
 }
 
 # Function to verify secrets were removed
 verify_removal() {
-    print_status "Verifying secrets were removed..."
+    print_status "Verifying environment secrets were removed..."
     
     local github_repository="$GITHUB_OWNER/$GITHUB_REPO"
+    local environment_name="production"
     
-    # Get current secrets
-    CURRENT_SECRETS=$(gh secret list --repo "$github_repository" --json name --jq '.[].name')
+    # Check if production environment still exists
+    if ! gh api "repos/$github_repository/environments/$environment_name" &> /dev/null; then
+        print_success "Production environment no longer exists - all secrets removed"
+        return 0
+    fi
     
-    # Check if any Power Platform secrets still exist
+    # Get current environment secrets
+    CURRENT_SECRETS=$(gh secret list --repo "$github_repository" --env "$environment_name" --json name --jq '.[].name' 2>/dev/null)
+    
+    # Check if any Power Platform environment secrets still exist
     REMAINING_SECRETS=(
         "AZURE_CLIENT_ID"
         "AZURE_TENANT_ID"
@@ -279,39 +301,44 @@ verify_removal() {
     FOUND_REMAINING=false
     for secret in "${REMAINING_SECRETS[@]}"; do
         if echo "$CURRENT_SECRETS" | grep -q "^$secret$"; then
-            print_warning "⚠ Secret $secret still exists"
+            print_warning "⚠ Environment secret $secret still exists"
             FOUND_REMAINING=true
         fi
     done
     
     if [[ "$FOUND_REMAINING" == "true" ]]; then
-        print_warning "Some secrets were not removed successfully"
+        print_warning "Some environment secrets were not removed successfully"
         print_status "This may be expected if some secrets were already removed"
     else
-        print_success "All Power Platform secrets successfully removed"
+        print_success "All Power Platform environment secrets successfully removed"
     fi
 }
 
 # Function to remove GitHub environment (optional)
 remove_github_environment() {
-    print_status "Checking for GitHub environment..."
+    print_status "Checking for GitHub production environment..."
     
     local github_repository="$GITHUB_OWNER/$GITHUB_REPO"
+    local environment_name="production"
     
     # Check if production environment exists
-    if gh api "repos/$github_repository/environments/production" &> /dev/null; then
+    if gh api "repos/$github_repository/environments/$environment_name" &> /dev/null; then
         print_status "Found production environment"
         
-        echo -n "Do you want to remove the production environment as well? (y/n): "
+        echo -n "Do you want to remove the production environment as well? (y/N): "
         read -r REMOVE_ENV
         if [[ "$REMOVE_ENV" == "y" || "$REMOVE_ENV" == "Y" ]]; then
-            if gh api "repos/$github_repository/environments/production" --method DELETE &> /dev/null; then
-                print_success "Production environment removed"
+            print_status "Removing production environment..."
+            if gh api "repos/$github_repository/environments/$environment_name" --method DELETE &> /dev/null; then
+                print_success "✓ Production environment removed successfully"
+                print_status "This also removes any remaining environment secrets"
             else
-                print_warning "Failed to remove production environment (this is optional)"
+                print_warning "⚠ Failed to remove production environment"
+                print_status "Environment secrets may still exist within the environment"
             fi
         else
             print_status "Production environment left intact"
+            print_status "Note: Any remaining environment secrets will stay within the environment"
         fi
     else
         print_status "No production environment found"

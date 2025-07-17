@@ -273,6 +273,33 @@ main() {
     trap - EXIT
     
     print_success "Setup script completed successfully!"
+    
+    # Offer to run validation
+    echo ""
+    print_status "Would you like to run the setup validation now? This will verify all configurations."
+    echo -n "Run validation? (y/N): "
+    read -r RUN_VALIDATION
+    
+    if [[ "$RUN_VALIDATION" == "y" || "$RUN_VALIDATION" == "Y" ]]; then
+        echo ""
+        print_status "Running setup validation..."
+        
+        # Check if validation script exists
+        VALIDATION_SCRIPT="$(dirname "$0")/validate-setup.sh"
+        if [[ -f "$VALIDATION_SCRIPT" ]]; then
+            if bash "$VALIDATION_SCRIPT" --non-interactive; then
+                print_success "✅ Setup validation completed successfully!"
+            else
+                print_warning "⚠ Setup validation found some issues. Please review the output above."
+            fi
+        else
+            print_error "❌ Validation script not found at: $VALIDATION_SCRIPT"
+        fi
+    else
+        echo ""
+        print_status "You can run the validation later using:"
+        print_status "  ./scripts/setup/validate-setup.sh"
+    fi
 }
 
 # Run the main function
