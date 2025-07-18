@@ -183,29 +183,68 @@ save_runtime_config() {
         print_status "Configuration backed up to: ${config_file}.backup"
     fi
     
-    # Update the config file with runtime values
-    {
-        echo "# This file was last updated: $(date)"
-        echo "# Generated values from setup process"
-        echo ""
-        echo "GITHUB_OWNER=\"$GITHUB_OWNER\""
-        echo "GITHUB_REPO=\"$GITHUB_REPO\""
-        echo "AZURE_SUBSCRIPTION_ID=\"$AZURE_SUBSCRIPTION_ID\""
-        echo "AZURE_TENANT_ID=\"$AZURE_TENANT_ID\""
-        echo "SP_NAME=\"$SP_NAME\""
-        echo "RESOURCE_GROUP_NAME=\"$RESOURCE_GROUP_NAME\""
-        echo "STORAGE_ACCOUNT_NAME=\"$STORAGE_ACCOUNT_NAME\""
-        echo "CONTAINER_NAME=\"$CONTAINER_NAME\""
-        echo "LOCATION=\"$LOCATION\""
-        if [[ -n "$AZURE_CLIENT_ID" ]]; then
-            echo "AZURE_CLIENT_ID=\"$AZURE_CLIENT_ID\""
+    # Helper function to update or add a variable in the config file
+    update_config_variable() {
+        local var_name="$1"
+        local var_value="$2"
+        local file="$3"
+        
+        if grep -q "^${var_name}=" "$file"; then
+            # Variable exists, update it
+            sed -i "s|^${var_name}=.*|${var_name}=\"${var_value}\"|" "$file"
+        else
+            # Variable doesn't exist, add it at the end of the file
+            echo "${var_name}=\"${var_value}\"" >> "$file"
         fi
-    } > "$temp_file"
+    }
+    
+    # Copy the original file to temp file to preserve structure
+    cp "$config_file" "$temp_file"
+    
+    # Add a setup timestamp comment at the beginning if not already present
+    if ! grep -q "# Setup completed on:" "$temp_file"; then
+        # Create a new temp file with timestamp header
+        local temp_file_with_header=$(mktemp)
+        {
+            echo "# Setup completed on: $(date)"
+            echo "# This file preserves the original structure with updated values"
+            echo ""
+            cat "$temp_file"
+        } > "$temp_file_with_header"
+        mv "$temp_file_with_header" "$temp_file"
+    fi
+    
+    # Update existing variables with current values
+    update_config_variable "GITHUB_OWNER" "$GITHUB_OWNER" "$temp_file"
+    update_config_variable "GITHUB_REPO" "$GITHUB_REPO" "$temp_file"
+    update_config_variable "AZURE_SUBSCRIPTION_ID" "$AZURE_SUBSCRIPTION_ID" "$temp_file"
+    update_config_variable "AZURE_TENANT_ID" "$AZURE_TENANT_ID" "$temp_file"
+    update_config_variable "SP_NAME" "$SP_NAME" "$temp_file"
+    update_config_variable "RESOURCE_GROUP_NAME" "$RESOURCE_GROUP_NAME" "$temp_file"
+    update_config_variable "STORAGE_ACCOUNT_NAME" "$STORAGE_ACCOUNT_NAME" "$temp_file"
+    update_config_variable "CONTAINER_NAME" "$CONTAINER_NAME" "$temp_file"
+    update_config_variable "LOCATION" "$LOCATION" "$temp_file"
+    
+    # Add runtime-generated variables at the end if they exist
+    if [[ -n "$AZURE_CLIENT_ID" ]]; then
+        if ! grep -q "^AZURE_CLIENT_ID=" "$temp_file"; then
+            echo "" >> "$temp_file"
+            echo "# Runtime generated values (added by setup process)" >> "$temp_file"
+            echo "AZURE_CLIENT_ID=\"$AZURE_CLIENT_ID\"" >> "$temp_file"
+        else
+            update_config_variable "AZURE_CLIENT_ID" "$AZURE_CLIENT_ID" "$temp_file"
+        fi
+    fi
     
     # Replace the original file
     mv "$temp_file" "$config_file"
     
     print_status "Configuration updated: $config_file"
+    print_status "✓ Original structure and comments preserved"
+    print_status "✓ Values updated in-place"
+    if [[ -n "$AZURE_CLIENT_ID" ]]; then
+        print_status "✓ Runtime values added: AZURE_CLIENT_ID"
+    fi
 }
 
 # Function to load configuration from file

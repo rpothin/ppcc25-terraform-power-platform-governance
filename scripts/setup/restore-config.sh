@@ -9,6 +9,9 @@
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Get the project root directory (two levels up from scripts/setup)
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
 # Load utility functions (colors only for restore-config)
 source "$SCRIPT_DIR/../utils/colors.sh"
 
@@ -25,8 +28,8 @@ main() {
     print_status "The backup contains the configuration before setup modifications."
     print_status ""
     
-    local config_file="$SCRIPT_DIR/config.env"
-    local backup_file="${config_file}.backup"
+    local config_file="$PROJECT_ROOT/config.env"
+    local backup_file="$PROJECT_ROOT/config.env.backup"
     
     if [[ ! -f "$backup_file" ]]; then
         print_error "Backup file not found: $backup_file"
@@ -37,6 +40,7 @@ main() {
         print_status "  3. You're running this from the wrong directory"
         print_status ""
         print_status "To create a new configuration:"
+        print_status "  cd $PROJECT_ROOT"
         print_status "  cp config.env.example config.env"
         print_status "  vim config.env"
         exit 1
@@ -74,7 +78,7 @@ main() {
         print_status "Restored to: $config_file"
         print_status ""
         print_status "Next steps:"
-        print_status "  1. Review the restored configuration: vim config.env"
+        print_status "  1. Review the restored configuration: vim $PROJECT_ROOT/config.env"
         print_status "  2. Run setup again if needed: ./setup.sh"
         print_status "  3. The backup file is preserved for future use"
     else
