@@ -33,7 +33,27 @@ run_setup_script() {
     local script_path="$SCRIPT_DIR/$script_name"
     local description="$2"
     
-    return $(run_script_with_handling "$script_path" "$description")
+    print_step "Running $description..."
+    echo ""
+    
+    if [[ ! -f "$script_path" ]]; then
+        print_error "Script not found: $script_path"
+        return 1
+    fi
+    
+    # Make script executable
+    chmod +x "$script_path"
+    
+    # Run the script directly without subprocess timing complications
+    if "$script_path"; then
+        print_success "$description completed successfully"
+        echo ""
+        return 0
+    else
+        print_error "$description failed"
+        echo ""
+        return 1
+    fi
 }
 
 # Function to validate prerequisites
@@ -81,33 +101,39 @@ run_complete_setup() {
     
     # Step 1: Create Service Principal
     start_timing "service_principal" "Azure AD Service Principal creation with OIDC"
+    print_status "Step 1/3: Creating Azure AD Service Principal with OIDC..."
     if ! run_setup_script "01-create-service-principal-config.sh" "Create Azure AD Service Principal with OIDC"; then
         end_timing "service_principal"
         return 1
     fi
     end_timing "service_principal"
+    print_success "✓ Step 1 completed successfully"
     
     # Show progress after first step
     estimate_remaining_time 3 1 "setup phases"
     
     # Step 2: Create Terraform Backend
     start_timing "terraform_backend" "Terraform backend storage creation"
+    print_status "Step 2/3: Creating Terraform Backend Storage..."
     if ! run_setup_script "02-create-terraform-backend-config.sh" "Create Terraform Backend Storage"; then
         end_timing "terraform_backend"
         return 1
     fi
     end_timing "terraform_backend"
+    print_success "✓ Step 2 completed successfully"
     
     # Show progress after second step
     estimate_remaining_time 3 2 "setup phases"
     
     # Step 3: Create GitHub Secrets
     start_timing "github_secrets" "GitHub repository secrets configuration"
+    print_status "Step 3/3: Creating GitHub Repository Secrets..."
     if ! run_setup_script "03-create-github-secrets-config.sh" "Create GitHub Repository Secrets"; then
         end_timing "github_secrets"
         return 1
     fi
     end_timing "github_secrets"
+    print_success "✓ Step 3 completed successfully"
     
     return 0
 }
@@ -271,7 +297,9 @@ main() {
         
         end_timing "validation"
         
-        # Update timing report with validation
+        # Show validation timing summary
+        echo ""
+        print_status "⏱️  Validation completed in: $(format_duration ${TIMING_DURATIONS[validation]})"
     else
         echo ""
         print_status "You can run the validation later using:"
