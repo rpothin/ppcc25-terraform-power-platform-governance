@@ -7,6 +7,13 @@
 
 set -e  # Exit on any error
 
+# Check for non-interactive mode
+NON_INTERACTIVE=false
+if [[ "$1" == "--non-interactive" ]]; then
+    NON_INTERACTIVE=true
+    shift
+fi
+
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -144,22 +151,25 @@ update_config() {
 
 # Function to clean up variables from environment
 cleanup_vars() {
-    print_status "Cleaning up variables from memory..."
-    
-    # Clear variables
-    unset SP_NAME
-    unset AZURE_CLIENT_ID
-    unset AZURE_TENANT_ID
-    unset AZURE_SUBSCRIPTION_ID
-    unset CONFIRM
-    unset DELETE_CONFIRM
-    
-    # Clear bash history of this session (if running interactively)
-    if [[ $- == *i* ]]; then
-        history -c 2>/dev/null || true
+    # Only clean up if running standalone (not called from main cleanup script)
+    if [[ "${CLEANUP_MAIN_SCRIPT:-false}" != "true" ]]; then
+        print_status "Cleaning up variables from memory..."
+        
+        # Clear variables
+        unset SP_NAME
+        unset AZURE_CLIENT_ID
+        unset AZURE_TENANT_ID
+        unset AZURE_SUBSCRIPTION_ID
+        unset CONFIRM
+        unset DELETE_CONFIRM
+        
+        # Clear bash history of this session (if running interactively)
+        if [[ $- == *i* ]]; then
+            history -c 2>/dev/null || true
+        fi
+        
+        print_success "Variables cleared from memory"
     fi
-    
-    print_success "Variables cleared from memory"
 }
 
 # Main execution
@@ -190,29 +200,33 @@ main() {
     # Validate prerequisites
     validate_prerequisites
     
-    # Confirm cleanup
-    print_warning "This will delete:"
-    print_warning "  - Service Principal: $SP_NAME"
-    if [[ -n "$AZURE_CLIENT_ID" ]]; then
-        print_warning "  - App Registration: $AZURE_CLIENT_ID"
-    fi
-    print_warning "  - All associated permissions and federated credentials"
-    print_warning "  - Power Platform registration"
-    print_warning ""
-    
-    echo -n "Are you sure you want to proceed? (y/n): "
-    read -r CONFIRM
-    
-    if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
-        print_error "Cleanup cancelled by user"
-        exit 1
-    fi
-    
-    echo -n "Type 'DELETE' to confirm service principal removal: "
-    read -r DELETE_CONFIRM
-    if [[ "$DELETE_CONFIRM" != "DELETE" ]]; then
-        print_error "Cleanup cancelled - confirmation not received"
-        exit 1
+    if [[ "$NON_INTERACTIVE" == "true" ]]; then
+        print_status "Non-interactive mode: Proceeding with Service Principal cleanup automatically"
+    else
+        # Confirm cleanup
+        print_warning "This will delete:"
+        print_warning "  - Service Principal: $SP_NAME"
+        if [[ -n "$AZURE_CLIENT_ID" ]]; then
+            print_warning "  - App Registration: $AZURE_CLIENT_ID"
+        fi
+        print_warning "  - All associated permissions and federated credentials"
+        print_warning "  - Power Platform registration"
+        print_warning ""
+        
+        echo -n "Are you sure you want to proceed? (y/n): "
+        read -r CONFIRM
+        
+        if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
+            print_error "Cleanup cancelled by user"
+            exit 1
+        fi
+        
+        echo -n "Type 'DELETE' to confirm service principal removal: "
+        read -r DELETE_CONFIRM
+        if [[ "$DELETE_CONFIRM" != "DELETE" ]]; then
+            print_error "Cleanup cancelled - confirmation not received"
+            exit 1
+        fi
     fi
     
     # Perform cleanup
@@ -220,9 +234,6 @@ main() {
     cleanup_power_platform
     verify_cleanup
     update_config
-    
-    # Clean up variables
-    cleanup_vars
     
     print_success "Cleanup completed successfully!"
     print_status ""

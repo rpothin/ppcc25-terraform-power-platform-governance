@@ -5,6 +5,11 @@
 # Provides consistent colored output functions for all scripts
 # ==============================================================================
 
+# Prevent multiple sourcing of this file
+if [[ "${COLORS_LOADED:-}" == "true" ]]; then
+    return 0
+fi
+
 # Color definitions
 readonly RED='\033[0;31m'
 readonly GREEN='\033[0;32m'
@@ -98,3 +103,6 @@ print_danger_zone() {
 export -f print_status print_success print_warning print_error print_check
 export -f print_step print_header print_separator print_banner
 export -f print_config_item print_confirmation_prompt print_danger_zone
+
+# Mark this file as loaded to prevent multiple sourcing
+export COLORS_LOADED=true

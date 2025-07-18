@@ -80,19 +80,34 @@ run_complete_setup() {
     print_status "Starting complete setup process..."
     
     # Step 1: Create Service Principal
+    start_timing "service_principal" "Azure AD Service Principal creation with OIDC"
     if ! run_setup_script "01-create-service-principal-config.sh" "Create Azure AD Service Principal with OIDC"; then
+        end_timing "service_principal"
         return 1
     fi
+    end_timing "service_principal"
+    
+    # Show progress after first step
+    estimate_remaining_time 3 1 "setup phases"
     
     # Step 2: Create Terraform Backend
+    start_timing "terraform_backend" "Terraform backend storage creation"
     if ! run_setup_script "02-create-terraform-backend-config.sh" "Create Terraform Backend Storage"; then
+        end_timing "terraform_backend"
         return 1
     fi
+    end_timing "terraform_backend"
+    
+    # Show progress after second step
+    estimate_remaining_time 3 2 "setup phases"
     
     # Step 3: Create GitHub Secrets
+    start_timing "github_secrets" "GitHub repository secrets configuration"
     if ! run_setup_script "03-create-github-secrets-config.sh" "Create GitHub Repository Secrets"; then
+        end_timing "github_secrets"
         return 1
     fi
+    end_timing "github_secrets"
     
     return 0
 }
@@ -132,6 +147,9 @@ handle_error() {
     local exit_code=$?
     
     if [[ $exit_code -ne 0 ]]; then
+        # Finalize timing even on error
+        finalize_script_timing
+        
         print_error ""
         print_error "==============================================================="
         print_error "SETUP FAILED"
@@ -153,43 +171,73 @@ handle_error() {
 
 # Main function
 main() {
+    # Initialize timing for the entire script
+    init_script_timing "Power Platform Terraform Governance - Complete Setup"
+    
     # Set up error handling
     trap 'handle_error "unknown"' EXIT
     
     # Display header
+    start_timing "initialization" "Script initialization and header display"
     display_header
+    end_timing "initialization"
     
     # Initialize configuration
+    start_timing "config_init" "Configuration initialization and validation"
     if ! init_config; then
+        finalize_script_timing
         exit 1
     fi
+    end_timing "config_init"
     
     # Confirm configuration with user
+    start_timing "config_confirm" "Configuration confirmation with user"
     if ! confirm_config; then
+        finalize_script_timing
         exit 1
     fi
+    end_timing "config_confirm"
     
     # Validate prerequisites
+    start_timing "prerequisites" "Prerequisites validation"
     if ! validate_prerequisites; then
+        finalize_script_timing
         exit 1
     fi
+    end_timing "prerequisites"
     
     # Check authentication
+    start_timing "auth_check" "Authentication validation"
     if ! check_azure_auth; then
+        finalize_script_timing
         exit 1
     fi
     
     if ! check_power_platform_auth; then
+        finalize_script_timing
         exit 1
     fi
+    end_timing "auth_check"
+    
+    # Show progress estimate
+    get_timing_summary
+    estimate_remaining_time 3 0 "major setup phases"
     
     # Run complete setup
+    start_timing "setup_execution" "Complete setup process execution"
     if ! run_complete_setup; then
+        finalize_script_timing
         exit 1
     fi
+    end_timing "setup_execution"
     
     # Display final summary
+    start_timing "final_summary" "Final summary and documentation"
     display_final_summary
+    end_timing "final_summary"
+    
+    # Finalize timing and show comprehensive summary
+    finalize_script_timing
     
     # Disable error trap on successful completion
     trap - EXIT
@@ -206,6 +254,9 @@ main() {
         echo ""
         print_status "Running setup validation..."
         
+        # Time the validation process
+        start_timing "validation" "Setup validation process"
+        
         # Check if validation script exists
         VALIDATION_SCRIPT="$(dirname "$0")/validate-setup.sh"
         if [[ -f "$VALIDATION_SCRIPT" ]]; then
@@ -217,6 +268,10 @@ main() {
         else
             print_error "❌ Validation script not found at: $VALIDATION_SCRIPT"
         fi
+        
+        end_timing "validation"
+        
+        # Update timing report with validation
     else
         echo ""
         print_status "You can run the validation later using:"

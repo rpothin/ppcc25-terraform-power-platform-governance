@@ -27,13 +27,26 @@ test_github_secrets_access() {
 
 # Function to perform GitHub login with required scopes
 perform_github_login() {
-    print_status "🔐 Authenticating with GitHub (this will open your browser)..."
+    print_status "🔐 Authenticating with GitHub..."
     
     # Clear any existing token that might have insufficient scopes
     unset GITHUB_TOKEN
     
-    # Authenticate with required scopes for secrets and environment management
-    if gh auth login --scopes "repo"; then
+    # First, check if we're already properly authenticated
+    local current_scopes=""
+    if gh auth status --show-token &> /dev/null; then
+        current_scopes=$(gh auth status --show-token 2>/dev/null | grep "Token scopes:" | cut -d: -f2 | tr -d ' ' || echo "")
+        if [[ "$current_scopes" == *"repo"* ]] && gh api user --silent &> /dev/null; then
+            print_success "✅ Already authenticated with sufficient scopes"
+            return 0
+        fi
+    fi
+    
+    print_status "Authentication with 'repo' scope required for secrets management..."
+    print_status "This will open your browser for authentication..."
+    
+    # Try web-based authentication first (more reliable)
+    if gh auth login --web --scopes "repo" </dev/null; then
         print_success "✅ GitHub authentication successful!"
         
         # Verify the new authentication works
@@ -46,6 +59,8 @@ perform_github_login() {
         fi
     else
         print_error "GitHub authentication failed"
+        print_error "Please ensure you have a web browser available and try again"
+        print_error "Or run 'gh auth login --scopes repo' manually"
         return 1
     fi
 }
@@ -65,11 +80,12 @@ authenticate_github() {
     fi
     
     # Check if we have the repo scope needed for secrets and environments
+    local token_scopes=""
     if gh auth status --show-token &> /dev/null; then
         print_status "Testing GitHub authentication with current token..."
         
         # Check if we have the proper token scopes
-        local token_scopes=$(gh auth status --show-token 2>/dev/null | grep "Token scopes:" | cut -d: -f2 | tr -d ' ')
+        token_scopes=$(gh auth status --show-token 2>/dev/null | grep "Token scopes:" | cut -d: -f2 | tr -d ' ' || echo "")
         
         if [[ "$token_scopes" == *"repo"* ]]; then
             if gh api user --silent &> /dev/null; then
@@ -81,6 +97,8 @@ authenticate_github() {
         else
             print_warning "Current GitHub token has insufficient scopes: $token_scopes"
         fi
+    else
+        print_warning "Unable to check current token scopes"
     fi
     
     # If we get here, we need to re-authenticate

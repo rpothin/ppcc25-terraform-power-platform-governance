@@ -7,6 +7,13 @@
 
 # Note: Not using set -e here to allow graceful handling of partial failures
 
+# Check for non-interactive mode
+NON_INTERACTIVE=false
+if [[ "$1" == "--non-interactive" ]]; then
+    NON_INTERACTIVE=true
+    shift
+fi
+
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -26,8 +33,8 @@ validate_prerequisites() {
 }
 
 # Function to verify repository access
-verify_repository_access() {
-    # Use the utility function
+verify_repo_access() {
+    # Use the utility function from github.sh
     verify_repository_access "$GITHUB_OWNER/$GITHUB_REPO" true
 }
 
@@ -227,9 +234,12 @@ output_instructions() {
 }
 
 # Function to clean up variables from environment
-cleanup_vars() {
-    # Use the utility function with specific variables for this script
-    cleanup_vars "GITHUB_OWNER" "GITHUB_REPO" "CONFIRM" "DELETE_CONFIRM" "REMOVE_ENV"
+cleanup_script_vars() {
+    # Only clean up if running standalone (not called from main cleanup script)
+    if [[ "${CLEANUP_MAIN_SCRIPT:-false}" != "true" ]]; then
+        # Use the utility function with specific variables for this script
+        cleanup_vars "GITHUB_OWNER" "GITHUB_REPO" "CONFIRM" "DELETE_CONFIRM" "REMOVE_ENV"
+    fi
 }
 
 # Main execution
@@ -238,7 +248,7 @@ main() {
     print_status "======================================================================="
     
     # Set up trap to clean up on exit
-    trap cleanup_vars EXIT
+    trap cleanup_script_vars EXIT
     
     # Initialize configuration
     if ! init_config; then
@@ -263,7 +273,7 @@ main() {
     fi
     
     # Verify repository access
-    if ! verify_repository_access; then
+    if ! verify_repo_access; then
         print_error "Repository access verification failed"
         return 1
     fi
@@ -273,8 +283,12 @@ main() {
     print_warning "This action cannot be undone. Make sure you have saved any necessary values."
     print_status ""
     
-    if ! get_deletion_confirmation "all Power Platform Terraform secrets"; then
-        exit 1
+    if [[ "$NON_INTERACTIVE" == "true" ]]; then
+        print_status "Non-interactive mode: Proceeding with GitHub secrets cleanup automatically"
+    else
+        if ! get_deletion_confirmation "all Power Platform Terraform secrets"; then
+            exit 1
+        fi
     fi
     
     # Check if there are any secrets to remove
@@ -286,8 +300,6 @@ main() {
     else
         print_success "No secrets found to remove"
     fi
-    
-    cleanup_vars
     
     print_success "Cleanup script completed successfully!"
     

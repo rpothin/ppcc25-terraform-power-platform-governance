@@ -154,18 +154,30 @@ run_script_with_handling() {
     # Make script executable
     chmod +x "$script_path"
     
+    # Record start time for the individual script
+    local script_start_time=$(date +%s)
+    
     # Run the script
     if bash "$script_path"; then
+        local script_end_time=$(date +%s)
+        local script_duration=$((script_end_time - script_start_time))
+        
         print_success "$script_description completed successfully"
+        print_status "Script execution time: $(format_duration $script_duration)"
         echo ""
         return 0
     else
+        local script_end_time=$(date +%s)
+        local script_duration=$((script_end_time - script_start_time))
+        
         if [[ "$is_optional" == "true" ]]; then
             print_warning "$script_description failed but continuing..."
+            print_status "Script execution time: $(format_duration $script_duration)"
             echo ""
             return 1
         else
             print_error "$script_description failed"
+            print_status "Script execution time: $(format_duration $script_duration)"
             echo ""
             
             if get_user_confirmation "Do you want to continue with the remaining steps?"; then

@@ -3,9 +3,27 @@
 # Cleanup Azure Resources for Terraform Backend
 # ==============================================================================
 # Configuration-driven version that uses config.env for streamlined cleanup
-# ==============================================================================
+# ========================    list_terraform_state_files
+    cleanup_deployment_history
+    delete_storage_account
+    delete_resource_group
+    verify_cleanup
+    update_config
+    output_cleanup_summary
+    
+    print_success "Azure backend cleanup completed successfully!"
+    
+    # Disable trap since cleanup is done
+    trap - EXIT=======================================
 
 set -e  # Exit on any error
+
+# Check for non-interactive mode
+NON_INTERACTIVE=false
+if [[ "$1" == "--non-interactive" ]]; then
+    NON_INTERACTIVE=true
+    shift
+fi
 
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -27,11 +45,16 @@ validate_prerequisites() {
 get_additional_input() {
     print_status "Additional cleanup options..."
     
-    # Ask if user wants to delete the entire resource group
-    echo -n "Delete entire resource group? This will remove ALL resources in the group (y/n, default: n): "
-    read -r DELETE_RESOURCE_GROUP
-    if [[ -z "$DELETE_RESOURCE_GROUP" ]]; then
+    if [[ "$NON_INTERACTIVE" == "true" ]]; then
         DELETE_RESOURCE_GROUP="n"
+        print_status "Non-interactive mode: Resource group will NOT be deleted"
+    else
+        # Ask if user wants to delete the entire resource group
+        echo -n "Delete entire resource group? This will remove ALL resources in the group (y/n, default: n): "
+        read -r DELETE_RESOURCE_GROUP
+        if [[ -z "$DELETE_RESOURCE_GROUP" ]]; then
+            DELETE_RESOURCE_GROUP="n"
+        fi
     fi
     
     print_status "Cleanup Configuration:"
@@ -241,22 +264,25 @@ output_cleanup_summary() {
 
 # Function to clean up variables from environment
 cleanup_vars() {
-    print_status "Cleaning up variables from memory..."
-    
-    # Clear variables
-    unset RESOURCE_GROUP_NAME
-    unset STORAGE_ACCOUNT_NAME
-    unset CONTAINER_NAME
-    unset DELETE_RESOURCE_GROUP
-    unset CONFIRM
-    unset DELETE_CONFIRM
-    
-    # Clear bash history of this session (if running interactively)
-    if [[ $- == *i* ]]; then
-        history -c 2>/dev/null || true
+    # Only clean up if running standalone (not called from main cleanup script)
+    if [[ "${CLEANUP_MAIN_SCRIPT:-false}" != "true" ]]; then
+        print_status "Cleaning up variables from memory..."
+        
+        # Clear variables
+        unset RESOURCE_GROUP_NAME
+        unset STORAGE_ACCOUNT_NAME
+        unset CONTAINER_NAME
+        unset DELETE_RESOURCE_GROUP
+        unset CONFIRM
+        unset DELETE_CONFIRM
+        
+        # Clear bash history of this session (if running interactively)
+        if [[ $- == *i* ]]; then
+            history -c 2>/dev/null || true
+        fi
+        
+        print_success "Variables cleared from memory"
     fi
-    
-    print_success "Variables cleared from memory"
 }
 
 # Main execution
@@ -286,19 +312,24 @@ main() {
     # Get additional user input
     get_additional_input
     
-    # Confirm cleanup
-    echo -n "Are you sure you want to proceed? (y/n): "
-    read -r CONFIRM
-    if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
-        print_error "Cleanup cancelled by user"
-        exit 1
-    fi
-    
-    echo -n "Type 'DELETE' to confirm: "
-    read -r DELETE_CONFIRM
-    if [[ "$DELETE_CONFIRM" != "DELETE" ]]; then
-        print_error "Cleanup cancelled - confirmation not received"
-        exit 1
+    if [[ "$NON_INTERACTIVE" == "true" ]]; then
+        print_status "Non-interactive mode: Proceeding with cleanup automatically"
+        print_status "This will delete Terraform backend resources but preserve the resource group"
+    else
+        # Confirm cleanup
+        echo -n "Are you sure you want to proceed? (y/n): "
+        read -r CONFIRM
+        if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
+            print_error "Cleanup cancelled by user"
+            exit 1
+        fi
+        
+        echo -n "Type 'DELETE' to confirm: "
+        read -r DELETE_CONFIRM
+        if [[ "$DELETE_CONFIRM" != "DELETE" ]]; then
+            print_error "Cleanup cancelled - confirmation not received"
+            exit 1
+        fi
     fi
     
     # Perform cleanup

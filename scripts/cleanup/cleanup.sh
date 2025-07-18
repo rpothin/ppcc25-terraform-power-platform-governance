@@ -92,7 +92,8 @@ run_script() {
     local script_name="$2"
     local is_optional="${3:-false}"
     
-    return $(run_script_with_handling "$script_path" "$script_name" "$is_optional")
+    run_script_with_handling "$script_path" "$script_name" "$is_optional"
+    return $?
 }
 
 # Function to prompt for continuation
@@ -122,42 +123,42 @@ get_cleanup_scope() {
         
         case $SCOPE_CHOICE in
             1)
-                CLEANUP_GITHUB=true
-                CLEANUP_BACKEND=true
-                CLEANUP_SERVICE_PRINCIPAL=true
+                export CLEANUP_GITHUB=true
+                export CLEANUP_BACKEND=true
+                export CLEANUP_SERVICE_PRINCIPAL=true
                 break
                 ;;
             2)
-                CLEANUP_GITHUB=true
-                CLEANUP_BACKEND=false
-                CLEANUP_SERVICE_PRINCIPAL=false
+                export CLEANUP_GITHUB=true
+                export CLEANUP_BACKEND=false
+                export CLEANUP_SERVICE_PRINCIPAL=false
                 break
                 ;;
             3)
-                CLEANUP_GITHUB=false
-                CLEANUP_BACKEND=true
-                CLEANUP_SERVICE_PRINCIPAL=false
+                export CLEANUP_GITHUB=false
+                export CLEANUP_BACKEND=true
+                export CLEANUP_SERVICE_PRINCIPAL=false
                 break
                 ;;
             4)
-                CLEANUP_GITHUB=false
-                CLEANUP_BACKEND=false
-                CLEANUP_SERVICE_PRINCIPAL=true
+                export CLEANUP_GITHUB=false
+                export CLEANUP_BACKEND=false
+                export CLEANUP_SERVICE_PRINCIPAL=true
                 break
                 ;;
             5)
                 echo ""
                 echo -n "Clean up GitHub secrets? (y/N): "
                 read -r GITHUB_CHOICE
-                CLEANUP_GITHUB=$([[ "$GITHUB_CHOICE" == "y" || "$GITHUB_CHOICE" == "Y" ]] && echo true || echo false)
+                export CLEANUP_GITHUB=$([[ "$GITHUB_CHOICE" == "y" || "$GITHUB_CHOICE" == "Y" ]] && echo true || echo false)
                 
                 echo -n "Clean up Terraform backend? (y/N): "
                 read -r BACKEND_CHOICE
-                CLEANUP_BACKEND=$([[ "$BACKEND_CHOICE" == "y" || "$BACKEND_CHOICE" == "Y" ]] && echo true || echo false)
+                export CLEANUP_BACKEND=$([[ "$BACKEND_CHOICE" == "y" || "$BACKEND_CHOICE" == "Y" ]] && echo true || echo false)
                 
                 echo -n "Clean up Service Principal? (y/N): "
                 read -r SP_CHOICE
-                CLEANUP_SERVICE_PRINCIPAL=$([[ "$SP_CHOICE" == "y" || "$SP_CHOICE" == "Y" ]] && echo true || echo false)
+                export CLEANUP_SERVICE_PRINCIPAL=$([[ "$SP_CHOICE" == "y" || "$SP_CHOICE" == "Y" ]] && echo true || echo false)
                 break
                 ;;
             *)
@@ -278,91 +279,209 @@ show_final_summary() {
 
 # Function to handle script interruption
 cleanup_handler() {
+    # Finalize timing even on interruption
+    finalize_script_timing
+    
     handle_script_interruption "Cleanup"
 }
 
 # Main execution function
 main() {
+    # Initialize cleanup scope variables
+    export CLEANUP_GITHUB=false
+    export CLEANUP_BACKEND=false
+    export CLEANUP_SERVICE_PRINCIPAL=false
+    
+    # Initialize timing for the entire script
+    init_script_timing "Power Platform Terraform Governance - Complete Cleanup"
+    
     # Set up signal handlers
     trap cleanup_handler SIGINT SIGTERM
     
     # Get script directory
+    start_timing "initialization" "Script initialization and setup"
     local script_dir
     script_dir="$(get_script_dir)"
     
     # Show banner
     show_banner
+    end_timing "initialization"
     
     # Ask for initial confirmation
+    start_timing "user_confirmation" "User confirmation and scope selection"
     echo -n "Do you want to proceed with the cleanup process? (y/N): "
     read -r INITIAL_CONFIRM
     if [[ "$INITIAL_CONFIRM" != "y" && "$INITIAL_CONFIRM" != "Y" ]]; then
         print_error "Cleanup cancelled by user"
+        finalize_script_timing
         exit 1
     fi
     echo ""
+    end_timing "user_confirmation"
     
     # Validate prerequisites
+    start_timing "prerequisites" "Prerequisites validation"
     validate_prerequisites
+    end_timing "prerequisites"
     
     # Get cleanup scope
+    start_timing "scope_selection" "Cleanup scope selection"
     get_cleanup_scope
+    end_timing "scope_selection"
     
     # Final confirmation
+    start_timing "final_confirmation" "Final confirmation and safety checks"
     confirm_cleanup
+    end_timing "final_confirmation"
     
     # Make scripts executable
+    start_timing "script_preparation" "Script preparation and setup"
     make_scripts_executable "$script_dir"
+    end_timing "script_preparation"
+    
+    # Show progress estimate
+    get_timing_summary
+    
+    local cleanup_steps=0
+    [[ "$CLEANUP_GITHUB" == "true" ]] && cleanup_steps=$((cleanup_steps + 1))
+    [[ "$CLEANUP_BACKEND" == "true" ]] && cleanup_steps=$((cleanup_steps + 1))
+    [[ "$CLEANUP_SERVICE_PRINCIPAL" == "true" ]] && cleanup_steps=$((cleanup_steps + 1))
+    
+    estimate_remaining_time $cleanup_steps 0 "cleanup phases"
     
     # Initialize success tracking
     GITHUB_CLEANUP_SUCCESS=false
     BACKEND_CLEANUP_SUCCESS=false
     SP_CLEANUP_SUCCESS=false
     
+    local completed_steps=0
+    
     # Step 1: Cleanup GitHub Secrets (reverse order - first thing to remove)
     if [[ "$CLEANUP_GITHUB" == "true" ]]; then
+        start_timing "github_cleanup" "GitHub secrets and environments cleanup"
         print_header "Step 1: Cleanup GitHub Secrets"
         print_status "This step will remove all GitHub secrets and environments"
         print_status "created during the setup process."
         prompt_continue "This will break any existing GitHub Actions workflows."
         
-        if run_script "$script_dir/cleanup-github-secrets-config.sh" "GitHub Secrets Cleanup"; then
+        # Set flag to indicate we're running from main cleanup script
+        export CLEANUP_MAIN_SCRIPT=true
+        
+        echo "[DEBUG] About to run GitHub cleanup script"
+        
+        # Temporarily disable exit on error for this specific call
+        set +e
+        "$script_dir/cleanup-github-secrets-config.sh" --non-interactive
+        local github_exit_code=$?
+        set -e
+        
+        echo "[DEBUG] GitHub cleanup script returned exit code: $github_exit_code"
+        
+        if [[ $github_exit_code -eq 0 ]]; then
             GITHUB_CLEANUP_SUCCESS=true
+            echo "[DEBUG] GitHub cleanup marked as successful"
         else
             GITHUB_CLEANUP_SUCCESS=false
+            echo "[DEBUG] GitHub cleanup marked as failed"
         fi
+        end_timing "github_cleanup"
+        
+        echo "[DEBUG] About to increment completed_steps. Current value: $completed_steps"
+        completed_steps=$((completed_steps + 1))
+        echo "[DEBUG] completed_steps after increment: $completed_steps"
+        echo "[DEBUG] About to call estimate_remaining_time with: total=$cleanup_steps, completed=$completed_steps"
+        
+        estimate_remaining_time $cleanup_steps $completed_steps "cleanup phases"
+        
+        echo "[DEBUG] Completed GitHub cleanup section, proceeding to backend cleanup check"
     fi
+    
+    echo "[DEBUG] Checking if CLEANUP_BACKEND is true: $CLEANUP_BACKEND"
     
     # Step 2: Cleanup Terraform Backend (second - remove infrastructure)
     if [[ "$CLEANUP_BACKEND" == "true" ]]; then
+        echo "[DEBUG] Starting Terraform backend cleanup section"
+        start_timing "backend_cleanup" "Terraform backend and Azure resources cleanup"
         print_header "Step 2: Cleanup Terraform Backend"
         print_status "This step will remove the Azure resources used for Terraform state storage"
         print_status "including Storage Account, Container, and optionally Resource Group."
         prompt_continue "This will permanently delete all Terraform state files."
         
-        if run_script "$script_dir/cleanup-terraform-backend-config.sh" "Terraform Backend Cleanup"; then
+        # Set flag to indicate we're running from main cleanup script
+        export CLEANUP_MAIN_SCRIPT=true
+        
+        # Run the script with the --non-interactive flag
+        echo "[DEBUG] About to run Terraform backend cleanup script"
+        
+        # Temporarily disable exit on error for this specific call
+        set +e
+        "$script_dir/cleanup-terraform-backend-config.sh" --non-interactive
+        local backend_exit_code=$?
+        set -e
+        
+        echo "[DEBUG] Terraform backend cleanup script returned exit code: $backend_exit_code"
+        
+        if [[ $backend_exit_code -eq 0 ]]; then
             BACKEND_CLEANUP_SUCCESS=true
+            echo "[DEBUG] Terraform backend cleanup marked as successful"
         else
             BACKEND_CLEANUP_SUCCESS=false
+            echo "[DEBUG] Terraform backend cleanup marked as failed"
         fi
+        end_timing "backend_cleanup"
+        
+        completed_steps=$((completed_steps + 1))
+        estimate_remaining_time $cleanup_steps $completed_steps "cleanup phases"
     fi
     
     # Step 3: Cleanup Service Principal (last - remove authentication)
     if [[ "$CLEANUP_SERVICE_PRINCIPAL" == "true" ]]; then
+        start_timing "service_principal_cleanup" "Service Principal and Power Platform registration cleanup"
         print_header "Step 3: Cleanup Service Principal"
         print_status "This step will remove the Azure AD Service Principal and App Registration"
         print_status "as well as the Power Platform application registration."
         prompt_continue "This will remove all authentication credentials."
         
-        if run_script "$script_dir/cleanup-service-principal-config.sh" "Service Principal Cleanup"; then
+        # Set flag to indicate we're running from main cleanup script
+        export CLEANUP_MAIN_SCRIPT=true
+        
+        # Run the script with the --non-interactive flag
+        echo "[DEBUG] About to run Service Principal cleanup script"
+        
+        # Temporarily disable exit on error for this specific call
+        set +e
+        "$script_dir/cleanup-service-principal-config.sh" --non-interactive
+        local sp_exit_code=$?
+        set -e
+        
+        echo "[DEBUG] Service Principal cleanup script returned exit code: $sp_exit_code"
+        
+        if [[ $sp_exit_code -eq 0 ]]; then
             SP_CLEANUP_SUCCESS=true
+            echo "[DEBUG] Service Principal cleanup marked as successful"
         else
             SP_CLEANUP_SUCCESS=false
+            echo "[DEBUG] Service Principal cleanup marked as failed"
         fi
+        end_timing "service_principal_cleanup"
+        
+        completed_steps=$((completed_steps + 1))
     fi
     
     # Show final summary
+    start_timing "final_summary" "Final summary and documentation"
     show_final_summary
+    end_timing "final_summary"
+    
+    # Finalize timing and show comprehensive summary
+    finalize_script_timing
+    
+    # Save timing report
+    local overall_success=true
+    [[ "$CLEANUP_GITHUB" == "true" && "$GITHUB_CLEANUP_SUCCESS" != "true" ]] && overall_success=false
+    [[ "$CLEANUP_BACKEND" == "true" && "$BACKEND_CLEANUP_SUCCESS" != "true" ]] && overall_success=false
+    [[ "$CLEANUP_SERVICE_PRINCIPAL" == "true" && "$SP_CLEANUP_SUCCESS" != "true" ]] && overall_success=false
+    
 }
 
 # Run the main function

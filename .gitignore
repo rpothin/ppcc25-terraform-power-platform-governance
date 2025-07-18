@@ -31,3 +31,8 @@ Thumbs.db
 test.tf
 crash.log
 crash.*.log
+
+# Reports directory - timing and ROI reports
+reports/*-failed-*
+reports/*-interrupted-*
+reports/baseline-*.txt
