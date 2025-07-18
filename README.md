@@ -79,7 +79,7 @@ After setup, go to your GitHub repository and run the **Terraform Plan and Apply
 
 ### Alternative: Manual Setup
 
-If you prefer step-by-step setup, see the [setup documentation](docs/setup-guide.md).
+If you prefer step-by-step setup, see the [setup documentation](docs/guides/setup-guide.md).
 
 ## 📋 Prerequisites
 

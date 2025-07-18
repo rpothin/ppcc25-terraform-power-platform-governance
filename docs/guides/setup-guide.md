@@ -371,9 +371,9 @@ To remove all created resources:
 
 ## 📖 Additional Resources
 
-- **Main repository documentation:** [README.md](../README.md)
-- **Configuration examples:** [configurations/](../configurations/)
-- **ROI justification:** [setup-automation-roi-justification.md](setup-automation-roi-justification.md)
+- **Main repository documentation:** [README.md](../../README.md)
+- **Configuration examples:** [configurations/](../../configurations/)
+- **ROI justification:** [../explanations/setup-automation-roi-justification.md](../explanations/setup-automation-roi-justification.md)
 - **Terraform provider documentation:** [Power Platform Terraform Provider](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs)
 
 ---
