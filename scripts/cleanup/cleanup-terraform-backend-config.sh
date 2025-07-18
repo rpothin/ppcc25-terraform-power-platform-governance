@@ -3,18 +3,7 @@
 # Cleanup Azure Resources for Terraform Backend
 # ==============================================================================
 # Configuration-driven version that uses config.env for streamlined cleanup
-# ========================    list_terraform_state_files
-    cleanup_deployment_history
-    delete_storage_account
-    delete_resource_group
-    verify_cleanup
-    update_config
-    output_cleanup_summary
-    
-    print_success "Azure backend cleanup completed successfully!"
-    
-    # Disable trap since cleanup is done
-    trap - EXIT=======================================
+# ==============================================================================
 
 set -e  # Exit on any error
 
@@ -46,8 +35,13 @@ get_additional_input() {
     print_status "Additional cleanup options..."
     
     if [[ "$NON_INTERACTIVE" == "true" ]]; then
-        DELETE_RESOURCE_GROUP="n"
-        print_status "Non-interactive mode: Resource group will NOT be deleted"
+        # Check if DELETE_RESOURCE_GROUP was set by the calling script
+        if [[ -n "$DELETE_RESOURCE_GROUP" ]]; then
+            print_status "Non-interactive mode: Resource group deletion set to: $DELETE_RESOURCE_GROUP"
+        else
+            DELETE_RESOURCE_GROUP="n"
+            print_status "Non-interactive mode: Resource group will NOT be deleted"
+        fi
     else
         # Ask if user wants to delete the entire resource group
         echo -n "Delete entire resource group? This will remove ALL resources in the group (y/n, default: n): "

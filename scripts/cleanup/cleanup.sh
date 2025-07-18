@@ -410,6 +410,11 @@ main() {
         # Set flag to indicate we're running from main cleanup script
         export CLEANUP_MAIN_SCRIPT=true
         
+        # For complete cleanup (scope 1), also delete the resource group
+        if [[ "$SCOPE_CHOICE" == "1" ]]; then
+            export DELETE_RESOURCE_GROUP="y"
+        fi
+        
         # Run the script with the --non-interactive flag
         echo "[DEBUG] About to run Terraform backend cleanup script"
         

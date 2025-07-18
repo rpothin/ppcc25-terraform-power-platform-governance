@@ -40,10 +40,20 @@ cleanup_service_principal() {
         exit 1
     fi
     
+    # If AZURE_CLIENT_ID is not set, try to find it by service principal name
     if [[ -z "$AZURE_CLIENT_ID" ]]; then
-        print_error "Azure Client ID is not set in configuration"
-        print_error "This may mean the service principal was not created with the config-driven scripts"
-        exit 1
+        print_warning "Azure Client ID is not set in configuration"
+        print_status "Attempting to find service principal by name: $SP_NAME"
+        
+        AZURE_CLIENT_ID=$(az ad sp list --display-name "$SP_NAME" --query "[0].appId" --output tsv 2>/dev/null)
+        
+        if [[ -z "$AZURE_CLIENT_ID" || "$AZURE_CLIENT_ID" == "null" ]]; then
+            print_error "Could not find service principal with name: $SP_NAME"
+            print_error "This may mean the service principal was not created with the config-driven scripts"
+            exit 1
+        else
+            print_success "Found service principal with App ID: $AZURE_CLIENT_ID"
+        fi
     fi
     
     # Method 1: Delete by App ID (most reliable)
