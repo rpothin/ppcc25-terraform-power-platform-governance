@@ -1,6 +1,6 @@
 # Manual Time Estimates Justification for Cleanup Automation
 
-![How-to Guide](https://img.shields.io/badge/Diataxis-How--to%20Guide-green?style=for-the-badge&logo=tools)
+![Explanation](https://img.shields.io/badge/Diataxis-Explanation-purple?style=for-the-badge&logo=lightbulb)
 
 ## Overview
 
@@ -31,14 +31,14 @@ All estimates assume:
 
 ### Phase 1: GitHub Secrets & Environment Cleanup
 
-| Task | Min (min) | Max (min) | Avg (min) | Primary Variance Drivers |
-|------|-----------|-----------|-----------|-------------------------|
-| **Enumerate repo & environment secrets** | 3 | 10 | 6 | Number of secrets/environments, UI latency |
-| **Delete repository-level secrets** | 2 | 8 | 4 | Secret count, CLI vs UI usage |
-| **Delete environment secrets & protection rules** | 3 | 12 | 6 | Rule complexity, confirmation prompts |
-| **Remove environment objects** | 1 | 5 | 3 | API pagination for multiple environments |
-| **Validation pass** | 1 | 4 | 2 | API throttling, network latency |
-| **Phase 1 Subtotal** | **10** | **39** | **21** | |
+| Task                                              | Min (min) | Max (min) | Avg (min) | Primary Variance Drivers                   |
+| ------------------------------------------------- | --------- | --------- | --------- | ------------------------------------------ |
+| **Enumerate repo & environment secrets**          | 3         | 10        | 6         | Number of secrets/environments, UI latency |
+| **Delete repository-level secrets**               | 2         | 8         | 4         | Secret count, CLI vs UI usage              |
+| **Delete environment secrets & protection rules** | 3         | 12        | 6         | Rule complexity, confirmation prompts      |
+| **Remove environment objects**                    | 1         | 5         | 3         | API pagination for multiple environments   |
+| **Validation pass**                               | 1         | 4         | 2         | API throttling, network latency            |
+| **Phase 1 Subtotal**                              | **10**    | **39**    | **21**    |                                            |
 
 **Key Time Drivers:**
 - GitHub UI navigation and loading times
@@ -48,16 +48,16 @@ All estimates assume:
 
 ### Phase 2: Terraform Backend & Azure Resource Cleanup
 
-| Task | Min (min) | Max (min) | Avg (min) | Primary Variance Drivers |
-|------|-----------|-----------|-----------|-------------------------|
-| **List state blobs** | 2 | 6 | 4 | Number of workspaces/environments |
-| **Delete Terraform state files** | 2 | 8 | 5 | Data size, network speed |
-| **Delete storage container** | 1 | 4 | 2 | Container locks, dependencies |
-| **Delete storage account** | 3 | 10 | 6 | Soft-delete retention policies |
-| **Delete resource group** | 4 | 20 | 10 | Resource count, dependency resolution |
-| **Clear deployment history** | 1 | 5 | 3 | Number of deployment records |
-| **Update backend configuration** | 2 | 6 | 4 | Module count, git workflow |
-| **Phase 2 Subtotal** | **15** | **59** | **34** | |
+| Task                             | Min (min) | Max (min) | Avg (min) | Primary Variance Drivers              |
+| -------------------------------- | --------- | --------- | --------- | ------------------------------------- |
+| **List state blobs**             | 2         | 6         | 4         | Number of workspaces/environments     |
+| **Delete Terraform state files** | 2         | 8         | 5         | Data size, network speed              |
+| **Delete storage container**     | 1         | 4         | 2         | Container locks, dependencies         |
+| **Delete storage account**       | 3         | 10        | 6         | Soft-delete retention policies        |
+| **Delete resource group**        | 4         | 20        | 10        | Resource count, dependency resolution |
+| **Clear deployment history**     | 1         | 5         | 3         | Number of deployment records          |
+| **Update backend configuration** | 2         | 6         | 4         | Module count, git workflow            |
+| **Phase 2 Subtotal**             | **15**    | **59**    | **34**    |                                       |
 
 **Key Time Drivers:**
 - Azure Resource Manager dependency resolution
@@ -67,16 +67,16 @@ All estimates assume:
 
 ### Phase 3: Service Principal & Application Cleanup
 
-| Task | Min (min) | Max (min) | Avg (min) | Primary Variance Drivers |
-|------|-----------|-----------|-----------|-------------------------|
-| **Locate service principal & roles** | 2 | 8 | 4 | Directory size, search filters |
-| **Remove role assignments** | 2 | 10 | 5 | Number of scopes, propagation delay |
-| **Delete federated credentials** | 1 | 4 | 2 | OIDC configuration complexity |
-| **Delete service principal** | 1 | 5 | 3 | Azure AD replication delay |
-| **Delete app registration** | 1 | 6 | 3 | Permission policies, locks |
-| **Unregister Power Platform app** | 2 | 6 | 4 | PAC tooling, tenant latency |
-| **Verification pass** | 1 | 4 | 2 | Directory replication time |
-| **Phase 3 Subtotal** | **10** | **43** | **23** | |
+| Task                                 | Min (min) | Max (min) | Avg (min) | Primary Variance Drivers            |
+| ------------------------------------ | --------- | --------- | --------- | ----------------------------------- |
+| **Locate service principal & roles** | 2         | 8         | 4         | Directory size, search filters      |
+| **Remove role assignments**          | 2         | 10        | 5         | Number of scopes, propagation delay |
+| **Delete federated credentials**     | 1         | 4         | 2         | OIDC configuration complexity       |
+| **Delete service principal**         | 1         | 5         | 3         | Azure AD replication delay          |
+| **Delete app registration**          | 1         | 6         | 3         | Permission policies, locks          |
+| **Unregister Power Platform app**    | 2         | 6         | 4         | PAC tooling, tenant latency         |
+| **Verification pass**                | 1         | 4         | 2         | Directory replication time          |
+| **Phase 3 Subtotal**                 | **10**    | **43**    | **23**    |                                     |
 
 **Key Time Drivers:**
 - Azure AD global replication delays (up to 60 minutes)
@@ -86,11 +86,11 @@ All estimates assume:
 
 ## Total Manual Effort Summary
 
-| Scenario | Total Time | Use Case |
-|----------|------------|----------|
-| **Minimum (Experienced operator, simple environment)** | 35 minutes | Small development environment |
-| **Maximum (Complex enterprise environment)** | 141 minutes (2h 21m) | Production environment with extensive security |
-| **Typical Average** | **78 minutes (1h 18m)** | **Standard enterprise setup** |
+| Scenario                                               | Total Time              | Use Case                                       |
+| ------------------------------------------------------ | ----------------------- | ---------------------------------------------- |
+| **Minimum (Experienced operator, simple environment)** | 35 minutes              | Small development environment                  |
+| **Maximum (Complex enterprise environment)**           | 141 minutes (2h 21m)    | Production environment with extensive security |
+| **Typical Average**                                    | **78 minutes (1h 18m)** | **Standard enterprise setup**                  |
 
 ## Automation ROI Justification
 
