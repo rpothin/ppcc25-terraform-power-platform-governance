@@ -295,13 +295,7 @@ jobs:
           expected_file="configurations/$config/terraform-output.json"
         fi
         
-        # Validate output file exists before adding to git
-        if [ ! -f "$expected_file" ]; then
-          echo "::error title=Output File Missing::Expected output file '$expected_file' not found. Terraform output processing may have failed."
-          exit 1
-        fi
-        
-        # Add the specific output file
+        # Add the specific output file (trusting Step 9 validation)
         echo "::notice title=Adding File::Adding $expected_file to git"
         git add "$expected_file"
         
@@ -363,14 +357,15 @@ jobs:
         echo "| Workflow run | [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         
-        # Find the output file (simplified naming)
+        # Use output file information from Step 9
         if [ "$export_format" = "yaml" ]; then
           latest_output="configurations/$config/terraform-output.yaml"
         else
           latest_output="configurations/$config/terraform-output.json"
         fi
         
-        if [ -n "$latest_output" ] && [ -f "$latest_output" ]; then
+        # Generate output content section (trusting Step 9 validation)
+        if [ -f "$latest_output" ]; then
           echo "### ✅ Output Content" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Detail | Value |" >> $GITHUB_STEP_SUMMARY
@@ -442,10 +437,8 @@ jobs:
         else
           echo "### ❌ Output Status" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "No output file found. Check the execution logs for errors." >> $GITHUB_STEP_SUMMARY
-        fi
-        
-        echo "" >> $GITHUB_STEP_SUMMARY
+          echo "No output file found. This should not happen if Step 9 completed successfully." >> $GITHUB_STEP_SUMMARY
+        fi        echo "" >> $GITHUB_STEP_SUMMARY
         echo "### ⚠️ Important Notes" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "- **Data Source Only**: This configuration only reads existing Power Platform resources" >> $GITHUB_STEP_SUMMARY
