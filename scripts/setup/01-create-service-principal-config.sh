@@ -133,17 +133,52 @@ create_service_principal() {
 setup_github_oidc() {
     print_status "Setting up OIDC trust with GitHub repository..."
     
-    # Create federated credential for GitHub Actions
-    FEDERATED_CREDENTIAL_NAME="github-actions-main"
+    # Create federated credential for production environment (required for workflows)
+    print_status "Creating federated credential for production environment..."
+    local production_credential_name="github-actions-production-env"
     
     # Create a secure temporary file with proper permissions
-    TEMP_CREDENTIAL_FILE=$(mktemp)
-    chmod 600 "$TEMP_CREDENTIAL_FILE"
+    local temp_credential_file=$(mktemp)
+    chmod 600 "$temp_credential_file"
     
-    # Create the federated credential JSON
-    cat > "$TEMP_CREDENTIAL_FILE" << EOF
+    # Create the federated credential JSON for production environment
+    cat > "$temp_credential_file" << EOF
 {
-    "name": "$FEDERATED_CREDENTIAL_NAME",
+    "name": "$production_credential_name",
+    "issuer": "https://token.actions.githubusercontent.com",
+    "subject": "repo:$GITHUB_OWNER/$GITHUB_REPO:environment:production",
+    "description": "GitHub Actions OIDC for production environment",
+    "audiences": ["api://AzureADTokenExchange"]
+}
+EOF
+    
+    # Create the production environment federated credential
+    if az ad app federated-credential create \
+        --id "$AZURE_CLIENT_ID" \
+        --parameters "@$temp_credential_file" \
+        --only-show-errors; then
+        print_success "✓ Production environment OIDC credential created"
+    else
+        print_error "Failed to create production environment OIDC credential"
+        rm -f "$temp_credential_file"
+        exit 1
+    fi
+    
+    # Clean up temp file
+    rm -f "$temp_credential_file"
+    
+    # Create federated credential for main branch (for general repository access)
+    print_status "Creating federated credential for main branch..."
+    local main_credential_name="github-actions-main-branch"
+    
+    # Create a new secure temporary file
+    temp_credential_file=$(mktemp)
+    chmod 600 "$temp_credential_file"
+    
+    # Create the federated credential JSON for main branch
+    cat > "$temp_credential_file" << EOF
+{
+    "name": "$main_credential_name",
     "issuer": "https://token.actions.githubusercontent.com",
     "subject": "repo:$GITHUB_OWNER/$GITHUB_REPO:ref:refs/heads/main",
     "description": "GitHub Actions OIDC for main branch",
@@ -151,21 +186,24 @@ setup_github_oidc() {
 }
 EOF
     
-    # Create the federated credential
-    az ad app federated-credential create \
+    # Create the main branch federated credential
+    if az ad app federated-credential create \
         --id "$AZURE_CLIENT_ID" \
-        --parameters "@$TEMP_CREDENTIAL_FILE"
-    
-    if [[ $? -eq 0 ]]; then
-        print_success "OIDC trust configured for GitHub repository"
-        # Securely remove the temporary file
-        rm -f "$TEMP_CREDENTIAL_FILE"
+        --parameters "@$temp_credential_file" \
+        --only-show-errors; then
+        print_success "✓ Main branch OIDC credential created"
     else
-        print_error "Failed to configure OIDC trust"
-        # Securely remove the temporary file
-        rm -f "$TEMP_CREDENTIAL_FILE"
+        print_error "Failed to create main branch OIDC credential"
+        rm -f "$temp_credential_file"
         exit 1
     fi
+    
+    # Clean up temp file
+    rm -f "$temp_credential_file"
+    
+    print_success "OIDC trust configured for GitHub repository"
+    print_status "  ✓ Production environment: repo:$GITHUB_OWNER/$GITHUB_REPO:environment:production"
+    print_status "  ✓ Main branch: repo:$GITHUB_OWNER/$GITHUB_REPO:ref:refs/heads/main"
 }
 
 # Function to assign additional Azure permissions
@@ -540,6 +578,8 @@ output_results() {
     print_status "Created Resources:"
     print_status "  ✓ Azure AD Service Principal: $SP_NAME"
     print_status "  ✓ OIDC Trust: GitHub Repository $GITHUB_OWNER/$GITHUB_REPO"
+    print_status "    • Production environment: environment:production"
+    print_status "    • Main branch: ref:refs/heads/main"
     print_status "  ✓ Azure Permissions: Owner role"
     if [[ "$ADMIN_CONSENT_GRANTED" == "true" ]]; then
         print_status "  ✓ Microsoft Graph: Admin consent granted"
@@ -552,6 +592,10 @@ output_results() {
     print_status "  Application ID: $AZURE_CLIENT_ID"
     print_status "  Tenant ID: $AZURE_TENANT_ID"
     print_status "  Subscription ID: $AZURE_SUBSCRIPTION_ID"
+    print_status ""
+    print_status "OIDC Configuration:"
+    print_status "  ✓ Supports GitHub Actions in production environment"
+    print_status "  ✓ Supports GitHub Actions from main branch"
     print_status ""
     print_status "Configuration updated in: $SCRIPT_DIR/config.env"
 }
