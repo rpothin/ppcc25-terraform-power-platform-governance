@@ -81,13 +81,13 @@ jobs:
         
         # Validate configuration directory exists
         if [ ! -d "configurations/$config" ]; then
-          echo "::error title=Configuration Not Found::Configuration directory 'configurations/$config' does not exist. Please check the configuration name."
+          echo "::error title=Configuration Not Found::Directory 'configurations/$config' missing"
           exit 1
         fi
         
         # Validate export format
         if [[ "$export_format" != "json" && "$export_format" != "yaml" ]]; then
-          echo "::error title=Invalid Export Format::Export format '$export_format' is not supported. Supported formats: json, yaml"
+          echo "::error title=Invalid Export Format::Unsupported format '$export_format'"
           exit 1
         fi
         
@@ -187,7 +187,7 @@ jobs:
         if [ $? -eq 0 ]; then
           echo "::notice title=Execution Successful::✅ Terraform configuration executed successfully"
         else
-          echo "::error title=Execution Failed::❌ Terraform configuration execution failed"
+          echo "::error title=Terraform Failed::Configuration execution failed"
           exit 1
         fi
         
@@ -261,7 +261,7 @@ jobs:
           echo "output-filename=$output_filename" >> $GITHUB_OUTPUT
           echo "::notice title=Output Complete::✅ Output processed successfully: $output_filename"
         else
-          echo "::error title=Processing Failed::Failed to create output file"
+          echo "::error title=Output Failed::Unable to create $output_filename"
           exit 1
         fi
         
