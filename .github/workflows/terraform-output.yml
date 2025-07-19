@@ -63,7 +63,11 @@ jobs:
       configuration: ${{ github.event.inputs.configuration }}
     
     steps:
-    # Step 1: Validate inputs and configuration
+    # Step 1: Checkout repository code
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    # Step 2: Validate inputs and configuration
     - name: Validate Inputs
       run: |
         config="${{ github.event.inputs.configuration }}"
@@ -91,10 +95,6 @@ jobs:
         
         echo "::notice title=Input Validation Complete::✅ All inputs validated successfully"
         echo "::notice title=Output Target::🎯 Target configuration: $config, Format: $export_format"
-    
-    # Step 2: Checkout repository code
-    - name: Checkout
-      uses: actions/checkout@v4
     
     # Step 3: Authenticate with Azure using OIDC for backend state storage
     - name: Azure Login with OIDC

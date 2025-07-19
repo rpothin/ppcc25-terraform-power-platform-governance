@@ -73,7 +73,11 @@ jobs:
       configuration: ${{ github.event.inputs.configuration }}
     
     steps:
-    # Step 1: Validate inputs and prepare for import
+    # Step 1: Checkout repository code
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    # Step 2: Validate inputs and prepare for import
     - name: Validate Inputs
       run: |
         config="${{ github.event.inputs.configuration }}"
@@ -130,10 +134,6 @@ jobs:
         else
           echo "::warning title=Backup Disabled::⚠️ State backup is disabled - proceed with caution"
         fi
-    
-    # Step 2: Checkout repository code
-    - name: Checkout
-      uses: actions/checkout@v4
     
     # Step 3: Authenticate with Azure using OIDC for backend state storage
     - name: Azure Login with OIDC

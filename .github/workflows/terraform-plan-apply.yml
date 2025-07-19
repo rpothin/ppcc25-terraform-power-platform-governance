@@ -65,7 +65,11 @@ jobs:
       configuration: ${{ github.event.inputs.configuration }}     # Pass configuration to apply job
     
     steps:
-    # Step 1: Validate inputs and configuration
+    # Step 1: Checkout repository code
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    # Step 2: Validate inputs and configuration
     - name: Validate Inputs
       run: |
         config="${{ github.event.inputs.configuration }}"
@@ -94,7 +98,9 @@ jobs:
         fi
         
         echo "::notice title=Input Validation Complete::✅ All inputs validated successfully"
-        echo "::notice title=Plan Target::🎯 Target configuration: $config with tfvars: $tfvars_file.tfvars"
+        echo "::notice title=Plan Target::🎯 Target: $config/$tfvars_file, Apply: $apply"
+    
+    # Step 3: Authenticate with Azure using OIDC for backend state storage
         
         if [ "$apply_requested" = "true" ]; then
           echo "::warning title=Apply Requested::⚠️ Apply operation will be performed if plan shows changes"
