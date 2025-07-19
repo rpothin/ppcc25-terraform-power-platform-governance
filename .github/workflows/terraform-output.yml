@@ -405,9 +405,6 @@ jobs:
         # Verify the final output file was created
         if [ ! -f "$output_filename" ]; then
           echo "::error title=File Creation Failed::Output file '$output_filename' was not created successfully"
-          echo "::group::Directory Contents After Processing"
-          ls -la .
-          echo "::endgroup::"
           exit 1
         fi
         
@@ -546,12 +543,6 @@ jobs:
         # Add the specific output file
         echo "::notice title=Adding File::Adding $expected_file to git"
         git add "$expected_file"
-        
-        # Check git status
-        echo "::group::Git Status Check"
-        echo "Git status after adding file:"
-        git status --porcelain
-        echo "::endgroup::"
         
         # Check if there are changes to commit
         if git diff --cached --quiet; then
