@@ -74,7 +74,7 @@ jobs:
     
     steps:
     # Step 1: Validate confirmation input
-    - name: Validate Confirmation
+    - name: Validate Destroy Confirmation Input
       run: |
         confirmation="${{ github.event.inputs.confirmation }}"
         
@@ -86,7 +86,7 @@ jobs:
         echo "::warning title=Destruction Confirmed::⚠️ User has confirmed resource destruction. Proceeding with validation checks..."
     
     # Step 2: Checkout repository code
-    - name: Checkout
+    - name: Checkout Repository for Validation
       uses: actions/checkout@v4
     
     # Step 3: Authenticate with Azure using OIDC for backend state storage
@@ -107,14 +107,14 @@ jobs:
         resource-group-name: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
     
     # Step 5: Install and configure Terraform CLI
-    - name: Setup Terraform
+    - name: Setup Terraform CLI for Validation
       uses: hashicorp/setup-terraform@v3
       with:
         terraform_version: 1.5.0
         terraform_wrapper: false    # Disable wrapper for better output handling
     
     # Step 6: Validate inputs and configuration
-    - name: Validate Inputs
+    - name: Validate Destroy Inputs
       run: |
         config="${{ github.event.inputs.configuration }}"
         tfvars_file="${{ github.event.inputs.tfvars_file }}"
@@ -224,7 +224,7 @@ jobs:
         cd - > /dev/null
     
     # Step 8: Create state backup (if requested)
-    - name: Create State Backup
+    - name: Create State Backup for Destruction
       id: backup
       if: github.event.inputs.backup_state == 'true'
       run: |
@@ -325,7 +325,7 @@ jobs:
         cd - > /dev/null
     
     # Step 10: Upload destroy plan as artifact for audit trail
-    - name: Upload Destroy Plan
+    - name: Upload Destroy Plan as Artifact
       uses: actions/upload-artifact@v4
       with:
         name: destroy-plan-${{ github.run_number }}
@@ -383,7 +383,7 @@ jobs:
         echo "::notice title=Proceeding with Destruction::Continuing with terraform destroy operation..."
     
     # Step 2: Checkout repository code
-    - name: Checkout
+    - name: Checkout Repository for Destroy
       uses: actions/checkout@v4
     
     # Step 3: Authenticate with Azure using OIDC for backend state storage
@@ -404,21 +404,21 @@ jobs:
         resource-group-name: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
     
     # Step 5: Install and configure Terraform CLI
-    - name: Setup Terraform
+    - name: Setup Terraform CLI for Destruction
       uses: hashicorp/setup-terraform@v3
       with:
         terraform_version: 1.5.0
         terraform_wrapper: false
     
     # Step 6: Download the destroy plan created in validation job
-    - name: Download Destroy Plan
+    - name: Download Destroy Plan from Artifacts
       uses: actions/download-artifact@v4
       with:
         name: destroy-plan-${{ github.run_number }}
         path: .
     
     # Step 7: Execute the destroy operation
-    - name: Terraform Destroy
+    - name: Execute Terraform Destroy
       run: |
         config="${{ needs.terraform-validate.outputs.configuration }}"
         tfvars_file="${{ github.event.inputs.tfvars_file }}"
@@ -568,7 +568,7 @@ jobs:
         cd - > /dev/null
     
     # Step 10: Generate destroy summary report
-    - name: Destroy Summary
+    - name: Generate Destroy Summary
       run: |
         config="${{ needs.terraform-validate.outputs.configuration }}"
         tfvars_file="${{ github.event.inputs.tfvars_file }}"

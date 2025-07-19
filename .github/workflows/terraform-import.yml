@@ -77,11 +77,11 @@ jobs:
     
     steps:
     # Step 1: Checkout repository code
-    - name: Checkout
+    - name: Checkout Repository for Import
       uses: actions/checkout@v4
     
     # Step 2: Validate inputs and prepare for import
-    - name: Validate Inputs
+    - name: Validate Import Parameters
       run: |
         config="${{ github.event.inputs.configuration }}"
         tfvars_file="${{ github.event.inputs.tfvars_file }}"
@@ -156,7 +156,7 @@ jobs:
         resource-group-name: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
     
     # Step 5: Install and configure Terraform CLI
-    - name: Setup Terraform
+    - name: Setup Terraform CLI for Import
       uses: hashicorp/setup-terraform@v3
       with:
         terraform_version: 1.5.0
@@ -271,7 +271,7 @@ jobs:
         cd - > /dev/null
     
     # Step 8: Create comprehensive backup of current state
-    - name: Create State Backup
+    - name: Create State Backup for Import
       if: github.event.inputs.backup_state == 'true'
       run: |
         config="${{ github.event.inputs.configuration }}"
@@ -325,8 +325,8 @@ jobs:
         cd - > /dev/null
     
     # Step 9: Perform the import operation
-    - name: Terraform Import
-      id: import
+        - name: Execute Terraform Import Operation
+      id: terraform-import
       run: |
         config="${{ github.event.inputs.configuration }}"
         tfvars_file="${{ github.event.inputs.tfvars_file }}"

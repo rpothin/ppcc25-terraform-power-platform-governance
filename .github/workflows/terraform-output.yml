@@ -68,11 +68,11 @@ jobs:
     
     steps:
     # Step 1: Checkout repository code
-    - name: Checkout
+    - name: Checkout Repository for Output Generation
       uses: actions/checkout@v4
     
     # Step 2: Validate inputs and configuration
-    - name: Validate Inputs
+    - name: Validate Output Parameters
       run: |
         config="${{ github.event.inputs.configuration }}"
         export_format="${{ github.event.inputs.export_format }}"
@@ -117,7 +117,7 @@ jobs:
       uses: mikefarah/yq@v4.46.1
     
     # Step 6: Install and configure Terraform CLI
-    - name: Setup Terraform
+    - name: Setup Terraform CLI for Output Generation
       uses: hashicorp/setup-terraform@v3
       with:
         terraform_version: 1.5.0
@@ -153,7 +153,7 @@ jobs:
         cd - > /dev/null
     
     # Step 8: Create backup of current state (if exists)
-    - name: Create State Backup
+    - name: Create State Backup for Output Generation
       run: |
         config="${{ github.event.inputs.configuration }}"
         

@@ -69,11 +69,11 @@ jobs:
     
     steps:
     # Step 1: Checkout repository code
-    - name: Checkout
+    - name: Checkout Repository for Planning
       uses: actions/checkout@v4
     
     # Step 2: Validate inputs and configuration
-    - name: Validate Inputs
+    - name: Validate Planning Inputs
       run: |
         config="${{ github.event.inputs.configuration }}"
         tfvars_file="${{ github.event.inputs.tfvars_file }}"
@@ -149,14 +149,14 @@ jobs:
         resource-group-name: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
     
     # Step 5: Install and configure Terraform CLI
-    - name: Setup Terraform
+    - name: Setup Terraform CLI for Planning
       uses: hashicorp/setup-terraform@v3
       with:
         terraform_version: 1.5.0
         terraform_wrapper: false    # Disable wrapper for better output handling
     
     # Step 6: Validate configuration and tfvars file existence
-    - name: Validate Configuration Files
+    - name: Validate Terraform Configuration Files
       run: |
         config="${{ github.event.inputs.configuration }}"
         tfvars_file="${{ github.event.inputs.tfvars_file }}"
@@ -203,7 +203,7 @@ jobs:
         echo "::notice title=Using Files::Configuration: configurations/$config/, tfvars: $tfvars_path"
     
     # Step 7: Create backup of current state
-    - name: Create State Backup
+    - name: Create State Backup for Planning
       run: |
         config="${{ github.event.inputs.configuration }}"
         timestamp=$(date +%Y%m%d-%H%M%S)
@@ -284,7 +284,7 @@ jobs:
     
     # Step 8: Execute Terraform plan
     # This is the core step that initializes, validates, and plans the configuration
-    - name: Terraform Plan
+    - name: Generate Terraform Plan
       id: plan
       run: |
         config="${{ github.event.inputs.configuration }}"
@@ -476,7 +476,7 @@ jobs:
     
     # Step 11: Upload plan files as artifacts for the apply job
     # Only uploads if there are changes to apply or force apply is enabled
-    - name: Upload Plans
+    - name: Upload Terraform Plans as Artifacts
       if: steps.plan.outputs.changed == 'true'
       uses: actions/upload-artifact@v4
       with:
@@ -609,7 +609,7 @@ jobs:
     
     steps:
     # Step 1: Checkout repository code (needed for accessing configuration files)
-    - name: Checkout
+    - name: Checkout Repository for Apply
       uses: actions/checkout@v4
     
     # Step 2: Authenticate with Azure using OIDC for backend state storage
@@ -630,14 +630,14 @@ jobs:
         resource-group-name: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
     
     # Step 4: Install and configure Terraform CLI
-    - name: Setup Terraform
+    - name: Setup Terraform CLI for Apply
       uses: hashicorp/setup-terraform@v3
       with:
         terraform_version: 1.5.0
         terraform_wrapper: false
     
     # Step 5: Download the plan files created in the plan job
-    - name: Download Plans
+    - name: Download Terraform Plans from Artifacts
       uses: actions/download-artifact@v4
       with:
         name: tfplans-${{ github.run_number }}
@@ -645,7 +645,7 @@ jobs:
     
     # Step 6: Apply the Terraform plan
     # This step makes actual changes to the Power Platform infrastructure
-    - name: Terraform Apply
+    - name: Apply Terraform Configuration
       run: |
         config="${{ needs.terraform-plan.outputs.configuration }}"
         
@@ -782,7 +782,7 @@ jobs:
     
     # Step 7: Extract outputs from the applied configuration
     # Terraform outputs often contain important information like resource IDs
-    - name: Terraform Output
+    - name: Extract Terraform Output Values
       run: |
         config="${{ needs.terraform-plan.outputs.configuration }}"
         
@@ -850,7 +850,7 @@ jobs:
     
     # Step 8: Upload outputs as artifacts for later reference
     # These outputs can be used by other workflows or for troubleshooting
-    - name: Upload Outputs
+    - name: Upload Terraform Outputs as Artifacts
       uses: actions/upload-artifact@v4
       with:
         name: terraform-outputs-${{ github.run_number }}
