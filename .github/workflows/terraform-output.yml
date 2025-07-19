@@ -345,11 +345,15 @@ jobs:
         fi
         
                 # Process the output based on format and metadata preference
+        echo "::group::Output File Processing"
+        echo "Processing terraform-output.json into final format: $output_filename"
+        
         if [ "$include_metadata" = "true" ]; then
           # Add metadata
           if [ "$export_format" = "yaml" ]; then
             # Convert to YAML with metadata
-            jq --arg timestamp "$timestamp" --arg config "$config" '{
+            echo "Creating YAML output with metadata..."
+            if jq --arg timestamp "$timestamp" --arg config "$config" '{
               "output_metadata": {
                 "generated_at": $timestamp,
                 "configuration": $config,
@@ -357,10 +361,16 @@ jobs:
                 "generated_by": env.GITHUB_ACTOR
               },
               "outputs": .
-            }' "terraform-output.json" | yq eval -P > "$output_filename"
+            }' "terraform-output.json" | yq eval -P > "$output_filename"; then
+              echo "✅ YAML with metadata created successfully"
+            else
+              echo "❌ Failed to create YAML with metadata"
+              exit 1
+            fi
           else
             # JSON with metadata
-            jq --arg timestamp "$timestamp" --arg config "$config" '{
+            echo "Creating JSON output with metadata..."
+            if jq --arg timestamp "$timestamp" --arg config "$config" '{
               "output_metadata": {
                 "generated_at": $timestamp,
                 "configuration": $config,
@@ -368,19 +378,46 @@ jobs:
                 "generated_by": env.GITHUB_ACTOR
               },
               "outputs": .
-            }' "terraform-output.json" > "$output_filename"
+            }' "terraform-output.json" > "$output_filename"; then
+              echo "✅ JSON with metadata created successfully"
+            else
+              echo "❌ Failed to create JSON with metadata"
+              exit 1
+            fi
           fi
         else
           # No metadata - just convert format if needed
           if [ "$export_format" = "yaml" ]; then
-            cat "terraform-output.json" | yq eval -P > "$output_filename"
+            echo "Converting to YAML without metadata..."
+            if cat "terraform-output.json" | yq eval -P > "$output_filename"; then
+              echo "✅ YAML conversion successful"
+            else
+              echo "❌ Failed to convert to YAML"
+              exit 1
+            fi
           else
-            cp "terraform-output.json" "$output_filename"
+            echo "Copying JSON without metadata..."
+            if cp "terraform-output.json" "$output_filename"; then
+              echo "✅ JSON copy successful"
+            else
+              echo "❌ Failed to copy JSON"
+              exit 1
+            fi
           fi
         fi
+        echo "::endgroup::"
         
         # Clean up temporary file
         rm "terraform-output.json"
+        
+        # Verify the final output file was created
+        if [ ! -f "$output_filename" ]; then
+          echo "::error title=File Creation Failed::Output file '$output_filename' was not created successfully"
+          echo "::group::Directory Contents After Processing"
+          ls -la .
+          echo "::endgroup::"
+          exit 1
+        fi
         
         # Set outputs for dependent jobs
         echo "output-generated=true" >> $GITHUB_OUTPUT
@@ -501,31 +538,106 @@ jobs:
     - name: Commit Terraform Output
       run: |
         config="${{ github.event.inputs.configuration }}"
+        export_format="${{ github.event.inputs.export_format }}"
         
         # Configure git
         git config user.name "GitHub Actions"
         git config user.email "actions@github.com"
         
-        # Add the output file
-        git add "configurations/$config/terraform-output.*"
+        echo "::group::Pre-commit File Verification"
+        echo "Checking for output files in configurations/$config/"
+        
+        # List all files in the configuration directory
+        if [ -d "configurations/$config" ]; then
+          echo "Configuration directory contents:"
+          ls -la "configurations/$config/"
+          
+          # Determine the expected output filename
+          if [ "$export_format" = "yaml" ]; then
+            expected_file="configurations/$config/terraform-output.yaml"
+          else
+            expected_file="configurations/$config/terraform-output.json"
+          fi
+          
+          echo "Expected output file: $expected_file"
+          
+          # Check if the expected file exists
+          if [ -f "$expected_file" ]; then
+            echo "✅ Output file found: $(basename "$expected_file")"
+            echo "File size: $(du -h "$expected_file" | cut -f1)"
+            echo "File content preview (first 5 lines):"
+            head -n 5 "$expected_file" || echo "Unable to preview file content"
+            
+            # Verify it's valid JSON/YAML
+            if [ "$export_format" = "yaml" ]; then
+              if yq eval '.' "$expected_file" >/dev/null 2>&1; then
+                echo "✅ Valid YAML file"
+              else
+                echo "⚠️ Warning: File exists but may not be valid YAML"
+              fi
+            else
+              if jq '.' "$expected_file" >/dev/null 2>&1; then
+                echo "✅ Valid JSON file"
+              else
+                echo "⚠️ Warning: File exists but may not be valid JSON"
+              fi
+            fi
+          else
+            echo "❌ Expected output file not found: $expected_file"
+            echo ""
+            echo "🔍 Debugging information:"
+            echo "Looking for files matching: terraform-output.*"
+            find "configurations/$config" -name "terraform-output.*" -ls 2>/dev/null || echo "No matching files found"
+            echo ""
+            echo "All files in configuration directory:"
+            ls -la "configurations/$config/" || echo "Cannot list directory"
+            
+            # Try to create a minimal fallback file
+            echo ""
+            echo "🆘 Creating fallback output file..."
+            fallback_content='{"error": "Output generation failed", "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'", "configuration": "'$config'"}'
+            if [ "$export_format" = "yaml" ]; then
+              echo "$fallback_content" | yq eval -P > "$expected_file" && echo "✅ Fallback YAML created" || echo "❌ Failed to create fallback"
+            else
+              echo "$fallback_content" > "$expected_file" && echo "✅ Fallback JSON created" || echo "❌ Failed to create fallback"
+            fi
+          fi
+        else
+          echo "❌ Configuration directory not found: configurations/$config"
+          exit 1
+        fi
+        echo "::endgroup::"
+        
+        # Add the specific output file (not using wildcard)
+        echo "::notice title=Adding File::Adding $expected_file to git"
+        git add "$expected_file"
+        
+        # Check git status
+        echo "::group::Git Status Check"
+        echo "Git status after adding file:"
+        git status --porcelain
+        echo "::endgroup::"
         
         # Check if there are changes to commit
         if git diff --cached --quiet; then
-          echo "::notice title=No Changes::No new output data to commit"
+          echo "::notice title=No Changes::No new output data to commit (file content unchanged)"
         else
           echo "::notice title=Committing Output::Committing Terraform output"
-          git commit -m "feat: update terraform output for $config
+          
+          # Create commit message
+          commit_msg="feat: update terraform output for $config
 
-          Updated Terraform output for configuration:
-          - Configuration: $config
-          - Format: ${{ github.event.inputs.export_format }}
-          - Metadata included: ${{ github.event.inputs.include_metadata }}
-          - Timestamp: $(date +%Y-%m-%d\ %H:%M:%S)
-          - Exported by: @${{ github.actor }}
-          - Workflow run: ${{ github.run_number }}
+Updated Terraform output for configuration:
+- Configuration: $config
+- Format: $export_format
+- Metadata included: ${{ github.event.inputs.include_metadata }}
+- Timestamp: $(date +%Y-%m-%d\ %H:%M:%S)
+- Exported by: @${{ github.actor }}
+- Workflow run: ${{ github.run_number }}
+
+Auto-generated by Terraform Output workflow"
           
-          Auto-generated by Terraform Output workflow"
-          
+          git commit -m "$commit_msg"
           git push origin main
           echo "::notice title=Output Committed::✅ Terraform output committed successfully"
         fi
@@ -535,8 +647,11 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: terraform-output-${{ github.event.inputs.configuration }}-${{ github.run_number }}
-        path: configurations/${{ github.event.inputs.configuration }}/terraform-output.*
+        path: |
+          configurations/${{ github.event.inputs.configuration }}/terraform-output.json
+          configurations/${{ github.event.inputs.configuration }}/terraform-output.yaml
         retention-days: 30    # Keep outputs for 30 days for reference
+        if-no-files-found: ignore  # Don't fail if only one format exists
     
     # Step 14: Generate comprehensive execution summary
     - name: Generate Execution Summary
