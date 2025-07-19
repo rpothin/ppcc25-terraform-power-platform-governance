@@ -108,14 +108,22 @@ jobs:
         tenant-id: ${{ secrets.AZURE_TENANT_ID }}
         subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
     
-    # Step 4: Install and configure Terraform CLI
+    # Step 4: Add Just-In-Time network access for Terraform backend
+    - name: Add JIT Network Access
+      uses: ./.github/actions/jit-network-access
+      with:
+        action: 'add'
+        storage-account-name: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
+        resource-group-name: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
+    
+    # Step 5: Install and configure Terraform CLI
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
       with:
         terraform_version: 1.5.0
         terraform_wrapper: false    # Disable wrapper for better JSON output handling
     
-    # Step 5: Initialize Terraform and validate configuration
+    # Step 6: Initialize Terraform and validate configuration
     - name: Initialize and Validate Terraform
       run: |
         config="${{ github.event.inputs.configuration }}"
@@ -140,7 +148,7 @@ jobs:
         
         cd - > /dev/null
     
-    # Step 6: Create backup of current state (if exists)
+    # Step 7: Create backup of current state (if exists)
     - name: Create State Backup
       run: |
         config="${{ github.event.inputs.configuration }}"
@@ -172,7 +180,7 @@ jobs:
         
         cd - > /dev/null
     
-    # Step 7: Execute Terraform configuration
+    # Step 8: Execute Terraform configuration
     # Run the selected configuration to query data sources and generate outputs
     - name: Execute Terraform Configuration
       run: |
@@ -198,7 +206,7 @@ jobs:
         
         cd - > /dev/null
     
-    # Step 8: Extract and process Terraform outputs
+    # Step 9: Extract and process Terraform outputs
     - name: Extract Terraform Outputs
       run: |
         config="${{ github.event.inputs.configuration }}"
@@ -229,7 +237,7 @@ jobs:
         
         cd - > /dev/null
     
-    # Step 9: Process and save output in specified format
+    # Step 10: Process and save output in specified format
     - name: Process Terraform Output
       id: process-output
       run: |
@@ -362,7 +370,16 @@ jobs:
         
         cd - > /dev/null
     
-    # Step 10: Commit output files to repository
+    # Step 11: Remove Just-In-Time network access
+    - name: Remove JIT Network Access
+      if: always()  # Always run this step, even if previous steps failed
+      uses: ./.github/actions/jit-network-access
+      with:
+        action: 'remove'
+        storage-account-name: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
+        resource-group-name: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
+    
+    # Step 12: Commit output files to repository
     - name: Commit Terraform Output
       run: |
         config="${{ github.event.inputs.configuration }}"
@@ -395,7 +412,7 @@ jobs:
           echo "::notice title=Output Committed::✅ Terraform output committed successfully"
         fi
     
-    # Step 11: Upload output as workflow artifact
+    # Step 13: Upload output as workflow artifact
     - name: Upload Terraform Output Artifact
       uses: actions/upload-artifact@v4
       with:
@@ -403,7 +420,7 @@ jobs:
         path: configurations/${{ github.event.inputs.configuration }}/terraform-output-*.*
         retention-days: 30    # Keep outputs for 30 days for reference
     
-    # Step 12: Generate comprehensive execution summary
+    # Step 14: Generate comprehensive execution summary
     - name: Generate Execution Summary
       run: |
         config="${{ github.event.inputs.configuration }}"
