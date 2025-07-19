@@ -337,13 +337,11 @@ jobs:
         
         cd "configurations/$config"
         
-        # Create output filename based on format
+        # Create consistent output filename based on format (no timestamps)
         if [ "$export_format" = "yaml" ]; then
-          output_filename="terraform-output-$timestamp.yaml"
-          latest_filename="terraform-output-latest.yaml"
+          output_filename="terraform-output.yaml"
         else
-          output_filename="terraform-output-$timestamp.json"
-          latest_filename="terraform-output-latest.json"
+          output_filename="terraform-output.json"
         fi
         
         # Process the output based on format and metadata preference
@@ -387,9 +385,6 @@ jobs:
           fi
         fi
         
-        # Create a latest symlink for easy access
-        ln -sf "$output_filename" "$latest_filename"
-        
         # Clean up temporary file
         rm "terraform-output.json"
         
@@ -400,7 +395,6 @@ jobs:
         # Display final results
         echo "::notice title=Output Processed::✅ Terraform output processed successfully"
         echo "::notice title=Output File::$output_filename"
-        echo "::notice title=Latest Link::$latest_filename"
         
         # Show statistics
         echo "::group::Output Processing Statistics"
@@ -435,8 +429,9 @@ jobs:
           fi
         fi
         
-        echo "Available output files:"
-        ls -la terraform-output-*.* 2>/dev/null || echo "No previous outputs found"
+        # Show current output files
+        echo "Current output file:"
+        ls -la "$output_filename" 2>/dev/null || echo "Output file not found"
         echo "::endgroup::"
         
         cd - > /dev/null
@@ -465,6 +460,49 @@ jobs:
           echo "::warning title=Security Warning::⚠️ Failed to re-enable network restrictions - manual intervention required"
         fi
     
+    # Step 11c: Verify final network security state
+    - name: Verify Network Security State
+      if: always()
+      run: |
+        echo "::notice title=Security Audit::Verifying final network security configuration"
+        
+        # Check current network rules
+        echo "::group::Final Network Security State"
+        if network_state=$(az storage account show \
+          --name "${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}" \
+          --resource-group "${{ secrets.TERRAFORM_RESOURCE_GROUP }}" \
+          --query "networkRuleSet" -o json 2>/dev/null); then
+          
+          echo "Current network configuration:"
+          echo "$network_state" | jq '.'
+          
+          # Check if security is properly configured
+          default_action=$(echo "$network_state" | jq -r '.defaultAction')
+          ip_rules_count=$(echo "$network_state" | jq '.ipRules | length')
+          
+          echo ""
+          echo "Security Summary:"
+          echo "  Default Action: $default_action"
+          echo "  IP Rules Count: $ip_rules_count"
+          
+          if [ "$default_action" = "Deny" ] && [ "$ip_rules_count" = "0" ]; then
+            echo "::notice title=Security OK::✅ Network security properly configured (Deny with no IP rules)"
+          elif [ "$default_action" = "Deny" ] && [ "$ip_rules_count" -gt "0" ]; then
+            echo "::warning title=Cleanup Needed::⚠️ Default action is Deny but IP rules remain - manual cleanup recommended"
+            echo "Remaining IP rules:"
+            echo "$network_state" | jq -r '.ipRules[].ipAddressOrRange'
+          elif [ "$default_action" = "Allow" ]; then
+            echo "::error title=Security Risk::❌ Storage account allows all access - immediate attention required!"
+            echo "Expected: defaultAction = 'Deny', ipRules = []"
+            echo "Actual: defaultAction = '$default_action', ipRules count = $ip_rules_count"
+          else
+            echo "::warning title=Unknown State::⚠️ Unexpected network configuration"
+          fi
+        else
+          echo "::error title=Access Failed::Cannot verify network security state - check permissions"
+        fi
+        echo "::endgroup::"
+    
     # Step 12: Commit output files to repository
     - name: Commit Terraform Output
       run: |
@@ -474,17 +512,17 @@ jobs:
         git config user.name "GitHub Actions"
         git config user.email "actions@github.com"
         
-        # Add the new output files
-        git add "configurations/$config"/terraform-output-*.*
+        # Add the output file
+        git add "configurations/$config/terraform-output.*"
         
         # Check if there are changes to commit
         if git diff --cached --quiet; then
           echo "::notice title=No Changes::No new output data to commit"
         else
           echo "::notice title=Committing Output::Committing Terraform output"
-          git commit -m "feat: add terraform output for $config
+          git commit -m "feat: update terraform output for $config
 
-          Generated Terraform output for configuration:
+          Updated Terraform output for configuration:
           - Configuration: $config
           - Format: ${{ github.event.inputs.export_format }}
           - Metadata included: ${{ github.event.inputs.include_metadata }}
@@ -503,7 +541,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: terraform-output-${{ github.event.inputs.configuration }}-${{ github.run_number }}
-        path: configurations/${{ github.event.inputs.configuration }}/terraform-output-*.*
+        path: configurations/${{ github.event.inputs.configuration }}/terraform-output.*
         retention-days: 30    # Keep outputs for 30 days for reference
     
     # Step 14: Generate comprehensive execution summary
@@ -529,11 +567,11 @@ jobs:
         echo "| Workflow run | [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         
-        # Find the latest output file
+        # Find the output file (simplified naming)
         if [ "$export_format" = "yaml" ]; then
-          latest_output=$(find "configurations/$config" -name "terraform-output-*.yaml" -type f | sort | tail -1)
+          latest_output="configurations/$config/terraform-output.yaml"
         else
-          latest_output=$(find "configurations/$config" -name "terraform-output-*.json" -type f | sort | tail -1)
+          latest_output="configurations/$config/terraform-output.json"
         fi
         
         if [ -n "$latest_output" ] && [ -f "$latest_output" ]; then
@@ -597,7 +635,6 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "The Terraform output is available in:" >> $GITHUB_STEP_SUMMARY
           echo "- **Repository**: \`configurations/$config/$(basename "$latest_output")\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Latest link**: \`configurations/$config/terraform-output-latest.$export_format\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Workflow artifact**: Available for 30 days" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📖 Next Steps" >> $GITHUB_STEP_SUMMARY
