@@ -224,22 +224,26 @@ jobs:
         if [ "$include_metadata" = "true" ]; then
           # Add metadata and convert format in one operation
           if [ "$export_format" = "yaml" ]; then
-            jq --arg timestamp "$timestamp" --arg config "$config" '{
+            jq --arg timestamp "$timestamp" --arg config "$config" --arg run_number "${{ github.run_number }}" --arg actor "${{ github.actor }}" '{
               "output_metadata": {
                 "generated_at": $timestamp,
                 "configuration": $config,
-                "workflow_run": env.GITHUB_RUN_NUMBER,
-                "generated_by": env.GITHUB_ACTOR
+                "workflow_run": $run_number,
+                "generated_by": $actor,
+                "export_format": "yaml",
+                "terraform_version": "1.5.0"
               },
               "outputs": .
             }' "terraform-output-raw.json" | yq eval -P > "$output_filename"
           else
-            jq --arg timestamp "$timestamp" --arg config "$config" '{
+            jq --arg timestamp "$timestamp" --arg config "$config" --arg run_number "${{ github.run_number }}" --arg actor "${{ github.actor }}" '{
               "output_metadata": {
                 "generated_at": $timestamp,
                 "configuration": $config,
-                "workflow_run": env.GITHUB_RUN_NUMBER,
-                "generated_by": env.GITHUB_ACTOR
+                "workflow_run": $run_number,
+                "generated_by": $actor,
+                "export_format": "json",
+                "terraform_version": "1.5.0"
               },
               "outputs": .
             }' "terraform-output-raw.json" > "$output_filename"
