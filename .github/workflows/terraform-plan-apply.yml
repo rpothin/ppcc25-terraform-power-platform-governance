@@ -337,7 +337,94 @@ jobs:
         path: configurations/*/tfplan-*
         retention-days: 7    # Keep plans for 7 days for troubleshooting and audit trail
     
-    # Step 12: Remove Just-In-Time network access
+    # Step 12: Generate Plan Summary
+    - name: Generate Plan Summary
+      run: |
+        config="${{ github.event.inputs.configuration }}"
+        tfvars_file="${{ github.event.inputs.tfvars_file }}"
+        plan_changed="${{ steps.plan.outputs.changed }}"
+        
+        # Generate comprehensive plan summary
+        echo "## 📋 Terraform Plan Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Planning Details" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Parameter | Value |" >> $GITHUB_STEP_SUMMARY
+        echo "|-----------|-------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Configuration | \`$config\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| tfvars File | \`$tfvars_file.tfvars\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| Timestamp | $(date +%Y-%m-%d\ %H:%M:%S) |" >> $GITHUB_STEP_SUMMARY
+        echo "| Executed by | @${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Workflow run | [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Plan results section
+        cd "configurations/$config"
+        if [ "$plan_changed" = "true" ]; then
+          # Check if plan file exists
+          if [ -f "tfplan-$config" ]; then
+            plan_size=$(du -h "tfplan-$config" | cut -f1)
+            echo "### ✅ Plan Results: CHANGES DETECTED" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Detail | Value |" >> $GITHUB_STEP_SUMMARY
+            echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| **Status** | Changes Detected |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Plan File** | \`tfplan-$config\` |" >> $GITHUB_STEP_SUMMARY
+            echo "| **File Size** | $plan_size |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Action Required** | Ready for Apply |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Plan Retention** | 7 days |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### ⚠️ Plan Results: CHANGES DETECTED (No Plan File)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Changes were detected but no plan file was generated." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+        else
+          echo "### 🆗 Plan Results: NO CHANGES" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Detail | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Status** | No Changes Detected |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Current State** | Infrastructure matches configuration |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Action Required** | None - State is current |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        # Add next steps based on plan results
+        echo "### 📋 Next Steps" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        if [ "$plan_changed" = "true" ]; then
+          echo "**⚠️ Action Required - Changes Detected:**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "1. **Review Plan**: Carefully review the plan output above to understand what changes will be made" >> $GITHUB_STEP_SUMMARY
+          echo "2. **Approve Apply**: If changes are acceptable, manually trigger the apply job or approval" >> $GITHUB_STEP_SUMMARY
+          echo "3. **Monitor Apply**: Watch the apply process to ensure it completes successfully" >> $GITHUB_STEP_SUMMARY
+          echo "4. **Verify Resources**: After apply, verify that resources were created/modified as expected" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "**✅ No Action Required - Infrastructure Current:**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "1. **State Verified**: Your infrastructure matches the current configuration" >> $GITHUB_STEP_SUMMARY
+          echo "2. **No Apply Needed**: No changes will be applied" >> $GITHUB_STEP_SUMMARY
+          echo "3. **Configuration Current**: Your Terraform configuration is aligned with actual resources" >> $GITHUB_STEP_SUMMARY
+        fi
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Add important notes
+        echo "### 📌 Important Notes" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "- **Plan Validation**: Terraform configuration validated successfully" >> $GITHUB_STEP_SUMMARY
+        echo "- **State Security**: Terraform state is securely stored in Azure Storage" >> $GITHUB_STEP_SUMMARY
+        echo "- **Network Security**: JIT network access was used for secure backend connectivity" >> $GITHUB_STEP_SUMMARY
+        echo "- **Documentation**: Configuration documentation was auto-generated and committed" >> $GITHUB_STEP_SUMMARY
+        if [ "$plan_changed" = "true" ]; then
+          echo "- **Plan Artifact**: Plan file uploaded as artifact and available for 7 days" >> $GITHUB_STEP_SUMMARY
+        fi
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        cd - > /dev/null
+    
+    # Step 13: Remove Just-In-Time network access
     - name: Remove JIT Network Access
       if: always()
       uses: ./.github/actions/jit-network-access
@@ -500,7 +587,91 @@ jobs:
         path: configurations/*/outputs-*.json
         retention-days: 30    # Keep outputs longer than plans for reference
     
-    # Step 9: Remove Just-In-Time network access
+    # Step 9: Generate comprehensive workflow summary
+    - name: Generate Workflow Summary
+      run: |
+        config="${{ github.event.inputs.configuration }}"
+        tfvars_file="${{ github.event.inputs.tfvars_file }}"
+        
+        # Generate comprehensive summary following terraform-output.yml patterns
+        echo "## 🚀 Terraform Plan & Apply Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Execution Details" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Parameter | Value |" >> $GITHUB_STEP_SUMMARY
+        echo "|-----------|-------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Configuration | \`$config\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| tfvars File | \`$tfvars_file.tfvars\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| Timestamp | $(date +%Y-%m-%d\ %H:%M:%S) |" >> $GITHUB_STEP_SUMMARY
+        echo "| Executed by | @${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Workflow run | [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Check if outputs file exists and parse results
+        cd "configurations/$config"
+        if [ -f "outputs-$config.json" ]; then
+          output_file="outputs-$config.json"
+          file_size=$(du -h "$output_file" | cut -f1)
+          
+          # Count outputs using basic shell tools (no jq/yq needed)
+          if [ -s "$output_file" ]; then
+            # Simple count by counting opening braces in the outputs (rough estimate)
+            output_count=$(grep -o '"[^"]*":' "$output_file" | wc -l)
+          else
+            output_count=0
+          fi
+          
+          echo "### ✅ Apply Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Detail | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Status** | Successfully Applied |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Outputs File** | \`$output_file\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **File Size** | $file_size |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Output Count** | $output_count |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Artifact Retention** | 30 days |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ $output_count -gt 0 ]; then
+            echo "### 📋 Output Keys" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "The following outputs were generated:" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            # Extract output keys using basic shell tools
+            grep -o '"[^"]*":' "$output_file" | sed 's/"//g' | sed 's/://g' | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY || echo "- Unable to parse output keys" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+        else
+          echo "### ⚠️ Apply Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Detail | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Status** | Applied (No Outputs) |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Outputs** | No outputs generated |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        # Add next steps section
+        echo "### ✅ Next Steps" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "1. **Verify Resources**: Check that resources were created as expected in the target environment" >> $GITHUB_STEP_SUMMARY
+        echo "2. **Review Outputs**: Download the outputs artifact for use in other workflows or configurations" >> $GITHUB_STEP_SUMMARY
+        echo "3. **Monitor Resources**: Set up monitoring and alerting for the deployed resources" >> $GITHUB_STEP_SUMMARY
+        echo "4. **Update Documentation**: Document any configuration changes or new resource dependencies" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Add important notes section
+        echo "### 📌 Important Notes" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "- **State Management**: Terraform state is securely stored in Azure Storage" >> $GITHUB_STEP_SUMMARY
+        echo "- **Network Security**: JIT network access was used for secure backend connectivity" >> $GITHUB_STEP_SUMMARY
+        echo "- **Artifact Availability**: Output artifacts are available for 30 days" >> $GITHUB_STEP_SUMMARY
+        echo "- **Configuration**: Applied using configuration \`$config\` with variables \`$tfvars_file.tfvars\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        cd - > /dev/null
+    
+    # Step 10: Remove Just-In-Time network access
     - name: Remove JIT Network Access
       if: always()
       uses: ./.github/actions/jit-network-access

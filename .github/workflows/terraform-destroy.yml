@@ -499,6 +499,7 @@ jobs:
         echo "| Executed by | @${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
         echo "| Timestamp | $(date '+%Y-%m-%d %H:%M:%S') |" >> $GITHUB_STEP_SUMMARY
         echo "| State Backup Created | $backup_created |" >> $GITHUB_STEP_SUMMARY
+        echo "| Workflow run | [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         
         # Check final state for summary
@@ -519,22 +520,53 @@ jobs:
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### 🔄 Recovery Information" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Backup Detail | Information |" >> $GITHUB_STEP_SUMMARY
+        echo "|---------------|-------------|" >> $GITHUB_STEP_SUMMARY
         if [ "$backup_created" == "true" ]; then
-          echo "- **State Backup**: Available in \`configurations/$config/backups/\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Recovery**: Use \`terraform state push\` to restore from backup if needed" >> $GITHUB_STEP_SUMMARY
+          echo "| **State Backup** | ✅ Available in \`configurations/$config/backups/\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Recovery Method** | Use \`terraform state push\` to restore from backup |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Backup Location** | Azure Storage + Local artifact |" >> $GITHUB_STEP_SUMMARY
         else
-          echo "- **State Backup**: Not created (disabled by user)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Recovery**: Limited recovery options available" >> $GITHUB_STEP_SUMMARY
+          echo "| **State Backup** | ❌ Not created (disabled by user) |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Recovery Method** | Limited - manual resource recreation required |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Risk Level** | High - No automated recovery available |" >> $GITHUB_STEP_SUMMARY
         fi
-        
-        echo "- **Post-Destroy Snapshot**: Available in \`configurations/$config/backups/\`" >> $GITHUB_STEP_SUMMARY
+        echo "| **Post-Destroy Snapshot** | Available in artifacts for 30 days |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Recovery Documentation** | See project README for detailed recovery steps |" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Add next steps section
+        echo "### 📋 Next Steps" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        if [ $remaining_count -eq 0 ]; then
+          echo "**✅ Destruction Complete - Cleanup Actions:**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "1. **Verify Cleanup**: Confirm all related resources are removed from Power Platform admin center" >> $GITHUB_STEP_SUMMARY
+          echo "2. **Update Dependencies**: Check and update any dependent configurations or documentation" >> $GITHUB_STEP_SUMMARY
+          echo "3. **Archive Configuration**: Consider archiving or removing the configuration if no longer needed" >> $GITHUB_STEP_SUMMARY
+          echo "4. **Audit Trail**: Document the destruction reason and impact for compliance records" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "**⚠️ Incomplete Destruction - Action Required:**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "1. **Investigate Remaining**: Check why $remaining_count resource(s) were not destroyed" >> $GITHUB_STEP_SUMMARY
+          echo "2. **Manual Cleanup**: Manually remove remaining resources if needed" >> $GITHUB_STEP_SUMMARY
+          echo "3. **State Cleanup**: Run \`terraform state rm\` to clean up orphaned state entries" >> $GITHUB_STEP_SUMMARY
+          echo "4. **Re-run Destroy**: Consider re-running destroy after manual cleanup" >> $GITHUB_STEP_SUMMARY
+        fi
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
         echo "### ⚠️ Important Notes" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "- **Irreversible**: Resources have been permanently deleted from Power Platform" >> $GITHUB_STEP_SUMMARY
-        echo "- **State Management**: Terraform state has been updated to reflect destroyed resources" >> $GITHUB_STEP_SUMMARY
-        echo "- **Recovery**: Resource recreation requires running terraform plan/apply with same configuration" >> $GITHUB_STEP_SUMMARY
+        echo "- **Irreversible Action**: Resources have been permanently deleted from Power Platform" >> $GITHUB_STEP_SUMMARY
+        echo "- **State Management**: Terraform state updated to reflect destroyed resources" >> $GITHUB_STEP_SUMMARY
+        echo "- **Network Security**: JIT network access was used for secure backend connectivity" >> $GITHUB_STEP_SUMMARY
+        echo "- **Resource Recreation**: Use terraform plan/apply with same configuration to recreate" >> $GITHUB_STEP_SUMMARY
         echo "- **Audit Trail**: This destruction operation is logged in workflow history" >> $GITHUB_STEP_SUMMARY
+        echo "- **Configuration Preserved**: Configuration files remain unchanged for future use" >> $GITHUB_STEP_SUMMARY
+        if [ "$backup_created" == "true" ]; then
+          echo "- **Backup Available**: State backup available for emergency recovery within retention period" >> $GITHUB_STEP_SUMMARY
+        fi
+        echo "" >> $GITHUB_STEP_SUMMARY
         
         cd - > /dev/null
     

@@ -438,6 +438,35 @@ jobs:
         echo "| Workflow run | [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         
+        # Add import analysis section
+        cd "configurations/$config"
+        if [ "$import_successful" = "true" ]; then
+          # Check current state after import
+          current_resources=$(terraform state list 2>/dev/null | wc -l || echo "0")
+          
+          echo "### 📊 Import Analysis" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Analysis Detail | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Import Status** | ✅ Successful |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Resource Added** | \`$resource_type.$resource_name\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Total State Resources** | $current_resources |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Configuration Status** | Ready for validation |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Next Action Required** | Configuration alignment check |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "### 📊 Import Analysis" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Analysis Detail | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Import Status** | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Attempted Resource** | \`$resource_type.$resource_name\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Resource ID** | \`$resource_id\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Action Required** | Review error and retry |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+        fi
+        cd - > /dev/null
+        
         if [ "$import_successful" = "true" ]; then
           echo "### ✅ Next Steps" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -449,39 +478,62 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🔄 Configuration Alignment" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "The post-import plan check above shows how well your Terraform configuration matches the imported resource:" >> $GITHUB_STEP_SUMMARY
-          echo "- **No changes**: Configuration perfectly matches the imported resource" >> $GITHUB_STEP_SUMMARY
-          echo "- **Changes detected**: Review and update your configuration to align with the resource state" >> $GITHUB_STEP_SUMMARY
-          echo "- **Plan failed**: Check for configuration issues or missing dependencies" >> $GITHUB_STEP_SUMMARY
+          echo "| Alignment Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Resource Imported** | ✅ Added to Terraform state |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Configuration Match** | Requires validation via plan |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Drift Detection** | Available in next plan execution |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Recommended Action** | Run terraform plan to check alignment |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Post-Import Validation Guide:**" >> $GITHUB_STEP_SUMMARY
+          echo "- **No changes in plan**: ✅ Configuration perfectly matches imported resource" >> $GITHUB_STEP_SUMMARY
+          echo "- **Changes detected in plan**: ⚠️ Update configuration to align with resource state" >> $GITHUB_STEP_SUMMARY
+          echo "- **Plan fails**: ❌ Check for configuration issues or missing dependencies" >> $GITHUB_STEP_SUMMARY
         else
-          echo "### ❌ Troubleshooting" >> $GITHUB_STEP_SUMMARY
+          echo "### ❌ Troubleshooting Guide" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "The import operation failed. Common causes and solutions:" >> $GITHUB_STEP_SUMMARY
+          echo "| Troubleshooting Area | Check |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------------------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Resource ID Format** | Verify UUID format and validity |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Resource Existence** | Confirm resource exists in Power Platform |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Permissions** | Check service principal permissions |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Provider Version** | Ensure Power Platform provider supports resource type |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Configuration** | Validate Terraform configuration syntax |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "1. **Resource ID**: Verify the resource ID is correct and in UUID format" >> $GITHUB_STEP_SUMMARY
-          echo "2. **Resource Type**: Ensure the resource type matches the Power Platform provider documentation" >> $GITHUB_STEP_SUMMARY
-          echo "3. **Permissions**: Verify the service principal has appropriate permissions for the resource" >> $GITHUB_STEP_SUMMARY
-          echo "4. **Resource Existence**: Confirm the resource exists in Power Platform" >> $GITHUB_STEP_SUMMARY
-          echo "5. **Configuration**: Check that the Terraform configuration is valid" >> $GITHUB_STEP_SUMMARY
+          echo "**Common Import Issues:**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "1. **Invalid Resource ID**: Ensure the ID is in the correct format for the resource type" >> $GITHUB_STEP_SUMMARY
+          echo "2. **Resource Not Found**: Verify the resource exists and is accessible" >> $GITHUB_STEP_SUMMARY
+          echo "3. **Permission Denied**: Check that the service principal has read access to the resource" >> $GITHUB_STEP_SUMMARY
+          echo "4. **Configuration Mismatch**: Ensure Terraform configuration block exists for the resource" >> $GITHUB_STEP_SUMMARY
+          echo "5. **Provider Limitations**: Some resources may not support import operations" >> $GITHUB_STEP_SUMMARY
         fi
         
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### ⚠️ Important Notes" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         if [ "$import_successful" = "true" ]; then
-          echo "- **Resource Management**: The imported resource is now under Terraform management" >> $GITHUB_STEP_SUMMARY
-          echo "- **Manual Changes**: Avoid manual changes outside of Terraform to prevent configuration drift" >> $GITHUB_STEP_SUMMARY
-          echo "- **Future Updates**: Always use Terraform to modify this resource going forward" >> $GITHUB_STEP_SUMMARY
+          echo "- **✅ Resource Under Management**: The imported resource is now managed by Terraform" >> $GITHUB_STEP_SUMMARY
+          echo "- **🚫 Avoid Manual Changes**: Make changes only through Terraform to prevent drift" >> $GITHUB_STEP_SUMMARY
+          echo "- **🔄 Future Updates**: Use terraform plan/apply workflow for all modifications" >> $GITHUB_STEP_SUMMARY
+          echo "- **📋 Next Required Action**: Run terraform plan to validate configuration alignment" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- **❌ Import Failed**: Resource was not imported into Terraform state" >> $GITHUB_STEP_SUMMARY
+          echo "- **🔍 Investigation Required**: Review error logs and troubleshooting guide above" >> $GITHUB_STEP_SUMMARY
+          echo "- **🔄 Retry Available**: Fix issues and re-run import workflow" >> $GITHUB_STEP_SUMMARY
         fi
         
         if [ "${{ github.event.inputs.backup_state }}" = "true" ]; then
-          echo "- **State Backup**: Backup was created and committed to repository for rollback if needed" >> $GITHUB_STEP_SUMMARY
+          echo "- **💾 State Backup**: Pre-import backup created for rollback if needed" >> $GITHUB_STEP_SUMMARY
+          echo "- **🔙 Rollback Available**: Use backup to restore previous state if required" >> $GITHUB_STEP_SUMMARY
         else
-          echo "- **No Backup**: No state backup was created - limited rollback options available" >> $GITHUB_STEP_SUMMARY
+          echo "- **⚠️ No Backup**: Pre-import backup was disabled - limited rollback options" >> $GITHUB_STEP_SUMMARY
         fi
         
-        echo "- **Audit Trail**: This import operation is logged in workflow history and artifacts" >> $GITHUB_STEP_SUMMARY
-        echo "- **Documentation**: Update team documentation to reflect the new Terraform-managed resource" >> $GITHUB_STEP_SUMMARY
+        echo "- **🔒 Network Security**: JIT network access used for secure backend connectivity" >> $GITHUB_STEP_SUMMARY
+        echo "- **📝 Audit Trail**: Import operation logged in workflow history and artifacts" >> $GITHUB_STEP_SUMMARY
+        echo "- **📚 Documentation**: Update project documentation to reflect new managed resource" >> $GITHUB_STEP_SUMMARY
+        echo "- **🎯 Configuration**: Applied to configuration \`$config\` with variables \`$tfvars_file.tfvars\`" >> $GITHUB_STEP_SUMMARY
         
         echo "::notice title=Summary Generated::Import summary added to job summary"
     
