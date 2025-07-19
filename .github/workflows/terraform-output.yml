@@ -111,55 +111,11 @@ jobs:
     # Step 4: Add Just-In-Time network access for Terraform backend
     - name: Add JIT Network Access
       id: jit-add
-      continue-on-error: true  # Continue even if JIT fails, so we can try without it
       uses: ./.github/actions/jit-network-access
       with:
         action: 'add'
         storage-account-name: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
         resource-group-name: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
-    
-    # Step 4b: Check if we need to skip JIT due to permissions
-    - name: Check JIT Status and Permissions
-      id: jit-status
-      run: |
-        if [ "${{ steps.jit-add.outcome }}" = "failure" ]; then
-          echo "::warning title=JIT Network Access Failed::JIT network access failed. Checking if storage account allows direct access..."
-          
-          # Check if storage account network rules allow access
-          echo "Attempting to list storage account details to test connectivity..."
-          if az storage account show \
-            --name "${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}" \
-            --resource-group "${{ secrets.TERRAFORM_RESOURCE_GROUP }}" \
-            --query "networkRuleSet.defaultAction" -o tsv; then
-            echo "::notice title=Storage Account Accessible::Storage account is accessible without JIT modifications"
-            echo "jit-required=false" >> $GITHUB_OUTPUT
-          else
-            echo "::error title=Storage Account Inaccessible::Cannot access storage account and JIT setup failed"
-            echo "This may be due to:"
-            echo "1. Service principal lacks permissions to modify network rules"
-            echo "2. Storage account network restrictions are too restrictive"
-            echo "3. Network connectivity issues"
-            
-            # Try to temporarily disable network restrictions as a fallback
-            echo "::warning title=Attempting Fallback::Trying to temporarily disable network restrictions..."
-            if az storage account update \
-              --name "${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}" \
-              --resource-group "${{ secrets.TERRAFORM_RESOURCE_GROUP }}" \
-              --default-action Allow \
-              --output none; then
-              echo "::notice title=Fallback Successful::Temporarily disabled network restrictions"
-              echo "jit-required=false" >> $GITHUB_OUTPUT
-              echo "network-restrictions-disabled=true" >> $GITHUB_OUTPUT
-            else
-              echo "::error title=Fallback Failed::Cannot disable network restrictions either"
-              exit 1
-            fi
-          fi
-        else
-          echo "::notice title=JIT Success::JIT network access configured successfully"
-          echo "jit-required=true" >> $GITHUB_OUTPUT
-          echo "network-restrictions-disabled=false" >> $GITHUB_OUTPUT
-        fi
     
     # Step 5: Install and configure Terraform CLI
     - name: Setup Terraform
@@ -458,70 +414,12 @@ jobs:
     
     # Step 11: Remove Just-In-Time network access
     - name: Remove JIT Network Access
-      if: always() && steps.jit-status.outputs.jit-required == 'true'  # Only run if JIT was successfully added
+      if: always()
       uses: ./.github/actions/jit-network-access
       with:
         action: 'remove'
         storage-account-name: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
         resource-group-name: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
-    
-    # Step 11b: Re-enable network restrictions if we disabled them
-    - name: Re-enable Network Restrictions
-      if: always() && steps.jit-status.outputs.network-restrictions-disabled == 'true'
-      run: |
-        echo "::notice title=Re-enabling Security::Restoring network restrictions on storage account"
-        if az storage account update \
-          --name "${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}" \
-          --resource-group "${{ secrets.TERRAFORM_RESOURCE_GROUP }}" \
-          --default-action Deny \
-          --output none; then
-          echo "::notice title=Security Restored::✅ Network restrictions re-enabled successfully"
-        else
-          echo "::warning title=Security Warning::⚠️ Failed to re-enable network restrictions - manual intervention required"
-        fi
-    
-    # Step 11c: Verify final network security state
-    - name: Verify Network Security State
-      if: always()
-      run: |
-        echo "::notice title=Security Audit::Verifying final network security configuration"
-        
-        # Check current network rules
-        echo "::group::Final Network Security State"
-        if network_state=$(az storage account show \
-          --name "${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}" \
-          --resource-group "${{ secrets.TERRAFORM_RESOURCE_GROUP }}" \
-          --query "networkRuleSet" -o json 2>/dev/null); then
-          
-          echo "Current network configuration:"
-          echo "$network_state" | jq '.'
-          
-          # Check if security is properly configured
-          default_action=$(echo "$network_state" | jq -r '.defaultAction')
-          ip_rules_count=$(echo "$network_state" | jq '.ipRules | length')
-          
-          echo ""
-          echo "Security Summary:"
-          echo "  Default Action: $default_action"
-          echo "  IP Rules Count: $ip_rules_count"
-          
-          if [ "$default_action" = "Deny" ] && [ "$ip_rules_count" = "0" ]; then
-            echo "::notice title=Security OK::✅ Network security properly configured (Deny with no IP rules)"
-          elif [ "$default_action" = "Deny" ] && [ "$ip_rules_count" -gt "0" ]; then
-            echo "::warning title=Cleanup Needed::⚠️ Default action is Deny but IP rules remain - manual cleanup recommended"
-            echo "Remaining IP rules:"
-            echo "$network_state" | jq -r '.ipRules[].ipAddressOrRange'
-          elif [ "$default_action" = "Allow" ]; then
-            echo "::error title=Security Risk::❌ Storage account allows all access - immediate attention required!"
-            echo "Expected: defaultAction = 'Deny', ipRules = []"
-            echo "Actual: defaultAction = '$default_action', ipRules count = $ip_rules_count"
-          else
-            echo "::warning title=Unknown State::⚠️ Unexpected network configuration"
-          fi
-        else
-          echo "::error title=Access Failed::Cannot verify network security state - check permissions"
-        fi
-        echo "::endgroup::"
     
     # Step 12: Commit output files to repository
     - name: Commit Terraform Output
