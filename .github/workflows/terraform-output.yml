@@ -111,14 +111,19 @@ jobs:
         storage-account-name: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
         resource-group-name: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
     
-    # Step 5: Install and configure Terraform CLI
+    # Step 5: Setup yq for YAML processing (if needed)
+    - name: Setup yq
+      if: github.event.inputs.export_format == 'yaml'
+      uses: mikefarah/yq@master
+    
+    # Step 6: Install and configure Terraform CLI
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
       with:
         terraform_version: 1.5.0
         terraform_wrapper: false    # Disable wrapper for better JSON output handling
     
-    # Step 6: Initialize Terraform and validate configuration
+    # Step 7: Initialize Terraform and validate configuration
     - name: Initialize and Validate Terraform
       run: |
         config="${{ github.event.inputs.configuration }}"
@@ -147,7 +152,7 @@ jobs:
         
         cd - > /dev/null
     
-    # Step 7: Create backup of current state (if exists)
+    # Step 8: Create backup of current state (if exists)
     - name: Create State Backup
       run: |
         config="${{ github.event.inputs.configuration }}"
@@ -167,7 +172,7 @@ jobs:
         
         cd - > /dev/null
     
-    # Step 8: Execute Terraform configuration
+    # Step 9: Execute Terraform configuration
     # Run the selected configuration to query data sources and generate outputs
     - name: Execute Terraform Configuration
       run: |
@@ -193,7 +198,7 @@ jobs:
         
         cd - > /dev/null
     
-    # Step 9: Extract and Process Terraform Output (Consolidated)
+    # Step 10: Extract and Process Terraform Output (Consolidated)
     - name: Extract and Process Terraform Output
       id: process-output
       run: |
@@ -204,13 +209,6 @@ jobs:
         
         echo "::notice title=Processing Output::Extracting and processing Terraform output for configuration: $config"
         cd "configurations/$config"
-        
-        # Install yq if YAML format is requested (early setup)
-        if [ "$export_format" = "yaml" ] && ! command -v yq &> /dev/null; then
-          echo "::notice title=Installing yq::Installing yq for YAML processing..."
-          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
-          sudo chmod +x /usr/local/bin/yq
-        fi
         
         # Extract outputs and determine final filename
         echo "::notice title=Extracting Outputs::Getting Terraform outputs"
@@ -269,7 +267,7 @@ jobs:
         rm -f "terraform-output-raw.json"
         cd - > /dev/null
     
-    # Step 10: Remove Just-In-Time network access
+    # Step 11: Remove Just-In-Time network access
     - name: Remove JIT Network Access
       if: always()
       uses: ./.github/actions/jit-network-access
@@ -278,7 +276,7 @@ jobs:
         storage-account-name: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
         resource-group-name: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
     
-    # Step 11: Commit output files to repository
+    # Step 12: Commit output files to repository
     - name: Commit Terraform Output
       run: |
         config="${{ github.event.inputs.configuration }}"
@@ -288,7 +286,7 @@ jobs:
         git config user.name "GitHub Actions"
         git config user.email "actions@github.com"
         
-        # Determine the expected output filename (matching Step 9 logic)
+        # Determine the expected output filename (matching Step 10 logic)
         if [ "$export_format" = "yaml" ]; then
           expected_file="configurations/$config/terraform-output.yaml"
         else
@@ -323,7 +321,7 @@ jobs:
           echo "::notice title=Output Committed::✅ Terraform output committed successfully"
         fi
     
-    # Step 12: Upload output as workflow artifact
+    # Step 13: Upload output as workflow artifact
     - name: Upload Terraform Output Artifact
       uses: actions/upload-artifact@v4
       with:
@@ -334,7 +332,7 @@ jobs:
         retention-days: 30    # Keep outputs for 30 days for reference
         if-no-files-found: ignore  # Don't fail if only one format exists
     
-    # Step 13: Generate comprehensive execution summary
+    # Step 14: Generate comprehensive execution summary
     - name: Generate Execution Summary
       run: |
         config="${{ github.event.inputs.configuration }}"
@@ -357,14 +355,14 @@ jobs:
         echo "| Workflow run | [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         
-        # Use output file information from Step 9
+        # Use output file information from Step 10
         if [ "$export_format" = "yaml" ]; then
           latest_output="configurations/$config/terraform-output.yaml"
         else
           latest_output="configurations/$config/terraform-output.json"
         fi
         
-        # Generate output content section (trusting Step 9 validation)
+        # Generate output content section (trusting Step 10 validation)
         if [ -f "$latest_output" ]; then
           echo "### ✅ Output Content" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -437,7 +435,7 @@ jobs:
         else
           echo "### ❌ Output Status" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "No output file found. This should not happen if Step 9 completed successfully." >> $GITHUB_STEP_SUMMARY
+          echo "No output file found. This should not happen if Step 10 completed successfully." >> $GITHUB_STEP_SUMMARY
         fi
         
         echo "" >> $GITHUB_STEP_SUMMARY
