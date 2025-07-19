@@ -150,15 +150,45 @@ jobs:
         echo "Waiting 10 seconds for network rules to propagate..."
         sleep 10
         
-        # Initialize Terraform with Azure backend for state storage
-        terraform init \
-          -backend-config="storage_account_name=${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}" \
-          -backend-config="container_name=${{ secrets.TERRAFORM_CONTAINER }}" \
-          -backend-config="key=$config.tfstate" \
-          -backend-config="resource_group_name=${{ secrets.TERRAFORM_RESOURCE_GROUP }}" \
-          -backend-config="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
-          -backend-config="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
-          -backend-config="use_oidc=true"
+        # Initialize Terraform with Azure backend for state storage (with retry logic)
+        echo "::notice title=Terraform Init::Initializing Terraform for destroy planning..."
+        
+        # Retry logic for terraform init (network-dependent operation)
+        max_retries=3
+        retry_count=0
+        init_success=false
+        
+        while [ $retry_count -lt $max_retries ] && [ "$init_success" = false ]; do
+          retry_count=$((retry_count + 1))
+          echo "::notice title=Init Attempt::🔄 Terraform init attempt $retry_count of $max_retries..."
+          
+          if terraform init \
+            -backend-config="storage_account_name=${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ secrets.TERRAFORM_CONTAINER }}" \
+            -backend-config="key=$config.tfstate" \
+            -backend-config="resource_group_name=${{ secrets.TERRAFORM_RESOURCE_GROUP }}" \
+            -backend-config="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
+            -backend-config="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
+            -backend-config="use_oidc=true"; then
+            
+            init_success=true
+            echo "::notice title=Init Success::✅ Terraform init completed successfully on attempt $retry_count"
+          else
+            echo "::warning title=Init Failed::⚠️ Terraform init attempt $retry_count failed"
+            if [ $retry_count -lt $max_retries ]; then
+              wait_time=$((retry_count * 10))
+              echo "::notice title=Retry Delay::⏱️ Waiting ${wait_time} seconds before retry..."
+              sleep $wait_time
+            fi
+          fi
+        done
+        
+        if [ "$init_success" = false ]; then
+          echo "::error title=Init Failed::❌ Terraform init failed after $max_retries attempts"
+          echo "::notice title=Context::📋 This init occurs for destroy planning phase"
+          echo "::notice title=Documentation::📚 Error Reference: https://github.com/${{ github.repository }}/blob/main/docs/references/workflow-error-reference.md#terraform-init-errors"
+          exit 1
+        fi
         
         # Validate Terraform configuration syntax
         terraform validate
@@ -262,7 +292,21 @@ jobs:
         
         # Handle different exit codes from terraform plan -destroy
         if [ $destroy_plan_exit_code -eq 1 ]; then
-          echo "::error title=Destroy Plan Failed::Terraform destroy plan failed for configuration $config. Check the logs above for detailed error information."
+          echo "::error title=Destroy Plan Failed::❌ Terraform destroy plan failed for configuration $config"
+          echo "::notice title=Error Context::📋 Destroy plan failure occurred during resource analysis phase"
+          echo "::notice title=Troubleshooting::🔍 Common terraform destroy plan failure causes:"
+          echo "::notice title=Issue 1::🔑 Authentication or authorization issues with Power Platform"
+          echo "::notice title=Issue 2::🌐 Network connectivity issues to Power Platform API"  
+          echo "::notice title=Issue 3::💾 State file corruption or lock conflicts"
+          echo "::notice title=Issue 4::🔗 Resource dependencies preventing destruction analysis"
+          echo "::notice title=Issue 5::📦 Provider version compatibility issues"
+          echo "::notice title=Solution 1::🔐 Verify service principal has required Power Platform permissions"
+          echo "::notice title=Solution 2::🔄 Re-run workflow if transient network or API issues occurred"
+          echo "::notice title=Solution 3::💾 Check state file integrity and clear locks if needed"
+          echo "::notice title=Solution 4::🔗 Review resource dependencies in Power Platform admin center"
+          echo "::notice title=Solution 5::📚 Review Power Platform provider documentation for destroy requirements"
+          echo "::notice title=Documentation::📚 Error Reference: https://github.com/${{ github.repository }}/blob/main/docs/references/workflow-error-reference.md#terraform-plan-errors"
+          echo "::notice title=Power Platform::📚 Admin Center: https://admin.powerplatform.microsoft.com/"
           exit 1
         elif [ $destroy_plan_exit_code -eq 2 ]; then
           echo "::warning title=Resources to Destroy::⚠️ Terraform destroy plan shows resources will be destroyed"
@@ -386,15 +430,45 @@ jobs:
         echo "Waiting 10 seconds for network rules to propagate..."
         sleep 10
         
-        # Re-initialize Terraform (required after downloading artifacts)
-        terraform init \
-          -backend-config="storage_account_name=${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}" \
-          -backend-config="container_name=${{ secrets.TERRAFORM_CONTAINER }}" \
-          -backend-config="key=$config.tfstate" \
-          -backend-config="resource_group_name=${{ secrets.TERRAFORM_RESOURCE_GROUP }}" \
-          -backend-config="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
-          -backend-config="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
-          -backend-config="use_oidc=true"
+        # Re-initialize Terraform (required after downloading artifacts) with retry logic
+        echo "::notice title=Terraform Re-init::Re-initializing Terraform for destroy execution..."
+        
+        # Retry logic for terraform init (network-dependent operation)
+        max_retries=3
+        retry_count=0
+        init_success=false
+        
+        while [ $retry_count -lt $max_retries ] && [ "$init_success" = false ]; do
+          retry_count=$((retry_count + 1))
+          echo "::notice title=Init Attempt::🔄 Terraform init attempt $retry_count of $max_retries..."
+          
+          if terraform init \
+            -backend-config="storage_account_name=${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ secrets.TERRAFORM_CONTAINER }}" \
+            -backend-config="key=$config.tfstate" \
+            -backend-config="resource_group_name=${{ secrets.TERRAFORM_RESOURCE_GROUP }}" \
+            -backend-config="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
+            -backend-config="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
+            -backend-config="use_oidc=true"; then
+            
+            init_success=true
+            echo "::notice title=Init Success::✅ Terraform re-init for destroy completed successfully on attempt $retry_count"
+          else
+            echo "::warning title=Init Failed::⚠️ Terraform init attempt $retry_count failed"
+            if [ $retry_count -lt $max_retries ]; then
+              wait_time=$((retry_count * 10))
+              echo "::notice title=Retry Delay::⏱️ Waiting ${wait_time} seconds before retry..."
+              sleep $wait_time
+            fi
+          fi
+        done
+        
+        if [ "$init_success" = false ]; then
+          echo "::error title=Init Failed::❌ Terraform init failed after $max_retries attempts"
+          echo "::notice title=Context::📋 This init occurs before destroy execution after downloading artifacts"
+          echo "::notice title=Documentation::📚 Error Reference: https://github.com/${{ github.repository }}/blob/main/docs/references/workflow-error-reference.md#terraform-init-errors"
+          exit 1
+        fi
         
         # Execute destroy using the pre-approved plan
         echo "::warning title=Applying Destroy Plan::Applying destroy plan - resources will be deleted"
@@ -403,7 +477,23 @@ jobs:
         if [ $? -eq 0 ]; then
           echo "::notice title=Destroy Successful::✅ Terraform destroy completed successfully"
         else
+          destroy_exit_code=$?
           echo "::error title=Destroy Failed::❌ Terraform destroy operation failed"
+          echo "::notice title=Error Context::📋 Destroy failure occurred during resource deletion phase"
+          echo "::notice title=Exit Code::🔢 Terraform destroy exited with code: $destroy_exit_code"
+          echo "::notice title=Troubleshooting::🔍 Common terraform destroy failure causes:"
+          echo "::notice title=Issue 1::🔒 Resource protection policies preventing deletion"
+          echo "::notice title=Issue 2::🔗 Resource dependencies blocking destruction order"  
+          echo "::notice title=Issue 3::🌐 Network connectivity issues during deletion"
+          echo "::notice title=Issue 4::💾 State file conflicts or corruption"
+          echo "::notice title=Issue 5::🏗️ Power Platform service limits during bulk deletion"
+          echo "::notice title=Solution 1::🔍 Check Power Platform admin center for resource protection policies"
+          echo "::notice title=Solution 2::🔗 Review resource dependencies and destroy order"
+          echo "::notice title=Solution 3::🔄 Re-run workflow if transient network issues occurred"
+          echo "::notice title=Solution 4::💾 Verify state file integrity and clear locks"
+          echo "::notice title=Solution 5::⏱️ Consider destroying resources in smaller batches"
+          echo "::notice title=Documentation::📚 Error Reference: https://github.com/${{ github.repository }}/blob/main/docs/references/workflow-error-reference.md#terraform-apply-errors"
+          echo "::notice title=Power Platform::📚 Admin Center: https://admin.powerplatform.microsoft.com/"
           exit 1
         fi
         

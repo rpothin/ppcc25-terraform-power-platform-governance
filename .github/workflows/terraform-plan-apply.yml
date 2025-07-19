@@ -84,19 +84,38 @@ jobs:
         
         # Validate configuration directory exists
         if [ ! -d "configurations/$config" ]; then
-          echo "::error title=Configuration Not Found::Configuration directory 'configurations/$config' does not exist. Please check the configuration name."
+          echo "::error title=Configuration Not Found::Configuration directory 'configurations/$config' does not exist."
+          echo "::notice title=Troubleshooting Guide::📋 Common causes and solutions:"
+          echo "::notice title=Available Configurations::🔍 Check these existing configurations:"
+          ls -la configurations/ | grep ^d | awk '{print "- " $NF}' | grep -v '^\.\.$' | grep -v '^\.$' || echo "- No configurations found"
+          echo "::notice title=Solution 1::✅ Use one of the existing configuration names listed above"
+          echo "::notice title=Solution 2::📁 Create a new configuration directory: configurations/$config/"
+          echo "::notice title=Documentation::📚 See project README for configuration setup guidance"
           exit 1
         fi
         
         # Validate this is a resource management configuration
         if [[ "$config" != "02-dlp-policy" && "$config" != "03-environment" ]]; then
-          echo "::error title=Invalid Configuration Type::Configuration '$config' is not a resource management configuration. Only resource management configurations should be used for plan/apply operations."
+          echo "::error title=Invalid Configuration Type::Configuration '$config' is not a resource management configuration."
+          echo "::notice title=Troubleshooting Guide::📋 Configuration type validation failed:"
+          echo "::notice title=Valid Configurations::✅ Supported resource management configurations:"
+          echo "::notice title=Option 1::📁 02-dlp-policy - Data Loss Prevention policy management"
+          echo "::notice title=Option 2::📁 03-environment - Power Platform environment management" 
+          echo "::notice title=Invalid Configuration::❌ '$config' is likely an output-only configuration"
+          echo "::notice title=Solution::🔄 Use terraform-output workflow for output-only configurations"
+          echo "::notice title=Documentation::📚 See workflow documentation for configuration types"
           exit 1
         fi
         
         # Validate tfvars file name format
         if [[ ! "$tfvars_file" =~ ^[a-zA-Z0-9_-]+$ ]]; then
-          echo "::error title=Invalid tfvars File Name::tfvars file name '$tfvars_file' contains invalid characters. Use only alphanumeric characters, hyphens, and underscores."
+          echo "::error title=Invalid tfvars File Name::tfvars file name '$tfvars_file' contains invalid characters."
+          echo "::notice title=Troubleshooting Guide::📋 tfvars file name validation failed:"
+          echo "::notice title=Invalid Characters::❌ File name '$tfvars_file' contains unsupported characters"
+          echo "::notice title=Valid Characters::✅ Use only: letters (a-z, A-Z), numbers (0-9), hyphens (-), underscores (_)"
+          echo "::notice title=Example Names::📝 Valid examples: 'prod', 'dev-01', 'test_env', 'staging-2024'"
+          echo "::notice title=File Extension::📄 Do not include .tfvars extension in the input (will be added automatically)"
+          echo "::notice title=Solution::🔧 Rename your tfvars file to use only valid characters"
           exit 1
         fi
         
@@ -146,7 +165,16 @@ jobs:
         
         # Validate configuration directory structure
         if [ ! -f "configurations/$config/main.tf" ] && [ ! -f "configurations/$config/data-sources.tf" ]; then
-          echo "::error title=Invalid Configuration::No Terraform files found in configuration '$config'. Expected main.tf or data-sources.tf."
+          echo "::error title=Invalid Configuration::No Terraform files found in configuration '$config'."
+          echo "::notice title=Troubleshooting Guide::📋 Configuration structure validation failed:"
+          echo "::notice title=Missing Files::❌ Expected files not found:"
+          echo "::notice title=Required Files::📄 At least one of these files must exist:"
+          echo "::notice title=Option 1::- configurations/$config/main.tf (for resource configurations)"
+          echo "::notice title=Option 2::- configurations/$config/data-sources.tf (for data source configurations)"
+          echo "::notice title=Current Files::🔍 Files currently in configurations/$config/:"
+          ls -la "configurations/$config/" 2>/dev/null | grep '\.tf$' | awk '{print "- " $NF}' || echo "- No .tf files found"
+          echo "::notice title=Solution::📁 Create the required Terraform configuration files"
+          echo "::notice title=Documentation::📚 See Terraform documentation for configuration file structure"
           exit 1
         fi
         
@@ -156,8 +184,18 @@ jobs:
         
         if [ ! -f "$tfvars_path" ]; then
           echo "::error title=tfvars File Not Found::Specified tfvars file '$tfvars_path' does not exist."
-          echo "::error title=Available Files::Available tfvars files in configurations/$config/tfvars/:"
-          ls -la "configurations/$config/tfvars/" 2>/dev/null || echo "No tfvars directory found"
+          echo "::notice title=Troubleshooting Guide::📋 tfvars file validation failed:"
+          echo "::notice title=Missing File::❌ File not found: $tfvars_path"
+          echo "::notice title=Check Directory::📁 tfvars directory contents:"
+          if [ -d "configurations/$config/tfvars/" ]; then
+            ls -la "configurations/$config/tfvars/" | grep '\.tfvars$' | awk '{print "- " $NF}' || echo "- No .tfvars files found"
+          else
+            echo "- tfvars directory does not exist: configurations/$config/tfvars/"
+          fi
+          echo "::notice title=Solution 1::📄 Create the missing tfvars file: $tfvars_path"
+          echo "::notice title=Solution 2::🔄 Use one of the existing tfvars files listed above"
+          echo "::notice title=Solution 3::📁 Create the tfvars directory if it doesn't exist"
+          echo "::notice title=Documentation::📚 See project README for tfvars file examples and structure"
           exit 1
         fi
         
@@ -177,15 +215,52 @@ jobs:
         # Create backups directory if it doesn't exist
         mkdir -p backups
         
-        # Initialize Terraform first to access state
-        terraform init \
-          -backend-config="storage_account_name=${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}" \
-          -backend-config="container_name=${{ secrets.TERRAFORM_CONTAINER }}" \
-          -backend-config="key=$config.tfstate" \
-          -backend-config="resource_group_name=${{ secrets.TERRAFORM_RESOURCE_GROUP }}" \
-          -backend-config="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
-          -backend-config="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
-          -backend-config="use_oidc=true"
+        # Initialize Terraform first to access state (with retry logic for network reliability)
+        echo "::notice title=Terraform Init::Initializing Terraform with backend configuration..."
+        
+        # Retry logic for terraform init (network-dependent operation)
+        max_retries=3
+        retry_count=0
+        init_success=false
+        
+        while [ $retry_count -lt $max_retries ] && [ "$init_success" = false ]; do
+          retry_count=$((retry_count + 1))
+          echo "::notice title=Init Attempt::🔄 Terraform init attempt $retry_count of $max_retries..."
+          
+          if terraform init \
+            -backend-config="storage_account_name=${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ secrets.TERRAFORM_CONTAINER }}" \
+            -backend-config="key=$config.tfstate" \
+            -backend-config="resource_group_name=${{ secrets.TERRAFORM_RESOURCE_GROUP }}" \
+            -backend-config="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
+            -backend-config="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
+            -backend-config="use_oidc=true"; then
+            
+            init_success=true
+            echo "::notice title=Init Success::✅ Terraform init completed successfully on attempt $retry_count"
+          else
+            echo "::warning title=Init Failed::⚠️ Terraform init attempt $retry_count failed"
+            if [ $retry_count -lt $max_retries ]; then
+              wait_time=$((retry_count * 10))
+              echo "::notice title=Retry Delay::⏱️ Waiting ${wait_time} seconds before retry..."
+              sleep $wait_time
+            fi
+          fi
+        done
+        
+        if [ "$init_success" = false ]; then
+          echo "::error title=Init Failed::❌ Terraform init failed after $max_retries attempts"
+          echo "::notice title=Troubleshooting::📋 Common network-related init failures:"
+          echo "::notice title=Issue 1::🔒 Network connectivity to Azure Storage backend"
+          echo "::notice title=Issue 2::🔑 Authentication or permission issues with storage account"  
+          echo "::notice title=Issue 3::🌐 Transient network issues or Azure service availability"
+          echo "::notice title=Solution 1::🔄 Re-run the workflow (may resolve transient issues)"
+          echo "::notice title=Solution 2::🔍 Check Azure Storage account accessibility"
+          echo "::notice title=Solution 3::🔐 Verify service principal permissions"
+          echo "::notice title=Documentation::📚 Error Reference: https://github.com/${{ github.repository }}/blob/main/docs/references/workflow-error-reference.md#terraform-init-errors"
+          echo "::notice title=Azure Docs::📚 Azure Storage Network Security: https://docs.microsoft.com/azure/storage/common/storage-network-security"
+          exit 1
+        fi
         
         # Pull current state and create timestamped backup
         backup_filename="backups/terraform.tfstate.backup-$timestamp"
@@ -222,19 +297,77 @@ jobs:
         echo "Waiting 10 seconds for network rules to propagate..."
         sleep 10
         
-        # Terraform should already be initialized from backup step, but ensure it's current
-        terraform init \
-          -backend-config="storage_account_name=${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}" \
-          -backend-config="container_name=${{ secrets.TERRAFORM_CONTAINER }}" \
-          -backend-config="key=$config.tfstate" \
-          -backend-config="resource_group_name=${{ secrets.TERRAFORM_RESOURCE_GROUP }}" \
-          -backend-config="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
-          -backend-config="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
-          -backend-config="use_oidc=true"
+        # Terraform should already be initialized from backup step, but ensure it's current (with retry logic)
+        echo "::notice title=Terraform Re-init::Re-initializing Terraform after network configuration..."
+        
+        # Retry logic for terraform init (network-dependent operation)
+        max_retries=3
+        retry_count=0
+        init_success=false
+        
+        while [ $retry_count -lt $max_retries ] && [ "$init_success" = false ]; do
+          retry_count=$((retry_count + 1))
+          echo "::notice title=Init Attempt::🔄 Terraform init attempt $retry_count of $max_retries..."
+          
+          if terraform init \
+            -backend-config="storage_account_name=${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ secrets.TERRAFORM_CONTAINER }}" \
+            -backend-config="key=$config.tfstate" \
+            -backend-config="resource_group_name=${{ secrets.TERRAFORM_RESOURCE_GROUP }}" \
+            -backend-config="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
+            -backend-config="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
+            -backend-config="use_oidc=true"; then
+            
+            init_success=true
+            echo "::notice title=Init Success::✅ Terraform re-init completed successfully on attempt $retry_count"
+          else
+            echo "::warning title=Init Failed::⚠️ Terraform init attempt $retry_count failed"
+            if [ $retry_count -lt $max_retries ]; then
+              wait_time=$((retry_count * 10))
+              echo "::notice title=Retry Delay::⏱️ Waiting ${wait_time} seconds before retry..."
+              sleep $wait_time
+            fi
+          fi
+        done
+        
+        if [ "$init_success" = false ]; then
+          echo "::error title=Init Failed::❌ Terraform init failed after $max_retries attempts"
+          echo "::notice title=Context::📋 This init occurs after network configuration changes"
+          echo "::notice title=Troubleshooting::📋 Common post-network-config init failures:"
+          echo "::notice title=Issue 1::🌐 Network propagation delays affecting backend access"
+          echo "::notice title=Issue 2::🔒 Modified network rules blocking storage access"  
+          echo "::notice title=Issue 3::🔑 Authentication token refresh needed after network changes"
+          echo "::notice title=Solution 1::🔄 Re-run the workflow (network rules may need more time)"
+          echo "::notice title=Solution 2::🔍 Check if JIT network access is still active"
+          echo "::notice title=Solution 3::🔐 Verify storage account network settings"
+          echo "::notice title=Documentation::📚 Error Reference: https://github.com/${{ github.repository }}/blob/main/docs/references/workflow-error-reference.md#terraform-init-errors"
+          echo "::notice title=Azure Docs::📚 JIT Network Access: https://docs.microsoft.com/azure/storage/common/storage-network-security"
+          exit 1
+        fi
         
         # Validate Terraform configuration syntax and consistency
         echo "::notice title=Validating Configuration::Validating Terraform configuration syntax..."
-        terraform validate
+        
+        if ! terraform validate; then
+          echo "::error title=Terraform Validate Failed::❌ Terraform configuration validation failed"
+          echo "::notice title=Error Context::📋 Validation failure indicates configuration syntax or consistency issues"
+          echo "::notice title=Troubleshooting::🔍 Common terraform validate failure causes:"
+          echo "::notice title=Issue 1::📝 HCL syntax errors (missing quotes, brackets, or semicolons)"
+          echo "::notice title=Issue 2::🔗 Invalid resource references or variable usage"  
+          echo "::notice title=Issue 3::📦 Missing or incorrect provider configuration"
+          echo "::notice title=Issue 4::🏷️ Invalid resource or data source names"
+          echo "::notice title=Issue 5::⚙️ Incorrect variable types or validation rules"
+          echo "::notice title=Solution 1::📝 Review configuration files for syntax errors"
+          echo "::notice title=Solution 2::🔍 Check variable definitions and resource references"
+          echo "::notice title=Solution 3::📦 Verify provider version and configuration requirements"
+          echo "::notice title=Solution 4::🧪 Test configuration locally with 'terraform validate'"
+          echo "::notice title=Solution 5::📚 Review Terraform and Power Platform provider documentation"
+          echo "::notice title=Documentation::📚 Error Reference: https://github.com/${{ github.repository }}/blob/main/docs/references/workflow-error-reference.md#terraform-validate-errors"
+          echo "::notice title=Terraform Docs::📚 Configuration Language: https://developer.hashicorp.com/terraform/language"
+          exit 1
+        fi
+        
+        echo "::notice title=Validation Success::✅ Terraform configuration validation completed successfully"
         
         # Prepare tfvars file paths
         tfvars_filename="$tfvars_file.tfvars"
@@ -252,7 +385,21 @@ jobs:
         
         # Handle different exit codes from terraform plan
         if [ $plan_exit_code -eq 1 ]; then
-          echo "::error title=Terraform Plan Failed::Terraform plan failed for configuration $config. Check the logs above for detailed error information."
+          echo "::error title=Terraform Plan Failed::❌ Terraform plan failed for configuration $config"
+          echo "::notice title=Error Context::📋 Plan failure occurred during infrastructure planning phase"
+          echo "::notice title=Troubleshooting::🔍 Common terraform plan failure causes:"
+          echo "::notice title=Issue 1::📝 Configuration syntax errors or invalid resource definitions"
+          echo "::notice title=Issue 2::🔑 Authentication or authorization issues with Power Platform"  
+          echo "::notice title=Issue 3::🌐 Network connectivity issues to Power Platform API"
+          echo "::notice title=Issue 4::💾 State file inconsistencies or lock conflicts"
+          echo "::notice title=Issue 5::📦 Provider version compatibility issues"
+          echo "::notice title=Solution 1::🔍 Review the detailed error logs above for specific syntax issues"
+          echo "::notice title=Solution 2::🔐 Verify service principal has required Power Platform permissions"
+          echo "::notice title=Solution 3::🔄 Re-run workflow if transient network or API issues occurred"
+          echo "::notice title=Solution 4::💾 Check state file integrity and clear locks if needed"
+          echo "::notice title=Solution 5::📚 Review Power Platform provider documentation for required permissions"
+          echo "::notice title=Documentation::📚 Error Reference: https://github.com/${{ github.repository }}/blob/main/docs/references/workflow-error-reference.md#terraform-plan-errors"
+          echo "::notice title=Power Platform::📚 Service Principal Setup: https://docs.microsoft.com/power-platform/admin/powershell-create-service-principal"
           exit 1
         elif [ $plan_exit_code -eq 2 ]; then
           echo "::notice title=Changes Detected::✅ Terraform plan detected changes for configuration $config. The plan will be saved for potential apply."
@@ -509,19 +656,79 @@ jobs:
         echo "Waiting 10 seconds for network rules to propagate..."
         sleep 10
         
-        # Re-initialize Terraform (required after downloading artifacts)
-        terraform init \
-          -backend-config="storage_account_name=${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}" \
-          -backend-config="container_name=${{ secrets.TERRAFORM_CONTAINER }}" \
-          -backend-config="key=$config.tfstate" \
-          -backend-config="resource_group_name=${{ secrets.TERRAFORM_RESOURCE_GROUP }}" \
-          -backend-config="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
-          -backend-config="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
-          -backend-config="use_oidc=true"
+        # Re-initialize Terraform (required after downloading artifacts) with retry logic
+        echo "::notice title=Terraform Re-init::Re-initializing Terraform after downloading plan artifacts..."
+        
+        # Retry logic for terraform init (network-dependent operation)
+        max_retries=3
+        retry_count=0
+        init_success=false
+        
+        while [ $retry_count -lt $max_retries ] && [ "$init_success" = false ]; do
+          retry_count=$((retry_count + 1))
+          echo "::notice title=Init Attempt::🔄 Terraform init attempt $retry_count of $max_retries..."
+          
+          if terraform init \
+            -backend-config="storage_account_name=${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ secrets.TERRAFORM_CONTAINER }}" \
+            -backend-config="key=$config.tfstate" \
+            -backend-config="resource_group_name=${{ secrets.TERRAFORM_RESOURCE_GROUP }}" \
+            -backend-config="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
+            -backend-config="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
+            -backend-config="use_oidc=true"; then
+            
+            init_success=true
+            echo "::notice title=Init Success::✅ Terraform re-init completed successfully on attempt $retry_count"
+          else
+            echo "::warning title=Init Failed::⚠️ Terraform init attempt $retry_count failed"
+            if [ $retry_count -lt $max_retries ]; then
+              wait_time=$((retry_count * 10))
+              echo "::notice title=Retry Delay::⏱️ Waiting ${wait_time} seconds before retry..."
+              sleep $wait_time
+            fi
+          fi
+        done
+        
+        if [ "$init_success" = false ]; then
+          echo "::error title=Init Failed::❌ Terraform init failed after $max_retries attempts"
+          echo "::notice title=Context::📋 This init occurs in apply job after downloading plan artifacts"
+          echo "::notice title=Troubleshooting::📋 Common post-artifact-download init failures:"
+          echo "::notice title=Issue 1::🌐 Network connectivity issues to Azure Storage backend"
+          echo "::notice title=Issue 2::📦 Local state cache conflicts after artifact extraction"  
+          echo "::notice title=Issue 3::🔑 Authentication token expiration during job transition"
+          echo "::notice title=Solution 1::🔄 Re-run the workflow (may resolve transient issues)"
+          echo "::notice title=Solution 2::🔍 Check if JIT network access is still active"
+          echo "::notice title=Solution 3::💾 Verify plan artifacts were downloaded correctly"
+          echo "::notice title=Documentation::📚 See apply job troubleshooting guide"
+          exit 1
+        fi
         
         # Apply the previously created plan
         # -auto-approve: Skip interactive approval since we're using a pre-approved plan
-        terraform apply -auto-approve "tfplan-$config"
+        echo "::notice title=Applying Changes::🚀 Executing terraform apply with pre-approved plan..."
+        
+        if ! terraform apply -auto-approve "tfplan-$config"; then
+          apply_exit_code=$?
+          echo "::error title=Terraform Apply Failed::❌ Terraform apply failed for configuration $config"
+          echo "::notice title=Error Context::📋 Apply failure occurred during infrastructure deployment phase"
+          echo "::notice title=Exit Code::🔢 Terraform apply exited with code: $apply_exit_code"
+          echo "::notice title=Troubleshooting::🔍 Common terraform apply failure causes:"
+          echo "::notice title=Issue 1::🔑 Insufficient permissions to create/modify Power Platform resources"
+          echo "::notice title=Issue 2::🌐 Network connectivity issues during resource provisioning"  
+          echo "::notice title=Issue 3::⚠️ Resource conflicts or dependencies not met"
+          echo "::notice title=Issue 4::💾 State file corruption or lock conflicts"
+          echo "::notice title=Issue 5::🏗️ Power Platform service limits or quotas exceeded"
+          echo "::notice title=Solution 1::🔐 Verify service principal has Power Platform System Administrator role"
+          echo "::notice title=Solution 2::🔄 Re-run workflow if transient API or network issues occurred"
+          echo "::notice title=Solution 3::🔍 Check Power Platform admin center for resource conflicts"
+          echo "::notice title=Solution 4::💾 Clear state locks and verify state file integrity"
+          echo "::notice title=Solution 5::📈 Review Power Platform capacity and license requirements"
+          echo "::notice title=Documentation::📚 Error Reference: https://github.com/${{ github.repository }}/blob/main/docs/references/workflow-error-reference.md#terraform-apply-errors"
+          echo "::notice title=Power Platform::📚 Admin Center: https://admin.powerplatform.microsoft.com/"
+          exit 1
+        fi
+        
+        echo "::notice title=Apply Success::✅ Terraform apply completed successfully for configuration $config"
         
         # Use the same tfvars file that was used in the plan job
         tfvars_file="${{ github.event.inputs.tfvars_file }}"
@@ -536,12 +743,38 @@ jobs:
           -var-file="$tfvars_path" || idempotency_exit_code=$?
         
         if [ $idempotency_exit_code -eq 2 ]; then
-          echo "::error title=Idempotency Test Failed::Plan shows changes after apply - configuration is not idempotent. This indicates a problem with the Terraform configuration."
+          echo "::error title=Idempotency Test Failed::❌ Plan shows changes after apply - configuration is not idempotent"
+          echo "::notice title=Error Context::📋 Idempotency failure indicates configuration drift or resource instability"
+          echo "::notice title=AVM Compliance::⚠️ This violates Azure Verified Module (AVM) idempotency requirements"
+          echo "::notice title=Troubleshooting::🔍 Common idempotency failure causes:"
+          echo "::notice title=Issue 1::🔄 Resources with dynamic values (timestamps, generated IDs)"
+          echo "::notice title=Issue 2::🏷️ Missing ignore_changes blocks for computed attributes"  
+          echo "::notice title=Issue 3::⚙️ Provider API inconsistencies or eventual consistency issues"
+          echo "::notice title=Issue 4::🔗 Resources depending on external state changes"
+          echo "::notice title=Issue 5::📝 Missing lifecycle management rules"
+          echo "::notice title=Solution 1::🔍 Review the diff output to identify changing attributes"
+          echo "::notice title=Solution 2::🏷️ Add ignore_changes for computed or dynamic attributes"
+          echo "::notice title=Solution 3::⏳ Add provider-specific wait conditions for eventual consistency"
+          echo "::notice title=Solution 4::🔧 Use data sources instead of resources for read-only operations"
+          echo "::notice title=Solution 5::📚 Review AVM guidelines for idempotency patterns"
+          echo "::notice title=Documentation::📚 Error Reference: https://github.com/${{ github.repository }}/blob/main/docs/references/workflow-error-reference.md#idempotency-test-errors"
+          echo "::notice title=AVM Guidelines::📚 Azure Verified Modules: https://azure.github.io/Azure-Verified-Modules/"
           exit 1
         elif [ $idempotency_exit_code -eq 0 ]; then
           echo "::notice title=Idempotency Test Passed::✅ No changes detected in post-apply plan - configuration is idempotent"
         else
-          echo "::error title=Idempotency Test Error::Post-apply plan failed with error (exit code: $idempotency_exit_code)"
+          echo "::error title=Idempotency Test Error::❌ Post-apply plan failed with error (exit code: $idempotency_exit_code)"
+          echo "::notice title=Error Context::📋 Idempotency test execution failed (not a drift issue)"
+          echo "::notice title=Troubleshooting::🔍 Common idempotency test execution failures:"
+          echo "::notice title=Issue 1::🔑 Authentication token expiration during extended apply process"
+          echo "::notice title=Issue 2::🌐 Network connectivity issues during post-apply validation"  
+          echo "::notice title=Issue 3::💾 State file corruption or lock conflicts"
+          echo "::notice title=Issue 4::📦 Provider API rate limiting or service unavailability"
+          echo "::notice title=Solution 1::🔄 Re-run the workflow (may resolve transient issues)"
+          echo "::notice title=Solution 2::🔐 Verify authentication credentials are still valid"
+          echo "::notice title=Solution 3::💾 Check state file integrity and clear locks if needed"
+          echo "::notice title=Solution 4::⏱️ Consider adding delays for API rate limiting"
+          echo "::notice title=Documentation::📚 See post-apply validation troubleshooting guide"
           exit 1
         fi
         
@@ -556,15 +789,52 @@ jobs:
         echo "::notice title=Extracting Outputs::Getting Terraform outputs for configuration: $config"
         cd "configurations/$config"
         
-        # Re-initialize to ensure we can read outputs from the updated state
-        terraform init \
-          -backend-config="storage_account_name=${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}" \
-          -backend-config="container_name=${{ secrets.TERRAFORM_CONTAINER }}" \
-          -backend-config="key=$config.tfstate" \
-          -backend-config="resource_group_name=${{ secrets.TERRAFORM_RESOURCE_GROUP }}" \
-          -backend-config="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
-          -backend-config="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
-          -backend-config="use_oidc=true"
+        # Re-initialize to ensure we can read outputs from the updated state (with retry logic)
+        echo "::notice title=Terraform Init::Re-initializing Terraform to read updated state for outputs..."
+        
+        # Retry logic for terraform init (network-dependent operation)
+        max_retries=3
+        retry_count=0
+        init_success=false
+        
+        while [ $retry_count -lt $max_retries ] && [ "$init_success" = false ]; do
+          retry_count=$((retry_count + 1))
+          echo "::notice title=Init Attempt::🔄 Terraform init attempt $retry_count of $max_retries..."
+          
+          if terraform init \
+            -backend-config="storage_account_name=${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ secrets.TERRAFORM_CONTAINER }}" \
+            -backend-config="key=$config.tfstate" \
+            -backend-config="resource_group_name=${{ secrets.TERRAFORM_RESOURCE_GROUP }}" \
+            -backend-config="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
+            -backend-config="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
+            -backend-config="use_oidc=true"; then
+            
+            init_success=true
+            echo "::notice title=Init Success::✅ Terraform init for outputs completed successfully on attempt $retry_count"
+          else
+            echo "::warning title=Init Failed::⚠️ Terraform init attempt $retry_count failed"
+            if [ $retry_count -lt $max_retries ]; then
+              wait_time=$((retry_count * 10))
+              echo "::notice title=Retry Delay::⏱️ Waiting ${wait_time} seconds before retry..."
+              sleep $wait_time
+            fi
+          fi
+        done
+        
+        if [ "$init_success" = false ]; then
+          echo "::error title=Init Failed::❌ Terraform init failed after $max_retries attempts"
+          echo "::notice title=Context::📋 This init is required to read outputs from updated state"
+          echo "::notice title=Troubleshooting::📋 Common output extraction init failures:"
+          echo "::notice title=Issue 1::🌐 Network connectivity issues accessing state file"
+          echo "::notice title=Issue 2::💾 State file lock conflicts or corruption"  
+          echo "::notice title=Issue 3::🔑 Authentication issues reading from remote backend"
+          echo "::notice title=Solution 1::🔄 Re-run the workflow (may resolve transient issues)"
+          echo "::notice title=Solution 2::🔍 Check state file integrity in storage account"
+          echo "::notice title=Solution 3::🔐 Verify backend access permissions are still valid"
+          echo "::notice title=Documentation::📚 See state management troubleshooting guide"
+          exit 1
+        fi
         
         # Extract outputs in JSON format, fallback to empty object if no outputs
         terraform output -json > "outputs-$config.json" || echo "{}" > "outputs-$config.json"

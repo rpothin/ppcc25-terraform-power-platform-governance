@@ -204,15 +204,45 @@ jobs:
         echo "Waiting 10 seconds for network rules to propagate..."
         sleep 10
         
-        # Initialize Terraform with Azure backend for state storage
-        terraform init \
-          -backend-config="storage_account_name=${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}" \
-          -backend-config="container_name=${{ secrets.TERRAFORM_CONTAINER }}" \
-          -backend-config="key=$config.tfstate" \
-          -backend-config="resource_group_name=${{ secrets.TERRAFORM_RESOURCE_GROUP }}" \
-          -backend-config="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
-          -backend-config="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
-          -backend-config="use_oidc=true"
+        # Initialize Terraform with Azure backend for state storage (with retry logic)
+        echo "::notice title=Terraform Init::Initializing Terraform for import operations..."
+        
+        # Retry logic for terraform init (network-dependent operation)
+        max_retries=3
+        retry_count=0
+        init_success=false
+        
+        while [ $retry_count -lt $max_retries ] && [ "$init_success" = false ]; do
+          retry_count=$((retry_count + 1))
+          echo "::notice title=Init Attempt::🔄 Terraform init attempt $retry_count of $max_retries..."
+          
+          if terraform init \
+            -backend-config="storage_account_name=${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ secrets.TERRAFORM_CONTAINER }}" \
+            -backend-config="key=$config.tfstate" \
+            -backend-config="resource_group_name=${{ secrets.TERRAFORM_RESOURCE_GROUP }}" \
+            -backend-config="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
+            -backend-config="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
+            -backend-config="use_oidc=true"; then
+            
+            init_success=true
+            echo "::notice title=Init Success::✅ Terraform init for import completed successfully on attempt $retry_count"
+          else
+            echo "::warning title=Init Failed::⚠️ Terraform init attempt $retry_count failed"
+            if [ $retry_count -lt $max_retries ]; then
+              wait_time=$((retry_count * 10))
+              echo "::notice title=Retry Delay::⏱️ Waiting ${wait_time} seconds before retry..."
+              sleep $wait_time
+            fi
+          fi
+        done
+        
+        if [ "$init_success" = false ]; then
+          echo "::error title=Init Failed::❌ Terraform init failed after $max_retries attempts"
+          echo "::notice title=Context::📋 This init occurs for import operations"
+          echo "::notice title=Documentation::📚 Error Reference: https://github.com/${{ github.repository }}/blob/main/docs/references/workflow-error-reference.md#terraform-init-errors"
+          exit 1
+        fi
         
         # Validate Terraform configuration syntax
         terraform validate
@@ -326,7 +356,22 @@ jobs:
           echo "import-successful=true" >> $GITHUB_OUTPUT
           echo "resource-imported=$resource_type.$resource_name" >> $GITHUB_OUTPUT
         else
-          echo "::error title=Import Failed::❌ Failed to import resource $resource_type.$resource_name (exit code: $import_exit_code)"
+          echo "::error title=Import Failed::❌ Failed to import resource $resource_type.$resource_name"
+          echo "::notice title=Error Context::📋 Import failure occurred during resource import phase"
+          echo "::notice title=Exit Code::🔢 Terraform import exited with code: $import_exit_code"
+          echo "::notice title=Troubleshooting::🔍 Common terraform import failure causes:"
+          echo "::notice title=Issue 1::🔍 Resource ID not found or inaccessible in Power Platform"
+          echo "::notice title=Issue 2::🔑 Insufficient permissions to access the resource"  
+          echo "::notice title=Issue 3::🏷️ Resource type mismatch with actual Power Platform resource"
+          echo "::notice title=Issue 4::💾 Resource already exists in Terraform state"
+          echo "::notice title=Issue 5::🌐 Network connectivity issues to Power Platform API"
+          echo "::notice title=Solution 1::🔍 Verify resource ID exists in Power Platform admin center"
+          echo "::notice title=Solution 2::🔐 Check service principal has read access to the resource"
+          echo "::notice title=Solution 3::🏷️ Confirm resource type matches Power Platform resource type"
+          echo "::notice title=Solution 4::💾 Check if resource is already in state with 'terraform state list'"
+          echo "::notice title=Solution 5::🔄 Re-run workflow if transient network issues occurred"
+          echo "::notice title=Documentation::📚 Error Reference: https://github.com/${{ github.repository }}/blob/main/docs/references/workflow-error-reference.md#terraform-apply-errors"
+          echo "::notice title=Power Platform::📚 Terraform Provider: https://registry.terraform.io/providers/microsoft/power-platform/latest/docs"
           echo "import-successful=false" >> $GITHUB_OUTPUT
           echo "resource-imported=" >> $GITHUB_OUTPUT
           exit 1
@@ -384,7 +429,22 @@ jobs:
           echo "::warning title=Configuration Drift::⚠️ Plan shows differences between imported resource and configuration. This is normal and may require configuration updates."
           echo "::notice title=Next Steps::Review the plan above and update your Terraform configuration to match the imported resource state, or adjust the resource as needed."
         else
-          echo "::error title=Plan Failed::❌ Post-import plan failed. There may be an issue with the configuration or import."
+          echo "::error title=Plan Failed::❌ Post-import plan failed - unable to validate imported resource"
+          echo "::notice title=Error Context::📋 Post-import plan failure indicates configuration or state issues"
+          echo "::notice title=Exit Code::🔢 Terraform plan exited with code: $plan_exit_code"
+          echo "::notice title=Troubleshooting::🔍 Common post-import plan failure causes:"
+          echo "::notice title=Issue 1::📝 Configuration syntax errors or invalid resource definitions"
+          echo "::notice title=Issue 2::🔗 Incorrect resource references in imported configuration"  
+          echo "::notice title=Issue 3::💾 State file corruption during import process"
+          echo "::notice title=Issue 4::🏷️ Resource attribute mismatches with imported resource"
+          echo "::notice title=Issue 5::🔑 Permission changes affecting resource access"
+          echo "::notice title=Solution 1::📝 Review configuration files for syntax errors"
+          echo "::notice title=Solution 2::🔍 Check imported resource attributes match configuration"
+          echo "::notice title=Solution 3::💾 Verify state file integrity after import"
+          echo "::notice title=Solution 4::🔄 Re-run import process if state corruption suspected"
+          echo "::notice title=Solution 5::📚 Review Power Platform provider documentation for resource requirements"
+          echo "::notice title=Documentation::📚 Error Reference: https://github.com/${{ github.repository }}/blob/main/docs/references/workflow-error-reference.md#terraform-plan-errors"
+          echo "::notice title=Import Guide::📚 Terraform Import: https://developer.hashicorp.com/terraform/cli/import"
           exit 1
         fi
         

@@ -1,17 +1,4 @@
-# Power ### 🔧 How-to Guides
-*Task-oriented documentation for getting things done*
-
-- **[Setup Guide](guides/setup-guide.md)** ![How-to Guide](https://img.shields.io/badge/Diataxis-How--to%20Guide-green?style=flat-square&logo=tools)  
-  Step-by-step instructions for setting up Power Platform Terraform governance infrastructure
-
-### 📖 Reference
-*Information-oriented documentation for quick consultation*
-
-- **[Azure Verified Modules (AVM)](references/azure-verified-modules.md)** ![Reference](https://img.shields.io/badge/Diataxis-Reference-orange?style=flat-square&logo=library)  
-  Authoritative information about AVM module types and Terraform compliance criteria
-
-### 💡 Explanations  
-*Understanding-oriented documentation for deeper insights*form Governance - Documentation
+# Power Platform Governance - Documentation
 
 Welcome to the documentation for the Power Platform Terraform Governance project. This documentation follows the [Diataxis framework](https://diataxis.fr/) to provide clear, well-structured guidance based on your specific needs.
 
@@ -45,6 +32,9 @@ Our documentation is organized into four categories, each serving different user
 ### New to Power Platform Governance?
 Start with the **[Setup Guide](guides/setup-guide.md)** to configure your infrastructure.
 
+### Having Issues with Workflows?
+Check the **[Workflow Errors](references/workflow-errors.md)** for detailed troubleshooting information.
+
 ### Want to Understand the Benefits?
 Read the **ROI justification documents** in the explanations section to understand the value of automation.
 
@@ -60,19 +50,10 @@ Use the badges to identify the type of documentation:
 - **[Configuration Examples](../configurations/)**: Ready-to-use Terraform configurations  
 - **[Scripts Documentation](../scripts/)**: Automation script details
 
-## 🤝 Contributing
-
-When contributing to documentation, please:
-
-1. Follow the **Diataxis framework** principles
-2. Include the appropriate **badge** for your documentation type
-3. Place files in the **correct subdirectory** (`guides/`, `references/`, `explanations/`, etc.)
-4. Use **lowercase file names** with hyphens (e.g., `my-guide.md`)
-5. **Link between related documents** to help users navigate
-
 ## ❓ Need Help?
 
 - **For setup issues**: Check the troubleshooting section in the [Setup Guide](guides/setup-guide.md)
+- **For workflow errors**: Consult the [Workflow Errors](references/workflow-errors.md) documentation
 - **For understanding concepts**: Review the [explanations](explanations/) section
 - **For general project questions**: See the main [README](../README.md)
 
