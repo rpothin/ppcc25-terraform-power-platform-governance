@@ -46,9 +46,11 @@ env:
   POWER_PLATFORM_USE_OIDC: true
   POWER_PLATFORM_CLIENT_ID: ${{ secrets.POWER_PLATFORM_CLIENT_ID }}
   POWER_PLATFORM_TENANT_ID: ${{ secrets.POWER_PLATFORM_TENANT_ID }}
-  # GitHub automatically provides these OIDC variables when id-token permission is granted
-  POWER_PLATFORM_OIDC_REQUEST_URI: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL }}
-  POWER_PLATFORM_OIDC_TOKEN: ${{ env.ACTIONS_ID_TOKEN_REQUEST_TOKEN }}
+  # Azure context for Power Platform resources
+  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  ARM_USE_OIDC: true
 
 jobs:
   # Job 1: Plan Phase
