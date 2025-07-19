@@ -110,11 +110,41 @@ jobs:
     
     # Step 4: Add Just-In-Time network access for Terraform backend
     - name: Add JIT Network Access
+      id: jit-add
+      continue-on-error: true  # Continue even if JIT fails, so we can try without it
       uses: ./.github/actions/jit-network-access
       with:
         action: 'add'
         storage-account-name: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
         resource-group-name: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
+    
+    # Step 4b: Check if we need to skip JIT due to permissions
+    - name: Check JIT Status and Permissions
+      id: jit-status
+      run: |
+        if [ "${{ steps.jit-add.outcome }}" = "failure" ]; then
+          echo "::warning title=JIT Network Access Failed::JIT network access failed. Checking if storage account allows direct access..."
+          
+          # Check if storage account network rules allow access
+          echo "Attempting to list storage account details to test connectivity..."
+          if az storage account show \
+            --name "${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}" \
+            --resource-group "${{ secrets.TERRAFORM_RESOURCE_GROUP }}" \
+            --query "networkRuleSet.defaultAction" -o tsv; then
+            echo "::notice title=Storage Account Accessible::Storage account is accessible without JIT modifications"
+            echo "jit-required=false" >> $GITHUB_OUTPUT
+          else
+            echo "::error title=Storage Account Inaccessible::Cannot access storage account and JIT setup failed"
+            echo "This may be due to:"
+            echo "1. Service principal lacks permissions to modify network rules"
+            echo "2. Storage account network restrictions are too restrictive"
+            echo "3. Network connectivity issues"
+            exit 1
+          fi
+        else
+          echo "::notice title=JIT Success::JIT network access configured successfully"
+          echo "jit-required=true" >> $GITHUB_OUTPUT
+        fi
     
     # Step 5: Install and configure Terraform CLI
     - name: Setup Terraform
@@ -372,7 +402,7 @@ jobs:
     
     # Step 11: Remove Just-In-Time network access
     - name: Remove JIT Network Access
-      if: always()  # Always run this step, even if previous steps failed
+      if: always() && steps.jit-status.outputs.jit-required == 'true'  # Only run if JIT was successfully added
       uses: ./.github/actions/jit-network-access
       with:
         action: 'remove'

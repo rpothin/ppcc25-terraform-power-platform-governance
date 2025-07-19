@@ -63,5 +63,5 @@ runs:
         echo "  Runner IP: $RUNNER_IP"
         
         # Execute the JIT network access script with the specified action (add/remove)
-        # The script path is relative to the action's directory structure
-        ${{ github.action_path }}/../../scripts/jit-network-access.sh ${{ inputs.action }}
+        # Use GitHub workspace path to ensure correct script location
+        "${GITHUB_WORKSPACE}/scripts/jit-network-access.sh" ${{ inputs.action }}

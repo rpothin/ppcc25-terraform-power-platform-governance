@@ -62,12 +62,20 @@ add_ip_rule() {
         return 0
     fi
     
-    # Add the IP rule
-    if az storage account network-rule add \
+    # Add the IP rule with detailed error handling
+    print_status "Executing: az storage account network-rule add --account-name $STORAGE_ACCOUNT_NAME --resource-group $RESOURCE_GROUP_NAME --ip-address $ip_address"
+    
+    local add_output
+    local add_result
+    
+    add_output=$(az storage account network-rule add \
         --account-name "$STORAGE_ACCOUNT_NAME" \
         --resource-group "$RESOURCE_GROUP_NAME" \
         --ip-address "$ip_address" \
-        --output none; then
+        --output json 2>&1)
+    add_result=$?
+    
+    if [ $add_result -eq 0 ]; then
         print_success "Successfully added IP address $ip_address to network rules"
         
         # Wait a moment for the rule to propagate
@@ -81,6 +89,26 @@ add_ip_rule() {
         fi
     else
         print_error "Failed to add IP address $ip_address to network rules"
+        print_error "Error output: $add_output"
+        
+        # Check specific error conditions
+        if echo "$add_output" | grep -q "AuthorizationFailure"; then
+            print_error "Authorization failure - service principal may lack permissions to modify network rules"
+            print_status "Required permissions: Storage Account Contributor or Owner on the storage account or resource group"
+        elif echo "$add_output" | grep -q "NetworkAclsNotSupported"; then
+            print_error "Network ACLs not supported on this storage account type"
+        elif echo "$add_output" | grep -q "ResourceNotFound"; then
+            print_error "Storage account '$STORAGE_ACCOUNT_NAME' not found in resource group '$RESOURCE_GROUP_NAME'"
+        fi
+        
+        # List current user permissions for debugging
+        print_status "Current authentication context:"
+        az account show --query "{subscriptionId:id, tenantId:tenantId, user:user.name}" 2>/dev/null || echo "Failed to get context"
+        
+        # Check role assignments on the storage account
+        print_status "Checking role assignments on storage account..."
+        az role assignment list --scope "/subscriptions/$(az account show --query id -o tsv)/resourceGroups/$RESOURCE_GROUP_NAME/providers/Microsoft.Storage/storageAccounts/$STORAGE_ACCOUNT_NAME" --query "[].{principalName:principalName, roleDefinitionName:roleDefinitionName}" -o table 2>/dev/null || echo "Failed to list role assignments"
+        
         exit 1
     fi
 }
