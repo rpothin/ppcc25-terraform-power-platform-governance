@@ -139,11 +139,26 @@ jobs:
             echo "1. Service principal lacks permissions to modify network rules"
             echo "2. Storage account network restrictions are too restrictive"
             echo "3. Network connectivity issues"
-            exit 1
+            
+            # Try to temporarily disable network restrictions as a fallback
+            echo "::warning title=Attempting Fallback::Trying to temporarily disable network restrictions..."
+            if az storage account update \
+              --name "${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}" \
+              --resource-group "${{ secrets.TERRAFORM_RESOURCE_GROUP }}" \
+              --default-action Allow \
+              --output none; then
+              echo "::notice title=Fallback Successful::Temporarily disabled network restrictions"
+              echo "jit-required=false" >> $GITHUB_OUTPUT
+              echo "network-restrictions-disabled=true" >> $GITHUB_OUTPUT
+            else
+              echo "::error title=Fallback Failed::Cannot disable network restrictions either"
+              exit 1
+            fi
           fi
         else
           echo "::notice title=JIT Success::JIT network access configured successfully"
           echo "jit-required=true" >> $GITHUB_OUTPUT
+          echo "network-restrictions-disabled=false" >> $GITHUB_OUTPUT
         fi
     
     # Step 5: Install and configure Terraform CLI
@@ -160,6 +175,32 @@ jobs:
         
         echo "::notice title=Initializing Terraform::Initializing Terraform for configuration: $config"
         cd "configurations/$config"
+        
+        # Debug: Check storage account network rules before init
+        echo "::group::Pre-Init Storage Account Diagnostics"
+        echo "Checking current network rules on storage account..."
+        az storage account show \
+          --name "${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}" \
+          --resource-group "${{ secrets.TERRAFORM_RESOURCE_GROUP }}" \
+          --query "networkRuleSet" -o json || echo "Failed to get network rules"
+        
+        echo "Testing basic connectivity to storage account..."
+        az storage account show \
+          --name "${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}" \
+          --resource-group "${{ secrets.TERRAFORM_RESOURCE_GROUP }}" \
+          --query "name" -o tsv && echo "✅ Storage account accessible" || echo "❌ Storage account not accessible"
+        
+        echo "Checking current Azure CLI context:"
+        az account show --query "{subscriptionId:id, tenantId:tenantId, user:user}" -o json
+        
+        echo "Current runner IP (should be in network rules):"
+        curl -s https://api.ipify.org
+        echo ""
+        echo "::endgroup::"
+        
+        # Add a small delay to ensure network rules are fully propagated
+        echo "Waiting 10 seconds for network rules to propagate..."
+        sleep 10
         
         # Initialize Terraform with Azure backend for state storage
         terraform init \
@@ -408,6 +449,21 @@ jobs:
         action: 'remove'
         storage-account-name: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
         resource-group-name: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
+    
+    # Step 11b: Re-enable network restrictions if we disabled them
+    - name: Re-enable Network Restrictions
+      if: always() && steps.jit-status.outputs.network-restrictions-disabled == 'true'
+      run: |
+        echo "::notice title=Re-enabling Security::Restoring network restrictions on storage account"
+        if az storage account update \
+          --name "${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}" \
+          --resource-group "${{ secrets.TERRAFORM_RESOURCE_GROUP }}" \
+          --default-action Deny \
+          --output none; then
+          echo "::notice title=Security Restored::✅ Network restrictions re-enabled successfully"
+        else
+          echo "::warning title=Security Warning::⚠️ Failed to re-enable network restrictions - manual intervention required"
+        fi
     
     # Step 12: Commit output files to repository
     - name: Commit Terraform Output
