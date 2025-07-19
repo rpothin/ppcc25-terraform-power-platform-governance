@@ -344,37 +344,31 @@ jobs:
           output_filename="terraform-output.json"
         fi
         
-        # Process the output based on format and metadata preference
+                # Process the output based on format and metadata preference
         if [ "$include_metadata" = "true" ]; then
           # Add metadata
           if [ "$export_format" = "yaml" ]; then
             # Convert to YAML with metadata
-            jq --arg timestamp "$timestamp" --arg config "$config" '
-              {
-                "output_metadata": {
-                  "timestamp": $timestamp,
-                  "configuration": $config,
-                  "exported_by": "GitHub Actions",
-                  "workflow_run": "${{ github.run_number }}",
-                  "export_format": "yaml",
-                  "include_metadata": true
-                },
-                "outputs": .
-              }' "terraform-output.json" | yq eval -P > "$output_filename"
+            jq --arg timestamp "$timestamp" --arg config "$config" '{
+              "output_metadata": {
+                "generated_at": $timestamp,
+                "configuration": $config,
+                "workflow_run": env.GITHUB_RUN_NUMBER,
+                "generated_by": env.GITHUB_ACTOR
+              },
+              "outputs": .
+            }' "terraform-output.json" | yq eval -P > "$output_filename"
           else
             # JSON with metadata
-            jq --arg timestamp "$timestamp" --arg config "$config" '
-              {
-                "output_metadata": {
-                  "timestamp": $timestamp,
-                  "configuration": $config,
-                  "exported_by": "GitHub Actions",
-                  "workflow_run": "${{ github.run_number }}",
-                  "export_format": "json",
-                  "include_metadata": true
-                },
-                "outputs": .
-              }' "terraform-output.json" > "$output_filename"
+            jq --arg timestamp "$timestamp" --arg config "$config" '{
+              "output_metadata": {
+                "generated_at": $timestamp,
+                "configuration": $config,
+                "workflow_run": env.GITHUB_RUN_NUMBER,
+                "generated_by": env.GITHUB_ACTOR
+              },
+              "outputs": .
+            }' "terraform-output.json" > "$output_filename"
           fi
         else
           # No metadata - just convert format if needed
