@@ -224,17 +224,24 @@ jobs:
         if [ "$include_metadata" = "true" ]; then
           # Add metadata and convert format in one operation
           if [ "$export_format" = "yaml" ]; then
-            jq --arg timestamp "$timestamp" --arg config "$config" --arg run_number "${{ github.run_number }}" --arg actor "${{ github.actor }}" '{
-              "output_metadata": {
-                "generated_at": $timestamp,
-                "configuration": $config,
-                "workflow_run": $run_number,
-                "generated_by": $actor,
-                "export_format": "yaml",
-                "terraform_version": "1.5.0"
-              },
-              "outputs": .
-            }' "terraform-output-raw.json" | yq eval -P > "$output_filename"
+            # Create JSON with metadata first, then convert to YAML
+            if jq --version >/dev/null 2>&1 && yq --version >/dev/null 2>&1; then
+              jq --arg timestamp "$timestamp" --arg config "$config" --arg run_number "${{ github.run_number }}" --arg actor "${{ github.actor }}" '{
+                "output_metadata": {
+                  "generated_at": $timestamp,
+                  "configuration": $config,
+                  "workflow_run": $run_number,
+                  "generated_by": $actor,
+                  "export_format": "yaml",
+                  "terraform_version": "1.5.0"
+                },
+                "outputs": .
+              }' "terraform-output-raw.json" | yq -P > "$output_filename"
+              echo "::notice title=YAML with Metadata::✅ Successfully created YAML with metadata"
+            else
+              echo "::error title=Tools Not Available::jq or yq command not found"
+              exit 1
+            fi
           else
             jq --arg timestamp "$timestamp" --arg config "$config" --arg run_number "${{ github.run_number }}" --arg actor "${{ github.actor }}" '{
               "output_metadata": {
@@ -251,7 +258,14 @@ jobs:
         else
           # Direct format conversion without metadata
           if [ "$export_format" = "yaml" ]; then
-            yq eval -P "terraform-output-raw.json" > "$output_filename"
+            # Test yq command and provide fallback
+            if yq --version >/dev/null 2>&1; then
+              cat "terraform-output-raw.json" | yq -P > "$output_filename"
+              echo "::notice title=YAML Conversion::✅ Successfully converted JSON to YAML using yq"
+            else
+              echo "::error title=YQ Not Available::yq command not found, cannot convert to YAML"
+              exit 1
+            fi
           else
             cp "terraform-output-raw.json" "$output_filename"
           fi
