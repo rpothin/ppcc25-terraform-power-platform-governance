@@ -99,8 +99,6 @@ jobs:
         
         echo "::notice title=Input Validation Complete::✅ All inputs validated successfully"
         echo "::notice title=Plan Target::🎯 Target: $config/$tfvars_file, Apply: $apply"
-    
-    # Step 3: Authenticate with Azure using OIDC for backend state storage
         
         if [ "$apply_requested" = "true" ]; then
           echo "::warning title=Apply Requested::⚠️ Apply operation will be performed if plan shows changes"
@@ -110,10 +108,6 @@ jobs:
         else
           echo "::notice title=Plan Only::Plan-only operation - no resources will be modified"
         fi
-    
-    # Step 2: Checkout repository code
-    - name: Checkout
-      uses: actions/checkout@v4
     
     # Step 3: Authenticate with Azure using OIDC for backend state storage
     - name: Azure Login with OIDC
