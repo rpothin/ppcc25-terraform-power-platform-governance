@@ -438,7 +438,9 @@ jobs:
           echo "### ❌ Output Status" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "No output file found. This should not happen if Step 9 completed successfully." >> $GITHUB_STEP_SUMMARY
-        fi        echo "" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
         echo "### ⚠️ Important Notes" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "- **Data Source Only**: This configuration only reads existing Power Platform resources" >> $GITHUB_STEP_SUMMARY
