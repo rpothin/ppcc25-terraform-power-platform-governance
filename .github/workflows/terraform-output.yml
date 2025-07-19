@@ -85,12 +85,6 @@ jobs:
           exit 1
         fi
         
-        # Validate this is a data source only configuration
-        if [ "$config" != "01-dlp-policies" ]; then
-          echo "::error title=Invalid Configuration Type::Configuration '$config' is not a data source only configuration. Only data source configurations should be used for output operations."
-          exit 1
-        fi
-        
         # Validate export format
         if [[ "$export_format" != "json" && "$export_format" != "yaml" ]]; then
           echo "::error title=Invalid Export Format::Export format '$export_format' is not supported. Supported formats: json, yaml"
