@@ -460,6 +460,7 @@ jobs:
           configurations/${{ github.event.inputs.configuration }}/backups/terraform.tfstate.backup-*
           configurations/${{ github.event.inputs.configuration }}/terraform.tfstate.backup.*
         retention-days: 30    # Keep import artifacts for 30 days for audit trail
+        description: 'Terraform state backups from import operation for ${{ github.event.inputs.configuration }} - contains pre-import state snapshots for recovery'
     
     # Step 13: Generate comprehensive summary report
     - name: Generate Import Summary

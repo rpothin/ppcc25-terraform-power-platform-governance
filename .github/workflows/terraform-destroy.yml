@@ -328,9 +328,10 @@ jobs:
     - name: Upload Destroy Plan as Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: destroy-plan-${{ github.run_number }}
+        name: terraform-destroy-plan-${{ github.event.inputs.configuration }}-${{ github.run_number }}
         path: configurations/*/destroy-plan
         retention-days: 7    # Keep destroy plans for 7 days for audit trail
+        description: 'Terraform destroy plan for ${{ github.event.inputs.configuration }} configuration - contains planned resource deletions for audit and rollback purposes'
     
     # Step 11: Remove Just-In-Time network access
     - name: Remove JIT Network Access

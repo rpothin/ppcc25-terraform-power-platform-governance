@@ -480,9 +480,10 @@ jobs:
       if: steps.plan.outputs.changed == 'true'
       uses: actions/upload-artifact@v4
       with:
-        name: tfplans-${{ github.run_number }}
+        name: terraform-plans-${{ github.event.inputs.configuration }}-${{ github.run_number }}
         path: configurations/*/tfplan-*
         retention-days: 7    # Keep plans for 7 days for troubleshooting and audit trail
+        description: 'Terraform execution plans for ${{ github.event.inputs.configuration }} configuration - contains planned changes for review and troubleshooting'
     
     # Step 12: Generate Plan Summary
     - name: Generate Plan Summary
@@ -853,9 +854,10 @@ jobs:
     - name: Upload Terraform Outputs as Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: terraform-outputs-${{ github.run_number }}
+        name: terraform-outputs-${{ github.event.inputs.configuration }}-${{ github.run_number }}
         path: configurations/*/outputs-*.json
         retention-days: 30    # Keep outputs longer than plans for reference
+        description: 'Terraform output values from ${{ github.event.inputs.configuration }} configuration - contains resource information and computed values'
     
     # Step 9: Generate comprehensive workflow summary
     - name: Generate Workflow Summary

@@ -348,6 +348,7 @@ jobs:
           configurations/${{ github.event.inputs.configuration }}/terraform-output.json
           configurations/${{ github.event.inputs.configuration }}/terraform-output.yaml
         retention-days: 30    # Keep outputs for 30 days for reference
+        description: 'Exported Terraform output data from ${{ github.event.inputs.configuration }} in ${{ github.event.inputs.export_format }} format - contains resource information for integration and reference'
         if-no-files-found: ignore  # Don't fail if only one format exists
     
     # Step 14: Generate comprehensive execution summary
