@@ -1,0 +1,306 @@
+# Terraform Import Workflow for Power Platform Governance
+# This workflow allows importing existing Power Platform resources into Terraform state
+# It supports importing resources to make them manageable via Infrastructure as Code
+
+name: Terraform Import
+
+# Trigger: Manual workflow dispatch only
+# Users can specify which resource to import into which configuration
+on:
+  workflow_dispatch:
+    inputs:
+      configuration:
+        description: 'Configuration to import the resource into'
+        required: true
+        type: choice
+        options:
+          - '02-dlp-policy'
+          - '03-environment'
+      tfvars_file:
+        description: 'tfvars file name without extension (e.g., dlp-finance, env-production)'
+        required: true
+        type: string
+      resource_type:
+        description: 'Terraform resource type (e.g., powerplatform_data_loss_prevention_policy)'
+        required: true
+        type: string
+      resource_name:
+        description: 'Terraform resource name in the configuration (e.g., main)'
+        required: true
+        type: string
+      resource_id:
+        description: 'Power Platform resource ID to import (UUID format)'
+        required: true
+        type: string
+
+# Dynamic run name that shows the import operation details
+run-name: Terraform Import ${{ github.event.inputs.resource_type }}.${{ github.event.inputs.resource_name }} to ${{ github.event.inputs.configuration }} by @${{ github.actor }}
+
+# Required permissions for OIDC authentication with Azure and Power Platform
+permissions:
+  id-token: write   # Required for GitHub OIDC token generation
+  contents: read    # Required for repository checkout
+
+# Environment variables for Power Platform OIDC authentication
+# These are set at workflow level to avoid duplication across jobs
+env:
+  POWER_PLATFORM_USE_OIDC: true
+  POWER_PLATFORM_CLIENT_ID: ${{ secrets.POWER_PLATFORM_CLIENT_ID }}
+  POWER_PLATFORM_TENANT_ID: ${{ secrets.POWER_PLATFORM_TENANT_ID }}
+  # GitHub automatically provides these OIDC variables when id-token permission is granted
+  POWER_PLATFORM_OIDC_REQUEST_URI: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL }}
+  POWER_PLATFORM_OIDC_TOKEN: ${{ env.ACTIONS_ID_TOKEN_REQUEST_TOKEN }}
+
+jobs:
+  # Job: Import existing resource into Terraform state
+  # This job will import the specified resource and validate the import was successful
+  terraform-import:
+    runs-on: ubuntu-latest
+    
+    steps:
+    # Step 1: Checkout repository code
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    # Step 2: Authenticate with Azure using OIDC for backend state storage
+    - name: Azure Login with OIDC
+      uses: azure/login@v1
+      with:
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+    
+    # Step 3: Install and configure Terraform CLI
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.5.0
+        terraform_wrapper: false    # Disable wrapper for better output handling
+    
+    # Step 4: Validate inputs and prepare for import
+    - name: Validate Inputs
+      run: |
+        config="${{ github.event.inputs.configuration }}"
+        tfvars_file="${{ github.event.inputs.tfvars_file }}"
+        resource_type="${{ github.event.inputs.resource_type }}"
+        resource_name="${{ github.event.inputs.resource_name }}"
+        resource_id="${{ github.event.inputs.resource_id }}"
+        
+        echo "::notice title=Import Parameters::Configuration: $config, tfvars: $tfvars_file, Resource: $resource_type.$resource_name, ID: $resource_id"
+        
+        # Validate configuration directory exists
+        if [ ! -d "configurations/$config" ]; then
+          echo "::error title=Configuration Not Found::Configuration directory 'configurations/$config' does not exist. Please check the configuration name."
+          exit 1
+        fi
+        
+        # Validate tfvars file exists
+        tfvars_filename="$tfvars_file.tfvars"
+        if [ ! -f "configurations/$config/tfvars/$tfvars_filename" ]; then
+          echo "::error title=tfvars File Not Found::Specified tfvars file 'tfvars/$tfvars_filename' does not exist in configuration '$config'."
+          exit 1
+        fi
+        
+        # Validate resource ID format (should be a UUID)
+        if ! echo "$resource_id" | grep -E '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'; then
+          echo "::error title=Invalid Resource ID::Resource ID '$resource_id' does not appear to be a valid UUID format."
+          exit 1
+        fi
+        
+        echo "::notice title=Validation Complete::All input parameters validated successfully"
+    
+    # Step 5: Initialize Terraform and perform pre-import state check
+    - name: Initialize Terraform
+      run: |
+        config="${{ github.event.inputs.configuration }}"
+        
+        echo "::notice title=Initializing Terraform::Initializing Terraform for configuration: $config"
+        cd "configurations/$config"
+        
+        # Initialize Terraform with Azure backend for state storage
+        terraform init \
+          -backend-config="storage_account_name=${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}" \
+          -backend-config="container_name=${{ secrets.TERRAFORM_CONTAINER }}" \
+          -backend-config="key=$config.tfstate" \
+          -backend-config="resource_group_name=${{ secrets.TERRAFORM_RESOURCE_GROUP }}" \
+          -backend-config="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
+          -backend-config="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
+          -backend-config="use_oidc=true"
+        
+        # Validate Terraform configuration syntax
+        terraform validate
+        
+        echo "::notice title=Terraform Initialized::Terraform initialized and validated successfully"
+        
+        cd - > /dev/null
+    
+    # Step 6: Check current state before import
+    - name: Pre-Import State Check
+      run: |
+        config="${{ github.event.inputs.configuration }}"
+        resource_type="${{ github.event.inputs.resource_type }}"
+        resource_name="${{ github.event.inputs.resource_name }}"
+        
+        cd "configurations/$config"
+        
+        # Check if resource already exists in state
+        echo "::notice title=State Check::Checking if resource $resource_type.$resource_name already exists in state..."
+        
+        if terraform state show "$resource_type.$resource_name" 2>/dev/null; then
+          echo "::error title=Resource Already Exists::Resource $resource_type.$resource_name already exists in Terraform state. Cannot import a resource that is already managed."
+          exit 1
+        else
+          echo "::notice title=Resource Not in State::✅ Resource $resource_type.$resource_name does not exist in state - ready for import"
+        fi
+        
+        # Show current state for reference
+        echo "::group::Current Terraform State"
+        terraform state list || echo "No resources in state"
+        echo "::endgroup::"
+        
+        cd - > /dev/null
+    
+    # Step 7: Create backup of current state
+    - name: Backup Current State
+      run: |
+        config="${{ github.event.inputs.configuration }}"
+        
+        cd "configurations/$config"
+        
+        echo "::notice title=Creating Backup::Creating backup of current Terraform state..."
+        
+        # Pull current state and create backup
+        terraform state pull > "terraform.tfstate.backup.$(date +%Y%m%d-%H%M%S)"
+        
+        echo "::notice title=Backup Created::State backup created successfully"
+        
+        cd - > /dev/null
+    
+    # Step 8: Perform the import operation
+    - name: Terraform Import
+      run: |
+        config="${{ github.event.inputs.configuration }}"
+        tfvars_file="${{ github.event.inputs.tfvars_file }}"
+        resource_type="${{ github.event.inputs.resource_type }}"
+        resource_name="${{ github.event.inputs.resource_name }}"
+        resource_id="${{ github.event.inputs.resource_id }}"
+        
+        cd "configurations/$config"
+        
+        tfvars_filename="$tfvars_file.tfvars"
+        tfvars_path="tfvars/$tfvars_filename"
+        
+        echo "::notice title=Starting Import::Importing $resource_type.$resource_name with ID: $resource_id"
+        
+        # Set Terraform variables for the import operation
+        export TF_VAR_FILE_1="../../terraform.tfvars"
+        export TF_VAR_FILE_2="$tfvars_path"
+        
+        # Perform the import
+        terraform import \
+          -var-file="../../terraform.tfvars" \
+          -var-file="$tfvars_path" \
+          "$resource_type.$resource_name" \
+          "$resource_id"
+        
+        if [ $? -eq 0 ]; then
+          echo "::notice title=Import Successful::✅ Resource $resource_type.$resource_name imported successfully"
+        else
+          echo "::error title=Import Failed::❌ Failed to import resource $resource_type.$resource_name"
+          exit 1
+        fi
+        
+        cd - > /dev/null
+    
+    # Step 9: Verify import with state show
+    - name: Verify Import
+      run: |
+        config="${{ github.event.inputs.configuration }}"
+        resource_type="${{ github.event.inputs.resource_type }}"
+        resource_name="${{ github.event.inputs.resource_name }}"
+        
+        cd "configurations/$config"
+        
+        echo "::notice title=Verifying Import::Verifying imported resource state..."
+        
+        # Show the imported resource state
+        echo "::group::Imported Resource State"
+        terraform state show "$resource_type.$resource_name"
+        echo "::endgroup::"
+        
+        # List all resources to confirm import
+        echo "::group::Updated State List"
+        terraform state list
+        echo "::endgroup::"
+        
+        echo "::notice title=Import Verified::✅ Resource state verified successfully"
+        
+        cd - > /dev/null
+    
+    # Step 10: Test configuration consistency after import
+    - name: Post-Import Plan Check
+      run: |
+        config="${{ github.event.inputs.configuration }}"
+        tfvars_file="${{ github.event.inputs.tfvars_file }}"
+        
+        cd "configurations/$config"
+        
+        tfvars_filename="$tfvars_file.tfvars"
+        tfvars_path="tfvars/$tfvars_filename"
+        
+        echo "::notice title=Post-Import Validation::Running Terraform plan to validate imported resource configuration..."
+        
+        # Run plan to see if the imported resource matches the configuration
+        terraform plan -detailed-exitcode \
+          -var-file="../../terraform.tfvars" \
+          -var-file="$tfvars_path" || plan_exit_code=$?
+        
+        # Analyze plan results
+        if [ $plan_exit_code -eq 0 ]; then
+          echo "::notice title=Perfect Match::✅ Imported resource matches Terraform configuration exactly - no changes needed"
+        elif [ $plan_exit_code -eq 2 ]; then
+          echo "::warning title=Configuration Drift::⚠️ Plan shows differences between imported resource and configuration. This is normal and may require configuration updates."
+          echo "::notice title=Next Steps::Review the plan above and update your Terraform configuration to match the imported resource state, or adjust the resource as needed."
+        else
+          echo "::error title=Plan Failed::❌ Post-import plan failed. There may be an issue with the configuration or import."
+          exit 1
+        fi
+        
+        cd - > /dev/null
+    
+    # Step 11: Generate summary report
+    - name: Import Summary
+      run: |
+        config="${{ github.event.inputs.configuration }}"
+        tfvars_file="${{ github.event.inputs.tfvars_file }}"
+        resource_type="${{ github.event.inputs.resource_type }}"
+        resource_name="${{ github.event.inputs.resource_name }}"
+        resource_id="${{ github.event.inputs.resource_id }}"
+        
+        echo "::notice title=Import Complete::✅ Terraform import operation completed successfully"
+        
+        echo "## Import Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Parameter | Value |" >> $GITHUB_STEP_SUMMARY
+        echo "|-----------|-------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Configuration | \`$config\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| tfvars File | \`$tfvars_file.tfvars\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| Resource Type | \`$resource_type\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| Resource Name | \`$resource_name\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| Resource ID | \`$resource_id\` |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "1. **Review Configuration**: Ensure your Terraform configuration matches the imported resource" >> $GITHUB_STEP_SUMMARY
+        echo "2. **Test Plan**: Run a plan to see any differences between current state and desired configuration" >> $GITHUB_STEP_SUMMARY
+        echo "3. **Update Configuration**: Modify your \`.tf\` files as needed to align with the imported resource" >> $GITHUB_STEP_SUMMARY
+        echo "4. **Run Apply**: Once configuration is aligned, run the plan/apply workflow to ensure consistency" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### ⚠️ Important Notes" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "- The imported resource is now under Terraform management" >> $GITHUB_STEP_SUMMARY
+        echo "- Manual changes outside of Terraform may cause configuration drift" >> $GITHUB_STEP_SUMMARY
+        echo "- Always use Terraform to modify this resource going forward" >> $GITHUB_STEP_SUMMARY
+        echo "- State backup was created in case rollback is needed" >> $GITHUB_STEP_SUMMARY
+        
+        echo "::notice title=Summary Generated::Import summary added to job summary"
