@@ -40,17 +40,7 @@ permissions:
   id-token: write   # Required for GitHub OIDC token generation
   contents: write   # Required for repository checkout and committing generated docs
 
-# Environment variables for Power Platform OIDC authentication
-# These are set at workflow level to avoid duplication across jobs
-env:
-  POWER_PLATFORM_USE_OIDC: true
-  POWER_PLATFORM_CLIENT_ID: ${{ secrets.POWER_PLATFORM_CLIENT_ID }}
-  POWER_PLATFORM_TENANT_ID: ${{ secrets.POWER_PLATFORM_TENANT_ID }}
-  # Azure context for Power Platform resources - using same app registration
-  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-  ARM_TENANT_ID: ${{ secrets.POWER_PLATFORM_TENANT_ID }}
-  ARM_CLIENT_ID: ${{ secrets.POWER_PLATFORM_CLIENT_ID }}
-  ARM_USE_OIDC: true
+# No workflow-level environment variables - secrets are only accessible within jobs that specify the production environment
 
 jobs:
   # Job 1: Plan Phase
@@ -58,6 +48,19 @@ jobs:
   # Creates execution plans and uploads them as artifacts for potential apply phase
   terraform-plan:
     runs-on: ubuntu-latest
+    environment: production  # Required to access production environment secrets
+    
+    # Environment variables for Power Platform OIDC authentication
+    # These are set at job level and use secrets only from the production environment
+    env:
+      POWER_PLATFORM_USE_OIDC: true
+      POWER_PLATFORM_CLIENT_ID: ${{ secrets.POWER_PLATFORM_CLIENT_ID }}
+      POWER_PLATFORM_TENANT_ID: ${{ secrets.POWER_PLATFORM_TENANT_ID }}
+      # Azure context for Power Platform resources - using same app registration
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.POWER_PLATFORM_TENANT_ID }}
+      ARM_CLIENT_ID: ${{ secrets.POWER_PLATFORM_CLIENT_ID }}
+      ARM_USE_OIDC: true
     
     # Output values that can be used by dependent jobs
     outputs:
@@ -326,7 +329,20 @@ jobs:
   # Applies the previously created plan to make actual infrastructure changes
   terraform-apply:
     runs-on: ubuntu-latest
+    environment: production  # Required to access production environment secrets
     needs: terraform-plan    # Depends on successful completion of plan job
+    
+    # Environment variables for Power Platform OIDC authentication
+    # These are set at job level and use secrets only from the production environment
+    env:
+      POWER_PLATFORM_USE_OIDC: true
+      POWER_PLATFORM_CLIENT_ID: ${{ secrets.POWER_PLATFORM_CLIENT_ID }}
+      POWER_PLATFORM_TENANT_ID: ${{ secrets.POWER_PLATFORM_TENANT_ID }}
+      # Azure context for Power Platform resources - using same app registration
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.POWER_PLATFORM_TENANT_ID }}
+      ARM_CLIENT_ID: ${{ secrets.POWER_PLATFORM_CLIENT_ID }}
+      ARM_USE_OIDC: true
     
     # Conditional execution: only run if all conditions are met
     if: |
