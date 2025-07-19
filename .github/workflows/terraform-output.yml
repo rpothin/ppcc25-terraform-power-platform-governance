@@ -157,28 +157,16 @@ jobs:
     - name: Create State Backup
       run: |
         config="${{ github.event.inputs.configuration }}"
-        timestamp=$(date +%Y%m%d-%H%M%S)
         
         cd "configurations/$config"
         
         echo "::notice title=Creating Backup::Creating backup of current state (if exists)..."
         
-        # Create backups directory if it doesn't exist
-        mkdir -p backups
-        
-        # Pull current state and create timestamped backup (if state exists)
+        # Simple state backup for audit trail
         if terraform state list > /dev/null 2>&1; then
-          backup_filename="backups/terraform.tfstate.backup-$timestamp"
-          terraform state pull > "$backup_filename"
-          
-          if [ -s "$backup_filename" ]; then
-            backup_size=$(du -h "$backup_filename" | cut -f1)
-            echo "::notice title=Backup Created::✅ State backup created successfully"
-            echo "::notice title=Backup Details::File: $backup_filename, Size: $backup_size"
-          else
-            echo "::notice title=No State::No existing state to backup"
-            rm -f "$backup_filename"
-          fi
+          mkdir -p backups
+          terraform state pull > "backups/terraform.tfstate.backup-$(date +%Y%m%d-%H%M%S)"
+          echo "::notice title=Backup Created::✅ State backup created for audit trail"
         else
           echo "::notice title=No Previous State::No existing state found - this is normal for data source only configurations"
         fi
@@ -278,22 +266,9 @@ jobs:
           output_filename="terraform-output.json"
         fi
         
-        # Use a temporary filename to avoid conflicts during processing
-        temp_input_file="terraform-output-temp.json"
-        if [ -f "terraform-output.json" ]; then
-          mv "terraform-output.json" "$temp_input_file"
-          echo "Renamed input file to temporary name: $temp_input_file"
-        else
-          echo "::error title=Input File Missing::terraform-output.json not found in current directory"
-          echo "Current directory: $(pwd)"
-          echo "Files available:"
-          ls -la
-          exit 1
-        fi
-        
         # Process the output based on format and metadata preference
         echo "::group::Output File Processing"
-        echo "Processing $temp_input_file into final format: $output_filename"
+        echo "Processing terraform-output.json into final format: $output_filename"
         
         if [ "$include_metadata" = "true" ]; then
           # Add metadata
@@ -308,7 +283,7 @@ jobs:
                 "generated_by": env.GITHUB_ACTOR
               },
               "outputs": .
-            }' "$temp_input_file" | yq eval -P > "$output_filename"; then
+            }' "terraform-output.json" | yq eval -P > "$output_filename"; then
               echo "✅ YAML with metadata created successfully"
             else
               echo "❌ Failed to create YAML with metadata"
@@ -325,7 +300,7 @@ jobs:
                 "generated_by": env.GITHUB_ACTOR
               },
               "outputs": .
-            }' "$temp_input_file" > "$output_filename"; then
+            }' "terraform-output.json" > "$output_filename"; then
               echo "✅ JSON with metadata created successfully"
             else
               echo "❌ Failed to create JSON with metadata"
@@ -336,7 +311,7 @@ jobs:
           # No metadata - just convert format if needed
           if [ "$export_format" = "yaml" ]; then
             echo "Converting to YAML without metadata..."
-            if cat "$temp_input_file" | yq eval -P > "$output_filename"; then
+            if cat "terraform-output.json" | yq eval -P > "$output_filename"; then
               echo "✅ YAML conversion successful"
             else
               echo "❌ Failed to convert to YAML"
@@ -344,7 +319,7 @@ jobs:
             fi
           else
             echo "Copying JSON without metadata..."
-            if cp "$temp_input_file" "$output_filename"; then
+            if cp "terraform-output.json" "$output_filename"; then
               echo "✅ JSON copy successful"
             else
               echo "❌ Failed to copy JSON"
@@ -353,10 +328,6 @@ jobs:
           fi
         fi
         echo "::endgroup::"
-        
-        # Clean up temporary input file
-        rm -f "$temp_input_file"
-        echo "Cleaned up temporary input file: $temp_input_file"
         
         # Verify the final output file was created
         if [ ! -f "$output_filename" ]; then
@@ -436,6 +407,12 @@ jobs:
           expected_file="configurations/$config/terraform-output.yaml"
         else
           expected_file="configurations/$config/terraform-output.json"
+        fi
+        
+        # Validate output file exists before adding to git
+        if [ ! -f "$expected_file" ]; then
+          echo "::error title=Output File Missing::Expected output file '$expected_file' not found. Terraform output processing may have failed."
+          exit 1
         fi
         
         # Add the specific output file
