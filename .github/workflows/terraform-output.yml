@@ -65,6 +65,8 @@ jobs:
       output-generated: ${{ steps.process-output.outputs.output-generated }}
       output-filename: ${{ steps.process-output.outputs.output-filename }}
       configuration: ${{ github.event.inputs.configuration }}
+      # Execution metadata for workflow tracking and AVM compliance
+      output-metadata: ${{ steps.process-output.outputs.output-metadata }}
     
     steps:
     # Step 1: Checkout repository code
@@ -210,6 +212,39 @@ jobs:
         echo "::notice title=Processing Output::Extracting and processing Terraform output for configuration: $config"
         cd "configurations/$config"
         
+        # Generate comprehensive execution metadata for AVM compliance
+        current_timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+        terraform_version=$(terraform --version | head -1 | sed 's/Terraform v//')
+        
+        # Create comprehensive metadata object for output operation
+        output_metadata_json=$(cat <<EOF
+          {
+            "generated_at": "$current_timestamp",
+            "workflow_run": "${{ github.run_number }}",
+            "workflow_id": "${{ github.run_id }}",
+            "generated_by": "${{ github.actor }}",
+            "terraform_version": "$terraform_version",
+            "workflow_version": "1.0.0",
+            "configuration": "$config",
+            "repository": "${{ github.repository }}",
+            "ref": "${{ github.ref }}",
+            "sha": "${{ github.sha }}",
+            "event": "${{ github.event_name }}",
+            "runner_os": "${{ runner.os }}",
+            "runner_arch": "${{ runner.arch }}",
+            "operation": "output",
+            "export_format": "$export_format",
+            "include_metadata": $include_metadata
+          }
+          EOF
+        )
+        
+        echo "output-metadata<<EOF" >> $GITHUB_OUTPUT
+        echo "$output_metadata_json" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+        
+        echo "::notice title=Metadata Generated::📊 Output metadata created for AVM compliance"
+        
         # Extract outputs and determine final filename
         echo "::notice title=Extracting Outputs::Getting Terraform outputs"
         terraform output -json > "terraform-output-raw.json" || echo "{}" > "terraform-output-raw.json"
@@ -222,39 +257,27 @@ jobs:
         
         # Process based on format and metadata preference
         if [ "$include_metadata" = "true" ]; then
-          # Add metadata and convert format in one operation
+          # Add comprehensive metadata and convert format in one operation
           if [ "$export_format" = "yaml" ]; then
-            # Create JSON with metadata first, then convert to YAML
+            # Create JSON with comprehensive metadata first, then convert to YAML
             if jq --version >/dev/null 2>&1 && yq --version >/dev/null 2>&1; then
-              jq --arg timestamp "$timestamp" --arg config "$config" --arg run_number "${{ github.run_number }}" --arg actor "${{ github.actor }}" '{
-                "output_metadata": {
-                  "generated_at": $timestamp,
-                  "configuration": $config,
-                  "workflow_run": $run_number,
-                  "generated_by": $actor,
-                  "export_format": "yaml",
-                  "terraform_version": "1.5.0"
-                },
-                "outputs": .
-              }' "terraform-output-raw.json" | yq -P > "$output_filename"
-              echo "::notice title=YAML with Metadata::✅ Successfully created YAML with metadata"
+              echo "$output_metadata_json" | jq --slurpfile outputs terraform-output-raw.json '. + {
+                "outputs": $outputs[0]
+              }' | yq -P > "$output_filename"
+              echo "::notice title=YAML with Metadata::✅ Successfully created YAML with comprehensive metadata"
             else
               echo "::error title=Tools Not Available::jq or yq command not found"
               exit 1
             fi
           else
-            jq --arg timestamp "$timestamp" --arg config "$config" --arg run_number "${{ github.run_number }}" --arg actor "${{ github.actor }}" '{
-              "output_metadata": {
-                "generated_at": $timestamp,
-                "configuration": $config,
-                "workflow_run": $run_number,
-                "generated_by": $actor,
-                "export_format": "json",
-                "terraform_version": "1.5.0"
-              },
-              "outputs": .
-            }' "terraform-output-raw.json" > "$output_filename"
+            echo "$output_metadata_json" | jq --slurpfile outputs terraform-output-raw.json '. + {
+              "outputs": $outputs[0]
+            }' > "$output_filename"
+            echo "::notice title=JSON with Metadata::✅ Successfully created JSON with comprehensive metadata"
           fi
+          
+          # Create separate metadata file for artifact
+          echo "$output_metadata_json" > "output-metadata.json"
         else
           # Direct format conversion without metadata
           if [ "$export_format" = "yaml" ]; then
@@ -347,8 +370,9 @@ jobs:
         path: |
           configurations/${{ github.event.inputs.configuration }}/terraform-output.json
           configurations/${{ github.event.inputs.configuration }}/terraform-output.yaml
+          configurations/${{ github.event.inputs.configuration }}/output-metadata.json
         retention-days: 30    # Keep outputs for 30 days for reference
-        description: 'Exported Terraform output data from ${{ github.event.inputs.configuration }} in ${{ github.event.inputs.export_format }} format - contains resource information for integration and reference'
+        description: 'Exported Terraform output data from ${{ github.event.inputs.configuration }} in ${{ github.event.inputs.export_format }} format - contains resource information for integration and reference with execution metadata'
         if-no-files-found: ignore  # Don't fail if only one format exists
     
     # Step 14: Generate comprehensive execution summary

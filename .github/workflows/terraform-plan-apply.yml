@@ -66,6 +66,8 @@ jobs:
     outputs:
       plan-changed: ${{ steps.plan.outputs.changed }}              # Whether the plan has changes
       configuration: ${{ github.event.inputs.configuration }}     # Pass configuration to apply job
+      # Execution metadata for workflow tracking and AVM compliance
+      execution-metadata: ${{ steps.plan.outputs.execution-metadata }}    # Comprehensive execution metadata
     
     steps:
     # Step 1: Checkout repository code
@@ -293,6 +295,37 @@ jobs:
         echo "::notice title=Planning Configuration::Starting Terraform plan for configuration: $config"
         cd "configurations/$config"
         
+        # Generate execution metadata for AVM compliance
+        timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+        terraform_version=$(terraform --version | head -1 | sed 's/Terraform v//')
+        
+        # Create comprehensive metadata object
+        metadata_json=$(cat <<EOF
+          {
+            "generated_at": "$timestamp",
+            "workflow_run": "${{ github.run_number }}",
+            "workflow_id": "${{ github.run_id }}",
+            "generated_by": "${{ github.actor }}",
+            "terraform_version": "$terraform_version",
+            "workflow_version": "1.0.0",
+            "configuration": "$config",
+            "tfvars_file": "$tfvars_file",
+            "repository": "${{ github.repository }}",
+            "ref": "${{ github.ref }}",
+            "sha": "${{ github.sha }}",
+            "event": "${{ github.event_name }}",
+            "runner_os": "${{ runner.os }}",
+            "runner_arch": "${{ runner.arch }}"
+          }
+          EOF
+        )
+        
+        echo "execution-metadata<<EOF" >> $GITHUB_OUTPUT
+        echo "$metadata_json" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+        
+        echo "::notice title=Metadata Generated::📊 Execution metadata created for AVM compliance"
+        
         # Add a small delay to ensure network rules are fully propagated
         echo "Waiting 10 seconds for network rules to propagate..."
         sleep 10
@@ -478,10 +511,26 @@ jobs:
     # Only uploads if there are changes to apply or force apply is enabled
     - name: Upload Terraform Plans as Artifacts
       if: steps.plan.outputs.changed == 'true'
+      run: |
+        config="${{ github.event.inputs.configuration }}"
+        cd "configurations/$config"
+        
+        # Create metadata file for artifact
+        cat > "tfplan-metadata.json" <<EOF
+        ${{ steps.plan.outputs.execution-metadata }}
+        EOF
+        
+        echo "::notice title=Metadata Created::📊 Plan metadata file created for artifact"
+        cd - > /dev/null
+        
+    - name: Upload Plans with Metadata
+      if: steps.plan.outputs.changed == 'true'
       uses: actions/upload-artifact@v4
       with:
         name: terraform-plans-${{ github.event.inputs.configuration }}-${{ github.run_number }}
-        path: configurations/*/tfplan-*
+        path: |
+          configurations/*/tfplan-*
+          configurations/*/tfplan-metadata.json
         retention-days: 7    # Keep plans for 7 days for troubleshooting and audit trail
         description: 'Terraform execution plans for ${{ github.event.inputs.configuration }} configuration - contains planned changes for review and troubleshooting'
     
@@ -840,12 +889,40 @@ jobs:
         # Extract outputs in JSON format, fallback to empty object if no outputs
         terraform output -json > "outputs-$config.json" || echo "{}" > "outputs-$config.json"
         
+        # Generate comprehensive output metadata with plan metadata
+        timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+        terraform_version=$(terraform --version | head -1 | sed 's/Terraform v//')
+        
+        # Include plan metadata if available
+        plan_metadata='${{ needs.terraform-plan.outputs.execution-metadata }}'
+        
+        # Create metadata file with both apply and plan context
+        cat > "outputs-metadata.json" <<EOF
+          {
+            "generated_at": "$timestamp",
+            "workflow_run": "${{ github.run_number }}",
+            "workflow_id": "${{ github.run_id }}",
+            "generated_by": "${{ github.actor }}",
+            "terraform_version": "$terraform_version",
+            "workflow_version": "1.0.0",
+            "configuration": "$config",
+            "repository": "${{ github.repository }}",
+            "ref": "${{ github.ref }}",
+            "sha": "${{ github.sha }}",
+            "event": "${{ github.event_name }}",
+            "runner_os": "${{ runner.os }}",
+            "runner_arch": "${{ runner.arch }}",
+            "phase": "apply",
+            "plan_metadata": $plan_metadata
+          }
+          EOF
+        
         # Show a preview of the outputs
         echo "::group::Terraform Outputs Preview"
         cat "outputs-$config.json"
         echo "::endgroup::"
         
-        echo "::notice title=Outputs Extracted::Terraform outputs saved to outputs-$config.json"
+        echo "::notice title=Outputs Extracted::Terraform outputs saved to outputs-$config.json with metadata"
         
         cd - > /dev/null
     
@@ -855,9 +932,11 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: terraform-outputs-${{ github.event.inputs.configuration }}-${{ github.run_number }}
-        path: configurations/*/outputs-*.json
+        path: |
+          configurations/*/outputs-*.json
+          configurations/*/outputs-metadata.json
         retention-days: 30    # Keep outputs longer than plans for reference
-        description: 'Terraform output values from ${{ github.event.inputs.configuration }} configuration - contains resource information and computed values'
+        description: 'Terraform output values from ${{ github.event.inputs.configuration }} configuration - contains resource information and computed values with execution metadata'
     
     # Step 9: Generate comprehensive workflow summary
     - name: Generate Workflow Summary

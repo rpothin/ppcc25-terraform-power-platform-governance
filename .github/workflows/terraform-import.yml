@@ -74,6 +74,8 @@ jobs:
       import-successful: ${{ steps.import.outputs.import-successful }}
       resource-imported: ${{ steps.import.outputs.resource-imported }}
       configuration: ${{ github.event.inputs.configuration }}
+      # Execution metadata for workflow tracking and AVM compliance
+      import-metadata: ${{ steps.terraform-import.outputs.import-metadata }}
     
     steps:
     # Step 1: Checkout repository code
@@ -325,7 +327,7 @@ jobs:
         cd - > /dev/null
     
     # Step 9: Perform the import operation
-        - name: Execute Terraform Import Operation
+    - name: Execute Terraform Import Operation
       id: terraform-import
       run: |
         config="${{ github.event.inputs.configuration }}"
@@ -340,6 +342,41 @@ jobs:
         tfvars_path="tfvars/$tfvars_filename"
         
         echo "::notice title=Starting Import::Importing $resource_type.$resource_name with ID: $resource_id"
+        
+        # Generate execution metadata for AVM compliance
+        timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+        terraform_version=$(terraform --version | head -1 | sed 's/Terraform v//')
+        
+        # Create comprehensive metadata object for import operation
+        import_metadata_json=$(cat <<EOF
+          {
+            "generated_at": "$timestamp",
+            "workflow_run": "${{ github.run_number }}",
+            "workflow_id": "${{ github.run_id }}",
+            "generated_by": "${{ github.actor }}",
+            "terraform_version": "$terraform_version",
+            "workflow_version": "1.0.0",
+            "configuration": "$config",
+            "tfvars_file": "$tfvars_file",
+            "repository": "${{ github.repository }}",
+            "ref": "${{ github.ref }}",
+            "sha": "${{ github.sha }}",
+            "event": "${{ github.event_name }}",
+            "runner_os": "${{ runner.os }}",
+            "runner_arch": "${{ runner.arch }}",
+            "operation": "import",
+            "resource_type": "$resource_type",
+            "resource_name": "$resource_name",
+            "resource_id": "$resource_id"
+          }
+          EOF
+        )
+        
+        echo "import-metadata<<EOF" >> $GITHUB_OUTPUT
+        echo "$import_metadata_json" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+        
+        echo "::notice title=Metadata Generated::📊 Import metadata created for AVM compliance"
         
         # Perform the import with comprehensive variable loading
         echo "::notice title=Import Execution::Executing terraform import command..."
@@ -452,15 +489,30 @@ jobs:
     
     # Step 12: Upload import artifacts for audit trail
     - name: Upload Import Artifacts
-      if: steps.import.outputs.import-successful == 'true'
+      if: steps.terraform-import.outputs.import-successful == 'true'
+      run: |
+        config="${{ github.event.inputs.configuration }}"
+        cd "configurations/$config"
+        
+        # Create metadata file for artifact
+        cat > "import-metadata.json" <<EOF
+        ${{ steps.terraform-import.outputs.import-metadata }}
+        EOF
+        
+        echo "::notice title=Metadata Created::📊 Import metadata file created for artifact"
+        cd - > /dev/null
+        
+    - name: Upload Artifacts with Metadata
+      if: steps.terraform-import.outputs.import-successful == 'true'
       uses: actions/upload-artifact@v4
       with:
         name: terraform-import-${{ github.event.inputs.configuration }}-${{ github.run_number }}
         path: |
           configurations/${{ github.event.inputs.configuration }}/backups/terraform.tfstate.backup-*
           configurations/${{ github.event.inputs.configuration }}/terraform.tfstate.backup.*
+          configurations/${{ github.event.inputs.configuration }}/import-metadata.json
         retention-days: 30    # Keep import artifacts for 30 days for audit trail
-        description: 'Terraform state backups from import operation for ${{ github.event.inputs.configuration }} - contains pre-import state snapshots for recovery'
+        description: 'Terraform state backups from import operation for ${{ github.event.inputs.configuration }} - contains pre-import state snapshots for recovery with execution metadata'
     
     # Step 13: Generate comprehensive summary report
     - name: Generate Import Summary

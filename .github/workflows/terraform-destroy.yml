@@ -71,6 +71,8 @@ jobs:
       resource-count: ${{ steps.state-check.outputs.resource-count }}
       configuration: ${{ github.event.inputs.configuration }}
       backup-created: ${{ steps.backup.outputs.backup-created }}
+      # Execution metadata for workflow tracking and AVM compliance
+      validation-metadata: ${{ steps.state-check.outputs.validation-metadata }}
     
     steps:
     # Step 1: Validate confirmation input
@@ -195,6 +197,39 @@ jobs:
         
         # Check current state for resources
         echo "::notice title=State Analysis::Analyzing current Terraform state..."
+        
+        # Generate execution metadata for AVM compliance
+        timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+        terraform_version=$(terraform --version | head -1 | sed 's/Terraform v//')
+        
+        # Create comprehensive metadata object for validation phase
+        validation_metadata_json=$(cat <<EOF
+          {
+            "generated_at": "$timestamp",
+            "workflow_run": "${{ github.run_number }}",
+            "workflow_id": "${{ github.run_id }}",
+            "generated_by": "${{ github.actor }}",
+            "terraform_version": "$terraform_version",
+            "workflow_version": "1.0.0",
+            "configuration": "$config",
+            "tfvars_file": "${{ github.event.inputs.tfvars_file }}",
+            "repository": "${{ github.repository }}",
+            "ref": "${{ github.ref }}",
+            "sha": "${{ github.sha }}",
+            "event": "${{ github.event_name }}",
+            "runner_os": "${{ runner.os }}",
+            "runner_arch": "${{ runner.arch }}",
+            "phase": "validation",
+            "operation": "destroy"
+          }
+          EOF
+        )
+        
+        echo "validation-metadata<<EOF" >> $GITHUB_OUTPUT
+        echo "$validation_metadata_json" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+        
+        echo "::notice title=Metadata Generated::📊 Validation metadata created for AVM compliance"
         
         # Get list of resources in state
         resource_list=$(terraform state list 2>/dev/null || echo "")
@@ -326,12 +361,27 @@ jobs:
     
     # Step 10: Upload destroy plan as artifact for audit trail
     - name: Upload Destroy Plan as Artifact
+      run: |
+        config="${{ github.event.inputs.configuration }}"
+        cd "configurations/$config"
+        
+        # Create metadata file for artifact
+        cat > "destroy-plan-metadata.json" <<EOF
+        ${{ steps.state-check.outputs.validation-metadata }}
+        EOF
+        
+        echo "::notice title=Metadata Created::📊 Destroy plan metadata file created for artifact"
+        cd - > /dev/null
+        
+    - name: Upload Plan with Metadata
       uses: actions/upload-artifact@v4
       with:
         name: terraform-destroy-plan-${{ github.event.inputs.configuration }}-${{ github.run_number }}
-        path: configurations/*/destroy-plan
+        path: |
+          configurations/*/destroy-plan
+          configurations/*/destroy-plan-metadata.json
         retention-days: 7    # Keep destroy plans for 7 days for audit trail
-        description: 'Terraform destroy plan for ${{ github.event.inputs.configuration }} configuration - contains planned resource deletions for audit and rollback purposes'
+        description: 'Terraform destroy plan for ${{ github.event.inputs.configuration }} configuration - contains planned resource deletions for audit and rollback purposes with execution metadata'
     
     # Step 11: Remove Just-In-Time network access
     - name: Remove JIT Network Access
@@ -578,6 +628,42 @@ jobs:
         
         echo "::notice title=Destroy Complete::✅ Terraform destroy operation completed"
         
+        # Generate execution metadata for destroy phase
+        timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+        terraform_version=$(terraform --version | head -1 | sed 's/Terraform v//')
+        
+        # Create comprehensive metadata object for destroy phase
+        destroy_metadata_json=$(cat <<EOF
+          {
+            "generated_at": "$timestamp",
+            "workflow_run": "${{ github.run_number }}",
+            "workflow_id": "${{ github.run_id }}",
+            "generated_by": "${{ github.actor }}",
+            "terraform_version": "$terraform_version",
+            "workflow_version": "1.0.0",
+            "configuration": "$config",
+            "tfvars_file": "$tfvars_file",
+            "repository": "${{ github.repository }}",
+            "ref": "${{ github.ref }}",
+            "sha": "${{ github.sha }}",
+            "event": "${{ github.event_name }}",
+            "runner_os": "${{ runner.os }}",
+            "runner_arch": "${{ runner.arch }}",
+            "phase": "destroy",
+            "operation": "destroy",
+            "resources_destroyed": "$resource_count",
+            "backup_created": "$backup_created",
+            "validation_metadata": ${{ toJson(needs.terraform-validate.outputs.validation-metadata) }}
+          }
+          EOF
+        )
+        
+        # Save metadata to file for artifact
+        cd "configurations/$config"
+        echo "$destroy_metadata_json" > "destroy-metadata.json"
+        
+        echo "::notice title=Metadata Generated::📊 Destroy execution metadata created for AVM compliance"
+        
         echo "## 🚨 Terraform Destroy Summary" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### Destruction Details" >> $GITHUB_STEP_SUMMARY
@@ -661,7 +747,16 @@ jobs:
         
         cd - > /dev/null
     
-    # Step 11: Remove Just-In-Time network access
+    # Step 11: Upload destroy metadata as artifact
+    - name: Upload Destroy Metadata as Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: terraform-destroy-metadata-${{ github.event.inputs.configuration }}-${{ github.run_number }}
+        path: configurations/*/destroy-metadata.json
+        retention-days: 30    # Keep metadata longer for audit trail
+        description: 'Terraform destroy execution metadata for ${{ github.event.inputs.configuration }} configuration - contains comprehensive execution tracking information'
+    
+    # Step 12: Remove Just-In-Time network access
     - name: Remove JIT Network Access
       if: always()
       uses: ./.github/actions/jit-network-access
