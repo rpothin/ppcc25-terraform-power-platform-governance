@@ -218,6 +218,10 @@ jobs:
         echo "::notice title=Planning Configuration::Starting Terraform plan for configuration: $config"
         cd "configurations/$config"
         
+        # Add a small delay to ensure network rules are fully propagated
+        echo "Waiting 10 seconds for network rules to propagate..."
+        sleep 10
+        
         # Terraform should already be initialized from backup step, but ensure it's current
         terraform init \
           -backend-config="storage_account_name=${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}" \
@@ -413,6 +417,10 @@ jobs:
         
         echo "::notice title=Applying Configuration::Starting Terraform apply for configuration: $config"
         cd "configurations/$config"
+        
+        # Add a small delay to ensure network rules are fully propagated
+        echo "Waiting 10 seconds for network rules to propagate..."
+        sleep 10
         
         # Re-initialize Terraform (required after downloading artifacts)
         terraform init \

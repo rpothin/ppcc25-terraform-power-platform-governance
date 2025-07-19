@@ -200,6 +200,10 @@ jobs:
         echo "::notice title=Initializing Terraform::Initializing Terraform for configuration: $config"
         cd "configurations/$config"
         
+        # Add a small delay to ensure network rules are fully propagated
+        echo "Waiting 10 seconds for network rules to propagate..."
+        sleep 10
+        
         # Initialize Terraform with Azure backend for state storage
         terraform init \
           -backend-config="storage_account_name=${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}" \
