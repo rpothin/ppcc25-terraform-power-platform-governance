@@ -1,6 +1,7 @@
-# Terraform Output Workflow
+# Terraform Output Workflow for Power Platform Governance
 # This workflow executes a Terraform configuration with data sources and exports the output to JSON
 # Designed for migration scenarios to understand current Power Platform state
+# It includes validation, safety checks, and comprehensive output processing
 
 name: Terraform Output
 
@@ -10,16 +11,27 @@ on:
   workflow_dispatch:
     inputs:
       configuration:
-        description: 'Terraform configuration to execute and export output'
+        description: 'Terraform configuration to execute and export output (data source only configurations)'
         required: true
         type: choice
         options:
           - '01-dlp-policies'
-          - '01-connectors'
-          - 'export-example'
+      export_format:
+        description: 'Output format for exported data'
+        required: true
+        type: choice
+        options:
+          - 'json'
+          - 'yaml'
+        default: 'json'
+      include_metadata:
+        description: 'Include execution metadata in output'
+        required: true
+        type: boolean
+        default: true
 
-# Dynamic run name showing the configuration
-run-name: Execute Terraform Output for ${{ github.event.inputs.configuration }} by @${{ github.actor }}
+# Dynamic run name showing the configuration and output format
+run-name: 🔍 Terraform Output for ${{ github.event.inputs.configuration }} (${{ github.event.inputs.export_format }}) by @${{ github.actor }}
 
 # Required permissions for OIDC authentication with Azure and Power Platform
 permissions:
@@ -37,16 +49,52 @@ env:
 
 jobs:
   # Job: Execute Terraform Configuration and Export Output
-  # Runs the selected Terraform configuration and exports outputs to JSON
+  # Runs the selected Terraform configuration and exports outputs in specified format
+  # Includes validation, safety checks, and comprehensive output processing
   terraform-output:
     runs-on: ubuntu-latest
     
+    # Output values that can be used by dependent workflows
+    outputs:
+      output-generated: ${{ steps.process-output.outputs.output-generated }}
+      output-filename: ${{ steps.process-output.outputs.output-filename }}
+      configuration: ${{ github.event.inputs.configuration }}
+    
     steps:
-    # Step 1: Checkout repository code
+    # Step 1: Validate inputs and configuration
+    - name: Validate Inputs
+      run: |
+        config="${{ github.event.inputs.configuration }}"
+        export_format="${{ github.event.inputs.export_format }}"
+        
+        echo "::notice title=Validation Starting::Validating inputs for output operation..."
+        
+        # Validate configuration directory exists
+        if [ ! -d "configurations/$config" ]; then
+          echo "::error title=Configuration Not Found::Configuration directory 'configurations/$config' does not exist. Please check the configuration name."
+          exit 1
+        fi
+        
+        # Validate this is a data source only configuration
+        if [ "$config" != "01-dlp-policies" ]; then
+          echo "::error title=Invalid Configuration Type::Configuration '$config' is not a data source only configuration. Only data source configurations should be used for output operations."
+          exit 1
+        fi
+        
+        # Validate export format
+        if [[ "$export_format" != "json" && "$export_format" != "yaml" ]]; then
+          echo "::error title=Invalid Export Format::Export format '$export_format' is not supported. Supported formats: json, yaml"
+          exit 1
+        fi
+        
+        echo "::notice title=Input Validation Complete::✅ All inputs validated successfully"
+        echo "::notice title=Output Target::🎯 Target configuration: $config, Format: $export_format"
+    
+    # Step 2: Checkout repository code
     - name: Checkout
       uses: actions/checkout@v4
     
-    # Step 2: Authenticate with Azure using OIDC for backend state storage
+    # Step 3: Authenticate with Azure using OIDC for backend state storage
     - name: Azure Login with OIDC
       uses: azure/login@v1
       with:
@@ -54,25 +102,19 @@ jobs:
         tenant-id: ${{ secrets.AZURE_TENANT_ID }}
         subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
     
-    # Step 3: Install and configure Terraform CLI
+    # Step 4: Install and configure Terraform CLI
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
       with:
         terraform_version: 1.5.0
         terraform_wrapper: false    # Disable wrapper for better JSON output handling
     
-    # Step 4: Execute Terraform configuration
-    # Run the selected configuration to query data sources and generate outputs
-    - name: Execute Terraform Configuration
+    # Step 5: Initialize Terraform and validate configuration
+    - name: Initialize and Validate Terraform
       run: |
         config="${{ github.event.inputs.configuration }}"
         
-        if [ ! -d "configurations/$config" ]; then
-          echo "::error title=Configuration Not Found::Configuration directory 'configurations/$config' does not exist. Please check the configuration name and ensure the directory exists."
-          exit 1
-        fi
-        
-        echo "::notice title=Executing Configuration::Running Terraform for configuration: $config"
+        echo "::notice title=Initializing Terraform::Initializing Terraform for configuration: $config"
         cd "configurations/$config"
         
         # Initialize Terraform with Azure backend for state storage
@@ -85,8 +127,53 @@ jobs:
           -backend-config="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
           -backend-config="use_oidc=true"
         
-        # Validate Terraform configuration
+        # Validate Terraform configuration syntax
         terraform validate
+        
+        echo "::notice title=Terraform Initialized::✅ Terraform initialized and validated successfully"
+        
+        cd - > /dev/null
+    
+    # Step 6: Create backup of current state (if exists)
+    - name: Create State Backup
+      run: |
+        config="${{ github.event.inputs.configuration }}"
+        timestamp=$(date +%Y%m%d-%H%M%S)
+        
+        cd "configurations/$config"
+        
+        echo "::notice title=Creating Backup::Creating backup of current state (if exists)..."
+        
+        # Create backups directory if it doesn't exist
+        mkdir -p backups
+        
+        # Pull current state and create timestamped backup (if state exists)
+        if terraform state list > /dev/null 2>&1; then
+          backup_filename="backups/terraform.tfstate.backup-$timestamp"
+          terraform state pull > "$backup_filename"
+          
+          if [ -s "$backup_filename" ]; then
+            backup_size=$(du -h "$backup_filename" | cut -f1)
+            echo "::notice title=Backup Created::✅ State backup created successfully"
+            echo "::notice title=Backup Details::File: $backup_filename, Size: $backup_size"
+          else
+            echo "::notice title=No State::No existing state to backup"
+            rm -f "$backup_filename"
+          fi
+        else
+          echo "::notice title=No Previous State::No existing state found - this is normal for data source only configurations"
+        fi
+        
+        cd - > /dev/null
+    
+    # Step 7: Execute Terraform configuration
+    # Run the selected configuration to query data sources and generate outputs
+    - name: Execute Terraform Configuration
+      run: |
+        config="${{ github.event.inputs.configuration }}"
+        
+        echo "::notice title=Executing Configuration::Running Terraform for configuration: $config"
+        cd "configurations/$config"
         
         # Execute plan to query data sources (no resources will be created/modified)
         echo "::notice title=Planning Configuration::Executing Terraform plan for data source queries"
@@ -96,17 +183,39 @@ jobs:
         echo "::notice title=Applying Plan::Applying plan to retrieve current state from data sources"
         terraform apply -auto-approve terraform.tfplan
         
-        # Extract outputs in JSON format
+        if [ $? -eq 0 ]; then
+          echo "::notice title=Execution Successful::✅ Terraform configuration executed successfully"
+        else
+          echo "::error title=Execution Failed::❌ Terraform configuration execution failed"
+          exit 1
+        fi
+        
+        cd - > /dev/null
+    
+    # Step 8: Extract and process Terraform outputs
+    - name: Extract Terraform Outputs
+      run: |
+        config="${{ github.event.inputs.configuration }}"
+        
+        cd "configurations/$config"
+        
         echo "::notice title=Extracting Outputs::Getting Terraform outputs"
+        
+        # Extract outputs in JSON format
         terraform output -json > "terraform-output.json" || echo "{}" > "terraform-output.json"
         
         # Display summary
-        echo "::group::Execution Summary"
-        echo "Configuration executed successfully: $config"
+        echo "::group::Output Extraction Summary"
+        echo "Configuration: $config"
         echo "Output file size: $(du -h terraform-output.json | cut -f1)"
+        
         if [ -s terraform-output.json ] && [ "$(cat terraform-output.json)" != "{}" ]; then
           echo "Output keys:"
           jq -r 'keys[]' terraform-output.json 2>/dev/null || echo "No outputs or invalid JSON"
+          
+          # Count total items in outputs
+          total_items=$(jq '[.. | objects | select(has("value")) | .value] | length' terraform-output.json 2>/dev/null || echo "0")
+          echo "Total output items: $total_items"
         else
           echo "No outputs generated"
         fi
@@ -114,13 +223,26 @@ jobs:
         
         cd - > /dev/null
     
-    # Step 5: Process and save output to configuration directory
+    # Step 9: Process and save output in specified format
     - name: Process Terraform Output
+      id: process-output
       run: |
         config="${{ github.event.inputs.configuration }}"
+        export_format="${{ github.event.inputs.export_format }}"
+        include_metadata="${{ github.event.inputs.include_metadata }}"
         timestamp=$(date +%Y%m%d-%H%M%S)
         
-        echo "::notice title=Processing Output::Saving Terraform output for configuration: $config"
+        echo "::notice title=Processing Output::Processing Terraform output for configuration: $config"
+        
+        # Install yq if YAML format is requested
+        if [ "$export_format" = "yaml" ]; then
+          if ! command -v yq &> /dev/null; then
+            echo "::notice title=Installing yq::yq not found, installing for YAML processing..."
+            sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+            sudo chmod +x /usr/local/bin/yq
+            echo "::notice title=Installation Complete::yq installed successfully"
+          fi
+        fi
         
         # Check if we have output file
         if [ ! -f "configurations/$config/terraform-output.json" ]; then
@@ -130,50 +252,111 @@ jobs:
         
         cd "configurations/$config"
         
-        # Create timestamped filename
-        output_filename="terraform-output-$timestamp.json"
+        # Create output filename based on format
+        if [ "$export_format" = "yaml" ]; then
+          output_filename="terraform-output-$timestamp.yaml"
+          latest_filename="terraform-output-latest.yaml"
+        else
+          output_filename="terraform-output-$timestamp.json"
+          latest_filename="terraform-output-latest.json"
+        fi
         
-        # Process the JSON to add metadata
-        jq --arg timestamp "$timestamp" --arg config "$config" '
-          {
-            "output_metadata": {
-              "timestamp": $timestamp,
-              "configuration": $config,
-              "exported_by": "GitHub Actions",
-              "workflow_run": "${{ github.run_number }}"
-            },
-            "outputs": .
-          }' "terraform-output.json" > "$output_filename"
+        # Process the output based on format and metadata preference
+        if [ "$include_metadata" = "true" ]; then
+          # Add metadata
+          if [ "$export_format" = "yaml" ]; then
+            # Convert to YAML with metadata
+            jq --arg timestamp "$timestamp" --arg config "$config" '
+              {
+                "output_metadata": {
+                  "timestamp": $timestamp,
+                  "configuration": $config,
+                  "exported_by": "GitHub Actions",
+                  "workflow_run": "${{ github.run_number }}",
+                  "export_format": "yaml",
+                  "include_metadata": true
+                },
+                "outputs": .
+              }' "terraform-output.json" | yq eval -P > "$output_filename"
+          else
+            # JSON with metadata
+            jq --arg timestamp "$timestamp" --arg config "$config" '
+              {
+                "output_metadata": {
+                  "timestamp": $timestamp,
+                  "configuration": $config,
+                  "exported_by": "GitHub Actions",
+                  "workflow_run": "${{ github.run_number }}",
+                  "export_format": "json",
+                  "include_metadata": true
+                },
+                "outputs": .
+              }' "terraform-output.json" > "$output_filename"
+          fi
+        else
+          # No metadata - just convert format if needed
+          if [ "$export_format" = "yaml" ]; then
+            cat "terraform-output.json" | yq eval -P > "$output_filename"
+          else
+            cp "terraform-output.json" "$output_filename"
+          fi
+        fi
         
         # Create a latest symlink for easy access
-        ln -sf "$output_filename" "terraform-output-latest.json"
+        ln -sf "$output_filename" "$latest_filename"
         
         # Clean up temporary file
         rm "terraform-output.json"
         
+        # Set outputs for dependent jobs
+        echo "output-generated=true" >> $GITHUB_OUTPUT
+        echo "output-filename=$output_filename" >> $GITHUB_OUTPUT
+        
         # Display final results
-        echo "::notice title=Output Saved::✅ Terraform output saved successfully"
+        echo "::notice title=Output Processed::✅ Terraform output processed successfully"
         echo "::notice title=Output File::$output_filename"
-        echo "::notice title=Latest Link::terraform-output-latest.json"
+        echo "::notice title=Latest Link::$latest_filename"
         
         # Show statistics
-        echo "::group::Output Statistics"
+        echo "::group::Output Processing Statistics"
         echo "Configuration: $config"
+        echo "Format: $export_format"
+        echo "Metadata included: $include_metadata"
         echo "Timestamp: $timestamp"
         echo "File size: $(du -h "$output_filename" | cut -f1)"
-        if [ -s "$output_filename" ] && jq -e '.outputs' "$output_filename" >/dev/null 2>&1; then
-          echo "Number of outputs: $(jq '.outputs | keys | length' "$output_filename")"
-          echo "Output keys: $(jq -r '.outputs | keys | join(", ")' "$output_filename")"
+        
+        # Validate output content
+        if [ "$export_format" = "yaml" ]; then
+          if yq eval '.' "$output_filename" >/dev/null 2>&1; then
+            echo "✅ Valid YAML output generated"
+            if [ "$include_metadata" = "true" ]; then
+              echo "Number of outputs: $(yq eval '.outputs | keys | length' "$output_filename" 2>/dev/null || echo "0")"
+            else
+              echo "Number of outputs: $(yq eval '. | keys | length' "$output_filename" 2>/dev/null || echo "0")"
+            fi
+          else
+            echo "❌ Invalid YAML generated"
+          fi
         else
-          echo "No outputs found or invalid JSON"
+          if jq '.' "$output_filename" >/dev/null 2>&1; then
+            echo "✅ Valid JSON output generated"
+            if [ "$include_metadata" = "true" ]; then
+              echo "Number of outputs: $(jq '.outputs | keys | length' "$output_filename" 2>/dev/null || echo "0")"
+            else
+              echo "Number of outputs: $(jq '. | keys | length' "$output_filename" 2>/dev/null || echo "0")"
+            fi
+          else
+            echo "❌ Invalid JSON generated"
+          fi
         fi
+        
         echo "Available output files:"
-        ls -la terraform-output-*.json 2>/dev/null || echo "No previous outputs found"
+        ls -la terraform-output-*.* 2>/dev/null || echo "No previous outputs found"
         echo "::endgroup::"
         
         cd - > /dev/null
     
-    # Step 6: Commit output files to repository
+    # Step 10: Commit output files to repository
     - name: Commit Terraform Output
       run: |
         config="${{ github.event.inputs.configuration }}"
@@ -183,7 +366,7 @@ jobs:
         git config user.email "actions@github.com"
         
         # Add the new output files
-        git add "configurations/$config"/terraform-output-*.json
+        git add "configurations/$config"/terraform-output-*.*
         
         # Check if there are changes to commit
         if git diff --cached --quiet; then
@@ -194,6 +377,8 @@ jobs:
 
           Generated Terraform output for configuration:
           - Configuration: $config
+          - Format: ${{ github.event.inputs.export_format }}
+          - Metadata included: ${{ github.event.inputs.include_metadata }}
           - Timestamp: $(date +%Y-%m-%d\ %H:%M:%S)
           - Exported by: @${{ github.actor }}
           - Workflow run: ${{ github.run_number }}
@@ -204,57 +389,124 @@ jobs:
           echo "::notice title=Output Committed::✅ Terraform output committed successfully"
         fi
     
-    # Step 7: Upload output as workflow artifact
+    # Step 11: Upload output as workflow artifact
     - name: Upload Terraform Output Artifact
       uses: actions/upload-artifact@v4
       with:
         name: terraform-output-${{ github.event.inputs.configuration }}-${{ github.run_number }}
-        path: configurations/${{ github.event.inputs.configuration }}/terraform-output-*.json
+        path: configurations/${{ github.event.inputs.configuration }}/terraform-output-*.*
         retention-days: 30    # Keep outputs for 30 days for reference
     
-    # Step 8: Generate execution summary
+    # Step 12: Generate comprehensive execution summary
     - name: Generate Execution Summary
       run: |
         config="${{ github.event.inputs.configuration }}"
+        export_format="${{ github.event.inputs.export_format }}"
+        include_metadata="${{ github.event.inputs.include_metadata }}"
         
-        echo "::notice title=Execution Summary::Terraform output workflow completed successfully"
-        echo "## Terraform Output Summary" >> $GITHUB_STEP_SUMMARY
+        echo "::notice title=Execution Summary::✅ Terraform output workflow completed successfully"
+        
+        echo "## 🔍 Terraform Output Summary" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### Execution Details" >> $GITHUB_STEP_SUMMARY
-        echo "- **Configuration**: $config" >> $GITHUB_STEP_SUMMARY
-        echo "- **Timestamp**: $(date +%Y-%m-%d\ %H:%M:%S)" >> $GITHUB_STEP_SUMMARY
-        echo "- **Executed by**: @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Workflow run**: [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Parameter | Value |" >> $GITHUB_STEP_SUMMARY
+        echo "|-----------|-------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Configuration | \`$config\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| Export Format | \`$export_format\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| Include Metadata | $include_metadata |" >> $GITHUB_STEP_SUMMARY
+        echo "| Timestamp | $(date +%Y-%m-%d\ %H:%M:%S) |" >> $GITHUB_STEP_SUMMARY
+        echo "| Executed by | @${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Workflow run | [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         
         # Find the latest output file
-        latest_output=$(find "configurations/$config" -name "terraform-output-*.json" -type f | sort | tail -1)
-        if [ -n "$latest_output" ]; then
-          echo "### Output Content" >> $GITHUB_STEP_SUMMARY
-          echo "- **File**: $(basename "$latest_output")" >> $GITHUB_STEP_SUMMARY
-          echo "- **Size**: $(du -h "$latest_output" | cut -f1)" >> $GITHUB_STEP_SUMMARY
+        if [ "$export_format" = "yaml" ]; then
+          latest_output=$(find "configurations/$config" -name "terraform-output-*.yaml" -type f | sort | tail -1)
+        else
+          latest_output=$(find "configurations/$config" -name "terraform-output-*.json" -type f | sort | tail -1)
+        fi
+        
+        if [ -n "$latest_output" ] && [ -f "$latest_output" ]; then
+          echo "### ✅ Output Content" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Detail | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **File** | \`$(basename "$latest_output")\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Size** | $(du -h "$latest_output" | cut -f1) |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Format** | $export_format |" >> $GITHUB_STEP_SUMMARY
           
           # Check if outputs exist and are valid
-          if jq -e '.outputs' "$latest_output" >/dev/null 2>&1; then
-            output_count=$(jq '.outputs | keys | length' "$latest_output")
-            echo "- **Number of outputs**: $output_count" >> $GITHUB_STEP_SUMMARY
-            
-            if [ "$output_count" -gt 0 ]; then
-              echo "" >> $GITHUB_STEP_SUMMARY
-              echo "### Available Outputs" >> $GITHUB_STEP_SUMMARY
-              jq -r '.outputs | keys[]' "$latest_output" | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY
+          if [ "$export_format" = "yaml" ]; then
+            if yq eval '.' "$latest_output" >/dev/null 2>&1; then
+              if [ "$include_metadata" = "true" ]; then
+                output_count=$(yq eval '.outputs | keys | length' "$latest_output" 2>/dev/null || echo "0")
+              else
+                output_count=$(yq eval '. | keys | length' "$latest_output" 2>/dev/null || echo "0")
+              fi
+              echo "| **Number of outputs** | $output_count |" >> $GITHUB_STEP_SUMMARY
+              
+              if [ "$output_count" -gt 0 ]; then
+                echo "" >> $GITHUB_STEP_SUMMARY
+                echo "### 📋 Available Outputs" >> $GITHUB_STEP_SUMMARY
+                echo "" >> $GITHUB_STEP_SUMMARY
+                if [ "$include_metadata" = "true" ]; then
+                  yq eval '.outputs | keys[]' "$latest_output" 2>/dev/null | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY || echo "- Unable to parse output keys" >> $GITHUB_STEP_SUMMARY
+                else
+                  yq eval '. | keys[]' "$latest_output" 2>/dev/null | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY || echo "- Unable to parse output keys" >> $GITHUB_STEP_SUMMARY
+                fi
+              fi
+            else
+              echo "| **Status** | ❌ Invalid YAML generated |" >> $GITHUB_STEP_SUMMARY
             fi
           else
-            echo "- **Status**: No outputs generated or invalid JSON" >> $GITHUB_STEP_SUMMARY
+            if jq '.' "$latest_output" >/dev/null 2>&1; then
+              if [ "$include_metadata" = "true" ]; then
+                output_count=$(jq '.outputs | keys | length' "$latest_output" 2>/dev/null || echo "0")
+              else
+                output_count=$(jq '. | keys | length' "$latest_output" 2>/dev/null || echo "0")
+              fi
+              echo "| **Number of outputs** | $output_count |" >> $GITHUB_STEP_SUMMARY
+              
+              if [ "$output_count" -gt 0 ]; then
+                echo "" >> $GITHUB_STEP_SUMMARY
+                echo "### 📋 Available Outputs" >> $GITHUB_STEP_SUMMARY
+                echo "" >> $GITHUB_STEP_SUMMARY
+                if [ "$include_metadata" = "true" ]; then
+                  jq -r '.outputs | keys[]' "$latest_output" 2>/dev/null | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY || echo "- Unable to parse output keys" >> $GITHUB_STEP_SUMMARY
+                else
+                  jq -r '. | keys[]' "$latest_output" 2>/dev/null | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY || echo "- Unable to parse output keys" >> $GITHUB_STEP_SUMMARY
+                fi
+              fi
+            else
+              echo "| **Status** | ❌ Invalid JSON generated |" >> $GITHUB_STEP_SUMMARY
+            fi
           fi
           
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Usage" >> $GITHUB_STEP_SUMMARY
+          echo "### 📁 Usage" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
           echo "The Terraform output is available in:" >> $GITHUB_STEP_SUMMARY
-          echo "- Repository: \`$(basename "$latest_output")\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Latest link: \`terraform-output-latest.json\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Workflow artifact: Available for 30 days" >> $GITHUB_STEP_SUMMARY
+          echo "- **Repository**: \`configurations/$config/$(basename "$latest_output")\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Latest link**: \`configurations/$config/terraform-output-latest.$export_format\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Workflow artifact**: Available for 30 days" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📖 Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "1. **Review Output**: Examine the exported data for migration planning" >> $GITHUB_STEP_SUMMARY
+          echo "2. **Configuration Mapping**: Map current state to desired Infrastructure as Code configurations" >> $GITHUB_STEP_SUMMARY
+          echo "3. **Migration Planning**: Use the output to plan migration strategies" >> $GITHUB_STEP_SUMMARY
+          echo "4. **Documentation**: Document any findings for governance and compliance" >> $GITHUB_STEP_SUMMARY
         else
-          echo "### Status" >> $GITHUB_STEP_SUMMARY
-          echo "❌ No output file found. Check the execution logs for errors." >> $GITHUB_STEP_SUMMARY
+          echo "### ❌ Output Status" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "No output file found. Check the execution logs for errors." >> $GITHUB_STEP_SUMMARY
         fi
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### ⚠️ Important Notes" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "- **Data Source Only**: This configuration only reads existing Power Platform resources" >> $GITHUB_STEP_SUMMARY
+        echo "- **No Infrastructure Changes**: No resources were created, modified, or deleted" >> $GITHUB_STEP_SUMMARY
+        echo "- **Migration Context**: Output is designed for migration and governance planning" >> $GITHUB_STEP_SUMMARY
+        echo "- **State Backup**: State backup was created for audit trail purposes" >> $GITHUB_STEP_SUMMARY

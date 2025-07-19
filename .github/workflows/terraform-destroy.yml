@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       configuration:
-        description: 'Configuration to destroy'
+        description: 'Configuration to destroy (resource management configurations)'
         required: true
         type: choice
         options:
@@ -262,7 +262,7 @@ jobs:
         
         cd - > /dev/null
     
-    # Step 9: Upload destroy plan as artifact
+    # Step 9: Upload destroy plan as artifact for audit trail
     - name: Upload Destroy Plan
       uses: actions/upload-artifact@v4
       with:

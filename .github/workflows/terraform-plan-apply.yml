@@ -1,6 +1,7 @@
 # Terraform Plan and Apply Workflow for Power Platform Governance
 # This workflow allows manual deployment of Terraform configurations for Power Platform resources
 # It supports both plan-only operations and plan+apply operations based on user input
+# Includes comprehensive validation, safety checks, documentation generation, and idempotency testing
 
 name: Terraform Plan and Apply
 
@@ -10,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       configuration:
-        description: 'Configuration to plan and apply'
+        description: 'Configuration to plan and apply (resource management configurations)'
         required: true
         type: choice
         options:
@@ -25,9 +26,14 @@ on:
         required: true
         type: boolean
         default: false
+      force_apply:
+        description: 'Apply even if plan shows no changes (use with caution)'
+        required: false
+        type: boolean
+        default: false
 
 # Dynamic run name that shows the configuration, tfvars file, and whether apply is enabled
-run-name: Terraform Plan${{ github.event.inputs.apply == 'true' && ' and Apply' || '' }} for ${{ github.event.inputs.configuration }} (${{ github.event.inputs.tfvars_file }}) by @${{ github.actor }}
+run-name: 📋 Terraform Plan${{ github.event.inputs.apply == 'true' && ' and Apply' || '' }} for ${{ github.event.inputs.configuration }} (${{ github.event.inputs.tfvars_file }}) by @${{ github.actor }}
 
 # Required permissions for OIDC authentication with Azure and Power Platform
 permissions:
@@ -57,11 +63,51 @@ jobs:
       configuration: ${{ github.event.inputs.configuration }}     # Pass configuration to apply job
     
     steps:
-    # Step 1: Checkout repository code
+    # Step 1: Validate inputs and configuration
+    - name: Validate Inputs
+      run: |
+        config="${{ github.event.inputs.configuration }}"
+        tfvars_file="${{ github.event.inputs.tfvars_file }}"
+        apply_requested="${{ github.event.inputs.apply }}"
+        force_apply="${{ github.event.inputs.force_apply }}"
+        
+        echo "::notice title=Validation Starting::Validating inputs for plan/apply operation..."
+        
+        # Validate configuration directory exists
+        if [ ! -d "configurations/$config" ]; then
+          echo "::error title=Configuration Not Found::Configuration directory 'configurations/$config' does not exist. Please check the configuration name."
+          exit 1
+        fi
+        
+        # Validate this is a resource management configuration
+        if [[ "$config" != "02-dlp-policy" && "$config" != "03-environment" ]]; then
+          echo "::error title=Invalid Configuration Type::Configuration '$config' is not a resource management configuration. Only resource management configurations should be used for plan/apply operations."
+          exit 1
+        fi
+        
+        # Validate tfvars file name format
+        if [[ ! "$tfvars_file" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+          echo "::error title=Invalid tfvars File Name::tfvars file name '$tfvars_file' contains invalid characters. Use only alphanumeric characters, hyphens, and underscores."
+          exit 1
+        fi
+        
+        echo "::notice title=Input Validation Complete::✅ All inputs validated successfully"
+        echo "::notice title=Plan Target::🎯 Target configuration: $config with tfvars: $tfvars_file.tfvars"
+        
+        if [ "$apply_requested" = "true" ]; then
+          echo "::warning title=Apply Requested::⚠️ Apply operation will be performed if plan shows changes"
+          if [ "$force_apply" = "true" ]; then
+            echo "::warning title=Force Apply Enabled::⚠️ Force apply is enabled - will apply even if no changes detected"
+          fi
+        else
+          echo "::notice title=Plan Only::Plan-only operation - no resources will be modified"
+        fi
+    
+    # Step 2: Checkout repository code
     - name: Checkout
       uses: actions/checkout@v4
     
-    # Step 2: Authenticate with Azure using OIDC for backend state storage
+    # Step 3: Authenticate with Azure using OIDC for backend state storage
     - name: Azure Login with OIDC
       uses: azure/login@v1
       with:
@@ -69,29 +115,96 @@ jobs:
         tenant-id: ${{ secrets.AZURE_TENANT_ID }}
         subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
     
-    # Step 3: Install and configure Terraform CLI
+    # Step 4: Install and configure Terraform CLI
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
       with:
         terraform_version: 1.5.0
         terraform_wrapper: false    # Disable wrapper for better output handling
     
-    # Step 4: Execute Terraform plan
+    # Step 5: Validate configuration and tfvars file existence
+    - name: Validate Configuration Files
+      run: |
+        config="${{ github.event.inputs.configuration }}"
+        tfvars_file="${{ github.event.inputs.tfvars_file }}"
+        
+        echo "::notice title=File Validation::Validating configuration and tfvars files..."
+        
+        # Validate configuration directory structure
+        if [ ! -f "configurations/$config/main.tf" ] && [ ! -f "configurations/$config/data-sources.tf" ]; then
+          echo "::error title=Invalid Configuration::No Terraform files found in configuration '$config'. Expected main.tf or data-sources.tf."
+          exit 1
+        fi
+        
+        # Validate tfvars file exists
+        tfvars_filename="$tfvars_file.tfvars"
+        tfvars_path="configurations/$config/tfvars/$tfvars_filename"
+        
+        if [ ! -f "$tfvars_path" ]; then
+          echo "::error title=tfvars File Not Found::Specified tfvars file '$tfvars_path' does not exist."
+          echo "::error title=Available Files::Available tfvars files in configurations/$config/tfvars/:"
+          ls -la "configurations/$config/tfvars/" 2>/dev/null || echo "No tfvars directory found"
+          exit 1
+        fi
+        
+        echo "::notice title=Files Validated::✅ Configuration and tfvars files validated successfully"
+        echo "::notice title=Using Files::Configuration: configurations/$config/, tfvars: $tfvars_path"
+    
+    # Step 6: Create backup of current state
+    - name: Create State Backup
+      run: |
+        config="${{ github.event.inputs.configuration }}"
+        timestamp=$(date +%Y%m%d-%H%M%S)
+        
+        cd "configurations/$config"
+        
+        echo "::notice title=Creating Backup::Creating backup of current Terraform state..."
+        
+        # Create backups directory if it doesn't exist
+        mkdir -p backups
+        
+        # Initialize Terraform first to access state
+        terraform init \
+          -backend-config="storage_account_name=${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}" \
+          -backend-config="container_name=${{ secrets.TERRAFORM_CONTAINER }}" \
+          -backend-config="key=$config.tfstate" \
+          -backend-config="resource_group_name=${{ secrets.TERRAFORM_RESOURCE_GROUP }}" \
+          -backend-config="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
+          -backend-config="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
+          -backend-config="use_oidc=true"
+        
+        # Pull current state and create timestamped backup
+        backup_filename="backups/terraform.tfstate.backup-$timestamp"
+        terraform state pull > "$backup_filename" 2>/dev/null || echo "{}" > "$backup_filename"
+        
+        # Verify backup was created successfully
+        if [ -s "$backup_filename" ] && [ "$(cat "$backup_filename")" != "{}" ]; then
+          backup_size=$(du -h "$backup_filename" | cut -f1)
+          echo "::notice title=Backup Created::✅ State backup created successfully"
+          echo "::notice title=Backup Details::File: $backup_filename, Size: $backup_size"
+          
+          # Count resources in backup
+          resource_count=$(jq '.resources | length' "$backup_filename" 2>/dev/null || echo "0")
+          echo "::notice title=Resources in Backup::Resources: $resource_count"
+        else
+          echo "::notice title=No Previous State::No existing state to backup - this is normal for new configurations"
+          rm -f "$backup_filename"
+        fi
+        
+        cd - > /dev/null
+    
+    # Step 7: Execute Terraform plan
     # This is the core step that initializes, validates, and plans the configuration
     - name: Terraform Plan
       id: plan
       run: |
         config="${{ github.event.inputs.configuration }}"
-        
-        if [ ! -d "configurations/$config" ]; then
-          echo "::error title=Configuration Not Found::Configuration directory 'configurations/$config' does not exist. Please check the configuration name and ensure the directory exists."
-          exit 1
-        fi
+        tfvars_file="${{ github.event.inputs.tfvars_file }}"
         
         echo "::notice title=Planning Configuration::Starting Terraform plan for configuration: $config"
         cd "configurations/$config"
         
-        # Initialize Terraform with Azure backend for state storage
+        # Terraform should already be initialized from backup step, but ensure it's current
         terraform init \
           -backend-config="storage_account_name=${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}" \
           -backend-config="container_name=${{ secrets.TERRAFORM_CONTAINER }}" \
@@ -102,18 +215,14 @@ jobs:
           -backend-config="use_oidc=true"
         
         # Validate Terraform configuration syntax and consistency
+        echo "::notice title=Validating Configuration::Validating Terraform configuration syntax..."
         terraform validate
         
-        # Validate and locate the required tfvars file
-        tfvars_file="${{ github.event.inputs.tfvars_file }}"
+        # Prepare tfvars file paths
         tfvars_filename="$tfvars_file.tfvars"
-        if [ -f "tfvars/$tfvars_filename" ]; then
-          echo "::notice title=Using tfvars File::Using tfvars file: tfvars/$tfvars_filename"
-          tfvars_path="tfvars/$tfvars_filename"
-        else
-          echo "::error title=tfvars File Not Found::Specified tfvars file 'tfvars/$tfvars_filename' does not exist in configuration '$config'. Please check the file name and ensure it exists."
-          exit 1
-        fi
+        tfvars_path="tfvars/$tfvars_filename"
+        
+        echo "::notice title=Generating Plan::Creating execution plan with tfvars file: $tfvars_path"
         
         # Create execution plan with specified tfvars file
         # -detailed-exitcode: Exit 0 for no changes, 1 for error, 2 for changes
@@ -121,19 +230,31 @@ jobs:
         # Load variables: root terraform.tfvars + selected configuration tfvars
         terraform plan -detailed-exitcode -out=tfplan-$config \
           -var-file="../../terraform.tfvars" \
-          -var-file="$tfvars_path" || exit_code=$?
+          -var-file="$tfvars_path" || plan_exit_code=$?
         
         # Handle different exit codes from terraform plan
-        if [ $exit_code -eq 1 ]; then
+        if [ $plan_exit_code -eq 1 ]; then
           echo "::error title=Terraform Plan Failed::Terraform plan failed for configuration $config. Check the logs above for detailed error information."
           exit 1
-        elif [ $exit_code -eq 2 ]; then
-          echo "::notice title=Changes Detected::Terraform plan detected changes for configuration $config. The plan will be saved for potential apply."
+        elif [ $plan_exit_code -eq 2 ]; then
+          echo "::notice title=Changes Detected::✅ Terraform plan detected changes for configuration $config. The plan will be saved for potential apply."
           echo "changed=true" >> $GITHUB_OUTPUT
+          
+          # Show plan summary
+          echo "::group::Plan Changes Summary"
+          terraform show tfplan-$config | grep -E "^(#|Plan:|Changes to Outputs:)" | head -20
+          echo "::endgroup::"
         else
           echo "::notice title=No Changes::Terraform plan shows no changes for configuration $config. Infrastructure is up to date."
           echo "changed=false" >> $GITHUB_OUTPUT
+          
+          if [ "${{ github.event.inputs.force_apply }}" = "true" ]; then
+            echo "::warning title=Force Apply::⚠️ Force apply is enabled - will proceed with apply even though no changes detected"
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
         fi
+        
+        cd - > /dev/null
     
     # Step 5: Generate/Update Configuration Documentation
     # AVM requires up-to-date documentation generated by terraform-docs
@@ -188,15 +309,15 @@ jobs:
           echo "::notice title=Documentation Committed::✅ Documentation committed successfully for $config"
         fi
     
-    # Step 7: Upload plan files as artifacts for the apply job
-    # Only uploads if there are changes to apply
+    # Step 8: Upload plan files as artifacts for the apply job
+    # Only uploads if there are changes to apply or force apply is enabled
     - name: Upload Plans
       if: steps.plan.outputs.changed == 'true'
       uses: actions/upload-artifact@v4
       with:
         name: tfplans-${{ github.run_number }}
         path: configurations/*/tfplan-*
-        retention-days: 7    # Keep plans for 7 days for troubleshooting
+        retention-days: 7    # Keep plans for 7 days for troubleshooting and audit trail
 
   # Job 2: Apply Phase
   # Only runs if plan job succeeded, has changes, and user requested apply
