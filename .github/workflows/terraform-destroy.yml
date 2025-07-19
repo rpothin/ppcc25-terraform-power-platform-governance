@@ -97,14 +97,23 @@ jobs:
         tenant-id: ${{ secrets.AZURE_TENANT_ID }}
         subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
     
-    # Step 4: Install and configure Terraform CLI
+    # Step 4: Add Just-In-Time network access for Terraform backend
+    - name: Add JIT Network Access
+      id: jit-add
+      uses: ./.github/actions/jit-network-access
+      with:
+        action: 'add'
+        storage-account-name: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
+        resource-group-name: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
+    
+    # Step 5: Install and configure Terraform CLI
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
       with:
         terraform_version: 1.5.0
         terraform_wrapper: false    # Disable wrapper for better output handling
     
-    # Step 5: Validate inputs and configuration
+    # Step 6: Validate inputs and configuration
     - name: Validate Inputs
       run: |
         config="${{ github.event.inputs.configuration }}"
@@ -128,7 +137,7 @@ jobs:
         echo "::notice title=Input Validation Complete::✅ All inputs validated successfully"
         echo "::warning title=Destroy Target::🎯 Target configuration: $config with tfvars: $tfvars_filename"
     
-    # Step 6: Initialize Terraform and check current state
+    # Step 7: Initialize Terraform and check current state
     - name: Initialize and Check State
       id: state-check
       run: |
@@ -180,7 +189,7 @@ jobs:
         
         cd - > /dev/null
     
-    # Step 7: Create state backup (if requested)
+    # Step 8: Create state backup (if requested)
     - name: Create State Backup
       id: backup
       if: github.event.inputs.backup_state == 'true'
@@ -229,7 +238,7 @@ jobs:
         
         cd - > /dev/null
     
-    # Step 8: Generate destroy plan for review
+    # Step 9: Generate destroy plan for review
     - name: Generate Destroy Plan
       run: |
         config="${{ github.event.inputs.configuration }}"
@@ -267,13 +276,22 @@ jobs:
         
         cd - > /dev/null
     
-    # Step 9: Upload destroy plan as artifact for audit trail
+    # Step 10: Upload destroy plan as artifact for audit trail
     - name: Upload Destroy Plan
       uses: actions/upload-artifact@v4
       with:
         name: destroy-plan-${{ github.run_number }}
         path: configurations/*/destroy-plan
         retention-days: 7    # Keep destroy plans for 7 days for audit trail
+    
+    # Step 11: Remove Just-In-Time network access
+    - name: Remove JIT Network Access
+      if: always()
+      uses: ./.github/actions/jit-network-access
+      with:
+        action: 'remove'
+        storage-account-name: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
+        resource-group-name: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
 
   # Job 2: Destroy Execution
   # Only runs after successful validation and with explicit resource existence check
@@ -328,21 +346,30 @@ jobs:
         tenant-id: ${{ secrets.AZURE_TENANT_ID }}
         subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
     
-    # Step 4: Install and configure Terraform CLI
+    # Step 4: Add Just-In-Time network access for Terraform backend
+    - name: Add JIT Network Access
+      id: jit-add
+      uses: ./.github/actions/jit-network-access
+      with:
+        action: 'add'
+        storage-account-name: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
+        resource-group-name: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
+    
+    # Step 5: Install and configure Terraform CLI
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
       with:
         terraform_version: 1.5.0
         terraform_wrapper: false
     
-    # Step 5: Download the destroy plan created in validation job
+    # Step 6: Download the destroy plan created in validation job
     - name: Download Destroy Plan
       uses: actions/download-artifact@v4
       with:
         name: destroy-plan-${{ github.run_number }}
         path: .
     
-    # Step 6: Execute the destroy operation
+    # Step 7: Execute the destroy operation
     - name: Terraform Destroy
       run: |
         config="${{ needs.terraform-validate.outputs.configuration }}"
@@ -374,7 +401,7 @@ jobs:
         
         cd - > /dev/null
     
-    # Step 7: Verify state is clean after destroy
+    # Step 8: Verify state is clean after destroy
     - name: Verify Clean State
       run: |
         config="${{ needs.terraform-validate.outputs.configuration }}"
@@ -407,7 +434,7 @@ jobs:
         
         cd - > /dev/null
     
-    # Step 8: Create post-destroy state snapshot
+    # Step 9: Create post-destroy state snapshot
     - name: Post-Destroy State Snapshot
       run: |
         config="${{ needs.terraform-validate.outputs.configuration }}"
@@ -442,7 +469,7 @@ jobs:
         
         cd - > /dev/null
     
-    # Step 9: Generate destroy summary report
+    # Step 10: Generate destroy summary report
     - name: Destroy Summary
       run: |
         config="${{ needs.terraform-validate.outputs.configuration }}"
@@ -502,3 +529,12 @@ jobs:
         echo "- **Audit Trail**: This destruction operation is logged in workflow history" >> $GITHUB_STEP_SUMMARY
         
         cd - > /dev/null
+    
+    # Step 11: Remove Just-In-Time network access
+    - name: Remove JIT Network Access
+      if: always()
+      uses: ./.github/actions/jit-network-access
+      with:
+        action: 'remove'
+        storage-account-name: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
+        resource-group-name: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}

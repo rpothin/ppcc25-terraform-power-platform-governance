@@ -146,14 +146,23 @@ jobs:
         tenant-id: ${{ secrets.AZURE_TENANT_ID }}
         subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
     
-    # Step 4: Install and configure Terraform CLI
+    # Step 4: Add Just-In-Time network access for Terraform backend
+    - name: Add JIT Network Access
+      id: jit-add
+      uses: ./.github/actions/jit-network-access
+      with:
+        action: 'add'
+        storage-account-name: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
+        resource-group-name: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
+    
+    # Step 5: Install and configure Terraform CLI
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
       with:
         terraform_version: 1.5.0
         terraform_wrapper: false    # Disable wrapper for better output handling
     
-    # Step 5: Validate configuration and tfvars file existence
+    # Step 6: Validate configuration and tfvars file existence
     - name: Validate Configuration Files
       run: |
         config="${{ github.event.inputs.configuration }}"
@@ -181,7 +190,7 @@ jobs:
         echo "::notice title=Files Validated::✅ Configuration and tfvars files validated successfully"
         echo "::notice title=Using Files::Configuration: configurations/$config/, tfvars: $tfvars_path"
     
-    # Step 6: Initialize Terraform and perform pre-import state check
+    # Step 7: Initialize Terraform and perform pre-import state check
     - name: Initialize Terraform and Check State
       run: |
         config="${{ github.event.inputs.configuration }}"
@@ -227,7 +236,7 @@ jobs:
         
         cd - > /dev/null
     
-    # Step 7: Create comprehensive backup of current state
+    # Step 8: Create comprehensive backup of current state
     - name: Create State Backup
       if: github.event.inputs.backup_state == 'true'
       run: |
@@ -281,7 +290,7 @@ jobs:
         
         cd - > /dev/null
     
-    # Step 8: Perform the import operation
+    # Step 9: Perform the import operation
     - name: Terraform Import
       id: import
       run: |
@@ -321,7 +330,7 @@ jobs:
         
         cd - > /dev/null
     
-    # Step 9: Verify import with state show
+    # Step 10: Verify import with state show
     - name: Verify Import
       run: |
         config="${{ github.event.inputs.configuration }}"
@@ -346,7 +355,7 @@ jobs:
         
         cd - > /dev/null
     
-    # Step 10: Test configuration consistency after import
+    # Step 11: Test configuration consistency after import
     - name: Post-Import Plan Check
       run: |
         config="${{ github.event.inputs.configuration }}"
@@ -377,7 +386,7 @@ jobs:
         
         cd - > /dev/null
     
-    # Step 11: Upload import artifacts for audit trail
+    # Step 12: Upload import artifacts for audit trail
     - name: Upload Import Artifacts
       if: steps.import.outputs.import-successful == 'true'
       uses: actions/upload-artifact@v4
@@ -388,7 +397,7 @@ jobs:
           configurations/${{ github.event.inputs.configuration }}/terraform.tfstate.backup.*
         retention-days: 30    # Keep import artifacts for 30 days for audit trail
     
-    # Step 12: Generate comprehensive summary report
+    # Step 13: Generate comprehensive summary report
     - name: Generate Import Summary
       run: |
         config="${{ github.event.inputs.configuration }}"
@@ -471,3 +480,12 @@ jobs:
         echo "- **Documentation**: Update team documentation to reflect the new Terraform-managed resource" >> $GITHUB_STEP_SUMMARY
         
         echo "::notice title=Summary Generated::Import summary added to job summary"
+    
+    # Step 14: Remove Just-In-Time network access
+    - name: Remove JIT Network Access
+      if: always()
+      uses: ./.github/actions/jit-network-access
+      with:
+        action: 'remove'
+        storage-account-name: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
+        resource-group-name: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
