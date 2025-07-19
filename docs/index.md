@@ -1,4 +1,17 @@
-# Power Platform Terraform Governance - Documentation
+# Power ### 🔧 How-to Guides
+*Task-oriented documentation for getting things done*
+
+- **[Setup Guide](guides/setup-guide.md)** ![How-to Guide](https://img.shields.io/badge/Diataxis-How--to%20Guide-green?style=flat-square&logo=tools)  
+  Step-by-step instructions for setting up Power Platform Terraform governance infrastructure
+
+### 📖 Reference
+*Information-oriented documentation for quick consultation*
+
+- **[Azure Verified Modules (AVM)](references/azure-verified-modules.md)** ![Reference](https://img.shields.io/badge/Diataxis-Reference-orange?style=flat-square&logo=library)  
+  Authoritative information about AVM module types and Terraform compliance criteria
+
+### 💡 Explanations  
+*Understanding-oriented documentation for deeper insights*form Governance - Documentation
 
 Welcome to the documentation for the Power Platform Terraform Governance project. This documentation follows the [Diataxis framework](https://diataxis.fr/) to provide clear, well-structured guidance based on your specific needs.
 
@@ -11,6 +24,12 @@ Our documentation is organized into four categories, each serving different user
 
 - **[Setup Guide](guides/setup-guide.md)** ![How-to Guide](https://img.shields.io/badge/Diataxis-How--to%20Guide-green?style=flat-square&logo=tools)  
   Step-by-step instructions for setting up Power Platform Terraform governance infrastructure
+
+### 📖 Reference
+*Information-oriented documentation for quick consultation*
+
+- **[Azure Verified Modules (AVM)](references/azure-verified-modules.md)** ![Reference](https://img.shields.io/badge/Diataxis-Reference-orange?style=flat-square&logo=library)  
+  Authoritative information about AVM module types and Terraform compliance criteria
 
 ### 💡 Explanations  
 *Understanding-oriented documentation for deeper insights*
@@ -32,6 +51,7 @@ Read the **ROI justification documents** in the explanations section to understa
 ### Looking for Something Specific?
 Use the badges to identify the type of documentation:
 - ![How-to Guide](https://img.shields.io/badge/Diataxis-How--to%20Guide-green?style=flat-square&logo=tools) **How-to Guides**: Step-by-step instructions for specific tasks
+- ![Reference](https://img.shields.io/badge/Diataxis-Reference-orange?style=flat-square&logo=library) **Reference**: Authoritative information for quick consultation while working
 - ![Explanation](https://img.shields.io/badge/Diataxis-Explanation-purple?style=flat-square&logo=lightbulb) **Explanations**: Background knowledge and context
 
 ## 📖 Related Documentation
@@ -46,7 +66,7 @@ When contributing to documentation, please:
 
 1. Follow the **Diataxis framework** principles
 2. Include the appropriate **badge** for your documentation type
-3. Place files in the **correct subdirectory** (`guides/`, `explanations/`, etc.)
+3. Place files in the **correct subdirectory** (`guides/`, `references/`, `explanations/`, etc.)
 4. Use **lowercase file names** with hyphens (e.g., `my-guide.md`)
 5. **Link between related documents** to help users navigate
 
