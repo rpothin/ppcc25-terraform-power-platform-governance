@@ -96,7 +96,7 @@ jobs:
     
     # Step 3: Authenticate with Azure using OIDC for backend state storage
     - name: Azure Login with OIDC
-      uses: azure/login@v1
+      uses: azure/login@v2
       with:
         client-id: ${{ secrets.AZURE_CLIENT_ID }}
         tenant-id: ${{ secrets.AZURE_TENANT_ID }}
@@ -114,7 +114,7 @@ jobs:
     # Step 5: Setup yq for YAML processing (if needed)
     - name: Setup yq
       if: github.event.inputs.export_format == 'yaml'
-      uses: mikefarah/yq@master
+      uses: mikefarah/yq@v4.46.1
     
     # Step 6: Install and configure Terraform CLI
     - name: Setup Terraform
