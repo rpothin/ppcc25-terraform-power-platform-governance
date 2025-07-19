@@ -344,9 +344,22 @@ jobs:
           output_filename="terraform-output.json"
         fi
         
+        # Use a temporary filename to avoid conflicts during processing
+        temp_input_file="terraform-output-temp.json"
+        if [ -f "terraform-output.json" ]; then
+          mv "terraform-output.json" "$temp_input_file"
+          echo "Renamed input file to temporary name: $temp_input_file"
+        else
+          echo "::error title=Input File Missing::terraform-output.json not found in current directory"
+          echo "Current directory: $(pwd)"
+          echo "Files available:"
+          ls -la
+          exit 1
+        fi
+        
         # Process the output based on format and metadata preference
         echo "::group::Output File Processing"
-        echo "Processing terraform-output.json into final format: $output_filename"
+        echo "Processing $temp_input_file into final format: $output_filename"
         
         if [ "$include_metadata" = "true" ]; then
           # Add metadata
@@ -361,7 +374,7 @@ jobs:
                 "generated_by": env.GITHUB_ACTOR
               },
               "outputs": .
-            }' "terraform-output.json" | yq eval -P > "$output_filename"; then
+            }' "$temp_input_file" | yq eval -P > "$output_filename"; then
               echo "✅ YAML with metadata created successfully"
             else
               echo "❌ Failed to create YAML with metadata"
@@ -378,7 +391,7 @@ jobs:
                 "generated_by": env.GITHUB_ACTOR
               },
               "outputs": .
-            }' "terraform-output.json" > "$output_filename"; then
+            }' "$temp_input_file" > "$output_filename"; then
               echo "✅ JSON with metadata created successfully"
             else
               echo "❌ Failed to create JSON with metadata"
@@ -389,7 +402,7 @@ jobs:
           # No metadata - just convert format if needed
           if [ "$export_format" = "yaml" ]; then
             echo "Converting to YAML without metadata..."
-            if cat "terraform-output.json" | yq eval -P > "$output_filename"; then
+            if cat "$temp_input_file" | yq eval -P > "$output_filename"; then
               echo "✅ YAML conversion successful"
             else
               echo "❌ Failed to convert to YAML"
@@ -397,7 +410,7 @@ jobs:
             fi
           else
             echo "Copying JSON without metadata..."
-            if cp "terraform-output.json" "$output_filename"; then
+            if cp "$temp_input_file" "$output_filename"; then
               echo "✅ JSON copy successful"
             else
               echo "❌ Failed to copy JSON"
@@ -407,8 +420,9 @@ jobs:
         fi
         echo "::endgroup::"
         
-        # Clean up temporary file
-        rm "terraform-output.json"
+        # Clean up temporary input file
+        rm -f "$temp_input_file"
+        echo "Cleaned up temporary input file: $temp_input_file"
         
         # Verify the final output file was created
         if [ ! -f "$output_filename" ]; then
@@ -552,7 +566,7 @@ jobs:
           echo "Configuration directory contents:"
           ls -la "configurations/$config/"
           
-          # Determine the expected output filename
+          # Determine the expected output filename (matching Step 10 logic)
           if [ "$export_format" = "yaml" ]; then
             expected_file="configurations/$config/terraform-output.yaml"
           else
