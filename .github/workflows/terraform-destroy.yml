@@ -61,8 +61,8 @@ jobs:
       POWER_PLATFORM_TENANT_ID: ${{ secrets.POWER_PLATFORM_TENANT_ID }}
       # Azure context for Power Platform resources - using same app registration
       ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      ARM_TENANT_ID: ${{ secrets.POWER_PLATFORM_TENANT_ID }}
-      ARM_CLIENT_ID: ${{ secrets.POWER_PLATFORM_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       ARM_USE_OIDC: true
     
     # Output values that can be used by the destroy job
@@ -93,8 +93,8 @@ jobs:
     - name: Azure Login with OIDC
       uses: azure/login@v1
       with:
-        client-id: ${{ secrets.POWER_PLATFORM_CLIENT_ID }}
-        tenant-id: ${{ secrets.POWER_PLATFORM_TENANT_ID }}
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
         subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
     
     # Step 4: Install and configure Terraform CLI
@@ -144,7 +144,7 @@ jobs:
           -backend-config="key=$config.tfstate" \
           -backend-config="resource_group_name=${{ secrets.TERRAFORM_RESOURCE_GROUP }}" \
           -backend-config="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
-          -backend-config="tenant_id=${{ secrets.POWER_PLATFORM_TENANT_ID }}" \
+          -backend-config="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
           -backend-config="use_oidc=true"
         
         # Validate Terraform configuration syntax
@@ -291,8 +291,8 @@ jobs:
       POWER_PLATFORM_TENANT_ID: ${{ secrets.POWER_PLATFORM_TENANT_ID }}
       # Azure context for Power Platform resources - using same app registration
       ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      ARM_TENANT_ID: ${{ secrets.POWER_PLATFORM_TENANT_ID }}
-      ARM_CLIENT_ID: ${{ secrets.POWER_PLATFORM_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       ARM_USE_OIDC: true
     
     # Conditional execution: only run if validation succeeded and resources exist (or force is enabled)
@@ -324,8 +324,8 @@ jobs:
     - name: Azure Login with OIDC
       uses: azure/login@v1
       with:
-        client-id: ${{ secrets.POWER_PLATFORM_CLIENT_ID }}
-        tenant-id: ${{ secrets.POWER_PLATFORM_TENANT_ID }}
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
         subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
     
     # Step 4: Install and configure Terraform CLI
@@ -358,7 +358,7 @@ jobs:
           -backend-config="key=$config.tfstate" \
           -backend-config="resource_group_name=${{ secrets.TERRAFORM_RESOURCE_GROUP }}" \
           -backend-config="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
-          -backend-config="tenant_id=${{ secrets.POWER_PLATFORM_TENANT_ID }}" \
+          -backend-config="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
           -backend-config="use_oidc=true"
         
         # Execute destroy using the pre-approved plan
