@@ -343,44 +343,6 @@ jobs:
         echo "::notice title=Output Processed::✅ Terraform output processed successfully"
         echo "::notice title=Output File::$output_filename"
         
-        # Show statistics
-        echo "::group::Output Processing Statistics"
-        echo "Configuration: $config"
-        echo "Format: $export_format"
-        echo "Metadata included: $include_metadata"
-        echo "Timestamp: $timestamp"
-        echo "File size: $(du -h "$output_filename" | cut -f1)"
-        
-        # Validate output content
-        if [ "$export_format" = "yaml" ]; then
-          if yq eval '.' "$output_filename" >/dev/null 2>&1; then
-            echo "✅ Valid YAML output generated"
-            if [ "$include_metadata" = "true" ]; then
-              echo "Number of outputs: $(yq eval '.outputs | keys | length' "$output_filename" 2>/dev/null || echo "0")"
-            else
-              echo "Number of outputs: $(yq eval '. | keys | length' "$output_filename" 2>/dev/null || echo "0")"
-            fi
-          else
-            echo "❌ Invalid YAML generated"
-          fi
-        else
-          if jq '.' "$output_filename" >/dev/null 2>&1; then
-            echo "✅ Valid JSON output generated"
-            if [ "$include_metadata" = "true" ]; then
-              echo "Number of outputs: $(jq '.outputs | keys | length' "$output_filename" 2>/dev/null || echo "0")"
-            else
-              echo "Number of outputs: $(jq '. | keys | length' "$output_filename" 2>/dev/null || echo "0")"
-            fi
-          else
-            echo "❌ Invalid JSON generated"
-          fi
-        fi
-        
-        # Show current output files
-        echo "Current output file:"
-        ls -la "$output_filename" 2>/dev/null || echo "Output file not found"
-        echo "::endgroup::"
-        
         cd - > /dev/null
     
     # Step 11: Remove Just-In-Time network access
