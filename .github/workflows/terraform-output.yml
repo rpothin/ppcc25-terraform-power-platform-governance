@@ -176,28 +176,6 @@ jobs:
         echo "::notice title=Initializing Terraform::Initializing Terraform for configuration: $config"
         cd "configurations/$config"
         
-        # Debug: Check storage account network rules before init
-        echo "::group::Pre-Init Storage Account Diagnostics"
-        echo "Checking current network rules on storage account..."
-        az storage account show \
-          --name "${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}" \
-          --resource-group "${{ secrets.TERRAFORM_RESOURCE_GROUP }}" \
-          --query "networkRuleSet" -o json || echo "Failed to get network rules"
-        
-        echo "Testing basic connectivity to storage account..."
-        az storage account show \
-          --name "${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}" \
-          --resource-group "${{ secrets.TERRAFORM_RESOURCE_GROUP }}" \
-          --query "name" -o tsv && echo "✅ Storage account accessible" || echo "❌ Storage account not accessible"
-        
-        echo "Checking current Azure CLI context:"
-        az account show --query "{subscriptionId:id, tenantId:tenantId, user:user}" -o json
-        
-        echo "Current runner IP (should be in network rules):"
-        curl -s https://api.ipify.org
-        echo ""
-        echo "::endgroup::"
-        
         # Add a small delay to ensure network rules are fully propagated
         echo "Waiting 10 seconds for network rules to propagate..."
         sleep 10
@@ -558,71 +536,14 @@ jobs:
         git config user.name "GitHub Actions"
         git config user.email "actions@github.com"
         
-        echo "::group::Pre-commit File Verification"
-        echo "Checking for output files in configurations/$config/"
-        
-        # List all files in the configuration directory
-        if [ -d "configurations/$config" ]; then
-          echo "Configuration directory contents:"
-          ls -la "configurations/$config/"
-          
-          # Determine the expected output filename (matching Step 10 logic)
-          if [ "$export_format" = "yaml" ]; then
-            expected_file="configurations/$config/terraform-output.yaml"
-          else
-            expected_file="configurations/$config/terraform-output.json"
-          fi
-          
-          echo "Expected output file: $expected_file"
-          
-          # Check if the expected file exists
-          if [ -f "$expected_file" ]; then
-            echo "✅ Output file found: $(basename "$expected_file")"
-            echo "File size: $(du -h "$expected_file" | cut -f1)"
-            echo "File content preview (first 5 lines):"
-            head -n 5 "$expected_file" || echo "Unable to preview file content"
-            
-            # Verify it's valid JSON/YAML
-            if [ "$export_format" = "yaml" ]; then
-              if yq eval '.' "$expected_file" >/dev/null 2>&1; then
-                echo "✅ Valid YAML file"
-              else
-                echo "⚠️ Warning: File exists but may not be valid YAML"
-              fi
-            else
-              if jq '.' "$expected_file" >/dev/null 2>&1; then
-                echo "✅ Valid JSON file"
-              else
-                echo "⚠️ Warning: File exists but may not be valid JSON"
-              fi
-            fi
-          else
-            echo "❌ Expected output file not found: $expected_file"
-            echo ""
-            echo "🔍 Debugging information:"
-            echo "Looking for files matching: terraform-output.*"
-            find "configurations/$config" -name "terraform-output.*" -ls 2>/dev/null || echo "No matching files found"
-            echo ""
-            echo "All files in configuration directory:"
-            ls -la "configurations/$config/" || echo "Cannot list directory"
-            
-            # Try to create a minimal fallback file
-            echo ""
-            echo "🆘 Creating fallback output file..."
-            fallback_content='{"error": "Output generation failed", "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'", "configuration": "'$config'"}'
-            if [ "$export_format" = "yaml" ]; then
-              echo "$fallback_content" | yq eval -P > "$expected_file" && echo "✅ Fallback YAML created" || echo "❌ Failed to create fallback"
-            else
-              echo "$fallback_content" > "$expected_file" && echo "✅ Fallback JSON created" || echo "❌ Failed to create fallback"
-            fi
-          fi
+        # Determine the expected output filename (matching Step 10 logic)
+        if [ "$export_format" = "yaml" ]; then
+          expected_file="configurations/$config/terraform-output.yaml"
         else
-          echo "❌ Configuration directory not found: configurations/$config"
-          exit 1
+          expected_file="configurations/$config/terraform-output.json"
         fi
-        echo "::endgroup::"
         
-        # Add the specific output file (not using wildcard)
+        # Add the specific output file
         echo "::notice title=Adding File::Adding $expected_file to git"
         git add "$expected_file"
         
