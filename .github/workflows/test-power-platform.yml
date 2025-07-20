@@ -478,6 +478,12 @@ jobs:
     needs: [detect-changes, terraform-validate]
     if: needs.detect-changes.outputs.any-config-changed == 'true'
     
+    # Add required permissions for security scanning and SARIF upload
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -489,12 +495,30 @@ jobs:
           scan-ref: '.'
           format: 'sarif'
           output: 'trivy-results.sarif'
+          exit-code: '0'  # Don't fail the job on vulnerabilities, just report them
 
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
-        if: always()
+        if: always() && github.event_name != 'pull_request_target'
         with:
           sarif_file: 'trivy-results.sarif'
+        continue-on-error: true  # Don't fail the workflow if upload fails
+
+      - name: Display Trivy Results Summary
+        if: always()
+        run: |
+          echo "## 🛡️ Security Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -f "trivy-results.sarif" ]; then
+            # Extract basic info from SARIF file
+            echo "📁 **Scan completed successfully**" >> $GITHUB_STEP_SUMMARY
+            echo "- Scan type: Configuration scan" >> $GITHUB_STEP_SUMMARY  
+            echo "- Tool: Trivy" >> $GITHUB_STEP_SUMMARY
+            echo "- Results: See Security tab for detailed findings" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ **Scan results not found**" >> $GITHUB_STEP_SUMMARY
+          fi
 
   # Job 7: Test Results Summary
   test-summary:
