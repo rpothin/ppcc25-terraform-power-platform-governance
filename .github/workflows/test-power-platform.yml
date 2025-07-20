@@ -293,6 +293,7 @@ jobs:
   integration-testing:
     name: Integration Testing
     runs-on: ubuntu-latest
+    environment: production  # Required to access production environment secrets
     needs: [detect-changes, configuration-validation]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push' && needs.detect-changes.outputs.any-config-changed == 'true' && needs.detect-changes.outputs.changed-paths != ''
     
@@ -311,23 +312,41 @@ jobs:
           terraform_version: ${{ env.TF_VERSION }}
 
       - name: Azure Login (OIDC)
-        uses: azure/login@v1
+        uses: azure/login@v2
         with:
-          client-id: ${{ secrets.ARM_CLIENT_ID }}
-          tenant-id: ${{ secrets.ARM_TENANT_ID }}
-          subscription-id: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Add JIT Network Access
+        id: jit-add
+        uses: ./.github/actions/jit-network-access
+        with:
+          action: 'add'
+          storage-account-name: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
+          resource-group-name: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
+
+      - name: Wait for Network Rules Propagation
+        run: |
+          echo "::notice title=Network Rules Propagation::Waiting 10 seconds for network rules to propagate..."
+          sleep 10
 
       - name: Run Integration Tests
         env:
-          ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
-          ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
-          ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+          # Power Platform OIDC authentication
+          POWER_PLATFORM_USE_OIDC: true
+          POWER_PLATFORM_CLIENT_ID: ${{ secrets.POWER_PLATFORM_CLIENT_ID }}
+          POWER_PLATFORM_TENANT_ID: ${{ secrets.POWER_PLATFORM_TENANT_ID }}
+          # Azure context for Power Platform resources
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           ARM_USE_OIDC: true
           RUN_AUTHENTICATED_TESTS: true
-          TF_VAR_tenant_id: ${{ secrets.ARM_TENANT_ID }}
+          TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
           # Backend configuration
-          ARM_STORAGE_ACCOUNT_NAME: ${{ secrets.ARM_STORAGE_ACCOUNT_NAME }}
-          ARM_CONTAINER_NAME: ${{ secrets.ARM_CONTAINER_NAME }}
+          ARM_STORAGE_ACCOUNT_NAME: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
+          ARM_CONTAINER_NAME: ${{ secrets.TERRAFORM_CONTAINER }}
           ARM_KEY: ${{ secrets.ARM_KEY }}
         run: |
           echo "🔐 Running integration tests with real Azure/Power Platform resources..."
@@ -395,6 +414,14 @@ jobs:
           else
             echo "::notice title=Integration Tests Passed::✅ All available integration tests passed!"
           fi
+
+      - name: Remove JIT Network Access
+        if: always()
+        uses: ./.github/actions/jit-network-access
+        with:
+          action: 'remove'
+          storage-account-name: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
+          resource-group-name: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
 
   # Job 5: Security Scanning
   security-scan:
