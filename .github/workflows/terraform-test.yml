@@ -260,7 +260,7 @@ jobs:
             echo "::notice title=Issue 2::🔗 Missing or extra whitespace around operators"
             echo "::notice title=Issue 3::📋 Inconsistent argument alignment in blocks"
             echo "::notice title=Issue 4::🏷️ Inconsistent quote usage (prefer double quotes)"
-            echo "::notice title=Solution::🔧 Run 'terraform fmt -recursive' to auto-fix formatting"
+            echo "::notice title=Solution::Run 'terraform fmt -recursive' to auto-fix formatting"
             exit 1
           fi
 
@@ -364,7 +364,7 @@ jobs:
               echo "::notice title=Issue 1::📦 Provider configuration errors"
               echo "::notice title=Issue 2::🔗 Invalid module source references"
               echo "::notice title=Issue 3::🌐 Network connectivity to provider registry"
-              echo "::notice title=Solution::🔧 Check provider blocks and module sources"
+              echo "::notice title=Solution::Check provider blocks and module sources"
               failed_count=$((failed_count + 1))
               cd - > /dev/null
               continue
@@ -382,7 +382,7 @@ jobs:
               echo "::notice title=Issue 2::🔗 Invalid resource references or variable usage"
               echo "::notice title=Issue 3::🏷️ Invalid resource or data source names"
               echo "::notice title=Issue 4::⚙️ Incorrect variable types or validation rules"
-              echo "::notice title=Solution::🔧 Review configuration files for syntax errors"
+              echo "::notice title=Solution::Review configuration files for syntax errors"
               
               # Show validation output for debugging
               echo "::group::Validation Output for $target_path"
@@ -551,7 +551,7 @@ jobs:
             
             if [ "$is_data_only" = "true" ]; then
               # For data-source only configurations, test without backend
-              echo "::notice title=Data Source Init::🔧 Initializing $target_path (backend=false for data sources)"
+              echo "::notice title=Data Source Init::Initializing $target_path (backend=false for data sources)"
               if ! terraform init -backend=false -input=false >/dev/null 2>&1; then
                 echo "::error title=Init Failed::terraform init failed for data-source configuration $target_path"
                 failed_count=$((failed_count + 1))
@@ -560,20 +560,19 @@ jobs:
               fi
             else
               # For resource management configurations, test backend connectivity (mock)
-              echo "::notice title=Backend Test::🔧 Testing backend configuration for $target_path"
+              echo "::notice title=Backend Test::Testing backend configuration for $target_path"
               
               # Create a temporary backend configuration for testing
-              cat > backend-test.tf <<EOF
-              terraform {
-                backend "azurerm" {
-                  # Mock backend configuration for testing
-                  resource_group_name  = "mock-rg"
-                  storage_account_name = "mockstorage"
-                  container_name       = "mock-container"
-                  key                  = "test.tfstate"
-                }
-              }
-              EOF
+              printf '%s\n' \
+                'terraform {' \
+                '  backend "azurerm" {' \
+                '    # Mock backend configuration for testing' \
+                '    resource_group_name  = "mock-rg"' \
+                '    storage_account_name = "mockstorage"' \
+                '    container_name       = "mock-container"' \
+                '    key                  = "test.tfstate"' \
+                '  }' \
+                '}' > backend-test.tf
               
               # Test init with mock backend (should fail gracefully)
               init_test_output=$(terraform init -input=false 2>&1) || init_exit_code=$?
@@ -588,7 +587,7 @@ jobs:
               fi
               
               # Initialize without backend for validation
-              echo "::notice title=Terraform Init::🔧 Initializing $target_path (backend=false)"
+              echo "::notice title=Terraform Init::Initializing $target_path (backend=false)"
               if ! terraform init -backend=false -input=false >/dev/null 2>&1; then
                 echo "::error title=Init Failed::terraform init failed for $target_path"
                 failed_count=$((failed_count + 1))
@@ -880,7 +879,7 @@ jobs:
               echo "::notice title=Terraform Integration Tests::🧪 Running Terraform test files for $target_path"
               
               # Initialize with full backend for integration tests
-              echo "::notice title=Integration Init::🔧 Initializing with backend for integration tests"
+              echo "::notice title=Integration Init::Initializing with backend for integration tests"
               
               # Determine appropriate backend key for this path
               backend_key="integration-test-$(basename "$target_path")-$(date +%s).tfstate"
