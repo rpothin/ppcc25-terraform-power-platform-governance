@@ -113,10 +113,23 @@ echo -e "\n${YELLOW}Test 4: Configuration-specific integration tests${NC}"
 # Run configuration integration tests (may require authentication)
 if [ "$RUN_AUTHENTICATED_TESTS" = "true" ]; then
     echo "Running authenticated integration tests..."
-    if terraform test tests/integration.tftest.hcl > /tmp/config-test.log 2>&1; then
+    echo "Note: This may take 2-5 minutes for large Power Platform tenants..."
+    
+    # Set timeout for integration tests (5 minutes)
+    if timeout 300 terraform test tests/integration.tftest.hcl > /tmp/config-test.log 2>&1; then
         test_status "Integration Tests (Authenticated)" 0
     else
-        test_status "Integration Tests (Authenticated)" 1
+        exit_code=$?
+        if [ $exit_code -eq 124 ]; then
+            test_status "Integration Tests (Authenticated)" 1
+            echo "Integration tests timed out after 5 minutes"
+            echo "This may indicate:"
+            echo "- Large Power Platform tenant with many DLP policies"
+            echo "- Power Platform API latency issues"
+            echo "- Network connectivity problems"
+        else
+            test_status "Integration Tests (Authenticated)" 1
+        fi
         echo "Integration test log:"
         cat /tmp/config-test.log
     fi
@@ -129,12 +142,25 @@ fi
 echo -e "\n${YELLOW}Test 5: Plan execution${NC}"
 if [ "$RUN_AUTHENTICATED_TESTS" = "true" ]; then
     echo "Running plan execution test..."
-    if terraform plan -out=test.tfplan > /tmp/plan.log 2>&1; then
+    echo "Note: Plan execution may take 2-5 minutes for large Power Platform tenants..."
+    
+    # Set timeout for plan execution (5 minutes)
+    if timeout 300 terraform plan -out=test.tfplan > /tmp/plan.log 2>&1; then
         test_status "Terraform Plan" 0
         # Clean up plan file
         rm -f test.tfplan
     else
-        test_status "Terraform Plan" 1
+        exit_code=$?
+        if [ $exit_code -eq 124 ]; then
+            test_status "Terraform Plan" 1
+            echo "Terraform plan timed out after 5 minutes"
+            echo "This may indicate:"
+            echo "- Large Power Platform tenant with extensive DLP policies"
+            echo "- Power Platform API performance issues"
+            echo "- Authentication or network connectivity problems"
+        else
+            test_status "Terraform Plan" 1
+        fi
         echo "Plan log:"
         cat /tmp/plan.log
     fi

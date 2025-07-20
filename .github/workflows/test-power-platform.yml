@@ -293,6 +293,7 @@ jobs:
   integration-testing:
     name: Integration Testing
     runs-on: ubuntu-latest
+    timeout-minutes: 15  # Prevent jobs from running too long
     environment: production  # Required to access production environment secrets
     needs: [detect-changes, configuration-validation]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push' && needs.detect-changes.outputs.any-config-changed == 'true' && needs.detect-changes.outputs.changed-paths != ''
