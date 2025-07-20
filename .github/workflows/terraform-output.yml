@@ -217,7 +217,7 @@ jobs:
         terraform_version=$(terraform --version | head -1 | sed 's/Terraform v//')
         
         # Create comprehensive metadata object for output operation
-        output_metadata_json=$(cat <<EOF
+        output_metadata_json=$(cat <<'EOF'
           {
             "generated_at": "$current_timestamp",
             "workflow_run": "${{ github.run_number }}",
@@ -238,6 +238,14 @@ jobs:
           }
           EOF
         )
+        
+        # Substitute variables in the JSON (since we used quoted heredoc)
+        output_metadata_json=$(echo "$output_metadata_json" | \
+          sed "s/\$current_timestamp/$current_timestamp/g" | \
+          sed "s/\$terraform_version/$terraform_version/g" | \
+          sed "s/\$config/$config/g" | \
+          sed "s/\$export_format/$export_format/g" | \
+          sed "s/\$include_metadata/$include_metadata/g")
         
         echo "output-metadata<<EOF" >> $GITHUB_OUTPUT
         echo "$output_metadata_json" >> $GITHUB_OUTPUT
