@@ -47,96 +47,138 @@ inputs:
 
 ## Output Format
 
-The workflow produces a JSON file with this structure (using anti-corruption layer pattern):
+This configuration provides comprehensive DLP policy data through two structured outputs:
 
-```json
+### Primary Output: `dlp_policies`
+
+Provides complete migration-ready policy data with anti-corruption layer compliance:
+
+```hcl
 {
-  "output_metadata": {
-    "timestamp": "20250720-143022",
-    "configuration": "01-dlp-policies",
-    "exported_by": "GitHub Actions",
-    "workflow_run": "123"
-  },
-  "outputs": {
-    "dlp_policies": {
-      "value": {
-        "policy_count": 3,
-        "policy_ids": [
-          "policy-guid-1",
-          "policy-guid-2",
-          "policy-guid-3"
-        ],
-        "policy_names": [
-          "Corporate DLP Policy",
-          "Finance Department Policy", 
-          "HR Department Policy"
-        ],
-        "environment_types": [
-          "AllEnvironments",
-          "ExceptDefaultEnvironmentType", 
-          "OnlyDefaultEnvironmentType"
-        ],
-        "created_by": [
-          "admin@company.com",
-          "finance-admin@company.com",
-          "hr-admin@company.com"
-        ],
-        "last_modified_time": [
-          "2024-01-15T10:30:00Z",
-          "2024-03-20T14:45:00Z",
-          "2024-02-10T09:15:00Z"
-        ]
-      }
-    },
-    "dlp_policies_sensitive": {
-      "sensitive": true,
-      "value": {
-        "connector_configurations": [
-          {
-            "policy_id": "policy-guid-1",
-            "policy_name": "Corporate DLP Policy",
-            "business_connectors_count": 15,
-            "non_business_connectors_count": 8,
-            "blocked_connectors_count": 150,
-            "default_classification": "General"
-          }
-        ]
+  policy_count = 3
+  policies = [
+    {
+      # Core policy metadata
+      id                                 = "default-tenant-policy"
+      display_name                       = "Default Tenant Policy"
+      environment_type                   = "AllEnvironments"
+      environments                       = []
+      default_connectors_classification = "General"
+      
+      # Audit information
+      created_by           = "admin@example.com"
+      created_time         = "2024-01-15T10:30:00Z"
+      last_modified_by     = "admin@example.com"
+      last_modified_time   = "2024-03-20T14:15:00Z"
+      
+      # Connector classifications (essential for migration)
+      business_connectors = [
+        {
+          id                           = "shared_sharepointonline"
+          default_action_rule_behavior = "Allow"
+          action_rules_count           = 0
+          endpoint_rules_count         = 2
+        }
+      ]
+      
+      non_business_connectors = [
+        {
+          id                           = "shared_office365users"
+          default_action_rule_behavior = "Allow"
+          action_rules_count           = 1
+          endpoint_rules_count         = 0
+        }
+      ]
+      
+      blocked_connectors = [
+        {
+          id                           = "shared_facebookforbusiness"
+          default_action_rule_behavior = "Block"
+          action_rules_count           = 0
+          endpoint_rules_count         = 0
+        }
+      ]
+      
+      # Custom connector patterns (critical for custom connector policies)
+      custom_connectors_patterns = [
+        {
+          data_group       = "Business"
+          host_url_pattern = "https://internal.company.com/*"
+          order           = 1
+        }
+      ]
+      
+      # Summary counts for validation
+      connector_summary = {
+        business_count        = 1
+        non_business_count    = 1
+        blocked_count         = 1
+        custom_patterns_count = 1
+        total_connectors      = 3
       }
     }
-  }
+  ]
 }
 ```
 
-### Key Output Improvements
+### Detailed Rules Output: `dlp_policies_detailed_rules`
 
-**✅ AVM TFFR2 Compliance:**
-- **Anti-corruption layer**: Discrete attributes instead of complete resource objects
-- **Security**: Sensitive connector details marked as sensitive
-- **Schema independence**: No exposure to provider schema changes
-- **Selective exposure**: Only necessary attributes exposed
+Provides granular connector rules for advanced migration scenarios (marked sensitive):
 
-**✅ Benefits:**
-- **Reduced data size**: From 17,000+ lines to essential attributes only
-- **Enhanced security**: Sensitive connector details properly protected
-- **Better usability**: Clear, structured data for analysis
-- **Future-proof**: Insulated from provider schema changes
+```hcl
+{
+  policies_with_detailed_rules = [
+    {
+      policy_id   = "default-tenant-policy"
+      policy_name = "Default Tenant Policy"
+      
+      business_connectors_detailed = [
+        {
+          connector_id = "shared_sharepointonline"
+          default_action_rule_behavior = "Allow"
+          action_rules = []
+          endpoint_rules = [
+            {
+              endpoint = "https://specific-sharepoint-site.com"
+              behavior = "Allow"
+              order    = 1
+            }
+          ]
+        }
+      ]
+      # ... similar structure for non_business_connectors_detailed and blocked_connectors_detailed
+    }
+  ]
+}
+```
 
 ## Migration Use Cases
 
-### 1. Policy Inventory
-- **Current State Analysis**: Understanding existing DLP policies
-- **Coverage Assessment**: Identifying which environments have policies
-- **Connector Classification**: Reviewing how connectors are classified
+### 1. Complete Policy Recreation
+Use the primary output to recreate all DLP policies with identical configurations:
+- All connector classifications preserved (`business_connectors`, `non_business_connectors`, `blocked_connectors`)
+- Custom connector patterns maintained (`custom_connectors_patterns`)
+- Environment assignments replicated (`environments`, `environment_type`)
+- Default behaviors retained (`default_connectors_classification`)
 
-### 2. Migration Planning
-- **Policy Comparison**: Comparing manual vs. IaC-managed policies
-- **Configuration Gaps**: Identifying missing or inconsistent settings
-- **Rollout Strategy**: Planning incremental IaC adoption
+### 2. Connector Analysis and Compliance
+- `connector_summary` provides quick counts for validation
+- Business vs non-business classification for compliance review
+- Custom connector patterns for internal application governance
+- Action and endpoint rule counts for complexity assessment
 
-### 3. Compliance Documentation
-- **Policy Documentation**: Generating policy documentation
-- **Audit Trail**: Maintaining records of policy changes
-- **Regulatory Compliance**: Supporting compliance requirements
+### 3. Granular Rule Migration
+Use the detailed rules output for:
+- Exact action rule preservation (specific connector actions allowed/blocked)
+- Endpoint rule migration (URL patterns and access controls)
+- Rule order preservation for policy consistency
+- Complete connector behavior replication
+
+### 4. Validation and Testing
+- Compare connector counts before/after migration (`connector_summary`)
+- Validate custom connector pattern preservation
+- Ensure no policy regression during IaC adoption
+- Verify rule completeness through detailed rules output
 
 ## Creating Similar Configurations
 
