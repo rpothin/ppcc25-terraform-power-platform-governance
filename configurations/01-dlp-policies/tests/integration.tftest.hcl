@@ -4,6 +4,11 @@
 # following AVM testing best practices and ensuring proper structure
 # and output compliance.
 
+# Provider configuration for tests
+provider "powerplatform" {
+  use_oidc = true
+}
+
 # Test 1: Validate configuration structure and plan generation
 run "validate_configuration_structure" {
   command = plan
