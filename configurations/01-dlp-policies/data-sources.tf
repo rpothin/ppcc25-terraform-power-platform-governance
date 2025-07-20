@@ -9,7 +9,7 @@ terraform {
       version = "~> 3.8"
     }
   }
-  
+
   backend "azurerm" {
     use_oidc = true
   }
