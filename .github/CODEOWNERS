@@ -1,0 +1,5 @@
+# CODEOWNERS - Demo Repository
+# For demonstration purposes - all changes require @rpothin approval
+
+# Global ownership - @rpothin owns everything in this demo repository
+* @rpothin
