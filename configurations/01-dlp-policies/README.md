@@ -42,19 +42,13 @@ The following requirements are needed by this module:
 
 - <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) (>= 1.5.0)
 
-- <a name="requirement_powerplatform"></a> [powerplatform](#requirement\_powerplatform) (~> 3.8)
-
 ## Providers
 
-The following providers are used by this module:
-
-- <a name="provider_powerplatform"></a> [powerplatform](#provider\_powerplatform) (~> 3.8)
+No providers.
 
 ## Resources
 
-The following resources are used by this module:
-
-- [powerplatform_data_loss_prevention_policies.current](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/data-sources/data_loss_prevention_policies) (data source)
+No resources.
 
 <!-- markdownlint-disable MD013 -->
 ## Required Inputs
@@ -63,40 +57,35 @@ No required inputs.
 
 ## Optional Inputs
 
-No optional inputs.
+The following input variables are optional (have default values):
+
+### <a name="input_test_input"></a> [test\_input](#input\_test\_input)
+
+Description: Test input variable
+
+Type: `string`
+
+Default: `"default_value"`
 
 ## Outputs
 
 The following outputs are exported:
 
-### <a name="output_dlp_policies"></a> [dlp\_policies](#output\_dlp\_policies)
+### <a name="output_test_computed_values"></a> [test\_computed\_values](#output\_test\_computed\_values)
 
-Description: DLP policies structured for migration analysis with complete configuration data.  
-Each policy includes all necessary information to recreate via IaC without regressions.  
+Description: Computed values for testing
 
-Structure:
-- policy\_count: Total number of DLP policies in the tenant
-- policies: Array of policy objects with complete configuration
-  - Basic metadata (id, display\_name, environment\_type, environments)
-  - Connector classifications (business, non\_business, blocked)
-  - Custom connector patterns for migration accuracy
-  - Summary counts for quick analysis
+### <a name="output_test_input_variable"></a> [test\_input\_variable](#output\_test\_input\_variable)
 
-### <a name="output_dlp_policies_detailed_rules"></a> [dlp\_policies\_detailed\_rules](#output\_dlp\_policies\_detailed\_rules)
+Description: The value of the test input variable
 
-Description: Detailed connector action and endpoint rules for DLP policies.  
+### <a name="output_test_message"></a> [test\_message](#output\_test\_message)
 
-This output includes complete rule configurations which may contain:
-- Specific action IDs and their allow/block behaviors
-- Endpoint URLs and access patterns
-- Custom rule configurations  
+Description: A simple test message
 
-Use this data for:
-- Complete policy recreation with exact rule preservation
-- Advanced migration scenarios requiring granular rule control
-- Compliance auditing of specific connector behaviors  
+### <a name="output_test_number"></a> [test\_number](#output\_test\_number)
 
-Note: Marked as sensitive due to potential exposure of internal endpoints and detailed security configurations.
+Description: A simple test number
 
 ## Modules
 
