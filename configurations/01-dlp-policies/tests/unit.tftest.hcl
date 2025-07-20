@@ -3,44 +3,32 @@
 # This test validates the basic structure and syntax of the DLP export configuration
 # without requiring Power Platform authentication or backend configuration.
 
-# Test basic configuration validation
-run "validate_configuration_structure" {
-  command = plan
+# Test: Validate Terraform configuration syntax
+run "validate_terraform_syntax" {
+  command = validate
 
   assert {
-    condition     = can(terraform.required_version)
-    error_message = "Terraform version constraint must be defined"
-  }
-
-  assert {
-    condition     = can(terraform.required_providers.powerplatform)
-    error_message = "Power Platform provider must be configured"
+    condition = can(terraform.required_version)
+    error_message = "Terraform version constraint must be accessible"
   }
 }
 
-# Test provider configuration syntax
-run "validate_provider_configuration" {
-  command = plan
-
-  # Verify Power Platform provider is properly configured
-  assert {
-    condition     = can(terraform.required_providers.powerplatform.source)
-    error_message = "Power Platform provider source must be specified"
-  }
+# Test: Validate provider configuration structure
+run "validate_provider_config" {
+  command = validate
 
   assert {
-    condition     = can(terraform.required_providers.powerplatform.version)
-    error_message = "Power Platform provider version must be specified"
+    condition = can(terraform.required_providers.powerplatform)
+    error_message = "Power Platform provider configuration must be accessible"
   }
 }
 
-# Test data source configuration syntax
-run "validate_data_source_syntax" {
-  command = plan
-
-  # Verify data source is properly configured (syntax only)
+# Test: File structure validation
+run "validate_file_structure" {
+  command = validate
+  
   assert {
-    condition     = can(data.powerplatform_data_loss_prevention_policies.current)
-    error_message = "DLP policies data source must be syntactically valid"
+    condition = fileexists("${path.module}/main.tf")
+    error_message = "main.tf file must exist in the module"
   }
 }

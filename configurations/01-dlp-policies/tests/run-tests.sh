@@ -29,10 +29,18 @@ TEST_MODE="${1:-all}"
 case "$TEST_MODE" in
     "unit")
         echo -e "${BLUE}📋 Running Unit Tests Only${NC}"
-        if terraform test tests/unit.tftest.hcl; then
-            echo -e "${GREEN}✅ Unit tests completed successfully${NC}"
+        # Initialize without backend for unit testing
+        if terraform init -backend=false > /tmp/init-unit.log 2>&1; then
+            echo "✅ Terraform initialized for unit testing"
+            if terraform test; then
+                echo -e "${GREEN}✅ Unit tests completed successfully${NC}"
+            else
+                echo -e "${RED}❌ Unit tests failed${NC}"
+                exit 1
+            fi
         else
-            echo -e "${RED}❌ Unit tests failed${NC}"
+            echo -e "${RED}❌ Failed to initialize Terraform for unit testing${NC}"
+            cat /tmp/init-unit.log
             exit 1
         fi
         ;;
@@ -46,13 +54,22 @@ case "$TEST_MODE" in
         
         # Step 1: Unit Tests
         echo -e "\n${YELLOW}Step 1: Unit Tests${NC}"
-        if terraform test tests/unit.tftest.hcl > /tmp/unit-results.log 2>&1; then
-            echo -e "${GREEN}✅ Unit tests: PASSED${NC}"
-            UNIT_SUCCESS=true
+        # Initialize without backend for unit testing
+        if terraform init -backend=false > /tmp/init-unit.log 2>&1; then
+            echo "✅ Terraform initialized for unit testing"
+            if terraform test > /tmp/unit-results.log 2>&1; then
+                echo -e "${GREEN}✅ Unit tests: PASSED${NC}"
+                UNIT_SUCCESS=true
+            else
+                echo -e "${RED}❌ Unit tests: FAILED${NC}"
+                echo "Unit test output:"
+                cat /tmp/unit-results.log
+                UNIT_SUCCESS=false
+            fi
         else
-            echo -e "${RED}❌ Unit tests: FAILED${NC}"
-            echo "Unit test output:"
-            cat /tmp/unit-results.log
+            echo -e "${RED}❌ Unit tests: FAILED (initialization)${NC}"
+            echo "Terraform init output:"
+            cat /tmp/init-unit.log
             UNIT_SUCCESS=false
         fi
         

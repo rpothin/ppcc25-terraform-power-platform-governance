@@ -66,8 +66,9 @@ else
         cat /tmp/init-test.log
     fi
     
-    # Return to original directory
-    cd /workspaces/ppcc25-terraform-power-platform-governance/configurations/01-dlp-policies
+    # Return to original directory - use script directory detection
+    ORIGINAL_CONFIG_DIR="$( cd "$SCRIPT_DIR/.." &> /dev/null && pwd )"
+    cd "$ORIGINAL_CONFIG_DIR"
 fi
 
 # Test 2: Format check
