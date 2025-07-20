@@ -212,44 +212,54 @@ jobs:
         echo "::notice title=Processing Output::Extracting and processing Terraform output for configuration: $config"
         cd "configurations/$config"
         
-        # Generate comprehensive execution metadata for AVM compliance
+        # Generate comprehensive execution metadata for AVM compliance using jq
         current_timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
         terraform_version=$(terraform --version | head -1 | sed 's/Terraform v//')
         
-        # Create comprehensive metadata object for output operation
-        output_metadata_json=$(cat <<'EOF'
-          {
-            "generated_at": "$current_timestamp",
-            "workflow_run": "${{ github.run_number }}",
-            "workflow_id": "${{ github.run_id }}",
-            "generated_by": "${{ github.actor }}",
-            "terraform_version": "$terraform_version",
-            "workflow_version": "1.0.0",
-            "configuration": "$config",
-            "repository": "${{ github.repository }}",
-            "ref": "${{ github.ref }}",
-            "sha": "${{ github.sha }}",
-            "event": "${{ github.event_name }}",
-            "runner_os": "${{ runner.os }}",
-            "runner_arch": "${{ runner.arch }}",
-            "operation": "output",
-            "export_format": "$export_format",
-            "include_metadata": $include_metadata
-          }
-          EOF
+        # Create comprehensive metadata object using jq (more reliable than heredoc)
+        output_metadata_json=$(jq -n \
+          --arg timestamp "$current_timestamp" \
+          --arg workflow_run "${{ github.run_number }}" \
+          --arg workflow_id "${{ github.run_id }}" \
+          --arg generated_by "${{ github.actor }}" \
+          --arg tf_version "$terraform_version" \
+          --arg workflow_version "1.0.0" \
+          --arg configuration "$config" \
+          --arg repository "${{ github.repository }}" \
+          --arg ref "${{ github.ref }}" \
+          --arg sha "${{ github.sha }}" \
+          --arg event "${{ github.event_name }}" \
+          --arg runner_os "${{ runner.os }}" \
+          --arg runner_arch "${{ runner.arch }}" \
+          --arg operation "output" \
+          --arg format "$export_format" \
+          --argjson metadata "$include_metadata" \
+          '{
+            "generated_at": $timestamp,
+            "workflow_run": $workflow_run,
+            "workflow_id": $workflow_id,
+            "generated_by": $generated_by,
+            "terraform_version": $tf_version,
+            "workflow_version": $workflow_version,
+            "configuration": $configuration,
+            "repository": $repository,
+            "ref": $ref,
+            "sha": $sha,
+            "event": $event,
+            "runner_os": $runner_os,
+            "runner_arch": $runner_arch,
+            "operation": $operation,
+            "export_format": $format,
+            "include_metadata": $metadata
+          }'
         )
         
-        # Substitute variables in the JSON (since we used quoted heredoc)
-        output_metadata_json=$(echo "$output_metadata_json" | \
-          sed "s/\$current_timestamp/$current_timestamp/g" | \
-          sed "s/\$terraform_version/$terraform_version/g" | \
-          sed "s/\$config/$config/g" | \
-          sed "s/\$export_format/$export_format/g" | \
-          sed "s/\$include_metadata/$include_metadata/g")
-        
-        echo "output-metadata<<EOF" >> $GITHUB_OUTPUT
-        echo "$output_metadata_json" >> $GITHUB_OUTPUT
-        echo "EOF" >> $GITHUB_OUTPUT
+        # Set GitHub output using multiline format
+        {
+          echo "output-metadata<<METADATA_EOF"
+          echo "$output_metadata_json"
+          echo "METADATA_EOF"
+        } >> $GITHUB_OUTPUT
         
         echo "::notice title=Metadata Generated::📊 Output metadata created for AVM compliance"
         

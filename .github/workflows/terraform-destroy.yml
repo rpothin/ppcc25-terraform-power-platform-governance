@@ -202,32 +202,50 @@ jobs:
         timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
         terraform_version=$(terraform --version | head -1 | sed 's/Terraform v//')
         
-        # Create comprehensive metadata object for validation phase
-        validation_metadata_json=$(cat <<EOF
-          {
-            "generated_at": "$timestamp",
-            "workflow_run": "${{ github.run_number }}",
-            "workflow_id": "${{ github.run_id }}",
-            "generated_by": "${{ github.actor }}",
-            "terraform_version": "$terraform_version",
-            "workflow_version": "1.0.0",
-            "configuration": "$config",
-            "tfvars_file": "${{ github.event.inputs.tfvars_file }}",
-            "repository": "${{ github.repository }}",
-            "ref": "${{ github.ref }}",
-            "sha": "${{ github.sha }}",
-            "event": "${{ github.event_name }}",
-            "runner_os": "${{ runner.os }}",
-            "runner_arch": "${{ runner.arch }}",
-            "phase": "validation",
-            "operation": "destroy"
-          }
-          EOF
+        # Create comprehensive metadata object for validation phase using jq
+        validation_metadata_json=$(jq -n \
+          --arg timestamp "$timestamp" \
+          --arg workflow_run "${{ github.run_number }}" \
+          --arg workflow_id "${{ github.run_id }}" \
+          --arg generated_by "${{ github.actor }}" \
+          --arg tf_version "$terraform_version" \
+          --arg workflow_version "1.0.0" \
+          --arg configuration "$config" \
+          --arg tfvars_file "${{ github.event.inputs.tfvars_file }}" \
+          --arg repository "${{ github.repository }}" \
+          --arg ref "${{ github.ref }}" \
+          --arg sha "${{ github.sha }}" \
+          --arg event "${{ github.event_name }}" \
+          --arg runner_os "${{ runner.os }}" \
+          --arg runner_arch "${{ runner.arch }}" \
+          --arg phase "validation" \
+          --arg operation "destroy" \
+          '{
+            "generated_at": $timestamp,
+            "workflow_run": $workflow_run,
+            "workflow_id": $workflow_id,
+            "generated_by": $generated_by,
+            "terraform_version": $tf_version,
+            "workflow_version": $workflow_version,
+            "configuration": $configuration,
+            "tfvars_file": $tfvars_file,
+            "repository": $repository,
+            "ref": $ref,
+            "sha": $sha,
+            "event": $event,
+            "runner_os": $runner_os,
+            "runner_arch": $runner_arch,
+            "phase": $phase,
+            "operation": $operation
+          }'
         )
         
-        echo "validation-metadata<<EOF" >> $GITHUB_OUTPUT
-        echo "$validation_metadata_json" >> $GITHUB_OUTPUT
-        echo "EOF" >> $GITHUB_OUTPUT
+        # Set GitHub output using multiline format
+        {
+          echo "validation-metadata<<METADATA_EOF"
+          echo "$validation_metadata_json"
+          echo "METADATA_EOF"
+        } >> $GITHUB_OUTPUT
         
         echo "::notice title=Metadata Generated::📊 Validation metadata created for AVM compliance"
         
@@ -632,30 +650,48 @@ jobs:
         timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
         terraform_version=$(terraform --version | head -1 | sed 's/Terraform v//')
         
-        # Create comprehensive metadata object for destroy phase
-        destroy_metadata_json=$(cat <<EOF
-          {
-            "generated_at": "$timestamp",
-            "workflow_run": "${{ github.run_number }}",
-            "workflow_id": "${{ github.run_id }}",
-            "generated_by": "${{ github.actor }}",
-            "terraform_version": "$terraform_version",
-            "workflow_version": "1.0.0",
-            "configuration": "$config",
-            "tfvars_file": "$tfvars_file",
-            "repository": "${{ github.repository }}",
-            "ref": "${{ github.ref }}",
-            "sha": "${{ github.sha }}",
-            "event": "${{ github.event_name }}",
-            "runner_os": "${{ runner.os }}",
-            "runner_arch": "${{ runner.arch }}",
-            "phase": "destroy",
-            "operation": "destroy",
-            "resources_destroyed": "$resource_count",
-            "backup_created": "$backup_created",
-            "validation_metadata": ${{ toJson(needs.terraform-validate.outputs.validation-metadata) }}
-          }
-          EOF
+        # Create comprehensive metadata object for destroy phase using jq
+        destroy_metadata_json=$(jq -n \
+          --arg timestamp "$timestamp" \
+          --arg workflow_run "${{ github.run_number }}" \
+          --arg workflow_id "${{ github.run_id }}" \
+          --arg generated_by "${{ github.actor }}" \
+          --arg tf_version "$terraform_version" \
+          --arg workflow_version "1.0.0" \
+          --arg configuration "$config" \
+          --arg tfvars_file "$tfvars_file" \
+          --arg repository "${{ github.repository }}" \
+          --arg ref "${{ github.ref }}" \
+          --arg sha "${{ github.sha }}" \
+          --arg event "${{ github.event_name }}" \
+          --arg runner_os "${{ runner.os }}" \
+          --arg runner_arch "${{ runner.arch }}" \
+          --arg phase "destroy" \
+          --arg operation "destroy" \
+          --arg resources_destroyed "$resource_count" \
+          --arg backup_created "$backup_created" \
+          --argjson validation_metadata '${{ toJson(needs.terraform-validate.outputs.validation-metadata) }}' \
+          '{
+            "generated_at": $timestamp,
+            "workflow_run": $workflow_run,
+            "workflow_id": $workflow_id,
+            "generated_by": $generated_by,
+            "terraform_version": $tf_version,
+            "workflow_version": $workflow_version,
+            "configuration": $configuration,
+            "tfvars_file": $tfvars_file,
+            "repository": $repository,
+            "ref": $ref,
+            "sha": $sha,
+            "event": $event,
+            "runner_os": $runner_os,
+            "runner_arch": $runner_arch,
+            "phase": $phase,
+            "operation": $operation,
+            "resources_destroyed": $resources_destroyed,
+            "backup_created": $backup_created,
+            "validation_metadata": $validation_metadata
+          }'
         )
         
         # Save metadata to file for artifact

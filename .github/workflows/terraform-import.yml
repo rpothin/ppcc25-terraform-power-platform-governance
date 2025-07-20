@@ -347,34 +347,54 @@ jobs:
         timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
         terraform_version=$(terraform --version | head -1 | sed 's/Terraform v//')
         
-        # Create comprehensive metadata object for import operation
-        import_metadata_json=$(cat <<EOF
-          {
-            "generated_at": "$timestamp",
-            "workflow_run": "${{ github.run_number }}",
-            "workflow_id": "${{ github.run_id }}",
-            "generated_by": "${{ github.actor }}",
-            "terraform_version": "$terraform_version",
-            "workflow_version": "1.0.0",
-            "configuration": "$config",
-            "tfvars_file": "$tfvars_file",
-            "repository": "${{ github.repository }}",
-            "ref": "${{ github.ref }}",
-            "sha": "${{ github.sha }}",
-            "event": "${{ github.event_name }}",
-            "runner_os": "${{ runner.os }}",
-            "runner_arch": "${{ runner.arch }}",
-            "operation": "import",
-            "resource_type": "$resource_type",
-            "resource_name": "$resource_name",
-            "resource_id": "$resource_id"
-          }
-          EOF
+        # Create comprehensive metadata object for import operation using jq
+        import_metadata_json=$(jq -n \
+          --arg timestamp "$timestamp" \
+          --arg workflow_run "${{ github.run_number }}" \
+          --arg workflow_id "${{ github.run_id }}" \
+          --arg generated_by "${{ github.actor }}" \
+          --arg tf_version "$terraform_version" \
+          --arg workflow_version "1.0.0" \
+          --arg configuration "$config" \
+          --arg tfvars_file "$tfvars_file" \
+          --arg repository "${{ github.repository }}" \
+          --arg ref "${{ github.ref }}" \
+          --arg sha "${{ github.sha }}" \
+          --arg event "${{ github.event_name }}" \
+          --arg runner_os "${{ runner.os }}" \
+          --arg runner_arch "${{ runner.arch }}" \
+          --arg operation "import" \
+          --arg resource_type "$resource_type" \
+          --arg resource_name "$resource_name" \
+          --arg resource_id "$resource_id" \
+          '{
+            "generated_at": $timestamp,
+            "workflow_run": $workflow_run,
+            "workflow_id": $workflow_id,
+            "generated_by": $generated_by,
+            "terraform_version": $tf_version,
+            "workflow_version": $workflow_version,
+            "configuration": $configuration,
+            "tfvars_file": $tfvars_file,
+            "repository": $repository,
+            "ref": $ref,
+            "sha": $sha,
+            "event": $event,
+            "runner_os": $runner_os,
+            "runner_arch": $runner_arch,
+            "operation": $operation,
+            "resource_type": $resource_type,
+            "resource_name": $resource_name,
+            "resource_id": $resource_id
+          }'
         )
         
-        echo "import-metadata<<EOF" >> $GITHUB_OUTPUT
-        echo "$import_metadata_json" >> $GITHUB_OUTPUT
-        echo "EOF" >> $GITHUB_OUTPUT
+        # Set GitHub output using multiline format
+        {
+          echo "import-metadata<<METADATA_EOF"
+          echo "$import_metadata_json"
+          echo "METADATA_EOF"
+        } >> $GITHUB_OUTPUT
         
         echo "::notice title=Metadata Generated::📊 Import metadata created for AVM compliance"
         
