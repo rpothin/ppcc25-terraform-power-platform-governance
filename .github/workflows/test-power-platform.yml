@@ -1,0 +1,316 @@
+name: Test Power Platform Configurations
+
+on:
+  pull_request:
+    paths:
+      - 'configurations/**'
+      - 'modules/**'
+      - 'scripts/test-utils/**'
+      - '.github/workflows/test-power-platform.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'configurations/**'
+      - 'modules/**'
+      - 'scripts/test-utils/**'
+      - '.github/workflows/test-power-platform.yml'
+  workflow_dispatch: # Allow manual triggering
+
+env:
+  TF_VERSION: '~1.5'
+  TF_IN_AUTOMATION: true
+
+jobs:
+  # Job 1: Detect Changes and Setup Matrix
+  detect-changes:
+    name: Detect Configuration Changes
+    runs-on: ubuntu-latest
+    outputs:
+      dlp-policies: ${{ steps.changes.outputs.dlp-policies }}
+      dlp-policy: ${{ steps.changes.outputs.dlp-policy }}
+      environment: ${{ steps.changes.outputs.environment }}
+      any-config-changed: ${{ steps.changes.outputs.dlp-policies == 'true' || steps.changes.outputs.dlp-policy == 'true' || steps.changes.outputs.environment == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Detect Changes
+        id: changes
+        uses: dorny/paths-filter@v2
+        with:
+          filters: |
+            dlp-policies:
+              - 'configurations/01-dlp-policies/**'
+            dlp-policy:
+              - 'configurations/02-dlp-policy/**'
+            environment:
+              - 'configurations/03-environment/**'
+            test-utils:
+              - 'scripts/test-utils/**'
+
+  # Job 2: Terraform format and validation
+  terraform-validate:
+    name: Terraform Format Check
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.any-config-changed == 'true'
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Format Check
+        run: |
+          echo "🔍 Checking Terraform format..."
+          terraform fmt -recursive -check
+
+  # Job 3: Test DLP Policies Configuration (01-dlp-policies)
+  test-dlp-policies:
+    name: Test DLP Policies Configuration
+    runs-on: ubuntu-latest
+    needs: [detect-changes, terraform-validate]
+    if: needs.detect-changes.outputs.dlp-policies == 'true'
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Install terraform-docs
+        run: |
+          wget https://github.com/terraform-docs/terraform-docs/releases/latest/download/terraform-docs-v0.17.0-linux-amd64.tar.gz
+          tar -xzf terraform-docs-v0.17.0-linux-amd64.tar.gz
+          sudo mv terraform-docs /usr/local/bin/
+          terraform-docs version
+
+      - name: Run DLP Policies Tests
+        run: |
+          cd configurations/01-dlp-policies
+          chmod +x tests/run-tests.sh
+          ./tests/run-tests.sh all
+
+  # Job 4: Test DLP Policy Configuration (02-dlp-policy) - when it has tests
+  test-dlp-policy:
+    name: Test DLP Policy Configuration  
+    runs-on: ubuntu-latest
+    needs: [detect-changes, terraform-validate]
+    if: needs.detect-changes.outputs.dlp-policy == 'true'
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Run DLP Policy Tests
+        run: |
+          cd configurations/02-dlp-policy
+          # For now, just validate syntax since no tests exist yet
+          terraform init -backend=false
+          terraform validate
+          echo "✅ Configuration validation passed (tests not implemented yet)"
+
+  # Job 5: Test Environment Configuration (03-environment) - when it has tests  
+  test-environment:
+    name: Test Environment Configuration
+    runs-on: ubuntu-latest
+    needs: [detect-changes, terraform-validate]
+    if: needs.detect-changes.outputs.environment == 'true'
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Run Environment Tests
+        run: |
+          cd configurations/03-environment
+          # For now, just validate syntax since no tests exist yet
+          terraform init -backend=false
+          terraform validate
+          echo "✅ Configuration validation passed (tests not implemented yet)"
+
+  # Job 6: Authenticated Tests (only on main branch with secrets)
+  authenticated-tests:
+    name: Authenticated Tests
+    runs-on: ubuntu-latest
+    needs: [detect-changes, test-dlp-policies]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && needs.detect-changes.outputs.dlp-policies == 'true'
+    
+    # Set up OIDC permissions for Azure authentication
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.ARM_CLIENT_ID }}
+          tenant-id: ${{ secrets.ARM_TENANT_ID }}
+          subscription-id: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+
+      - name: Install terraform-docs
+        run: |
+          wget https://github.com/terraform-docs/terraform-docs/releases/latest/download/terraform-docs-v0.17.0-linux-amd64.tar.gz
+          tar -xzf terraform-docs-v0.17.0-linux-amd64.tar.gz
+          sudo mv terraform-docs /usr/local/bin/
+
+      - name: Run Authenticated Tests
+        env:
+          ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+          ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+          ARM_USE_OIDC: true
+          RUN_AUTHENTICATED_TESTS: true
+          TF_VAR_tenant_id: ${{ secrets.ARM_TENANT_ID }}
+          # Backend configuration
+          ARM_STORAGE_ACCOUNT_NAME: ${{ secrets.ARM_STORAGE_ACCOUNT_NAME }}
+          ARM_CONTAINER_NAME: ${{ secrets.ARM_CONTAINER_NAME }}
+          ARM_KEY: ${{ secrets.ARM_KEY }}
+        run: |
+          echo "🔐 Running authenticated tests for changed configurations..."
+          cd configurations/01-dlp-policies
+          chmod +x tests/integration-test.sh
+          ./tests/integration-test.sh
+
+  # Job 7: Security Scanning
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: [detect-changes, terraform-validate]
+    if: needs.detect-changes.outputs.any-config-changed == 'true'
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'config'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # Job 8: Documentation Check
+  documentation:
+    name: Documentation Check
+    runs-on: ubuntu-latest
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.dlp-policies == 'true'
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install terraform-docs
+        run: |
+          wget https://github.com/terraform-docs/terraform-docs/releases/latest/download/terraform-docs-v0.17.0-linux-amd64.tar.gz
+          tar -xzf terraform-docs-v0.17.0-linux-amd64.tar.gz
+          sudo mv terraform-docs /usr/local/bin/
+
+      - name: Check terraform-docs is up to date (DLP Policies)
+        run: |
+          echo "📚 Checking documentation for DLP Policies configuration..."
+          cd configurations/01-dlp-policies
+          terraform-docs -c .terraform-docs.yml . > /tmp/expected-readme.md
+          if ! diff README.md /tmp/expected-readme.md > /dev/null; then
+            echo "❌ Documentation is out of date!"
+            echo "Expected changes:"
+            diff README.md /tmp/expected-readme.md || true
+            exit 1
+          else
+            echo "✅ Documentation is up to date!"
+          fi
+
+  # Job 9: Test Results Summary
+  test-summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [detect-changes, terraform-validate, test-dlp-policies, test-dlp-policy, test-environment, security-scan, documentation]
+    if: always() && needs.detect-changes.outputs.any-config-changed == 'true'
+    
+    steps:
+      - name: Test Results Summary
+        run: |
+          echo "## 🧪 Test Results Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ needs.terraform-validate.result }}" == "success" ]; then
+            echo "| Terraform Format Check | ✅ PASSED |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Terraform Format Check | ❌ FAILED |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ needs.test-dlp-policies.result }}" == "success" ]; then
+            echo "| DLP Policies Tests | ✅ PASSED |" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ needs.test-dlp-policies.result }}" == "skipped" ]; then
+            echo "| DLP Policies Tests | ⏭️ SKIPPED |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| DLP Policies Tests | ❌ FAILED |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ needs.test-dlp-policy.result }}" == "success" ]; then
+            echo "| DLP Policy Tests | ✅ PASSED |" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ needs.test-dlp-policy.result }}" == "skipped" ]; then
+            echo "| DLP Policy Tests | ⏭️ SKIPPED |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| DLP Policy Tests | ❌ FAILED |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ needs.test-environment.result }}" == "success" ]; then
+            echo "| Environment Tests | ✅ PASSED |" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ needs.test-environment.result }}" == "skipped" ]; then
+            echo "| Environment Tests | ⏭️ SKIPPED |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Environment Tests | ❌ FAILED |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ needs.security-scan.result }}" == "success" ]; then
+            echo "| Security Scan | ✅ PASSED |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Security Scan | ❌ FAILED |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ needs.documentation.result }}" == "success" ]; then
+            echo "| Documentation Check | ✅ PASSED |" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ needs.documentation.result }}" == "skipped" ]; then
+            echo "| Documentation Check | ⏭️ SKIPPED |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Documentation Check | ❌ FAILED |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Workflow completed at:** $(date)" >> $GITHUB_STEP_SUMMARY
