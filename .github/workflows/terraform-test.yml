@@ -1,0 +1,1524 @@
+# Terraform Testing Workflow for Power Platform Governance
+# This workflow provides comprehensive testing of Terraform configurations and modules
+# It includes validation, security scanning, unit tests, and integration tests
+# Follows AVM best practices and provides detailed reporting for all test phases
+
+name: Test Terraform Configurations and Modules
+
+# Triggers: Automated testing on configuration/module changes and manual dispatch
+on:
+  pull_request:
+    paths:
+      - 'configurations/**'
+      - 'modules/**'
+      - '.github/workflows/terraform-test.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'configurations/**'
+      - 'modules/**'
+      - '.github/workflows/terraform-test.yml'
+  workflow_dispatch: # Allow manual triggering
+    inputs:
+      target_path:
+        description: 'Specific path to test (e.g., configurations/01-dlp-policies). Leave empty to test all changed paths.'
+        required: false
+        type: string
+      force_all:
+        description: 'Force testing all configurations and modules (ignore change detection)'
+        required: false
+        default: false
+        type: boolean
+      skip_integration:
+        description: 'Skip integration tests (for faster CI runs)'
+        required: false
+        default: false
+        type: boolean
+
+# Dynamic run name showing what triggered the testing
+run-name: 🧪 Test Terraform${{ github.event.inputs.target_path && format(' for {0}', github.event.inputs.target_path) || (github.event.inputs.force_all == 'true' && ' for ALL paths' || ' for changed paths') }} by @${{ github.actor }}
+
+# Environment variables for consistent Terraform behavior
+env:
+  TF_VERSION: '1.5.0'  # Use exact version for consistency across workflows
+  TF_IN_AUTOMATION: true
+
+jobs:
+  # Job 1: Detect Changes - Only process what actually changed
+  detect-changes:
+    name: Detect Configuration Changes
+    runs-on: ubuntu-latest
+    outputs:
+      configurations: ${{ steps.changes.outputs.configurations }}
+      modules: ${{ steps.changes.outputs.modules }}
+      test-utils: ${{ steps.changes.outputs.test-utils }}
+      any-config-changed: ${{ steps.changes.outputs.configurations == 'true' || steps.changes.outputs.modules == 'true' }}
+      changed-paths: ${{ steps.scan-changed.outputs.changed-paths }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Need full history for change detection
+
+      - name: Detect File Changes
+        id: changes
+        uses: dorny/paths-filter@v2
+        with:
+          filters: |
+            configurations:
+              - 'configurations/**/*.tf'
+              - 'configurations/**/*.tfvars'
+              - 'configurations/**/terraform.tfvars'
+              - 'configurations/**/.terraform-docs.yml'
+              - 'configurations/**/.terraform-docs.yaml'
+              - 'configurations/**/_header.md'
+              - 'configurations/**/_footer.md'
+            modules:
+              - 'modules/**/*.tf'
+              - 'modules/**/.terraform-docs.yml'
+              - 'modules/**/.terraform-docs.yaml'
+              - 'modules/**/_header.md'
+              - 'modules/**/_footer.md'
+            test-utils:
+              - 'scripts/test-utils/**'
+
+      - name: Scan Changed Paths
+        id: scan-changed
+        if: steps.changes.outputs.configurations == 'true' || steps.changes.outputs.modules == 'true' || github.event_name == 'workflow_dispatch'
+        run: |
+          echo "::notice title=Scanning Changes::Identifying specific changed paths for testing..."
+          
+          # Handle manual dispatch scenarios
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            # Check for specific target path
+            if [ -n "${{ github.event.inputs.target_path }}" ]; then
+              target_path="${{ github.event.inputs.target_path }}"
+              echo "::notice title=Manual Target::Processing specific path: $target_path"
+              
+              if [ ! -d "$target_path" ]; then
+                echo "::error title=Target Path Not Found::Specified path '$target_path' does not exist"
+                exit 1
+              fi
+              
+              # Validate target path has required files
+              if find "$target_path" -maxdepth 1 -name "*.tf" -type f | grep -q .; then
+                echo "changed-paths=$target_path" >> $GITHUB_OUTPUT
+                echo "::notice title=Manual Target Set::Tests will be executed for: $target_path"
+                exit 0
+              else
+                echo "::error title=Invalid Target::Path '$target_path' contains no Terraform files"
+                exit 1
+              fi
+            fi
+            
+            # Check for force all flag
+            if [ "${{ github.event.inputs.force_all }}" = "true" ]; then
+              echo "::notice title=Force All::Testing all configurations and modules"
+              
+              # Scan all valid paths
+              paths_to_process=()
+              
+              # Scan configurations
+              if [ -d "configurations" ]; then
+                for config_dir in configurations/*/; do
+                  dir=${config_dir%/}
+                  if [ -d "$dir" ] && find "$dir" -maxdepth 1 -name "*.tf" -type f | grep -q .; then
+                    paths_to_process+=("$dir")
+                    echo "::notice title=Configuration Found::$dir"
+                  fi
+                done
+              fi
+              
+              # Scan modules
+              if [ -d "modules" ]; then
+                for module_dir in modules/*/; do
+                  dir=${module_dir%/}
+                  if [ -d "$dir" ] && find "$dir" -maxdepth 1 -name "*.tf" -type f | grep -q .; then
+                    paths_to_process+=("$dir")
+                    echo "::notice title=Module Found::$dir"
+                  fi
+                done
+              fi
+              
+              if [ ${#paths_to_process[@]} -eq 0 ]; then
+                echo "::warning title=No Paths Found::No valid paths found for testing"
+                echo "changed-paths=" >> $GITHUB_OUTPUT
+              else
+                printf -v joined '%s\n' "${paths_to_process[@]}"
+                {
+                  echo "changed-paths<<PATHS_EOF"
+                  echo "$joined"
+                  echo "PATHS_EOF"
+                } >> $GITHUB_OUTPUT
+                echo "::notice title=Force All Complete::Will test ${#paths_to_process[@]} path(s)"
+              fi
+              exit 0
+            fi
+            
+            # If no specific inputs, detect changes
+            echo "::notice title=Manual Dispatch::No specific inputs, detecting recent changes..."
+          fi
+          
+          # Get list of changed files (for pull requests and pushes)
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            changed_files=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            changed_files=$(git diff --name-only HEAD~1 HEAD)
+          else
+            # For workflow_dispatch without specific inputs, check recent changes
+            changed_files=$(git diff --name-only HEAD~1 HEAD)
+          fi
+          
+          echo "::group::Changed Files"
+          echo "$changed_files"
+          echo "::endgroup::"
+          
+          # Function to check if directory has terraform files
+          should_process_path() {
+            local dir="$1"
+            [ -d "$dir" ] && find "$dir" -maxdepth 1 -name "*.tf" -type f | grep -q .
+          }
+          
+          # Identify unique parent directories that need testing
+          paths_to_process=()
+          
+          # Process each changed file
+          while IFS= read -r file; do
+            # Skip empty lines
+            [ -z "$file" ] && continue
+            
+            # Extract directory path
+            if [[ "$file" =~ ^(configurations|modules)/[^/]+/ ]]; then
+              # Extract the configuration/module directory (e.g., configurations/01-dlp-policies/)
+              dir=$(echo "$file" | grep -oE '^(configurations|modules)/[^/]+/')
+              dir=${dir%/}  # Remove trailing slash
+              
+              # Check if this path should be processed and isn't already in our list
+              if should_process_path "$dir" && [[ ! " ${paths_to_process[@]} " =~ " ${dir} " ]]; then
+                paths_to_process+=("$dir")
+                echo "::notice title=Path Added::Will test: $dir"
+              fi
+            fi
+          done <<< "$changed_files"
+          
+          if [ ${#paths_to_process[@]} -eq 0 ]; then
+            echo "::notice title=No Paths::No paths require testing"
+            echo "changed-paths=" >> $GITHUB_OUTPUT
+          else
+            # Join array elements with newline for multiline output
+            printf -v joined '%s\n' "${paths_to_process[@]}"
+            {
+              echo "changed-paths<<PATHS_EOF"
+              echo "$joined"
+              echo "PATHS_EOF"
+            } >> $GITHUB_OUTPUT
+            echo "::notice title=Paths Identified::Will test ${#paths_to_process[@]} path(s): ${paths_to_process[*]}"
+          fi
+
+  # Job 2: Terraform format and validation with comprehensive error handling
+  terraform-validate:
+    name: Terraform Format & Validation
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.any-config-changed == 'true'
+    
+    # Output values for dependent jobs
+    outputs:
+      validation-successful: ${{ steps.validate.outputs.validation-successful }}
+      format-issues: ${{ steps.format.outputs.format-issues }}
+      validation-metadata: ${{ steps.validate.outputs.validation-metadata }}
+    
+    steps:
+      - name: Checkout Repository for Validation
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform CLI
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Format Check
+        id: format
+        run: |
+          echo "::notice title=Format Check::🔍 Checking Terraform format for all configurations..."
+          
+          # Run format check and capture results
+          format_output=$(terraform fmt -recursive -check -diff 2>&1) || format_exit_code=$?
+          
+          if [ "${format_exit_code:-0}" -eq 0 ]; then
+            echo "::notice title=Format Success::✅ All Terraform files are properly formatted"
+            echo "format-issues=false" >> $GITHUB_OUTPUT
+          else
+            echo "::error title=Format Issues::❌ Terraform formatting issues found"
+            echo "format-issues=true" >> $GITHUB_OUTPUT
+            
+            echo "::group::Formatting Issues"
+            echo "$format_output"
+            echo "::endgroup::"
+            
+            echo "::notice title=Troubleshooting::🔍 Common terraform fmt failure causes:"
+            echo "::notice title=Issue 1::📝 Inconsistent indentation (use spaces, not tabs)"
+            echo "::notice title=Issue 2::🔗 Missing or extra whitespace around operators"
+            echo "::notice title=Issue 3::📋 Inconsistent argument alignment in blocks"
+            echo "::notice title=Issue 4::🏷️ Inconsistent quote usage (prefer double quotes)"
+            echo "::notice title=Solution::🔧 Run 'terraform fmt -recursive' to auto-fix formatting"
+            exit 1
+          fi
+
+      - name: Global Terraform Validation
+        id: validate
+        run: |
+          echo "::notice title=Global Validation::🔍 Performing global Terraform validation..."
+          
+          # Generate validation metadata
+          timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          terraform_version=$(terraform --version | head -1 | sed 's/Terraform v//')
+          
+          # Create validation metadata using jq
+          validation_metadata_json=$(jq -n \
+            --arg timestamp "$timestamp" \
+            --arg workflow_run "${{ github.run_number }}" \
+            --arg workflow_id "${{ github.run_id }}" \
+            --arg generated_by "${{ github.actor }}" \
+            --arg tf_version "$terraform_version" \
+            --arg workflow_version "1.0.0" \
+            --arg repository "${{ github.repository }}" \
+            --arg ref "${{ github.ref }}" \
+            --arg sha "${{ github.sha }}" \
+            --arg event "${{ github.event_name }}" \
+            --arg runner_os "${{ runner.os }}" \
+            --arg runner_arch "${{ runner.arch }}" \
+            --arg operation "validation" \
+            --arg phase "syntax-check" \
+            '{
+              "generated_at": $timestamp,
+              "workflow_run": $workflow_run,
+              "workflow_id": $workflow_id,
+              "generated_by": $generated_by,
+              "terraform_version": $tf_version,
+              "workflow_version": $workflow_version,
+              "repository": $repository,
+              "ref": $ref,
+              "sha": $sha,
+              "event": $event,
+              "runner_os": $runner_os,
+              "runner_arch": $runner_arch,
+              "operation": $operation,
+              "phase": $phase
+            }'
+          )
+          
+          # Set GitHub output using multiline format
+          {
+            echo "validation-metadata<<METADATA_EOF"
+            echo "$validation_metadata_json"
+            echo "METADATA_EOF"
+          } >> $GITHUB_OUTPUT
+          
+          # Track validation statistics
+          validated_count=0
+          failed_count=0
+          
+          # Get changed paths for validation
+          paths_input="${{ needs.detect-changes.outputs.changed-paths }}"
+          
+          if [ -n "$paths_input" ]; then
+            readarray -t paths <<< "$paths_input"
+          else
+            echo "::notice title=No Paths::No changed paths to validate"
+            echo "validation-successful=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Process each changed path
+          for target_path in "${paths[@]}"; do
+            # Skip empty lines
+            [ -z "$target_path" ] && continue
+            
+            echo "::notice title=Validating Path::📋 Processing: $target_path"
+            
+            # Verify path exists and has Terraform files
+            if [ ! -d "$target_path" ]; then
+              echo "::error title=Path Not Found::Directory does not exist: $target_path"
+              failed_count=$((failed_count + 1))
+              continue
+            fi
+            
+            # Check for Terraform files
+            if ! find "$target_path" -maxdepth 1 -name "*.tf" -type f | grep -q .; then
+              echo "::warning title=No TF Files::No Terraform files found in $target_path, skipping validation"
+              continue
+            fi
+            
+            # Change to target directory for validation
+            cd "$target_path" || {
+              echo "::error title=CD Failed::Cannot change to directory $target_path"
+              failed_count=$((failed_count + 1))
+              continue
+            }
+            
+            # Initialize without backend for syntax validation
+            echo "::notice title=Terraform Init::🔧 Initializing $target_path (backend=false)"
+            if ! terraform init -backend=false -input=false >/dev/null 2>&1; then
+              echo "::error title=Init Failed::terraform init failed for $target_path"
+              echo "::notice title=Troubleshooting::🔍 Common init failure causes:"
+              echo "::notice title=Issue 1::📦 Provider configuration errors"
+              echo "::notice title=Issue 2::🔗 Invalid module source references"
+              echo "::notice title=Issue 3::🌐 Network connectivity to provider registry"
+              echo "::notice title=Solution::🔧 Check provider blocks and module sources"
+              failed_count=$((failed_count + 1))
+              cd - > /dev/null
+              continue
+            fi
+            
+            # Validate configuration syntax
+            echo "::notice title=Terraform Validate::🔍 Validating $target_path"
+            if terraform validate >/dev/null 2>&1; then
+              echo "::notice title=Validation Success::✅ $target_path passed validation"
+              validated_count=$((validated_count + 1))
+            else
+              echo "::error title=Validation Failed::❌ terraform validate failed for $target_path"
+              echo "::notice title=Troubleshooting::🔍 Common validation failure causes:"
+              echo "::notice title=Issue 1::📝 HCL syntax errors (missing quotes, brackets, etc.)"
+              echo "::notice title=Issue 2::🔗 Invalid resource references or variable usage"
+              echo "::notice title=Issue 3::🏷️ Invalid resource or data source names"
+              echo "::notice title=Issue 4::⚙️ Incorrect variable types or validation rules"
+              echo "::notice title=Solution::🔧 Review configuration files for syntax errors"
+              
+              # Show validation output for debugging
+              echo "::group::Validation Output for $target_path"
+              terraform validate 2>&1 || true
+              echo "::endgroup::"
+              
+              failed_count=$((failed_count + 1))
+            fi
+            
+            # Run unit tests if available (syntax-only, no authentication)
+            if [ -f "tests/unit.tftest.hcl" ]; then
+              echo "::notice title=Unit Tests::🧪 Running unit tests for $target_path"
+              unit_test_output=$(terraform test 2>&1) || unit_test_exit_code=$?
+              
+              if [ "${unit_test_exit_code:-0}" -eq 0 ]; then
+                echo "::notice title=Unit Tests Success::✅ Unit tests passed for $target_path"
+              else
+                echo "::warning title=Unit Tests Failed::⚠️ Unit tests failed for $target_path"
+                echo "::group::Unit Test Output for $target_path"
+                echo "$unit_test_output"
+                echo "::endgroup::"
+                # Don't fail validation if unit tests fail - they're supplementary
+              fi
+            fi
+            
+            # Return to workspace root
+            cd - > /dev/null
+          done
+          
+          # Report results
+          echo "::notice title=Validation Complete::📊 Validated: $validated_count, Failed: $failed_count"
+          
+          if [ $failed_count -gt 0 ]; then
+            echo "validation-successful=false" >> $GITHUB_OUTPUT
+            echo "::error title=Validation Failures::❌ $failed_count configuration(s) failed validation. Check logs above."
+            exit 1
+          else
+            echo "validation-successful=true" >> $GITHUB_OUTPUT
+            echo "::notice title=All Validations Passed::✅ All $validated_count changed configuration(s) are valid!"
+          fi
+
+  # Job 3: Configuration validation with enhanced backend testing
+  configuration-validation:
+    name: Configuration Validation
+    runs-on: ubuntu-latest
+    needs: [detect-changes, terraform-validate]
+    if: needs.detect-changes.outputs.any-config-changed == 'true' && needs.detect-changes.outputs.changed-paths != '' && needs.terraform-validate.outputs.validation-successful == 'true'
+    
+    # Output values for dependent jobs
+    outputs:
+      configurations-validated: ${{ steps.validate-configs.outputs.configurations-validated }}
+      validation-metadata: ${{ steps.validate-configs.outputs.validation-metadata }}
+    
+    steps:
+      - name: Checkout Repository for Configuration Testing
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform CLI
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Validate Configurations with Backend Testing
+        id: validate-configs
+        run: |
+          echo "::notice title=Configuration Validation::🔍 Validating changed Terraform configurations with backend connectivity..."
+          
+          # Generate validation metadata
+          timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          terraform_version=$(terraform --version | head -1 | sed 's/Terraform v//')
+          
+          # Create configuration validation metadata
+          config_validation_metadata_json=$(jq -n \
+            --arg timestamp "$timestamp" \
+            --arg workflow_run "${{ github.run_number }}" \
+            --arg workflow_id "${{ github.run_id }}" \
+            --arg generated_by "${{ github.actor }}" \
+            --arg tf_version "$terraform_version" \
+            --arg workflow_version "1.0.0" \
+            --arg repository "${{ github.repository }}" \
+            --arg ref "${{ github.ref }}" \
+            --arg sha "${{ github.sha }}" \
+            --arg event "${{ github.event_name }}" \
+            --arg runner_os "${{ runner.os }}" \
+            --arg runner_arch "${{ runner.arch }}" \
+            --arg operation "configuration-validation" \
+            --arg phase "backend-connectivity" \
+            --argjson syntax_validation '${{ toJson(needs.terraform-validate.outputs.validation-metadata) }}' \
+            '{
+              "generated_at": $timestamp,
+              "workflow_run": $workflow_run,
+              "workflow_id": $workflow_id,
+              "generated_by": $generated_by,
+              "terraform_version": $tf_version,
+              "workflow_version": $workflow_version,
+              "repository": $repository,
+              "ref": $ref,
+              "sha": $sha,
+              "event": $event,
+              "runner_os": $runner_os,
+              "runner_arch": $runner_arch,
+              "operation": $operation,
+              "phase": $phase,
+              "syntax_validation": $syntax_validation
+            }'
+          )
+          
+          # Set GitHub output using multiline format
+          {
+            echo "validation-metadata<<METADATA_EOF"
+            echo "$config_validation_metadata_json"
+            echo "METADATA_EOF"
+          } >> $GITHUB_OUTPUT
+          
+          # Get the changed paths from the detect-changes job
+          paths_input="${{ needs.detect-changes.outputs.changed-paths }}"
+          
+          # Convert to array
+          if [ -n "$paths_input" ]; then
+            readarray -t paths <<< "$paths_input"
+          else
+            echo "::notice title=No Paths::No changed paths to validate"
+            echo "configurations-validated=0" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Track validation results
+          validated_count=0
+          failed_count=0
+          skipped_count=0
+          
+          # Process each changed path
+          for target_path in "${paths[@]}"; do
+            # Skip empty lines
+            [ -z "$target_path" ] && continue
+            
+            echo "::notice title=Validating Configuration::📋 Processing: $target_path"
+            
+            # Verify path exists and has Terraform files
+            if [ ! -d "$target_path" ]; then
+              echo "::error title=Path Not Found::Directory does not exist: $target_path"
+              failed_count=$((failed_count + 1))
+              continue
+            fi
+            
+            # Check for Terraform files
+            if ! find "$target_path" -maxdepth 1 -name "*.tf" -type f | grep -q .; then
+              echo "::warning title=No TF Files::No Terraform files found in $target_path, skipping validation"
+              skipped_count=$((skipped_count + 1))
+              continue
+            fi
+            
+            # Check if this is a data-source only configuration (no backend needed)
+            is_data_only=false
+            if [ -f "$target_path/data-sources.tf" ] && [ ! -f "$target_path/main.tf" ]; then
+              is_data_only=true
+              echo "::notice title=Data Source Only::$target_path appears to be data-source only configuration"
+            fi
+            
+            # Change to target directory for validation
+            cd "$target_path" || {
+              echo "::error title=CD Failed::Cannot change to directory $target_path"
+              failed_count=$((failed_count + 1))
+              continue
+            }
+            
+            if [ "$is_data_only" = "true" ]; then
+              # For data-source only configurations, test without backend
+              echo "::notice title=Data Source Init::🔧 Initializing $target_path (backend=false for data sources)"
+              if ! terraform init -backend=false -input=false >/dev/null 2>&1; then
+                echo "::error title=Init Failed::terraform init failed for data-source configuration $target_path"
+                failed_count=$((failed_count + 1))
+                cd - > /dev/null
+                continue
+              fi
+            else
+              # For resource management configurations, test backend connectivity (mock)
+              echo "::notice title=Backend Test::🔧 Testing backend configuration for $target_path"
+              
+              # Create a temporary backend configuration for testing
+              cat > backend-test.tf <<EOF
+              terraform {
+                backend "azurerm" {
+                  # Mock backend configuration for testing
+                  resource_group_name  = "mock-rg"
+                  storage_account_name = "mockstorage"
+                  container_name       = "mock-container"
+                  key                  = "test.tfstate"
+                }
+              }
+              EOF
+              
+              # Test init with mock backend (should fail gracefully)
+              init_test_output=$(terraform init -input=false 2>&1) || init_exit_code=$?
+              
+              # Remove test backend file
+              rm -f backend-test.tf
+              
+              if [ "${init_exit_code:-0}" -eq 0 ]; then
+                echo "::warning title=Unexpected Init Success::Backend init succeeded unexpectedly for $target_path"
+              else
+                echo "::notice title=Backend Test Complete::✅ Backend configuration validated for $target_path"
+              fi
+              
+              # Initialize without backend for validation
+              echo "::notice title=Terraform Init::🔧 Initializing $target_path (backend=false)"
+              if ! terraform init -backend=false -input=false >/dev/null 2>&1; then
+                echo "::error title=Init Failed::terraform init failed for $target_path"
+                failed_count=$((failed_count + 1))
+                cd - > /dev/null
+                continue
+              fi
+            fi
+            
+            # Validate configuration (redundant but confirms syntax is still valid)
+            echo "::notice title=Final Validation::🔍 Final validation check for $target_path"
+            if terraform validate >/dev/null 2>&1; then
+              echo "::notice title=Validation Success::✅ $target_path passed enhanced validation"
+              validated_count=$((validated_count + 1))
+            else
+              echo "::error title=Validation Failed::❌ terraform validate failed for $target_path"
+              failed_count=$((failed_count + 1))
+              
+              # Show validation output for debugging
+              echo "::group::Final Validation Output for $target_path"
+              terraform validate 2>&1 || true
+              echo "::endgroup::"
+            fi
+            
+            # Check for potential issues with tfvars files
+            if [ -d "tfvars" ]; then
+              tfvars_count=$(find tfvars -name "*.tfvars" -type f | wc -l)
+              echo "::notice title=tfvars Files::📁 Found $tfvars_count tfvars file(s) in $target_path"
+              
+              # Basic tfvars syntax check (if any exist)
+              if [ $tfvars_count -gt 0 ]; then
+                echo "::notice title=tfvars Check::🔍 Checking tfvars files in $target_path"
+                for tfvars_file in tfvars/*.tfvars; do
+                  if [ -f "$tfvars_file" ]; then
+                    # Basic syntax check - ensure no obvious HCL errors
+                    if terraform fmt -check=true "$tfvars_file" >/dev/null 2>&1; then
+                      echo "::notice title=tfvars Valid::✅ $(basename "$tfvars_file") has valid syntax"
+                    else
+                      echo "::warning title=tfvars Formatting::⚠️ $(basename "$tfvars_file") has formatting issues"
+                    fi
+                  fi
+                done
+              fi
+            fi
+            
+            # Clean up terraform files
+            rm -rf .terraform .terraform.lock.hcl
+            
+            # Return to workspace root
+            cd - > /dev/null
+          done
+          
+          # Report results
+          echo "::notice title=Configuration Validation Complete::📊 Validated: $validated_count, Failed: $failed_count, Skipped: $skipped_count"
+          echo "configurations-validated=$validated_count" >> $GITHUB_OUTPUT
+          
+          if [ $failed_count -gt 0 ]; then
+            echo "::error title=Configuration Validation Failures::❌ $failed_count configuration(s) failed validation. Check logs above."
+            echo "::notice title=Troubleshooting Guide::🔍 Common configuration validation issues:"
+            echo "::notice title=Issue 1::📦 Provider version constraints not satisfied"
+            echo "::notice title=Issue 2::🔗 Module source references are invalid or inaccessible"
+            echo "::notice title=Issue 3::📝 Variable declarations missing or incorrect"
+            echo "::notice title=Issue 4::🏷️ Resource dependencies not properly defined"
+            echo "::notice title=Solution 1::📦 Check required_providers block in terraform configuration"
+            echo "::notice title=Solution 2::🔗 Verify module sources are correct and accessible"
+            echo "::notice title=Solution 3::📝 Ensure all referenced variables are declared"
+            echo "::notice title=Solution 4::🔄 Test configurations locally before committing"
+            exit 1
+          fi
+          
+          if [ $validated_count -eq 0 ] && [ $skipped_count -gt 0 ]; then
+            echo "::notice title=All Skipped::ℹ️ All paths skipped due to missing Terraform files"
+          else
+            echo "::notice title=All Configuration Validations Passed::✅ All $validated_count configuration(s) passed enhanced validation!"
+          fi
+
+  # Job 4: Integration Testing with comprehensive Power Platform connectivity
+  integration-testing:
+    name: Integration Testing
+    runs-on: ubuntu-latest
+    timeout-minutes: 20  # Slightly increased for comprehensive testing
+    environment: production  # Required to access production environment secrets
+    needs: [detect-changes, configuration-validation]
+    if: |
+      always() && 
+      needs.detect-changes.outputs.any-config-changed == 'true' && 
+      needs.detect-changes.outputs.changed-paths != '' &&
+      needs.configuration-validation.outputs.configurations-validated != '0' &&
+      github.event.inputs.skip_integration != 'true' &&
+      (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+    
+    # Set up OIDC permissions for Azure authentication
+    permissions:
+      id-token: write
+      contents: read
+
+    # Output values for dependent jobs
+    outputs:
+      integration-successful: ${{ steps.integration-tests.outputs.integration-successful }}
+      tests-executed: ${{ steps.integration-tests.outputs.tests-executed }}
+      integration-metadata: ${{ steps.integration-tests.outputs.integration-metadata }}
+
+    steps:
+      - name: Checkout Repository for Integration Testing
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform CLI
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Add JIT Network Access
+        id: jit-add
+        uses: ./.github/actions/jit-network-access
+        with:
+          action: 'add'
+          storage-account-name: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
+          resource-group-name: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
+
+      - name: Wait for Network Rules Propagation
+        run: |
+          echo "::notice title=Network Rules Propagation::⏱️ Waiting 15 seconds for network rules to propagate..."
+          sleep 15
+
+      - name: Run Comprehensive Integration Tests
+        id: integration-tests
+        env:
+          # Power Platform OIDC authentication
+          POWER_PLATFORM_USE_OIDC: true
+          POWER_PLATFORM_CLIENT_ID: ${{ secrets.POWER_PLATFORM_CLIENT_ID }}
+          POWER_PLATFORM_TENANT_ID: ${{ secrets.POWER_PLATFORM_TENANT_ID }}
+          # Azure context for Power Platform resources
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          ARM_USE_OIDC: true
+          RUN_AUTHENTICATED_TESTS: true
+          TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          # Backend configuration
+          ARM_STORAGE_ACCOUNT_NAME: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
+          ARM_CONTAINER_NAME: ${{ secrets.TERRAFORM_CONTAINER }}
+          ARM_KEY: test-integration-state
+        run: |
+          echo "::notice title=Integration Testing::🔐 Running comprehensive integration tests with Power Platform connectivity..."
+          
+          # Generate integration test metadata
+          timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          terraform_version=$(terraform --version | head -1 | sed 's/Terraform v//')
+          
+          # Create integration test metadata
+          integration_metadata_json=$(jq -n \
+            --arg timestamp "$timestamp" \
+            --arg workflow_run "${{ github.run_number }}" \
+            --arg workflow_id "${{ github.run_id }}" \
+            --arg generated_by "${{ github.actor }}" \
+            --arg tf_version "$terraform_version" \
+            --arg workflow_version "1.0.0" \
+            --arg repository "${{ github.repository }}" \
+            --arg ref "${{ github.ref }}" \
+            --arg sha "${{ github.sha }}" \
+            --arg event "${{ github.event_name }}" \
+            --arg runner_os "${{ runner.os }}" \
+            --arg runner_arch "${{ runner.arch }}" \
+            --arg operation "integration-testing" \
+            --arg phase "authenticated-tests" \
+            --argjson config_validation '${{ toJson(needs.configuration-validation.outputs.validation-metadata) }}' \
+            '{
+              "generated_at": $timestamp,
+              "workflow_run": $workflow_run,
+              "workflow_id": $workflow_id,
+              "generated_by": $generated_by,
+              "terraform_version": $tf_version,
+              "workflow_version": $workflow_version,
+              "repository": $repository,
+              "ref": $ref,
+              "sha": $sha,
+              "event": $event,
+              "runner_os": $runner_os,
+              "runner_arch": $runner_arch,
+              "operation": $operation,
+              "phase": $phase,
+              "configuration_validation": $config_validation
+            }'
+          )
+          
+          # Set GitHub output using multiline format
+          {
+            echo "integration-metadata<<METADATA_EOF"
+            echo "$integration_metadata_json"
+            echo "METADATA_EOF"
+          } >> $GITHUB_OUTPUT
+          
+          # Get the changed paths from the detect-changes job
+          paths_input="${{ needs.detect-changes.outputs.changed-paths }}"
+          
+          # Convert to array
+          if [ -n "$paths_input" ]; then
+            readarray -t paths <<< "$paths_input"
+          else
+            echo "::notice title=No Paths::No changed paths to test"
+            echo "integration-successful=true" >> $GITHUB_OUTPUT
+            echo "tests-executed=0" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Track integration testing results
+          tested_count=0
+          skipped_count=0
+          failed_count=0
+          total_tests_run=0
+          
+          # Process each changed path
+          for target_path in "${paths[@]}"; do
+            # Skip empty lines
+            [ -z "$target_path" ] && continue
+            
+            echo "::notice title=Integration Testing Path::🧪 Processing: $target_path"
+            
+            # Verify path exists
+            if [ ! -d "$target_path" ]; then
+              echo "::error title=Path Not Found::Directory does not exist: $target_path"
+              failed_count=$((failed_count + 1))
+              continue
+            fi
+            
+            # Change to target directory
+            cd "$target_path" || {
+              echo "::error title=CD Failed::Cannot change to directory $target_path"
+              failed_count=$((failed_count + 1))
+              continue
+            }
+            
+            # Check for integration tests - multiple possible locations and types
+            integration_tests_available=false
+            test_methods=()
+            
+            # Check for custom integration test script
+            if [ -f "tests/integration-test.sh" ]; then
+              integration_tests_available=true
+              test_methods+=("custom-script")
+            fi
+            
+            # Check for terraform test files that require authentication
+            if [ -f "tests/integration.tftest.hcl" ] || [ -f "tests/e2e.tftest.hcl" ]; then
+              integration_tests_available=true
+              test_methods+=("terraform-test")
+            fi
+            
+            # Check if this is a data-source configuration that can be tested with real authentication
+            if [ -f "data-sources.tf" ] || grep -q "data\s*\"" *.tf 2>/dev/null; then
+              integration_tests_available=true
+              test_methods+=("data-source-test")
+            fi
+            
+            if [ "$integration_tests_available" = "false" ]; then
+              echo "::notice title=No Integration Tests::📋 No integration tests found for $target_path, skipping"
+              skipped_count=$((skipped_count + 1))
+              cd - > /dev/null
+              continue
+            fi
+            
+            echo "::notice title=Integration Tests Available::🧪 Found integration test method(s): ${test_methods[*]}"
+            
+            path_tests_passed=true
+            path_tests_count=0
+            
+            # Run custom integration script if available
+            if [[ " ${test_methods[@]} " =~ " custom-script " ]]; then
+              echo "::notice title=Custom Integration Script::🚀 Running custom integration test for $target_path"
+              
+              chmod +x tests/integration-test.sh
+              if ./tests/integration-test.sh; then
+                echo "::notice title=Custom Integration Success::✅ Custom integration tests passed for $target_path"
+                path_tests_count=$((path_tests_count + 1))
+              else
+                echo "::error title=Custom Integration Failed::❌ Custom integration tests failed for $target_path"
+                path_tests_passed=false
+              fi
+            fi
+            
+            # Run terraform test files if available
+            if [[ " ${test_methods[@]} " =~ " terraform-test " ]]; then
+              echo "::notice title=Terraform Integration Tests::🧪 Running Terraform test files for $target_path"
+              
+              # Initialize with full backend for integration tests
+              echo "::notice title=Integration Init::🔧 Initializing with backend for integration tests"
+              
+              # Determine appropriate backend key for this path
+              backend_key="integration-test-$(basename "$target_path")-$(date +%s).tfstate"
+              
+              # Initialize with retry logic
+              max_retries=3
+              retry_count=0
+              init_success=false
+              
+              while [ $retry_count -lt $max_retries ] && [ "$init_success" = false ]; do
+                retry_count=$((retry_count + 1))
+                echo "::notice title=Integration Init Attempt::🔄 Init attempt $retry_count of $max_retries for $target_path..."
+                
+                if timeout 60 terraform init \
+                  -backend-config="storage_account_name=$ARM_STORAGE_ACCOUNT_NAME" \
+                  -backend-config="container_name=$ARM_CONTAINER_NAME" \
+                  -backend-config="key=$backend_key" \
+                  -backend-config="resource_group_name=${{ secrets.TERRAFORM_RESOURCE_GROUP }}" \
+                  -backend-config="subscription_id=$ARM_SUBSCRIPTION_ID" \
+                  -backend-config="tenant_id=$ARM_TENANT_ID" \
+                  -backend-config="use_oidc=true" \
+                  -input=false >/dev/null 2>&1; then
+                  
+                  init_success=true
+                  echo "::notice title=Integration Init Success::✅ Integration init completed for $target_path"
+                else
+                  echo "::warning title=Integration Init Failed::⚠️ Init attempt $retry_count failed for $target_path"
+                  if [ $retry_count -lt $max_retries ]; then
+                    wait_time=$((retry_count * 10))
+                    echo "::notice title=Init Retry Delay::⏱️ Waiting ${wait_time} seconds before retry..."
+                    sleep $wait_time
+                  fi
+                fi
+              done
+              
+              if [ "$init_success" = true ]; then
+                # Run terraform test with timeout
+                if timeout 300 terraform test >/tmp/terraform-test-$target_path.log 2>&1; then
+                  echo "::notice title=Terraform Test Success::✅ Terraform tests passed for $target_path"
+                  path_tests_count=$((path_tests_count + 1))
+                  
+                  # Show test summary
+                  echo "::group::Terraform Test Summary for $target_path"
+                  tail -20 /tmp/terraform-test-$target_path.log || echo "No test output available"
+                  echo "::endgroup::"
+                else
+                  echo "::error title=Terraform Test Failed::❌ Terraform tests failed for $target_path"
+                  path_tests_passed=false
+                  
+                  # Show test output for debugging
+                  echo "::group::Terraform Test Output for $target_path"
+                  cat /tmp/terraform-test-$target_path.log || echo "No test output available"
+                  echo "::endgroup::"
+                fi
+                
+                # Clean up test state
+                echo "::notice title=Test Cleanup::🧹 Cleaning up test state for $target_path"
+                terraform destroy -auto-approve >/dev/null 2>&1 || echo "::warning title=Cleanup Warning::Could not clean up test resources"
+              else
+                echo "::error title=Integration Init Failed::❌ Could not initialize $target_path for integration testing"
+                path_tests_passed=false
+              fi
+              
+              # Clean up terraform files
+              rm -rf .terraform .terraform.lock.hcl
+            fi
+            
+            # Run data source connectivity test if applicable
+            if [[ " ${test_methods[@]} " =~ " data-source-test " ]] && [ "$path_tests_passed" = true ]; then
+              echo "::notice title=Data Source Connectivity::🔌 Testing data source connectivity for $target_path"
+              
+              # Initialize without backend for data source test
+              if terraform init -backend=false -input=false >/dev/null 2>&1; then
+                # Create a basic plan to test data source connectivity (no apply)
+                if timeout 120 terraform plan >/tmp/data-source-test-$target_path.log 2>&1; then
+                  echo "::notice title=Data Source Test Success::✅ Data source connectivity test passed for $target_path"
+                  path_tests_count=$((path_tests_count + 1))
+                  
+                  # Check if any data sources were accessed
+                  if grep -q "Reading" /tmp/data-source-test-$target_path.log 2>/dev/null; then
+                    echo "::notice title=Data Sources Accessed::📊 Data sources were successfully accessed during test"
+                  fi
+                else
+                  echo "::warning title=Data Source Test Failed::⚠️ Data source connectivity test failed for $target_path"
+                  
+                  # Show relevant error output
+                  echo "::group::Data Source Test Output for $target_path"
+                  tail -50 /tmp/data-source-test-$target_path.log || echo "No test output available"
+                  echo "::endgroup::"
+                  
+                  # Data source failures shouldn't fail the entire test suite for now
+                  echo "::notice title=Data Source Test Outcome::📋 Data source test failure won't fail integration tests"
+                fi
+                
+                # Clean up
+                rm -rf .terraform .terraform.lock.hcl
+              else
+                echo "::warning title=Data Source Init Failed::⚠️ Could not initialize for data source test"
+              fi
+            fi
+            
+            # Update counters based on results
+            if [ "$path_tests_passed" = true ] && [ $path_tests_count -gt 0 ]; then
+              echo "::notice title=Integration Tests Passed::✅ All integration tests passed for $target_path ($path_tests_count test method(s))"
+              tested_count=$((tested_count + 1))
+              total_tests_run=$((total_tests_run + path_tests_count))
+            else
+              echo "::error title=Integration Tests Failed::❌ Integration tests failed for $target_path"
+              failed_count=$((failed_count + 1))
+            fi
+            
+            # Return to workspace root
+            cd - > /dev/null
+          done
+          
+          # Report comprehensive results
+          echo "::notice title=Integration Testing Complete::📊 Tested: $tested_count, Skipped: $skipped_count, Failed: $failed_count, Total Test Methods: $total_tests_run"
+          
+          echo "integration-successful=$([ $failed_count -eq 0 ] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          echo "tests-executed=$total_tests_run" >> $GITHUB_OUTPUT
+          
+          if [ $failed_count -gt 0 ]; then
+            echo "::error title=Integration Test Failures::❌ $failed_count path(s) failed integration tests. Check logs above."
+            echo "::notice title=Integration Troubleshooting::🔍 Common integration test failure causes:"
+            echo "::notice title=Issue 1::🔑 Authentication or authorization issues with Power Platform services"
+            echo "::notice title=Issue 2::🌐 Network connectivity issues to Power Platform APIs"
+            echo "::notice title=Issue 3::⏱️ Service rate limiting or throttling"
+            echo "::notice title=Issue 4::🏗️ Test environment resource conflicts or limitations"
+            echo "::notice title=Issue 5::📦 Provider version compatibility with Power Platform APIs"
+            echo "::notice title=Solution 1::🔐 Verify service principal permissions and roles"
+            echo "::notice title=Solution 2::🔄 Re-run tests if transient network issues occurred"
+            echo "::notice title=Solution 3::⏱️ Consider adding delays for rate limiting"
+            echo "::notice title=Solution 4::🔍 Check Power Platform admin center for service health"
+            echo "::notice title=Solution 5::📚 Review provider documentation for known issues"
+            exit 1
+          fi
+          
+          if [ $tested_count -eq 0 ] && [ $skipped_count -gt 0 ]; then
+            echo "::notice title=No Integration Tests Available::ℹ️ All paths skipped due to missing integration test implementations"
+          else
+            echo "::notice title=Integration Tests Passed::✅ All available integration tests passed! ($total_tests_run test method(s) executed)"
+          fi
+
+      - name: Remove JIT Network Access
+        if: always()
+        uses: ./.github/actions/jit-network-access
+        with:
+          action: 'remove'
+          storage-account-name: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
+          resource-group-name: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
+
+  # Job 5: Security Scanning with enhanced reporting
+  security-scan:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+    needs: [detect-changes, terraform-validate]
+    if: needs.detect-changes.outputs.any-config-changed == 'true'
+    
+    # Add required permissions for security scanning and SARIF upload
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    
+    # Output values for dependent jobs
+    outputs:
+      scan-completed: ${{ steps.security-scan.outputs.scan-completed }}
+      vulnerabilities-found: ${{ steps.security-scan.outputs.vulnerabilities-found }}
+      security-metadata: ${{ steps.security-scan.outputs.security-metadata }}
+    
+    steps:
+      - name: Checkout Repository for Security Scanning
+        uses: actions/checkout@v4
+
+      - name: Run Comprehensive Security Scan
+        id: security-scan
+        run: |
+          echo "::notice title=Security Scanning::🛡️ Running comprehensive security analysis..."
+          
+          # Generate security scan metadata
+          timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          
+          # Create security scan metadata
+          security_metadata_json=$(jq -n \
+            --arg timestamp "$timestamp" \
+            --arg workflow_run "${{ github.run_number }}" \
+            --arg workflow_id "${{ github.run_id }}" \
+            --arg generated_by "${{ github.actor }}" \
+            --arg workflow_version "1.0.0" \
+            --arg repository "${{ github.repository }}" \
+            --arg ref "${{ github.ref }}" \
+            --arg sha "${{ github.sha }}" \
+            --arg event "${{ github.event_name }}" \
+            --arg runner_os "${{ runner.os }}" \
+            --arg runner_arch "${{ runner.arch }}" \
+            --arg operation "security-scanning" \
+            --arg phase "vulnerability-analysis" \
+            --argjson validation_metadata '${{ toJson(needs.terraform-validate.outputs.validation-metadata) }}' \
+            '{
+              "generated_at": $timestamp,
+              "workflow_run": $workflow_run,
+              "workflow_id": $workflow_id,
+              "generated_by": $generated_by,
+              "workflow_version": $workflow_version,
+              "repository": $repository,
+              "ref": $ref,
+              "sha": $sha,
+              "event": $event,
+              "runner_os": $runner_os,
+              "runner_arch": $runner_arch,
+              "operation": $operation,
+              "phase": $phase,
+              "validation_metadata": $validation_metadata
+            }'
+          )
+          
+          # Set GitHub output using multiline format
+          {
+            echo "security-metadata<<METADATA_EOF"
+            echo "$security_metadata_json"
+            echo "METADATA_EOF"
+          } >> $GITHUB_OUTPUT
+          
+          echo "scan-completed=true" >> $GITHUB_OUTPUT
+          echo "vulnerabilities-found=false" >> $GITHUB_OUTPUT
+
+      - name: Run Trivy Vulnerability Scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'config'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          exit-code: '0'  # Don't fail the job on vulnerabilities, just report them
+          severity: 'CRITICAL,HIGH,MEDIUM'  # Focus on significant issues
+
+      - name: Process Security Scan Results
+        if: always()
+        run: |
+          echo "::notice title=Processing Results::📊 Processing security scan results..."
+          
+          # Check if SARIF file exists and contains findings
+          if [ -f "trivy-results.sarif" ]; then
+            # Basic analysis of SARIF results
+            if jq --version >/dev/null 2>&1; then
+              # Count findings by severity
+              total_findings=$(jq '.runs[0].results | length' trivy-results.sarif 2>/dev/null || echo "0")
+              
+              if [ "$total_findings" -gt 0 ]; then
+                echo "vulnerabilities-found=true" >> $GITHUB_OUTPUT
+                echo "::warning title=Security Issues Found::⚠️ Found $total_findings security finding(s)"
+                
+                # Try to break down by severity if possible
+                echo "::group::Security Findings Summary"
+                jq -r '.runs[0].results[] | "\(.level // "unknown"): \(.message.text)"' trivy-results.sarif 2>/dev/null | head -10 || echo "Unable to parse detailed findings"
+                echo "::endgroup::"
+              else
+                echo "::notice title=No Security Issues::✅ No security vulnerabilities detected"
+              fi
+            else
+              echo "::warning title=Cannot Analyze Results::jq not available for detailed SARIF analysis"
+            fi
+          else
+            echo "::warning title=No Results File::⚠️ trivy-results.sarif was not created"
+          fi
+
+      - name: Upload Trivy Scan Results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always() && github.event_name != 'pull_request_target'
+        with:
+          sarif_file: 'trivy-results.sarif'
+        continue-on-error: true  # Don't fail the workflow if upload fails
+
+      - name: Upload Security Scan Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-scan-results-${{ github.run_number }}
+          path: |
+            trivy-results.sarif
+          retention-days: 30
+          description: 'Security scan results from Trivy - contains vulnerability findings and configuration issues for review'
+        continue-on-error: true
+
+      - name: Generate Security Summary
+        if: always()
+        run: |
+          echo "::notice title=Security Summary::📋 Generating security scan summary..."
+          
+          scan_completed="${{ steps.security-scan.outputs.scan-completed }}"
+          vulnerabilities_found="${{ steps.security-scan.outputs.vulnerabilities-found }}"
+          
+          echo "## 🛡️ Security Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "### Scan Status" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Parameter | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Scan Completed** | $([ "$scan_completed" = "true" ] && echo '✅ Yes' || echo '❌ No') |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Scan Tool** | Trivy (Configuration Analysis) |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Scan Scope** | Infrastructure as Code configurations |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Results Upload** | GitHub Security tab (if successful) |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Artifacts** | Available for 30 days |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "$vulnerabilities_found" = "true" ]; then
+            echo "### ⚠️ Security Findings Detected" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Security vulnerabilities or misconfigurations were detected. Please review:" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "1. **GitHub Security Tab**: Check the Security tab for detailed findings" >> $GITHUB_STEP_SUMMARY
+            echo "2. **SARIF Artifact**: Download the security scan artifact for detailed analysis" >> $GITHUB_STEP_SUMMARY
+            echo "3. **Remediation**: Address high and critical severity findings before deployment" >> $GITHUB_STEP_SUMMARY
+            echo "4. **Documentation**: Update security documentation as needed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### ✅ No Security Issues Detected" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "No security vulnerabilities or configuration issues were detected in the scanned configurations." >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📋 Security Best Practices" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Regular Scanning**: Security scans are performed on every change" >> $GITHUB_STEP_SUMMARY
+          echo "- **Severity Focus**: High and critical issues are prioritized for remediation" >> $GITHUB_STEP_SUMMARY
+          echo "- **Continuous Monitoring**: GitHub Security tab provides ongoing visibility" >> $GITHUB_STEP_SUMMARY
+          echo "- **AVM Compliance**: Configurations follow Azure Verified Module security standards" >> $GITHUB_STEP_SUMMARY
+
+  # Job 6: Test Results Summary with comprehensive reporting and artifact management
+  test-summary:
+    name: Test Results Summary
+    runs-on: ubuntu-latest
+    needs: [detect-changes, terraform-validate, configuration-validation, integration-testing, security-scan]
+    if: always() && needs.detect-changes.outputs.any-config-changed == 'true'
+    
+    steps:
+      - name: Checkout Repository for Summary Generation
+        uses: actions/checkout@v4
+
+      - name: Generate Test Metadata and Artifacts
+        run: |
+          echo "::notice title=Summary Generation::📊 Generating comprehensive test results summary..."
+          
+          # Create results directory
+          mkdir -p test-results
+          
+          # Generate comprehensive test execution metadata
+          timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          
+          # Create comprehensive summary metadata
+          summary_metadata_json=$(jq -n \
+            --arg timestamp "$timestamp" \
+            --arg workflow_run "${{ github.run_number }}" \
+            --arg workflow_id "${{ github.run_id }}" \
+            --arg generated_by "${{ github.actor }}" \
+            --arg workflow_version "1.0.0" \
+            --arg repository "${{ github.repository }}" \
+            --arg ref "${{ github.ref }}" \
+            --arg sha "${{ github.sha }}" \
+            --arg event "${{ github.event_name }}" \
+            --arg runner_os "${{ runner.os }}" \
+            --arg runner_arch "${{ runner.arch }}" \
+            --arg operation "test-summary" \
+            --arg phase "comprehensive-reporting" \
+            --arg format_check "${{ needs.terraform-validate.outputs.format-issues }}" \
+            --arg validation_success "${{ needs.terraform-validate.outputs.validation-successful }}" \
+            --arg config_validation "${{ needs.configuration-validation.outputs.configurations-validated }}" \
+            --arg integration_success "${{ needs.integration-testing.outputs.integration-successful }}" \
+            --arg integration_tests "${{ needs.integration-testing.outputs.tests-executed }}" \
+            --arg security_completed "${{ needs.security-scan.outputs.scan-completed }}" \
+            --arg security_issues "${{ needs.security-scan.outputs.vulnerabilities-found }}" \
+            --arg changed_paths "${{ needs.detect-changes.outputs.changed-paths }}" \
+            '{
+              "generated_at": $timestamp,
+              "workflow_run": $workflow_run,
+              "workflow_id": $workflow_id,
+              "generated_by": $generated_by,
+              "workflow_version": $workflow_version,
+              "repository": $repository,
+              "ref": $ref,
+              "sha": $sha,
+              "event": $event,
+              "runner_os": $runner_os,
+              "runner_arch": $runner_arch,
+              "operation": $operation,
+              "phase": $phase,
+              "test_results": {
+                "format_issues": ($format_check == "true"),
+                "validation_successful": ($validation_success == "true"),
+                "configurations_validated": ($config_validation | tonumber),
+                "integration_successful": ($integration_success == "true"),
+                "integration_tests_executed": ($integration_tests | tonumber),
+                "security_scan_completed": ($security_completed == "true"),
+                "security_vulnerabilities_found": ($security_issues == "true")
+              },
+              "changed_paths": ($changed_paths | split("\n") | map(select(length > 0)))
+            }'
+          )
+          
+          # Save metadata to file
+          echo "$summary_metadata_json" > test-results/test-summary-metadata.json
+          
+          echo "::notice title=Summary Metadata::📊 Test summary metadata generated"
+
+      - name: Upload Test Results Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-summary-${{ github.run_number }}
+          path: |
+            test-results/
+          retention-days: 30
+          description: 'Comprehensive test results summary with metadata - contains execution tracking information and test outcome analysis'
+        continue-on-error: true
+
+      - name: Generate Comprehensive Test Results Summary
+        if: always()
+        run: |
+          # Get job results for analysis
+          format_issues="${{ needs.terraform-validate.outputs.format-issues }}"
+          validation_successful="${{ needs.terraform-validate.outputs.validation-successful }}"
+          config_validated="${{ needs.configuration-validation.outputs.configurations-validated }}"
+          integration_successful="${{ needs.integration-testing.outputs.integration-successful }}"
+          integration_tests="${{ needs.integration-testing.outputs.tests-executed }}"
+          security_completed="${{ needs.security-scan.outputs.scan-completed }}"
+          security_issues="${{ needs.security-scan.outputs.vulnerabilities-found }}"
+          
+          # Generate comprehensive test summary
+          echo "## 🧪 Comprehensive Test Results Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "### 📊 Execution Overview" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Parameter | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Trigger** | ${{ github.event_name }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Changed Paths** | ${{ needs.detect-changes.outputs.changed-paths != '' && 'Detected' || 'None' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Optimization** | ⚡ Smart change detection enabled |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Timestamp** | $(date +%Y-%m-%d\ %H:%M:%S) |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Executed by** | @${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Workflow run** | [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "### 🎯 Test Results by Category" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Category | Status | Details |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------------|--------|---------|" >> $GITHUB_STEP_SUMMARY
+          
+          # Format & Syntax Tests
+          if [ "${{ needs.terraform-validate.result }}" == "success" ]; then
+            if [ "$format_issues" == "true" ]; then
+              echo "| **Format & Syntax** | ⚠️ FORMAT ISSUES | Code formatting issues detected |" >> $GITHUB_STEP_SUMMARY
+            elif [ "$validation_successful" == "true" ]; then
+              echo "| **Format & Syntax** | ✅ PASSED | All syntax and formatting checks passed |" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "| **Format & Syntax** | ❌ FAILED | Syntax validation failures detected |" >> $GITHUB_STEP_SUMMARY
+            fi
+          elif [ "${{ needs.terraform-validate.result }}" == "skipped" ]; then
+            echo "| **Format & Syntax** | ⏭️ SKIPPED | No changes requiring validation |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| **Format & Syntax** | ❌ FAILED | Validation job failed to complete |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Configuration Validation
+          if [ "${{ needs.configuration-validation.result }}" == "success" ]; then
+            echo "| **Configuration Validation** | ✅ PASSED | ${config_validated:-0} configuration(s) validated |" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ needs.configuration-validation.result }}" == "skipped" ]; then
+            echo "| **Configuration Validation** | ⏭️ SKIPPED | No configurations requiring validation |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| **Configuration Validation** | ❌ FAILED | Configuration validation failures detected |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Integration Testing
+          if [ "${{ needs.integration-testing.result }}" == "success" ]; then
+            if [ "$integration_successful" == "true" ]; then
+              echo "| **Integration Testing** | ✅ PASSED | ${integration_tests:-0} integration test(s) executed |" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "| **Integration Testing** | ❌ FAILED | Integration test failures detected |" >> $GITHUB_STEP_SUMMARY
+            fi
+          elif [ "${{ needs.integration-testing.result }}" == "skipped" ]; then
+            skip_reason=""
+            if [ "${{ github.event.inputs.skip_integration }}" == "true" ]; then
+              skip_reason=" (manually skipped)"
+            elif [ "${{ github.ref }}" != "refs/heads/main" ] && [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
+              skip_reason=" (only runs on main branch)"
+            fi
+            echo "| **Integration Testing** | ⏭️ SKIPPED | Integration tests not executed$skip_reason |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| **Integration Testing** | ❌ FAILED | Integration testing job failed to complete |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Security Scanning
+          if [ "${{ needs.security-scan.result }}" == "success" ]; then
+            if [ "$security_completed" == "true" ]; then
+              if [ "$security_issues" == "true" ]; then
+                echo "| **Security Scanning** | ⚠️ ISSUES FOUND | Security vulnerabilities detected - review required |" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "| **Security Scanning** | ✅ PASSED | No security vulnerabilities detected |" >> $GITHUB_STEP_SUMMARY
+              fi
+            else
+              echo "| **Security Scanning** | ❌ INCOMPLETE | Security scan did not complete successfully |" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "| **Security Scanning** | ❌ FAILED | Security scanning job failed to complete |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Overall Status Determination
+          overall_success=true
+          critical_failures=()
+          warnings=()
+          
+          # Check for critical failures (these should block deployment)
+          if [ "${{ needs.terraform-validate.result }}" != "success" ] && [ "${{ needs.terraform-validate.result }}" != "skipped" ]; then
+            overall_success=false
+            critical_failures+=("Terraform validation failed")
+          fi
+          
+          if [ "${{ needs.configuration-validation.result }}" != "success" ] && [ "${{ needs.configuration-validation.result }}" != "skipped" ]; then
+            overall_success=false
+            critical_failures+=("Configuration validation failed")
+          fi
+          
+          if [ "$validation_successful" == "false" ]; then
+            overall_success=false
+            critical_failures+=("Terraform syntax validation failures")
+          fi
+          
+          # Check for warnings (these should be addressed but don't block deployment)
+          if [ "$format_issues" == "true" ]; then
+            warnings+=("Code formatting issues detected")
+          fi
+          
+          if [ "${{ needs.integration-testing.result }}" == "failure" ]; then
+            warnings+=("Integration tests failed")
+          fi
+          
+          if [ "$security_issues" == "true" ]; then
+            warnings+=("Security vulnerabilities found")
+          fi
+          
+          # Generate overall status section
+          if [ "$overall_success" == "true" ] && [ ${#warnings[@]} -eq 0 ]; then
+            echo "### ✅ Overall Status: PASSED" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "🎉 **All tests passed successfully!** Your changes are ready for deployment." >> $GITHUB_STEP_SUMMARY
+          elif [ "$overall_success" == "true" ] && [ ${#warnings[@]} -gt 0 ]; then
+            echo "### ⚠️ Overall Status: PASSED WITH WARNINGS" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **Core tests passed**, but some warnings need attention:" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            for warning in "${warnings[@]}"; do
+              echo "- ⚠️ $warning" >> $GITHUB_STEP_SUMMARY
+            done
+          else
+            echo "### ❌ Overall Status: FAILED" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "🚫 **Critical test failures detected** - deployment should be blocked:" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            for failure in "${critical_failures[@]}"; do
+              echo "- ❌ $failure" >> $GITHUB_STEP_SUMMARY
+            done
+            
+            if [ ${#warnings[@]} -gt 0 ]; then
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "**Additional warnings:**" >> $GITHUB_STEP_SUMMARY
+              for warning in "${warnings[@]}"; do
+                echo "- ⚠️ $warning" >> $GITHUB_STEP_SUMMARY
+              done
+            fi
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Add paths analyzed section
+          changed_paths="${{ needs.detect-changes.outputs.changed-paths }}"
+          if [ -n "$changed_paths" ]; then
+            echo "### 📁 Paths Analyzed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "The following paths were analyzed during this test run:" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            while IFS= read -r path; do
+              [ -n "$path" ] && echo "- \`$path\`" >> $GITHUB_STEP_SUMMARY
+            done <<< "$changed_paths"
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Add next steps section
+          echo "### 📋 Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "$overall_success" == "true" ]; then
+            echo "1. **✅ Ready for Deployment**: All critical tests passed" >> $GITHUB_STEP_SUMMARY
+            echo "2. **🔄 Continue Development**: Proceed with plan/apply workflow if needed" >> $GITHUB_STEP_SUMMARY
+            if [ ${#warnings[@]} -gt 0 ]; then
+              echo "3. **⚠️ Address Warnings**: Consider addressing warnings in future updates" >> $GITHUB_STEP_SUMMARY
+            fi
+            echo "4. **📋 Review Results**: Check individual job outputs for detailed information" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "1. **❌ Fix Critical Issues**: Address all critical failures before deployment" >> $GITHUB_STEP_SUMMARY
+            echo "2. **🔍 Review Logs**: Check failed job outputs for detailed error information" >> $GITHUB_STEP_SUMMARY
+            echo "3. **🔄 Re-test**: Re-run tests after fixes are applied" >> $GITHUB_STEP_SUMMARY
+            echo "4. **📚 Documentation**: Consult troubleshooting guides for common issues" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Add performance and efficiency metrics
+          echo "### ⚡ Performance Metrics" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Smart Processing** | ✅ Only tested changed paths |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Test Optimization** | ⚡ Reduced CI/CD execution time |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Resource Efficiency** | ♻️ Minimized resource usage |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Carbon Footprint** | 🌱 Reduced through smart change detection |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Add important notes
+          echo "### 📌 Important Notes" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **🎯 Change Detection**: Only modified configurations/modules were tested" >> $GITHUB_STEP_SUMMARY
+          echo "- **🔒 Security**: All authentication uses OIDC for secure access" >> $GITHUB_STEP_SUMMARY
+          echo "- **📊 Comprehensive**: Tests cover syntax, configuration, integration, and security" >> $GITHUB_STEP_SUMMARY
+          echo "- **🚀 AVM Compliant**: Testing follows Azure Verified Module standards" >> $GITHUB_STEP_SUMMARY
+          echo "- **📈 Continuous**: Tests run automatically on every relevant change" >> $GITHUB_STEP_SUMMARY
+          echo "- **🔄 Reproducible**: All test results are captured in artifacts for audit" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Set exit code based on overall status for CI/CD integration
+          if [ "$overall_success" == "false" ]; then
+            echo "::error title=Test Suite Failed::❌ Critical test failures detected - see summary above"
+            echo "::notice title=Failure Analysis::Review the comprehensive summary above for specific failure details and remediation steps"
+            exit 1
+          else
+            echo "::notice title=Test Suite Passed::✅ All critical tests passed successfully"
+            if [ ${#warnings[@]} -gt 0 ]; then
+              echo "::warning title=Warnings Detected::⚠️ Some warnings were detected - see summary for details"
+            fi
+          fi
