@@ -218,25 +218,25 @@ jobs:
         
         # Create comprehensive metadata object for output operation
         output_metadata_json=$(cat <<EOF
-          {
-            "generated_at": "$current_timestamp",
-            "workflow_run": "${{ github.run_number }}",
-            "workflow_id": "${{ github.run_id }}",
-            "generated_by": "${{ github.actor }}",
-            "terraform_version": "$terraform_version",
-            "workflow_version": "1.0.0",
-            "configuration": "$config",
-            "repository": "${{ github.repository }}",
-            "ref": "${{ github.ref }}",
-            "sha": "${{ github.sha }}",
-            "event": "${{ github.event_name }}",
-            "runner_os": "${{ runner.os }}",
-            "runner_arch": "${{ runner.arch }}",
-            "operation": "output",
-            "export_format": "$export_format",
-            "include_metadata": $include_metadata
-          }
-          EOF
+{
+  "generated_at": "$current_timestamp",
+  "workflow_run": "${{ github.run_number }}",
+  "workflow_id": "${{ github.run_id }}",
+  "generated_by": "${{ github.actor }}",
+  "terraform_version": "$terraform_version",
+  "workflow_version": "1.0.0",
+  "configuration": "$config",
+  "repository": "${{ github.repository }}",
+  "ref": "${{ github.ref }}",
+  "sha": "${{ github.sha }}",
+  "event": "${{ github.event_name }}",
+  "runner_os": "${{ runner.os }}",
+  "runner_arch": "${{ runner.arch }}",
+  "operation": "output",
+  "export_format": "$export_format",
+  "include_metadata": $include_metadata
+}
+EOF
         )
         
         echo "output-metadata<<EOF" >> $GITHUB_OUTPUT
