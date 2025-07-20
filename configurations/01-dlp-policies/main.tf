@@ -11,8 +11,6 @@
 # - Security-First: Sensitive data properly marked and segregated
 # - Migration Ready: Structured output for analysis and migration planning
 
-# Test docs generation
-
 terraform {
   required_version = ">= 1.5.0"
   required_providers {
