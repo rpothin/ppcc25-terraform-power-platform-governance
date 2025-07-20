@@ -1,0 +1,381 @@
+# Terraform Documentation Generation Workflow for Power Platform Governance
+# This workflow automatically generates and maintains up-to-date Terraform documentation
+# using terraform-docs for all configurations and modules in the repository
+# Follows AVM standards and ensures consistent documentation formatting
+
+name: Generate Terraform Docs
+
+# Trigger: Pull requests and pushes that modify Terraform files
+# Also supports manual dispatch for ad-hoc documentation generation
+on:
+  pull_request:
+    paths:
+      - 'modules/**/*.tf'
+      - 'modules/**/.terraform-docs.yml'
+      - 'modules/**/_header.md'
+      - 'modules/**/_footer.md'
+      - 'configurations/**/*.tf'
+      - 'configurations/**/.terraform-docs.yml'
+      - 'configurations/**/_header.md'
+      - 'configurations/**/_footer.md'
+  push:
+    branches: [main]
+    paths:
+      - 'modules/**/*.tf'
+      - 'modules/**/.terraform-docs.yml'
+      - 'modules/**/_header.md'
+      - 'modules/**/_footer.md'
+      - 'configurations/**/*.tf'
+      - 'configurations/**/.terraform-docs.yml'
+      - 'configurations/**/_header.md'
+      - 'configurations/**/_footer.md'
+
+# Dynamic run name that shows what triggered the documentation generation
+run-name: 📚 Generate Terraform Docs${{ github.event.inputs.target_path && format(' for {0}', github.event.inputs.target_path) || '' }} by @${{ github.actor }}
+
+# Required permissions for committing documentation updates
+permissions:
+  contents: write     # Required for repository checkout and committing generated docs
+  pull-requests: write # Required for commenting on PRs with documentation status
+
+# No workflow-level environment variables needed - this is a documentation-only workflow
+
+jobs:
+  # Job: Generate Documentation
+  # Scans for Terraform configurations and generates documentation using terraform-docs
+  # Commits updates back to the repository following AVM standards
+  terraform-docs:
+    runs-on: ubuntu-latest
+    name: Generate terraform-docs
+
+    steps:
+    # Step 1: Checkout repository code
+    - name: Checkout Repository for Documentation
+      uses: actions/checkout@v4
+      with:
+        # For pull requests, checkout the head branch to enable commits
+        ref: ${{ github.event.pull_request.head.ref || github.ref }}
+        # Use a token that can push to protected branches
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    # Step 2: Validate workflow inputs and scan for configurations
+    - name: Scan for Terraform Configurations
+      id: scan
+      run: |
+        echo "::notice title=Scanning Repository::Looking for Terraform configurations..."
+        
+        # Initialize arrays to store paths
+        configurations=()
+        modules=()
+        
+        # Function to check if directory has terraform-docs config
+        has_terraform_docs_config() {
+          local dir="$1"
+          [ -f "$dir/.terraform-docs.yml" ] || [ -f "$dir/.terraform-docs.yaml" ]
+        }
+        
+        # Function to check if directory has Terraform files
+        has_terraform_files() {
+          local dir="$1"
+          find "$dir" -maxdepth 1 -name "*.tf" -type f | grep -q .
+        }
+        
+        # Check for specific target path if provided
+        if [ -n "${{ github.event.inputs.target_path }}" ]; then
+          target_path="${{ github.event.inputs.target_path }}"
+          echo "::notice title=Target Path Specified::Checking specific path: $target_path"
+          
+          if [ ! -d "$target_path" ]; then
+            echo "::error title=Target Path Not Found::Specified path '$target_path' does not exist"
+            exit 1
+          fi
+          
+          if has_terraform_docs_config "$target_path" && has_terraform_files "$target_path"; then
+            echo "paths=$target_path" >> $GITHUB_OUTPUT
+            echo "::notice title=Target Found::Documentation will be generated for: $target_path"
+          else
+            echo "::error title=Invalid Target::Path '$target_path' missing .terraform-docs.yml or .tf files"
+            exit 1
+          fi
+        else
+          # Scan for all configurations with terraform-docs config
+          echo "::notice title=Scanning All Paths::Scanning configurations/ and modules/ directories..."
+          
+          # Scan configurations directory
+          if [ -d "configurations" ]; then
+            for config_dir in configurations/*/; do
+              if [ -d "$config_dir" ] && has_terraform_docs_config "$config_dir" && has_terraform_files "$config_dir"; then
+                configurations+=("$config_dir")
+                echo "::notice title=Configuration Found::$config_dir"
+              fi
+            done
+          fi
+          
+          # Scan modules directory
+          if [ -d "modules" ]; then
+            for module_dir in modules/*/; do
+              if [ -d "$module_dir" ] && has_terraform_docs_config "$module_dir" && has_terraform_files "$module_dir"; then
+                modules+=("$module_dir")
+                echo "::notice title=Module Found::$module_dir"
+              fi
+            done
+          fi
+          
+          # Combine all paths
+          all_paths=("${configurations[@]}" "${modules[@]}")
+          
+          if [ ${#all_paths[@]} -eq 0 ]; then
+            echo "::warning title=No Paths Found::No directories with both .terraform-docs.yml and .tf files found"
+            echo "paths=" >> $GITHUB_OUTPUT
+          else
+            # Join array elements with newline for multiline output
+            printf -v joined '%s\n' "${all_paths[@]}"
+            {
+              echo "paths<<PATHS_EOF"
+              echo "$joined"
+              echo "PATHS_EOF"
+            } >> $GITHUB_OUTPUT
+            echo "::notice title=Scan Complete::Found ${#all_paths[@]} path(s) for documentation generation"
+          fi
+        fi
+
+    # Step 3: Generate documentation for each discovered path
+    - name: Generate Documentation for Configurations
+      if: steps.scan.outputs.paths != ''
+      run: |
+        echo "::notice title=Documentation Generation::Starting terraform-docs generation..."
+        
+        # Track generation results
+        generated_count=0
+        failed_count=0
+        
+        # Read paths (handle both single path and multiline format)
+        paths_input="${{ steps.scan.outputs.paths }}"
+        
+        # Convert to array
+        if [ -n "$paths_input" ]; then
+          # Handle both single path and multiline input
+          readarray -t paths <<< "$paths_input"
+        else
+          echo "::warning title=No Paths::No paths to process for documentation generation"
+          exit 0
+        fi
+        
+        # Process each path
+        for target_path in "${paths[@]}"; do
+          # Skip empty lines
+          [ -z "$target_path" ] && continue
+          
+          echo "::notice title=Processing Path::Generating documentation for: $target_path"
+          
+          # Change to target directory
+          if ! cd "$target_path"; then
+            echo "::error title=Directory Error::Failed to change to directory: $target_path"
+            failed_count=$((failed_count + 1))
+            continue
+          fi
+          
+          # Determine configuration file
+          config_file=""
+          if [ -f ".terraform-docs.yml" ]; then
+            config_file=".terraform-docs.yml"
+          elif [ -f ".terraform-docs.yaml" ]; then
+            config_file=".terraform-docs.yaml"
+          else
+            echo "::error title=Config Missing::No terraform-docs configuration found in $target_path"
+            cd - > /dev/null
+            failed_count=$((failed_count + 1))
+            continue
+          fi
+          
+          # Generate documentation using terraform-docs action (more reliable)
+          echo "::notice title=Generating Docs::Running terraform-docs for $target_path..."
+          
+          # Go back to repository root for the action
+          cd - > /dev/null
+          
+          # Use the terraform-docs GitHub Action for reliable generation
+          if docker run --rm \
+            --volume "$(pwd):/terraform-docs" \
+            --workdir "/terraform-docs/$target_path" \
+            quay.io/terraform-docs/terraform-docs:0.20.0 \
+            -c "$config_file" .; then
+            
+            echo "::notice title=Generation Success::✅ Documentation generated successfully for $target_path"
+            generated_count=$((generated_count + 1))
+          else
+            echo "::error title=Generation Failed::❌ terraform-docs failed for $target_path"
+            failed_count=$((failed_count + 1))
+          fi
+        done
+        
+        # Report results
+        echo "::notice title=Generation Complete::📊 Generated: $generated_count, Failed: $failed_count"
+        
+        if [ $failed_count -gt 0 ]; then
+          echo "::error title=Generation Failures::Some documentation generation failed. Check logs above."
+          exit 1
+        fi
+
+    # Step 4: Check for documentation changes and commit if necessary
+    - name: Check for Documentation Changes
+      id: changes
+      run: |
+        echo "::notice title=Change Detection::Checking for documentation changes..."
+        
+        # Configure git for the action
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        
+        # Check if there are any changes
+        if git diff --quiet; then
+          echo "::notice title=No Changes::No documentation changes detected"
+          echo "has_changes=false" >> $GITHUB_OUTPUT
+        else
+          echo "::notice title=Changes Detected::Documentation changes found"
+          echo "has_changes=true" >> $GITHUB_OUTPUT
+          
+          # Show what files changed
+          echo "::group::Changed Files"
+          git diff --name-only
+          echo "::endgroup::"
+        fi
+
+    # Step 5: Commit documentation changes
+    - name: Commit Documentation Updates
+      if: steps.changes.outputs.has_changes == 'true'
+      run: |
+        echo "::notice title=Committing Changes::Committing updated documentation..."
+        
+        # Add all README.md changes
+        git add -A
+        
+        # Create detailed commit message
+        commit_message="docs: update terraform documentation
+        
+        Auto-generated by terraform-docs GitHub Action
+        
+        Updated documentation for:
+        $(git diff --cached --name-only | sed 's/^/- /')
+        
+        Workflow: ${{ github.workflow }}
+        Run: ${{ github.run_number }}
+        Triggered by: ${{ github.actor }}
+        Event: ${{ github.event_name }}"
+        
+        # Commit changes
+        git commit -m "$commit_message"
+        
+        # Push changes back to the branch
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          # For pull requests, push to the head branch
+          git push origin "${{ github.event.pull_request.head.ref }}"
+          echo "::notice title=Pushed to PR::✅ Documentation committed to pull request branch"
+        else
+          # For push events, push to the current branch
+          git push origin "${{ github.ref_name }}"
+          echo "::notice title=Pushed to Branch::✅ Documentation committed to branch ${{ github.ref_name }}"
+        fi
+
+    # Step 6: Add PR comment with documentation status (for pull requests only)
+    - name: Comment on Pull Request
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const hasChanges = '${{ steps.changes.outputs.has_changes }}' === 'true';
+          
+          let commentBody;
+          if (hasChanges) {
+            commentBody = `## 📚 Terraform Documentation Updated
+            
+            The terraform-docs workflow has automatically updated the documentation for this pull request.
+            
+            ### Changes Made
+            - Documentation regenerated using terraform-docs
+            - README files updated with latest Terraform configuration details
+            - Changes committed automatically to this PR branch
+            
+            ### Next Steps
+            Please review the documentation changes in the **Files changed** tab to ensure they look correct.
+            
+            ---
+            *This comment was generated automatically by the terraform-docs workflow.*`;
+          } else {
+            commentBody = `## 📚 Terraform Documentation Status
+            
+            The terraform-docs workflow has completed successfully with no changes needed.
+            
+            ### Status
+            ✅ All documentation is up-to-date
+            
+            ---
+            *This comment was generated automatically by the terraform-docs workflow.*`;
+          }
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: commentBody
+          });
+
+    # Step 7: Generate workflow summary
+    - name: Generate Workflow Summary
+      if: always()
+      run: |
+        # Generate comprehensive workflow summary
+        echo "## 📚 Terraform Documentation Generation Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Execution Details" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Parameter | Value |" >> $GITHUB_STEP_SUMMARY
+        echo "|-----------|-------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Trigger | ${{ github.event_name }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Target Path | ${{ github.event.inputs.target_path || 'All configurations and modules' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Timestamp | $(date +%Y-%m-%d\ %H:%M:%S) |" >> $GITHUB_STEP_SUMMARY
+        echo "| Executed by | @${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Workflow run | [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Status section
+        has_changes="${{ steps.changes.outputs.has_changes }}"
+        if [ "$has_changes" = "true" ]; then
+          echo "### ✅ Documentation Updated" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Detail | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Status** | Documentation Changes Committed |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Action Taken** | README files updated and committed |" >> $GITHUB_STEP_SUMMARY
+          echo "| **terraform-docs Version** | 0.20.0 |" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "### 🆗 Documentation Current" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Detail | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Status** | No Changes Needed |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Current State** | All documentation is up-to-date |" >> $GITHUB_STEP_SUMMARY
+        fi
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Next steps
+        echo "### 📋 Next Steps" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        if [ "$has_changes" = "true" ]; then
+          echo "1. **Review Changes**: Check the committed documentation updates" >> $GITHUB_STEP_SUMMARY
+          echo "2. **Verify Content**: Ensure generated content is accurate and complete" >> $GITHUB_STEP_SUMMARY
+          echo "3. **Continue Development**: Documentation is now current for your changes" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "1. **No Action Required**: Documentation is current and consistent" >> $GITHUB_STEP_SUMMARY
+          echo "2. **Continue Development**: All documentation requirements are met" >> $GITHUB_STEP_SUMMARY
+        fi
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Important notes
+        echo "### 📌 Important Notes" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "- **Automation**: Documentation is automatically maintained by terraform-docs" >> $GITHUB_STEP_SUMMARY
+        echo "- **AVM Compliance**: Documentation follows Azure Verified Module standards" >> $GITHUB_STEP_SUMMARY
+        echo "- **Configuration**: Each path uses its own .terraform-docs.yml configuration" >> $GITHUB_STEP_SUMMARY
+        echo "- **Maintenance**: Documentation updates are committed automatically" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY

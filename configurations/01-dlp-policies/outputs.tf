@@ -19,18 +19,18 @@ output "dlp_policies" {
     policy_count = length(data.powerplatform_data_loss_prevention_policies.current.policies)
     policies = [for policy in data.powerplatform_data_loss_prevention_policies.current.policies : {
       # Core policy metadata
-      id                                 = policy.id
-      display_name                       = policy.display_name
-      environment_type                   = policy.environment_type
-      environments                       = toset(policy.environments)
+      id                                = policy.id
+      display_name                      = policy.display_name
+      environment_type                  = policy.environment_type
+      environments                      = toset(policy.environments)
       default_connectors_classification = policy.default_connectors_classification
-      
+
       # Audit information
-      created_by           = policy.created_by
-      created_time         = policy.created_time
-      last_modified_by     = policy.last_modified_by
-      last_modified_time   = policy.last_modified_time
-      
+      created_by         = policy.created_by
+      created_time       = policy.created_time
+      last_modified_by   = policy.last_modified_by
+      last_modified_time = policy.last_modified_time
+
       # Business connectors (sensitive data connectors)
       business_connectors = [for conn in policy.business_connectors : {
         id                           = conn.id
@@ -38,7 +38,7 @@ output "dlp_policies" {
         action_rules_count           = length(conn.action_rules)
         endpoint_rules_count         = length(conn.endpoint_rules)
       }]
-      
+
       # Non-business connectors (general data connectors)
       non_business_connectors = [for conn in policy.non_business_connectors : {
         id                           = conn.id
@@ -46,7 +46,7 @@ output "dlp_policies" {
         action_rules_count           = length(conn.action_rules)
         endpoint_rules_count         = length(conn.endpoint_rules)
       }]
-      
+
       # Blocked connectors (prohibited connectors)
       blocked_connectors = [for conn in policy.blocked_connectors : {
         id                           = conn.id
@@ -54,14 +54,14 @@ output "dlp_policies" {
         action_rules_count           = length(conn.action_rules)
         endpoint_rules_count         = length(conn.endpoint_rules)
       }]
-      
+
       # Custom connector patterns (critical for custom connector policies)
       custom_connectors_patterns = [for pattern in policy.custom_connectors_patterns : {
         data_group       = pattern.data_group
         host_url_pattern = pattern.host_url_pattern
-        order           = pattern.order
+        order            = pattern.order
       }]
-      
+
       # Summary counts for quick analysis and validation
       connector_summary = {
         business_count        = length(policy.business_connectors)
@@ -95,10 +95,10 @@ output "dlp_policies_detailed_rules" {
     policies_with_detailed_rules = [for policy in data.powerplatform_data_loss_prevention_policies.current.policies : {
       policy_id   = policy.id
       policy_name = policy.display_name
-      
+
       # Complete business connector rules
       business_connectors_detailed = [for conn in policy.business_connectors : {
-        connector_id = conn.id
+        connector_id                 = conn.id
         default_action_rule_behavior = conn.default_action_rule_behavior
         action_rules = [for rule in conn.action_rules : {
           action_id = rule.action_id
@@ -110,10 +110,10 @@ output "dlp_policies_detailed_rules" {
           order    = rule.order
         }]
       }]
-      
+
       # Complete non-business connector rules
       non_business_connectors_detailed = [for conn in policy.non_business_connectors : {
-        connector_id = conn.id
+        connector_id                 = conn.id
         default_action_rule_behavior = conn.default_action_rule_behavior
         action_rules = [for rule in conn.action_rules : {
           action_id = rule.action_id
@@ -125,10 +125,10 @@ output "dlp_policies_detailed_rules" {
           order    = rule.order
         }]
       }]
-      
+
       # Complete blocked connector rules
       blocked_connectors_detailed = [for conn in policy.blocked_connectors : {
-        connector_id = conn.id
+        connector_id                 = conn.id
         default_action_rule_behavior = conn.default_action_rule_behavior
         action_rules = [for rule in conn.action_rules : {
           action_id = rule.action_id
