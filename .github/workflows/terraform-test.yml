@@ -784,8 +784,8 @@ jobs:
             
             echo "::notice title=Found Integration Test::Found tests/integration.tftest.hcl in $target_path"
             
-            # Detect if this is a hello world test (no powerplatform provider)
-            if ! grep -q "powerplatform" main.tf; then
+            # Detect if this is a hello world test (no uncommented powerplatform provider)
+            if ! grep -q "^[[:space:]]*[^#]*powerplatform" main.tf; then
               echo "::notice title=Hello World Test Detected::Running hello world terraform test (no backend)..."
               
               # Initialize without backend for hello world tests
