@@ -89,6 +89,10 @@ To be considered AVM compliant, Terraform configurations must meet both **Functi
   - `azapi`: `>= 2.0, < 3.0`
 - **MUST** use `required_providers` block with pessimistic version constraints (`~>`)
 
+{{% notice style="warning" title="POWER PLATFORM EXCEPTION" %}}
+**Exception**: Power Platform configurations in this project use the `microsoft/power-platform` provider due to resource availability constraints. See [Power Platform Provider Exception](../explanations/power-platform-provider-exception.md) for detailed justification and compliance strategy.
+{{% /notice %}}
+
 ### Key Non-Functional Requirements
 
 #### Documentation Requirements
@@ -162,6 +166,19 @@ To verify Terraform module AVM compliance:
 4. **Test Shared Requirements:** Confirm SFR compliance
 5. **Verify Documentation:** Ensure auto-generated docs and proper descriptions
 6. **Check Repository Setup:** Validate branch protection and CODEOWNERS
+
+### Power Platform Hybrid Compliance
+
+For Power Platform modules in this project, use the **AVM-Inspired Compliance Model**:
+
+**Maximum Achievable Compliance**: 85% (7/8 major requirements)
+
+**Verification Checklist**:
+- [ ] **Provider Exception Documented**: Exception justification exists and is current
+- [ ] **Alternative Providers Evaluated**: azurerm/azapi feasibility assessed
+- [ ] **AVM Patterns Applied**: Structure, naming, and standards followed where possible
+- [ ] **Quality Standards Maintained**: Testing, documentation, and governance equivalent to AVM
+- [ ] **Future Transition Plan**: Roadmap for full compliance when technically feasible
 
 ## Resources
 
