@@ -17,8 +17,46 @@ echo -e "${YELLOW}Test 1: Configuration initialization and validation${NC}"
 # Test current configuration directory (we're already in the right place)
 echo "Testing configuration in: $(pwd)"
 
-# Initialize configuration (may require backend config)
-if [ "$RUN_AUTHENTICATED_TESTS" = "true" ] && [ -n "$ARM_CLIENT_ID" ]; then
+# Check if this is a hello world test (no Power Platform provider)
+if ! grep -q "powerplatform" main.tf; then
+    echo "Detected Hello World configuration - running simplified tests..."
+    
+    # For hello world, always use local backend
+    echo "Running Hello World tests with local backend..."
+    
+    # Create a temporary test configuration without backend for hello world testing
+    echo "Creating temporary hello world test configuration..."
+    mkdir -p /tmp/hello-world-test-config
+    cp *.tf /tmp/hello-world-test-config/ 2>/dev/null || true
+    
+    # Remove backend configuration for hello world testing
+    cd /tmp/hello-world-test-config
+    sed '/backend "azurerm"/,/}/d' main.tf > main-no-backend.tf
+    mv main-no-backend.tf main.tf
+    
+    # Initialize and validate hello world configuration
+    if terraform init > /tmp/init-hello-world.log 2>&1; then
+        test_status "Terraform Init (Hello World)" 0
+        
+        # Validate hello world configuration
+        if terraform validate > /tmp/validate-hello-world.log 2>&1; then
+            test_status "Terraform Validate (Hello World)" 0
+        else
+            test_status "Terraform Validate (Hello World)" 1
+            echo "Hello world validation log:"
+            cat /tmp/validate-hello-world.log
+        fi
+    else
+        test_status "Terraform Init (Hello World)" 1
+        echo "Hello world init log:"
+        cat /tmp/init-hello-world.log
+    fi
+    
+    # Return to original directory
+    ORIGINAL_CONFIG_DIR="$( cd "$SCRIPT_DIR/.." &> /dev/null && pwd )"
+    cd "$ORIGINAL_CONFIG_DIR"
+    
+elif [ "$RUN_AUTHENTICATED_TESTS" = "true" ] && [ -n "$ARM_CLIENT_ID" ]; then
     echo "Testing with full backend configuration..."
     if terraform init > /tmp/init.log 2>&1; then
         test_status "Terraform Init (Full Config)" 0
@@ -84,8 +122,25 @@ fi
 # Test 3: Unit tests execution
 echo -e "\n${YELLOW}Test 3: Unit tests execution${NC}"
 
-# Unit tests require authentication with Power Platform provider
-if [ "$RUN_AUTHENTICATED_TESTS" = "true" ] && check_auth_requirements; then
+# Check if this is a hello world test
+if ! grep -q "powerplatform" main.tf; then
+    echo "Hello World configuration detected - running terraform test directly..."
+    
+    # For hello world, run terraform test with local backend (no external dependencies)
+    cd /tmp/hello-world-test-config
+    if terraform test ../../../tests/integration.tftest.hcl > /tmp/hello-world-test.log 2>&1; then
+        test_status "Hello World Tests" 0
+    else
+        test_status "Hello World Tests" 1
+        echo "Hello world test log:"
+        cat /tmp/hello-world-test.log
+    fi
+    
+    # Return to original directory
+    ORIGINAL_CONFIG_DIR="$( cd "$SCRIPT_DIR/.." &> /dev/null && pwd )"
+    cd "$ORIGINAL_CONFIG_DIR"
+    
+elif [ "$RUN_AUTHENTICATED_TESTS" = "true" ] && check_auth_requirements; then
     echo "Running unit tests with authentication..."
     # Initialize providers for testing (without backend)
     if terraform init -backend=false > /tmp/init-for-tests.log 2>&1; then
@@ -110,8 +165,11 @@ fi
 # Test 4: Configuration-specific tests
 echo -e "\n${YELLOW}Test 4: Configuration-specific integration tests${NC}"
 
-# Run configuration integration tests (may require authentication)
-if [ "$RUN_AUTHENTICATED_TESTS" = "true" ]; then
+# Check if this is a hello world test
+if ! grep -q "powerplatform" main.tf; then
+    echo "Hello World configuration - integration tests already run in Test 3"
+    echo -e "${GREEN}✅ Integration Tests: COMPLETED (Hello World)${NC}"
+elif [ "$RUN_AUTHENTICATED_TESTS" = "true" ]; then
     echo "Running authenticated integration tests..."
     echo "Note: This may take 2-5 minutes for large Power Platform tenants..."
     
@@ -140,7 +198,28 @@ fi
 
 # Test 5: Plan execution (requires authentication)
 echo -e "\n${YELLOW}Test 5: Plan execution${NC}"
-if [ "$RUN_AUTHENTICATED_TESTS" = "true" ]; then
+
+# Check if this is a hello world test
+if ! grep -q "powerplatform" main.tf; then
+    echo "Hello World configuration - running simple plan execution..."
+    
+    # For hello world, run plan in the temp directory (no backend)
+    cd /tmp/hello-world-test-config
+    if terraform plan -out=hello-world.tfplan > /tmp/hello-world-plan.log 2>&1; then
+        test_status "Terraform Plan (Hello World)" 0
+        # Clean up plan file
+        rm -f hello-world.tfplan
+    else
+        test_status "Terraform Plan (Hello World)" 1
+        echo "Hello world plan log:"
+        cat /tmp/hello-world-plan.log
+    fi
+    
+    # Return to original directory
+    ORIGINAL_CONFIG_DIR="$( cd "$SCRIPT_DIR/.." &> /dev/null && pwd )"
+    cd "$ORIGINAL_CONFIG_DIR"
+    
+elif [ "$RUN_AUTHENTICATED_TESTS" = "true" ]; then
     echo "Running plan execution test..."
     echo "Note: Plan execution may take 2-5 minutes for large Power Platform tenants..."
     
