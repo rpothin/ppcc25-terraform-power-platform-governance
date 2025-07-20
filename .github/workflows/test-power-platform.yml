@@ -85,8 +85,10 @@ jobs:
 
       - name: Install terraform-docs
         run: |
-          wget https://github.com/terraform-docs/terraform-docs/releases/latest/download/terraform-docs-v0.17.0-linux-amd64.tar.gz
-          tar -xzf terraform-docs-v0.17.0-linux-amd64.tar.gz
+          # Get the latest release version dynamically
+          LATEST_VERSION=$(curl -s https://api.github.com/repos/terraform-docs/terraform-docs/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+          wget "https://github.com/terraform-docs/terraform-docs/releases/download/${LATEST_VERSION}/terraform-docs-${LATEST_VERSION}-linux-amd64.tar.gz"
+          tar -xzf "terraform-docs-${LATEST_VERSION}-linux-amd64.tar.gz"
           sudo mv terraform-docs /usr/local/bin/
           terraform-docs version
 
@@ -174,8 +176,10 @@ jobs:
 
       - name: Install terraform-docs
         run: |
-          wget https://github.com/terraform-docs/terraform-docs/releases/latest/download/terraform-docs-v0.17.0-linux-amd64.tar.gz
-          tar -xzf terraform-docs-v0.17.0-linux-amd64.tar.gz
+          # Get the latest release version dynamically
+          LATEST_VERSION=$(curl -s https://api.github.com/repos/terraform-docs/terraform-docs/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+          wget "https://github.com/terraform-docs/terraform-docs/releases/download/${LATEST_VERSION}/terraform-docs-${LATEST_VERSION}-linux-amd64.tar.gz"
+          tar -xzf "terraform-docs-${LATEST_VERSION}-linux-amd64.tar.gz"
           sudo mv terraform-docs /usr/local/bin/
 
       - name: Run Authenticated Tests
@@ -234,8 +238,10 @@ jobs:
 
       - name: Install terraform-docs
         run: |
-          wget https://github.com/terraform-docs/terraform-docs/releases/latest/download/terraform-docs-v0.17.0-linux-amd64.tar.gz
-          tar -xzf terraform-docs-v0.17.0-linux-amd64.tar.gz
+          # Get the latest release version dynamically
+          LATEST_VERSION=$(curl -s https://api.github.com/repos/terraform-docs/terraform-docs/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+          wget "https://github.com/terraform-docs/terraform-docs/releases/download/${LATEST_VERSION}/terraform-docs-${LATEST_VERSION}-linux-amd64.tar.gz"
+          tar -xzf "terraform-docs-${LATEST_VERSION}-linux-amd64.tar.gz"
           sudo mv terraform-docs /usr/local/bin/
 
       - name: Check terraform-docs is up to date (DLP Policies)
