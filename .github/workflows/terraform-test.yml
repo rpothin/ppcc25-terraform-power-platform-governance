@@ -38,7 +38,7 @@ run-name: 🧪 Test Terraform${{ github.event.inputs.target_path && format(' for
 
 # Environment variables for consistent Terraform behavior
 env:
-  TF_VERSION: '1.9.8'  # Use modern version with stable terraform test support (requires 1.7+)
+  TF_VERSION: ${{ vars.TERRAFORM_VERSION || '1.12.2' }}  # Use repository variable with fallback
   TF_IN_AUTOMATION: true
 
 jobs:
@@ -59,7 +59,7 @@ jobs:
 
       - name: Detect File Changes
         id: changes
-        uses: dorny/paths-filter@v2
+        uses: dorny/paths-filter@v3.0.2
         with:
           filters: |
             configurations:
@@ -516,7 +516,7 @@ jobs:
           echo "vulnerabilities-found=false" >> $GITHUB_OUTPUT
 
       - name: Run Trivy Vulnerability Scanner
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.29.0
         with:
           scan-type: 'config'
           scan-ref: '.'

@@ -49,7 +49,7 @@ This document provides a detailed, prioritized action plan to improve the GitHub
 ```
 
 **Validation**:
-- [ ] Version pinned to specific release
+- [x] Version pinned to specific release ✅ **COMPLETED**
 - [ ] Test workflow execution
 - [ ] Document version in inventory
 
@@ -77,10 +77,18 @@ This document provides a detailed, prioritized action plan to improve the GitHub
 - Most workflows: `terraform_version: 1.5.0`
 - `terraform-test.yml`: `TF_VERSION: '1.9.8'`
 
-**Recommended Decision**: Standardize on `1.9.8`
+**Recommended Decision**: Use GitHub Actions Repository Variable `TERRAFORM_VERSION`
+- Centralized version management across all workflows
+- Easy to update without modifying workflow files
+- Latest stable version with all modern features
 - Supports modern `terraform test` functionality
 - Better error messages and performance
-- Long-term support alignment
+- Latest security updates and bug fixes
+
+**Implementation Strategy**:
+1. Create repository variable `TERRAFORM_VERSION` with value `1.12.2`
+2. Update all workflows to use `${{ vars.TERRAFORM_VERSION }}`
+3. Update setup scripts to create the repository variable
 
 **Implementation**:
 
@@ -89,16 +97,16 @@ This document provides a detailed, prioritized action plan to improve the GitHub
 - name: Setup Terraform CLI
   uses: hashicorp/setup-terraform@v3
   with:
-    terraform_version: 1.9.8  # ✅ Consistent across all workflows
+    terraform_version: ${{ vars.TERRAFORM_VERSION }}  # ✅ Repository variable
     terraform_wrapper: false
 ```
 
 **Files to Update**:
-- [ ] `terraform-destroy.yml`
-- [ ] `terraform-import.yml`
-- [ ] `terraform-output.yml`
-- [ ] `terraform-plan-apply.yml`
-- [ ] `terraform-docs.yml` (if used)
+- [x] `terraform-destroy.yml` ✅ **COMPLETED**
+- [x] `terraform-import.yml` ✅ **COMPLETED**
+- [x] `terraform-output.yml` ✅ **COMPLETED**
+- [x] `terraform-plan-apply.yml` ✅ **COMPLETED**
+- [x] `terraform-docs.yml` ✅ **COMPLETED** (not used but checked)
 
 ### 1.3 Standardize State File Naming Convention
 
@@ -976,7 +984,7 @@ on:
       terraform-version:
         description: 'Terraform version to use'
         required: false
-        default: '1.9.8'
+        default: '${{ vars.TERRAFORM_VERSION || "1.12.2" }}'
         type: string
       changed-paths:
         description: 'Paths to validate'
@@ -1020,10 +1028,10 @@ jobs:
 ## 🎯 Implementation Checklist
 
 ### Week 1: Critical Issues
-- [ ] **Pin Trivy action version** (Action 1.1.1)
-- [ ] **Update outdated actions** (Action 1.1.2)  
+- [x] **Pin Trivy action version** (Action 1.1.1) ✅ **COMPLETED**
+- [x] **Update outdated actions** (Action 1.1.2) ✅ **COMPLETED**
+- [x] **Standardize Terraform versions** (Action 1.2.1) ✅ **COMPLETED**
 - [ ] **Standardize state file naming** (Action 1.3.1)
-- [ ] **Standardize Terraform versions** (Action 1.2.1)
 - [ ] **Add concurrency controls** (Action 1.4.1)
 - [ ] **Create terraform-init-with-backend action** (Action 2.1.1)
 - [ ] **Test new composite action and state naming** 

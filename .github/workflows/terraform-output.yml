@@ -1,5 +1,9 @@
 # Terraform Output Workflow for Power Platform Governance
-# This workflow executes a Terraform configuration with data sources and exports the output to JSON
+# This workflow executes a Terraform configuration with data sou    - name: Setup Terraform CLI for Output Generation
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ vars.TERRAFORM_VERSION || '1.12.2' }}
+        terraform_wrapper: false    # Disable wrapper for better JSON output handlingand exports the output to JSON
 # Designed for migration scenarios to understand current Power Platform state
 # It includes validation, safety checks, and comprehensive output processing
 

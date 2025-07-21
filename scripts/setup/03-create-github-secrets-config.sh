@@ -70,6 +70,35 @@ create_github_secrets() {
     cleanup_vars SECRETS
 }
 
+# Function to create GitHub repository variables
+create_github_variables() {
+    print_status "Creating GitHub repository variables..."
+    
+    local github_repository="$GITHUB_OWNER/$GITHUB_REPO"
+    
+    # Array of repository variables to create
+    declare -A VARIABLES=(
+        ["TERRAFORM_VERSION"]="1.12.2"
+    )
+    
+    # Create each repository variable
+    for variable_name in "${!VARIABLES[@]}"; do
+        variable_value="${VARIABLES[$variable_name]}"
+        
+        print_status "Creating repository variable: $variable_name"
+        
+        # Create or update the variable using GitHub CLI
+        if gh variable set "$variable_name" --body "$variable_value" --repo "$github_repository"; then
+            print_success "✓ Repository variable $variable_name created successfully"
+        else
+            print_error "✗ Failed to create repository variable $variable_name"
+            exit 1
+        fi
+    done
+    
+    print_success "Repository variables created successfully"
+}
+
 # Note: Using verify_github_secrets from utility functions
 
 # Note: Using create_github_environment from utility functions
@@ -91,6 +120,9 @@ output_instructions() {
     print_status "  ✓ TERRAFORM_STORAGE_ACCOUNT"
     print_status "  ✓ TERRAFORM_CONTAINER"
     print_status ""
+    print_status "Created Repository Variables:"
+    print_status "  ✓ TERRAFORM_VERSION (1.12.2)"
+    print_status ""
     print_status "Configuration Summary:"
     print_status "  • GitHub Repository: $GITHUB_OWNER/$GITHUB_REPO"
     print_status "  • Environment: production"
@@ -104,6 +136,11 @@ output_instructions() {
     print_status "3. Run the 'Terraform Plan and Apply' workflow"
     print_status "4. Select your desired configuration and tfvars file"
     print_status "5. Ensure your workflow uses environment: production"
+    print_status ""
+    print_status "To update Terraform version:"
+    print_status "1. Go to: https://github.com/$GITHUB_OWNER/$GITHUB_REPO/settings/variables/actions"
+    print_status "2. Update TERRAFORM_VERSION repository variable"
+    print_status "3. All workflows will automatically use the new version"
     print_status ""
     print_status "Repository Setup is now complete!"
 }
@@ -171,6 +208,9 @@ main() {
     
     # Create GitHub secrets in the production environment
     create_github_secrets
+    
+    # Create GitHub repository variables
+    create_github_variables
     
     # Verify secrets were created
     REQUIRED_SECRETS=(

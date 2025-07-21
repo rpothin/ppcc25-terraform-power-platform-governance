@@ -135,6 +135,62 @@ remove_secrets() {
     print_success "Environment secrets cleanup completed successfully"
 }
 
+# Function to remove GitHub repository variables
+remove_repository_variables() {
+    print_status "Removing repository variables..."
+    
+    local github_repository="$GITHUB_OWNER/$GITHUB_REPO"
+    
+    # Array of repository variables to remove
+    VARIABLES_TO_REMOVE=(
+        "TERRAFORM_VERSION"
+    )
+    
+    # Track removal results
+    VARIABLES_REMOVED_COUNT=0
+    VARIABLES_NOT_FOUND_COUNT=0
+    VARIABLES_FAILED_COUNT=0
+    
+    # Remove each repository variable
+    for variable_name in "${VARIABLES_TO_REMOVE[@]}"; do
+        print_status "Removing repository variable: $variable_name"
+        
+        # Check if variable exists first
+        if gh variable list --repo "$github_repository" --json name --jq '.[].name' | grep -q "^$variable_name$" 2>/dev/null; then
+            # Variable exists, try to delete it
+            if gh variable delete "$variable_name" --repo "$github_repository" 2>/dev/null; then
+                print_success "✓ Repository variable $variable_name removed successfully"
+                ((VARIABLES_REMOVED_COUNT++))
+            else
+                print_error "✗ Failed to remove repository variable $variable_name"
+                ((VARIABLES_FAILED_COUNT++))
+            fi
+        else
+            print_warning "⚠ Repository variable $variable_name not found"
+            ((VARIABLES_NOT_FOUND_COUNT++))
+        fi
+    done
+    
+    # Summary
+    print_status ""
+    print_status "Repository Variables Cleanup Summary:"
+    print_status "  ✓ Successfully removed: $VARIABLES_REMOVED_COUNT repository variables"
+    if [[ $VARIABLES_NOT_FOUND_COUNT -gt 0 ]]; then
+        print_status "  ⚠ Not found: $VARIABLES_NOT_FOUND_COUNT repository variables"
+    fi
+    if [[ $VARIABLES_FAILED_COUNT -gt 0 ]]; then
+        print_status "  ✗ Failed to remove: $VARIABLES_FAILED_COUNT repository variables"
+        print_warning "Some repository variables could not be removed, but continuing with cleanup"
+    fi
+    
+    if [[ $VARIABLES_REMOVED_COUNT -eq 0 && $VARIABLES_NOT_FOUND_COUNT -eq ${#VARIABLES_TO_REMOVE[@]} ]]; then
+        print_warning "No repository variables were found to remove"
+        return 0
+    fi
+    
+    print_success "Repository variables cleanup completed successfully"
+}
+
 # Function to verify secrets were removed
 verify_removal() {
     print_status "Verifying environment secrets were removed..."
@@ -219,6 +275,9 @@ output_instructions() {
     print_status "  ✓ TERRAFORM_STORAGE_ACCOUNT"
     print_status "  ✓ TERRAFORM_CONTAINER"
     print_status ""
+    print_status "Removed Repository Variables:"
+    print_status "  ✓ TERRAFORM_VERSION"
+    print_status ""
     print_status "Repository: $GITHUB_OWNER/$GITHUB_REPO"
     print_status ""
     print_status "SECURITY NOTICE: All Power Platform Terraform secrets have been"
@@ -295,10 +354,13 @@ main() {
     if list_existing_secrets; then
         remove_secrets
         verify_removal
+        remove_repository_variables
         remove_github_environment
         output_instructions
     else
         print_success "No secrets found to remove"
+        # Still try to clean up repository variables
+        remove_repository_variables
     fi
     
     print_success "Cleanup script completed successfully!"

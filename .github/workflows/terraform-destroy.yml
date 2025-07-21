@@ -113,7 +113,7 @@ jobs:
     - name: Setup Terraform CLI for Validation
       uses: hashicorp/setup-terraform@v3
       with:
-        terraform_version: 1.5.0
+        terraform_version: ${{ vars.TERRAFORM_VERSION || '1.12.2' }}
         terraform_wrapper: false    # Disable wrapper for better output handling
     
     # Step 6: Validate inputs and configuration
@@ -478,7 +478,7 @@ jobs:
     - name: Setup Terraform CLI for Destruction
       uses: hashicorp/setup-terraform@v3
       with:
-        terraform_version: 1.5.0
+        terraform_version: ${{ vars.TERRAFORM_VERSION || '1.12.2' }}
         terraform_wrapper: false
     
     # Step 6: Download the destroy plan created in validation job

@@ -68,7 +68,7 @@ jobs:
 
       - name: Detect File Changes
         id: changes
-        uses: dorny/paths-filter@v2
+        uses: dorny/paths-filter@v3.0.2
         with:
           filters: |
             configurations:

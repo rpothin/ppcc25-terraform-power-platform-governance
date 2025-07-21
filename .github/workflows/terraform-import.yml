@@ -162,7 +162,7 @@ jobs:
     - name: Setup Terraform CLI for Import
       uses: hashicorp/setup-terraform@v3
       with:
-        terraform_version: 1.5.0
+        terraform_version: ${{ vars.TERRAFORM_VERSION || '1.12.2' }}
         terraform_wrapper: false    # Disable wrapper for better output handling
     
     # Step 6: Validate configuration and tfvars file existence
