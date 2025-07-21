@@ -38,7 +38,7 @@ run-name: 🧪 Test Terraform${{ github.event.inputs.target_path && format(' for
 
 # Environment variables for consistent Terraform behavior
 env:
-  TF_VERSION: '1.5.0'  # Use exact version for consistency across workflows
+  TF_VERSION: '1.9.8'  # Use modern version with stable terraform test support (requires 1.7+)
   TF_IN_AUTOMATION: true
 
 jobs:
@@ -701,37 +701,22 @@ jobs:
               echo "Running terraform test to see what tests are discovered:"
               terraform test 2>&1 || test_exit_code=$?
               echo "Test exit code: ${test_exit_code:-0}"
-              echo ""
-              echo "Also trying to run with explicit test file filter:"
-              terraform test -filter=tests/integration.tftest.hcl 2>&1 || test_filter_exit_code=$?
-              echo "Test filter exit code: ${test_filter_exit_code:-0}"
               echo "::endgroup::"
               
               # Set test-specific environment for safer testing
               export TF_VAR_test_mode="true"
               export TF_VAR_expected_minimum_policies=0  # Allow for empty test tenants
               
-              # Try multiple approaches to run the tests
-              final_exit_code=0
-              
-              # Approach 1: Default test execution
+              # Execute the integration tests
               if [ "${test_exit_code:-0}" -eq 0 ]; then
-                echo "::notice title=Test Success (Default)::✅ terraform test passed using default discovery"
-                tested_count=$((tested_count + 1))
-              elif [ "${test_filter_exit_code:-0}" -eq 0 ]; then
-                echo "::notice title=Test Success (Filtered)::✅ terraform test passed using explicit filter"
+                echo "::notice title=Test Success::✅ terraform test passed"
                 tested_count=$((tested_count + 1))
               else
                 echo "::error title=Test Failed::❌ terraform test failed for $target_path"
                 echo "::group::Test Output for $target_path"
-                echo "=== Default test output ==="
                 terraform test 2>&1 || true
-                echo ""
-                echo "=== Filtered test output ==="
-                terraform test -filter=tests/integration.tftest.hcl 2>&1 || true
                 echo "::endgroup::"
                 failed_count=$((failed_count + 1))
-                final_exit_code=1
               fi
             else
               echo "::error title=Init Failed::terraform init failed for $target_path"
