@@ -351,14 +351,14 @@ jobs:
         git config user.name "GitHub Actions"
         git config user.email "actions@github.com"
         
-        # Determine the expected output filename (matching Step 10 logic)
+        # Determine the expected output filename (matching Step 11 logic)
         if [ "$export_format" = "yaml" ]; then
           expected_file="configurations/$config/terraform-output.yaml"
         else
           expected_file="configurations/$config/terraform-output.json"
         fi
         
-        # Add the specific output file (trusting Step 9 validation)
+        # Add the specific output file (trusting Step 11 validation)
         echo "::notice title=Adding File::Adding $expected_file to git"
         git add "$expected_file"
         
