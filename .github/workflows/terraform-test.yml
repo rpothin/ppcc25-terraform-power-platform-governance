@@ -607,11 +607,11 @@ jobs:
           ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           ARM_USE_OIDC: true
-          RUN_AUTHENTICATED_TESTS: false
-          TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
           ARM_STORAGE_ACCOUNT_NAME: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
           ARM_CONTAINER_NAME: ${{ secrets.TERRAFORM_CONTAINER }}
+          ARM_RESOURCE_GROUP_NAME: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
           ARM_KEY: test-integration-state
+          TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
         run: |
           echo "::notice title=Integration Testing::🧪 Running terraform test for changed configurations..."
           
@@ -658,7 +658,10 @@ jobs:
             
             # Initialize with proper backend configuration for integration testing
             echo "::notice title=Terraform Init::🔧 Initializing with backend for integration tests..."
+            echo "::notice title=Backend Config::Storage Account: $ARM_STORAGE_ACCOUNT_NAME, Container: $ARM_CONTAINER_NAME, Key: $ARM_KEY"
+            
             if terraform init -input=false; then
+              echo "::notice title=Backend Success::✅ Backend initialized successfully"
               echo "::notice title=Running Integration Test::Executing terraform test with authentication..."
               
               # Set test-specific environment for safer testing
