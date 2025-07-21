@@ -21,8 +21,8 @@ run "test_framework_validation" {
   command = plan
 
   assert {
-    condition = true
-    error_message = "This basic assertion should always pass - framework test"
+    condition     = can(data.powerplatform_data_loss_prevention_policies.current)
+    error_message = "This basic assertion validates that the data source can be referenced - framework test"
   }
 }
 
@@ -31,12 +31,12 @@ run "data_source_basic_functionality" {
   command = plan
 
   assert {
-    condition = can(data.powerplatform_data_loss_prevention_policies.current.policies)
+    condition     = can(data.powerplatform_data_loss_prevention_policies.current.policies)
     error_message = "DLP policies data source should be accessible and return a policies attribute"
   }
 
   assert {
-    condition = data.powerplatform_data_loss_prevention_policies.current != null
+    condition     = data.powerplatform_data_loss_prevention_policies.current != null
     error_message = "DLP policies data source should not be null"
   }
 }
@@ -46,22 +46,22 @@ run "output_structure_validation" {
   command = plan
 
   assert {
-    condition = can(output.dlp_policies.policy_count)
+    condition     = can(output.dlp_policies.policy_count)
     error_message = "dlp_policies output should contain policy_count attribute"
   }
 
   assert {
-    condition = can(output.dlp_policies.policies)
+    condition     = can(output.dlp_policies.policies)
     error_message = "dlp_policies output should contain policies array"
   }
 
   assert {
-    condition = output.dlp_policies.policy_count >= 0
+    condition     = output.dlp_policies.policy_count >= 0
     error_message = "Policy count should be a non-negative integer"
   }
 
   assert {
-    condition = length(output.dlp_policies.policies) == output.dlp_policies.policy_count
+    condition     = length(output.dlp_policies.policies) == output.dlp_policies.policy_count
     error_message = "Policy count should match the length of policies array"
   }
 }
@@ -73,12 +73,12 @@ run "policy_structure_validation" {
   # Skip this test if no policies exist
   assert {
     condition = output.dlp_policies.policy_count == 0 || (
-      output.dlp_policies.policy_count > 0 && 
+      output.dlp_policies.policy_count > 0 &&
       alltrue([
-        for policy in output.dlp_policies.policies : 
-        can(policy.id) && 
-        can(policy.display_name) && 
-        can(policy.environment_type) && 
+        for policy in output.dlp_policies.policies :
+        can(policy.id) &&
+        can(policy.display_name) &&
+        can(policy.environment_type) &&
         can(policy.environments)
       ])
     )
@@ -179,8 +179,8 @@ run "summary_counts_validation" {
       policy.connector_summary.blocked_count == length(policy.blocked_connectors) &&
       policy.connector_summary.custom_patterns_count == length(policy.custom_connectors_patterns) &&
       policy.connector_summary.total_connectors == (
-        policy.connector_summary.business_count + 
-        policy.connector_summary.non_business_count + 
+        policy.connector_summary.business_count +
+        policy.connector_summary.non_business_count +
         policy.connector_summary.blocked_count
       )
     ])
@@ -238,12 +238,12 @@ run "sensitive_output_validation" {
   command = plan
 
   assert {
-    condition = can(output.dlp_policies_detailed_rules)
+    condition     = can(output.dlp_policies_detailed_rules)
     error_message = "dlp_policies_detailed_rules output should be available"
   }
 
   assert {
-    condition = can(output.dlp_policies_detailed_rules.policies_with_detailed_rules)
+    condition     = can(output.dlp_policies_detailed_rules.policies_with_detailed_rules)
     error_message = "dlp_policies_detailed_rules should contain policies_with_detailed_rules array"
   }
 
@@ -276,7 +276,7 @@ run "provider_configuration_validation" {
   command = plan
 
   assert {
-    condition = data.powerplatform_data_loss_prevention_policies.current != null
+    condition     = data.powerplatform_data_loss_prevention_policies.current != null
     error_message = "Power Platform provider should be properly configured and authenticated"
   }
 }
@@ -288,7 +288,7 @@ run "plan_execution_validation" {
   # Just validate that we can execute the plan successfully
   # If the plan fails, the run block itself will fail
   assert {
-    condition = data.powerplatform_data_loss_prevention_policies.current != null
+    condition     = data.powerplatform_data_loss_prevention_policies.current != null
     error_message = "Power Platform provider should be properly configured and data source accessible"
   }
 }
