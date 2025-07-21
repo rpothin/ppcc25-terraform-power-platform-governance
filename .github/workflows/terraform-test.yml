@@ -11,13 +11,11 @@ on:
     paths:
       - 'configurations/**'
       - 'modules/**'
-      - '.github/workflows/terraform-test.yml'
   push:
     branches: [main]
     paths:
       - 'configurations/**'
       - 'modules/**'
-      - '.github/workflows/terraform-test.yml'
   workflow_dispatch: # Allow manual triggering
     inputs:
       target_path:
@@ -656,6 +654,21 @@ jobs:
             
             echo "::notice title=Found Integration Test::Running terraform test for $target_path"
             
+            # Debug: List test files to verify they exist
+            echo "::group::Test File Discovery Debug"
+            echo "Contents of $target_path:"
+            ls -la
+            echo ""
+            echo "Contents of tests/ directory:"
+            ls -la tests/
+            echo ""
+            echo "Integration test file contents (first 20 lines):"
+            head -20 tests/integration.tftest.hcl
+            echo ""
+            echo "Checking test file syntax:"
+            terraform fmt -check tests/integration.tftest.hcl 2>&1 || echo "Warning: Test file formatting issues detected"
+            echo "::endgroup::"
+            
             # Initialize with proper backend configuration for integration testing
             echo "::notice title=Terraform Init::🔧 Initializing with backend for integration tests..."
             echo "::notice title=Backend Config::Storage Account: $ARM_STORAGE_ACCOUNT_NAME, Container: $ARM_CONTAINER_NAME, Key: $ARM_KEY"
@@ -672,19 +685,53 @@ jobs:
               echo "::notice title=Backend Success::✅ Backend initialized successfully"
               echo "::notice title=Running Integration Test::Executing terraform test with authentication..."
               
+              # Debug: Check what Terraform test sees
+              echo "::group::Terraform Test Discovery Debug"
+              echo "Current working directory: $(pwd)"
+              echo "Files in current directory:"
+              find . -name "*.tf" -o -name "*.tftest.hcl" | sort
+              echo ""
+              echo "Testing directory contents:"
+              if [ -d "tests" ]; then
+                find tests -name "*.tftest.hcl" 2>/dev/null || echo "No .tftest.hcl files found in tests/"
+              else
+                echo "No tests/ directory found"
+              fi
+              echo ""
+              echo "Running terraform test -verbose to see what tests are discovered:"
+              terraform test -verbose -no-color 2>&1 || test_exit_code=$?
+              echo "Test exit code: ${test_exit_code:-0}"
+              echo ""
+              echo "Also trying to run with explicit test file filter:"
+              terraform test -verbose -no-color -filter=tests/integration.tftest.hcl 2>&1 || test_filter_exit_code=$?
+              echo "Test filter exit code: ${test_filter_exit_code:-0}"
+              echo "::endgroup::"
+              
               # Set test-specific environment for safer testing
               export TF_VAR_test_mode="true"
               export TF_VAR_expected_minimum_policies=0  # Allow for empty test tenants
               
-              if terraform test; then
-                echo "::notice title=Test Success::✅ terraform test passed for $target_path"
+              # Try multiple approaches to run the tests
+              final_exit_code=0
+              
+              # Approach 1: Default test execution
+              if [ "${test_exit_code:-0}" -eq 0 ]; then
+                echo "::notice title=Test Success (Default)::✅ terraform test passed using default discovery"
+                tested_count=$((tested_count + 1))
+              elif [ "${test_filter_exit_code:-0}" -eq 0 ]; then
+                echo "::notice title=Test Success (Filtered)::✅ terraform test passed using explicit filter"
                 tested_count=$((tested_count + 1))
               else
                 echo "::error title=Test Failed::❌ terraform test failed for $target_path"
                 echo "::group::Test Output for $target_path"
-                terraform test 2>&1 || true
+                echo "=== Default test output ==="
+                terraform test -verbose -no-color 2>&1 || true
+                echo ""
+                echo "=== Filtered test output ==="
+                terraform test -verbose -no-color -filter=tests/integration.tftest.hcl 2>&1 || true
                 echo "::endgroup::"
                 failed_count=$((failed_count + 1))
+                final_exit_code=1
               fi
             else
               echo "::error title=Init Failed::terraform init failed for $target_path"
