@@ -128,22 +128,22 @@
 run "hello_world_test" {
   command = plan
 
-  # Test basic Terraform plan generation
+  # Test that we can access local values
   assert {
-    condition     = true
-    error_message = "Basic test should always pass"
+    condition     = local.test_message == "Hello, World!"
+    error_message = "Local test_message should be accessible"
   }
 
-  # Test that we can evaluate simple expressions
+  # Test that we can evaluate expressions with local values
   assert {
-    condition     = 1 + 1 == 2
-    error_message = "Basic arithmetic should work"
+    condition     = local.test_number == 42
+    error_message = "Local test_number should be 42"
   }
 
-  # Test string operations
+  # Test that we can access list length
   assert {
-    condition     = "hello" == "hello"
-    error_message = "String comparison should work"
+    condition     = length(local.test_list) == 3
+    error_message = "Local test_list should have 3 items"
   }
 }
 
@@ -177,13 +177,7 @@ run "test_local_values" {
 run "test_terraform_configuration" {
   command = plan
 
-  # Test that Terraform version requirement works
-  assert {
-    condition     = true
-    error_message = "Terraform version validation should pass"
-  }
-
-  # Test that we can access terraform workspace
+  # Test that we can access terraform workspace in configuration
   assert {
     condition     = terraform.workspace != null
     error_message = "Terraform workspace should be accessible"
