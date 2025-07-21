@@ -88,7 +88,7 @@ runs:
             echo "::notice title=Quick Fix::🔄 Try re-running the workflow for transient issues"
             echo "::notice title=Check List::📝 1. JIT network access active, 2. Storage account accessible, 3. OIDC authentication valid"
             ;;
-          "terraform-plan")
+          "terraform-plan"|"plan")
             # Planning phase failures - Configuration and provider issues
             # Common causes: Syntax errors, provider version conflicts, resource reference issues
             # Resolution strategy: Validate configuration, check provider compatibility, review references
@@ -96,7 +96,7 @@ runs:
             echo "::notice title=Quick Fix::📝 Review configuration files and provider versions"
             echo "::notice title=Check List::📝 1. Run terraform validate locally, 2. Check provider versions, 3. Verify resource references"
             ;;
-          "terraform-apply")
+          "terraform-apply"|"apply")
             # Apply phase failures - Runtime and permission issues
             # Common causes: Insufficient permissions, resource quotas, dependency conflicts
             # Resolution strategy: Verify permissions, check quotas, resolve dependencies
@@ -104,7 +104,7 @@ runs:
             echo "::notice title=Quick Fix::🔐 Verify service principal permissions and resource quotas"
             echo "::notice title=Check List::📝 1. Service principal roles, 2. Power Platform quotas, 3. Resource dependencies"
             ;;
-          "terraform-destroy")
+          "terraform-destroy"|"destroy")
             # Destroy phase failures - Protection and dependency issues
             # Common causes: Resource locks, dependent resources, cascading deletion restrictions
             # Resolution strategy: Remove protection, resolve dependencies, check deletion order
@@ -112,7 +112,7 @@ runs:
             echo "::notice title=Quick Fix::🛡️ Check resource locks and dependencies before retry"
             echo "::notice title=Check List::📝 1. Resource locks disabled, 2. Dependencies resolved, 3. Deletion permissions available"
             ;;
-          "terraform-import")
+          "terraform-import"|"import")
             # Import failures - Resource identification and targeting issues
             # Common causes: Wrong resource IDs, authentication scope, import configuration errors
             # Resolution strategy: Verify resource existence, check ID format, confirm targeting
@@ -120,45 +120,21 @@ runs:
             echo "::notice title=Quick Fix::📋 Verify resource ID format and existence in Power Platform"
             echo "::notice title=Check List::📝 1. Resource exists in Power Platform, 2. Correct resource ID format, 3. Import permissions valid"
             ;;
-          "terraform-validate")
-            # Validation failures - Syntax and reference errors
-            # Common causes: HCL syntax errors, undefined variables, invalid resource references
-            # Resolution strategy: Check syntax, define missing variables, fix references
-            echo "::notice title=Common Causes::🔧 Configuration syntax errors, missing variables, or invalid references"
-            echo "::notice title=Quick Fix::📝 Check HCL syntax and variable definitions"
-            echo "::notice title=Check List::📝 1. HCL syntax valid, 2. All variables defined, 3. Resource references correct"
+          "terraform-test")
+            # Test execution failures - Configuration, authentication, or environment issues
+            # Common causes: Invalid test configuration, authentication failures, environment setup issues
+            # Resolution strategy: Verify test setup, check authentication, validate environment configuration
+            echo "::notice title=Common Causes::🔧 Test configuration, authentication, or environment setup issues"
+            echo "::notice title=Quick Fix::🧪 Verify test files exist and authentication is valid"
+            echo "::notice title=Check List::📝 1. Test files (.tftest.hcl) exist, 2. Authentication configured, 3. Environment variables set"
             ;;
-          "terraform-format")
-            # Formatting failures - Code style and consistency issues
-            # Common causes: Inconsistent indentation, spacing, or code organization
-            # Resolution strategy: Apply automatic formatting, standardize style
-            echo "::notice title=Common Causes::🔧 Code formatting inconsistencies"
-            echo "::notice title=Quick Fix::✨ Run 'terraform fmt' locally and commit changes"
-            echo "::notice title=Check List::📝 1. Run terraform fmt -recursive, 2. Commit formatting changes, 3. Re-run workflow"
-            ;;
-          "terraform-docs")
-            # Documentation generation failures - Template and configuration issues
-            # Common causes: Missing templates, invalid configuration, file permission issues
-            # Resolution strategy: Check templates, validate configuration, fix permissions
-            echo "::notice title=Common Causes::🔧 Missing documentation templates or configuration issues"
-            echo "::notice title=Quick Fix::📚 Check .terraform-docs.yml configuration and template files"
-            echo "::notice title=Check List::📝 1. .terraform-docs.yml exists, 2. Template files available, 3. Write permissions granted"
-            ;;
-          "authentication")
-            # Authentication failures - Identity and permission issues
-            # Common causes: Expired tokens, invalid credentials, insufficient permissions
-            # Resolution strategy: Refresh authentication, verify credentials, check permissions
-            echo "::notice title=Common Causes::🔧 Authentication tokens, credentials, or permission issues"
-            echo "::notice title=Quick Fix::🔑 Verify OIDC configuration and service principal permissions"
-            echo "::notice title=Check List::📝 1. OIDC trust active, 2. Service principal exists, 3. Required roles assigned"
-            ;;
-          "network")
-            # Network connectivity failures - Access and firewall issues
-            # Common causes: Firewall rules, network policies, service availability
-            # Resolution strategy: Check network access, verify connectivity, confirm service status
-            echo "::notice title=Common Causes::🔧 Network connectivity, firewall rules, or service availability issues"
-            echo "::notice title=Quick Fix::🌐 Verify network access and service status"
-            echo "::notice title=Check List::📝 1. JIT network access enabled, 2. Service endpoints accessible, 3. No service outages"
+          "terraform-output")
+            # Output retrieval failures - State access or configuration issues
+            # Common causes: State file access issues, missing outputs, authentication problems
+            # Resolution strategy: Verify state access, check output definitions, validate authentication
+            echo "::notice title=Common Causes::🔧 State file access, missing outputs, or authentication issues"
+            echo "::notice title=Quick Fix::📋 Verify state file exists and outputs are defined"
+            echo "::notice title=Check List::📝 1. State file accessible, 2. Output blocks defined, 3. Backend authentication valid"
             ;;
           *)
             # Default case for unrecognized operations - Generic guidance
@@ -176,9 +152,9 @@ runs:
         # Steps are ordered by likelihood of resolution and ease of execution
         echo "::notice title=Systematic Troubleshooting::🔍 Follow these steps in order:"
         echo "::notice title=Step 1::📋 Review detailed error logs above for specific failure indicators"
-        echo "::notice title=Step 2::� Verify authentication status and service principal permissions"
+        echo "::notice title=Step 2::🔐 Verify authentication status and service principal permissions"
         echo "::notice title=Step 3::🌐 Check Power Platform admin center for service health and quotas"
-        echo "::notice title=Step 4::� Consider re-running the workflow if errors appear transient"
+        echo "::notice title=Step 4::🔄 Consider re-running the workflow if errors appear transient"
         echo "::notice title=Step 5::📚 Consult the troubleshooting guide for detailed resolution procedures"
         
         # === SUPPORT AND ESCALATION GUIDANCE ===
