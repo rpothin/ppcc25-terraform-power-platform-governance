@@ -699,11 +699,11 @@ jobs:
               fi
               echo ""
               echo "Running terraform test to see what tests are discovered:"
-              terraform test -verbose 2>&1 || test_exit_code=$?
+              terraform test 2>&1 || test_exit_code=$?
               echo "Test exit code: ${test_exit_code:-0}"
               echo ""
               echo "Also trying to run with explicit test file filter:"
-              terraform test -verbose -filter=tests/integration.tftest.hcl 2>&1 || test_filter_exit_code=$?
+              terraform test -filter=tests/integration.tftest.hcl 2>&1 || test_filter_exit_code=$?
               echo "Test filter exit code: ${test_filter_exit_code:-0}"
               echo "::endgroup::"
               
@@ -725,10 +725,10 @@ jobs:
                 echo "::error title=Test Failed::❌ terraform test failed for $target_path"
                 echo "::group::Test Output for $target_path"
                 echo "=== Default test output ==="
-                terraform test -verbose 2>&1 || true
+                terraform test 2>&1 || true
                 echo ""
                 echo "=== Filtered test output ==="
-                terraform test -verbose -filter=tests/integration.tftest.hcl 2>&1 || true
+                terraform test -filter=tests/integration.tftest.hcl 2>&1 || true
                 echo "::endgroup::"
                 failed_count=$((failed_count + 1))
                 final_exit_code=1
