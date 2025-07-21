@@ -1,0 +1,188 @@
+# Enhanced Error Handler Composite Action
+# Provides standardized error handling and troubleshooting guidance for workflow failures
+# This action creates contextual error messages with operation-specific guidance and systematic
+# troubleshooting steps to improve user experience and reduce support overhead.
+# Part of the GitHub Workflows improvement initiative following AVM patterns.
+
+name: 'Enhanced Error Handler'
+description: 'Provides standardized error handling and troubleshooting guidance'
+
+# Input parameters that define the error context and control error reporting behavior
+inputs:
+  error-context:
+    description: 'Context where the error occurred (e.g., "Terraform initialization in 02-dlp-policy")'
+    required: true
+    # Provides specific context about where the failure occurred within the workflow
+    # Used to create meaningful error messages that help users understand the failure point
+    # Should include both the operation and the target (configuration, module, etc.)
+  operation:
+    description: 'Operation that failed (terraform-init, terraform-plan, terraform-apply, etc.)'
+    required: true
+    # Defines the specific Terraform or workflow operation that failed
+    # Used to provide operation-specific troubleshooting guidance and common solutions
+    # Must match predefined operation types for optimal guidance generation
+  exit-code:
+    description: 'Exit code of failed operation for detailed analysis'
+    required: false
+    # Optional exit code from the failed process for enhanced error analysis
+    # When provided, helps users understand the severity and type of failure
+    # Standard exit codes: 0=success, 1=general error, 2=syntax error, etc.
+  include-troubleshooting:
+    description: 'Include troubleshooting guide link in output'
+    required: false
+    default: 'true'
+    # Controls whether to include link to comprehensive troubleshooting documentation
+    # Set to 'false' for internal errors where external docs aren't relevant
+    # Default 'true' ensures users always have access to detailed guidance
+
+# Output values that provide standardized error information and guidance
+# No direct outputs are returned as this action focuses on error reporting and user guidance
+# The action generates GitHub Actions annotations (error, notice, warning) that appear
+# in the workflow run summary and provide immediate feedback to users
+outputs: {}
+  # This action operates through GitHub Actions logging and annotation system
+  # Error information is communicated via ::error, ::notice, and ::warning annotations
+  # These annotations appear in the Actions UI and provide structured troubleshooting guidance
+
+# Define this as a composite action that runs shell-based error processing
+runs:
+  using: 'composite'
+  steps:
+    # Step 1: Process error information and generate comprehensive troubleshooting guidance
+    # This step creates structured error output with contextual information, operation-specific
+    # guidance, and systematic troubleshooting steps to help users resolve issues quickly
+    - name: Process Error and Provide Guidance
+      shell: bash
+      run: |
+        # === PRIMARY ERROR REPORTING ===
+        # Display the main error message with operation context for immediate clarity
+        # Uses GitHub Actions error annotation to ensure visibility in workflow summary
+        echo "::error title=${{ inputs.operation }} Failed::❌ Operation failed in context: ${{ inputs.error-context }}"
+        echo "::notice title=Error Context::📋 ${{ inputs.error-context }}"
+        
+        # === DETAILED ERROR ANALYSIS ===
+        # Include exit code information if provided for enhanced debugging capability
+        # Exit codes help differentiate between different types of failures (syntax, network, auth, etc.)
+        if [ -n "${{ inputs.exit-code }}" ]; then
+          echo "::notice title=Exit Code::🔢 Process exited with code: ${{ inputs.exit-code }}"
+        fi
+        
+        # === DOCUMENTATION LINKING ===
+        # Provide direct link to comprehensive troubleshooting documentation
+        # This creates a bridge between immediate error context and detailed resolution guidance
+        if [ "${{ inputs.include-troubleshooting }}" = "true" ]; then
+          echo "::notice title=Troubleshooting::🔍 See troubleshooting guide at:"
+          echo "::notice title=Documentation::📚 https://github.com/${{ github.repository }}/blob/main/docs/references/workflow-error-reference.md"
+        fi
+        
+        # === OPERATION-SPECIFIC GUIDANCE MATRIX ===
+        # Provide targeted troubleshooting guidance based on the specific operation that failed
+        # Each operation type has distinct failure patterns and resolution strategies
+        # This matrix provides immediate actionable guidance for common failure scenarios
+        case "${{ inputs.operation }}" in
+          "terraform-init")
+            # Terraform initialization failures - Critical path issues
+            # Common causes: Network connectivity, authentication tokens, backend configuration
+            # Resolution strategy: Verify access, check configuration, retry for transient issues
+            echo "::notice title=Common Causes::🔧 Network connectivity, authentication, or backend configuration issues"
+            echo "::notice title=Quick Fix::🔄 Try re-running the workflow for transient issues"
+            echo "::notice title=Check List::📝 1. JIT network access active, 2. Storage account accessible, 3. OIDC authentication valid"
+            ;;
+          "terraform-plan")
+            # Planning phase failures - Configuration and provider issues
+            # Common causes: Syntax errors, provider version conflicts, resource reference issues
+            # Resolution strategy: Validate configuration, check provider compatibility, review references
+            echo "::notice title=Common Causes::🔧 Configuration syntax, provider issues, or resource conflicts"
+            echo "::notice title=Quick Fix::📝 Review configuration files and provider versions"
+            echo "::notice title=Check List::📝 1. Run terraform validate locally, 2. Check provider versions, 3. Verify resource references"
+            ;;
+          "terraform-apply")
+            # Apply phase failures - Runtime and permission issues
+            # Common causes: Insufficient permissions, resource quotas, dependency conflicts
+            # Resolution strategy: Verify permissions, check quotas, resolve dependencies
+            echo "::notice title=Common Causes::🔧 Resource limits, permissions, or dependency issues"
+            echo "::notice title=Quick Fix::🔐 Verify service principal permissions and resource quotas"
+            echo "::notice title=Check List::📝 1. Service principal roles, 2. Power Platform quotas, 3. Resource dependencies"
+            ;;
+          "terraform-destroy")
+            # Destroy phase failures - Protection and dependency issues
+            # Common causes: Resource locks, dependent resources, cascading deletion restrictions
+            # Resolution strategy: Remove protection, resolve dependencies, check deletion order
+            echo "::notice title=Common Causes::🔧 Resource dependencies, protection settings, or permission issues"
+            echo "::notice title=Quick Fix::🛡️ Check resource locks and dependencies before retry"
+            echo "::notice title=Check List::📝 1. Resource locks disabled, 2. Dependencies resolved, 3. Deletion permissions available"
+            ;;
+          "terraform-import")
+            # Import failures - Resource identification and targeting issues
+            # Common causes: Wrong resource IDs, authentication scope, import configuration errors
+            # Resolution strategy: Verify resource existence, check ID format, confirm targeting
+            echo "::notice title=Common Causes::🔧 Resource ID mismatch, authentication, or import configuration issues"
+            echo "::notice title=Quick Fix::📋 Verify resource ID format and existence in Power Platform"
+            echo "::notice title=Check List::📝 1. Resource exists in Power Platform, 2. Correct resource ID format, 3. Import permissions valid"
+            ;;
+          "terraform-validate")
+            # Validation failures - Syntax and reference errors
+            # Common causes: HCL syntax errors, undefined variables, invalid resource references
+            # Resolution strategy: Check syntax, define missing variables, fix references
+            echo "::notice title=Common Causes::🔧 Configuration syntax errors, missing variables, or invalid references"
+            echo "::notice title=Quick Fix::📝 Check HCL syntax and variable definitions"
+            echo "::notice title=Check List::📝 1. HCL syntax valid, 2. All variables defined, 3. Resource references correct"
+            ;;
+          "terraform-format")
+            # Formatting failures - Code style and consistency issues
+            # Common causes: Inconsistent indentation, spacing, or code organization
+            # Resolution strategy: Apply automatic formatting, standardize style
+            echo "::notice title=Common Causes::🔧 Code formatting inconsistencies"
+            echo "::notice title=Quick Fix::✨ Run 'terraform fmt' locally and commit changes"
+            echo "::notice title=Check List::📝 1. Run terraform fmt -recursive, 2. Commit formatting changes, 3. Re-run workflow"
+            ;;
+          "terraform-docs")
+            # Documentation generation failures - Template and configuration issues
+            # Common causes: Missing templates, invalid configuration, file permission issues
+            # Resolution strategy: Check templates, validate configuration, fix permissions
+            echo "::notice title=Common Causes::🔧 Missing documentation templates or configuration issues"
+            echo "::notice title=Quick Fix::📚 Check .terraform-docs.yml configuration and template files"
+            echo "::notice title=Check List::📝 1. .terraform-docs.yml exists, 2. Template files available, 3. Write permissions granted"
+            ;;
+          "authentication")
+            # Authentication failures - Identity and permission issues
+            # Common causes: Expired tokens, invalid credentials, insufficient permissions
+            # Resolution strategy: Refresh authentication, verify credentials, check permissions
+            echo "::notice title=Common Causes::🔧 Authentication tokens, credentials, or permission issues"
+            echo "::notice title=Quick Fix::🔑 Verify OIDC configuration and service principal permissions"
+            echo "::notice title=Check List::📝 1. OIDC trust active, 2. Service principal exists, 3. Required roles assigned"
+            ;;
+          "network")
+            # Network connectivity failures - Access and firewall issues
+            # Common causes: Firewall rules, network policies, service availability
+            # Resolution strategy: Check network access, verify connectivity, confirm service status
+            echo "::notice title=Common Causes::🔧 Network connectivity, firewall rules, or service availability issues"
+            echo "::notice title=Quick Fix::🌐 Verify network access and service status"
+            echo "::notice title=Check List::📝 1. JIT network access enabled, 2. Service endpoints accessible, 3. No service outages"
+            ;;
+          *)
+            # Default case for unrecognized operations - Generic guidance
+            # Provides fallback guidance when specific operation patterns aren't recognized
+            # Ensures users always receive some level of troubleshooting direction
+            echo "::notice title=Common Causes::🔧 Check operation logs for specific error details"
+            echo "::notice title=Quick Fix::🔄 Review the operation requirements and retry"
+            echo "::notice title=Check List::📝 1. Review error logs above, 2. Verify operation requirements, 3. Check system status"
+            ;;
+        esac
+        
+        # === SYSTEMATIC TROUBLESHOOTING FRAMEWORK ===
+        # Provide universal troubleshooting steps that apply across all failure types
+        # This creates a consistent methodology for problem resolution regardless of specific failure
+        # Steps are ordered by likelihood of resolution and ease of execution
+        echo "::notice title=Systematic Troubleshooting::🔍 Follow these steps in order:"
+        echo "::notice title=Step 1::📋 Review detailed error logs above for specific failure indicators"
+        echo "::notice title=Step 2::� Verify authentication status and service principal permissions"
+        echo "::notice title=Step 3::🌐 Check Power Platform admin center for service health and quotas"
+        echo "::notice title=Step 4::� Consider re-running the workflow if errors appear transient"
+        echo "::notice title=Step 5::📚 Consult the troubleshooting guide for detailed resolution procedures"
+        
+        # === SUPPORT AND ESCALATION GUIDANCE ===
+        # Provide clear path for users when self-service troubleshooting doesn't resolve issues
+        # This ensures users know how to escalate and what information to provide
+        echo "::notice title=Need Help?::💬 Create an issue with complete error logs if problem persists"
+        echo "::notice title=Issue Template::📝 Include: 1. Full error logs, 2. Configuration details, 3. Steps attempted"
