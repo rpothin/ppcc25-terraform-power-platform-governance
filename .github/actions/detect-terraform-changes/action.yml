@@ -1,0 +1,178 @@
+name: 'Detect Terraform Changes'
+description: 'Detects changed Terraform configurations and modules'
+
+inputs:
+  target-path:
+    description: 'Specific path to process (overrides change detection)'
+    required: false
+  force-all:
+    description: 'Force processing all paths'
+    required: false
+    default: 'false'
+  include-configs:
+    description: 'Include configuration directories'
+    required: false
+    default: 'true'
+  include-modules:
+    description: 'Include module directories'
+    required: false
+    default: 'true'
+
+outputs:
+  changed-paths:
+    description: 'Newline-separated list of changed paths'
+    value: ${{ steps.detect.outputs.changed-paths }}
+  paths-count:
+    description: 'Number of changed paths'
+    value: ${{ steps.detect.outputs.paths-count }}
+  has-changes:
+    description: 'Whether any changes were detected'
+    value: ${{ steps.detect.outputs.has-changes }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Detect File Changes
+      id: changes
+      uses: dorny/paths-filter@v3
+      with:
+        filters: |
+          configurations:
+            - 'configurations/**/*.tf'
+            - 'configurations/**/*.tfvars'
+            - 'configurations/**/.terraform-docs.yml'
+            - 'configurations/**/_header.md'
+            - 'configurations/**/_footer.md'
+          modules:
+            - 'modules/**/*.tf'
+            - 'modules/**/.terraform-docs.yml'
+            - 'modules/**/_header.md'
+            - 'modules/**/_footer.md'
+
+    - name: Process Changes
+      id: detect
+      shell: bash
+      run: |
+        echo "::notice title=Change Detection::🔍 Analyzing changed paths..."
+        
+        # Handle manual inputs
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          if [ -n "${{ inputs.target-path }}" ]; then
+            target_path="${{ inputs.target-path }}"
+            echo "::notice title=Manual Target::Processing specific path: $target_path"
+            
+            if [ ! -d "$target_path" ]; then
+              echo "::error title=Target Path Not Found::Path '$target_path' does not exist"
+              exit 1
+            fi
+            
+            if find "$target_path" -maxdepth 1 -name "*.tf" -type f | grep -q .; then
+              echo "changed-paths=$target_path" >> $GITHUB_OUTPUT
+              echo "paths-count=1" >> $GITHUB_OUTPUT
+              echo "has-changes=true" >> $GITHUB_OUTPUT
+              echo "::notice title=Manual Target Set::Will process: $target_path"
+              exit 0
+            else
+              echo "::error title=Invalid Target::Path '$target_path' contains no Terraform files"
+              exit 1
+            fi
+          fi
+          
+          if [ "${{ inputs.force-all }}" = "true" ]; then
+            echo "::notice title=Force All::Processing all configurations and modules"
+            paths_to_process=()
+            
+            if [ "${{ inputs.include-configs }}" = "true" ] && [ -d "configurations" ]; then
+              for config_dir in configurations/*/; do
+                dir=${config_dir%/}
+                if [ -d "$dir" ] && find "$dir" -maxdepth 1 -name "*.tf" -type f | grep -q .; then
+                  paths_to_process+=("$dir")
+                fi
+              done
+            fi
+            
+            if [ "${{ inputs.include-modules }}" = "true" ] && [ -d "modules" ]; then
+              for module_dir in modules/*/; do
+                dir=${module_dir%/}
+                if [ -d "$dir" ] && find "$dir" -maxdepth 1 -name "*.tf" -type f | grep -q .; then
+                  paths_to_process+=("$dir")
+                fi
+              done
+            fi
+            
+            if [ ${#paths_to_process[@]} -eq 0 ]; then
+              echo "changed-paths=" >> $GITHUB_OUTPUT
+              echo "paths-count=0" >> $GITHUB_OUTPUT
+              echo "has-changes=false" >> $GITHUB_OUTPUT
+            else
+              printf -v joined '%s\n' "${paths_to_process[@]}"
+              {
+                echo "changed-paths<<PATHS_EOF"
+                echo "$joined"
+                echo "PATHS_EOF"
+              } >> $GITHUB_OUTPUT
+              echo "paths-count=${#paths_to_process[@]}" >> $GITHUB_OUTPUT
+              echo "has-changes=true" >> $GITHUB_OUTPUT
+            fi
+            exit 0
+          fi
+        fi
+        
+        # Auto-detect changes
+        if [ "${{ steps.changes.outputs.configurations }}" != "true" ] && [ "${{ steps.changes.outputs.modules }}" != "true" ]; then
+          echo "::notice title=No Changes::No relevant file changes detected"
+          echo "changed-paths=" >> $GITHUB_OUTPUT
+          echo "paths-count=0" >> $GITHUB_OUTPUT
+          echo "has-changes=false" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+        
+        # Get changed files
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          changed_files=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+        elif [ "${{ github.event_name }}" = "push" ]; then
+          changed_files=$(git diff --name-only HEAD~1 HEAD)
+        else
+          changed_files=$(git diff --name-only HEAD~1 HEAD)
+        fi
+        
+        # Process changed files
+        paths_to_process=()
+        while IFS= read -r file; do
+          [ -z "$file" ] && continue
+          
+          if [[ "$file" =~ ^(configurations|modules)/[^/]+/ ]]; then
+            dir=$(echo "$file" | grep -oE '^(configurations|modules)/[^/]+/')
+            dir=${dir%/}
+            
+            # Filter based on inputs
+            if [[ "$dir" =~ ^configurations/ ]] && [ "${{ inputs.include-configs }}" != "true" ]; then
+              continue
+            fi
+            if [[ "$dir" =~ ^modules/ ]] && [ "${{ inputs.include-modules }}" != "true" ]; then
+              continue
+            fi
+            
+            if [ -d "$dir" ] && find "$dir" -maxdepth 1 -name "*.tf" -type f | grep -q . && [[ ! " ${paths_to_process[@]} " =~ " ${dir} " ]]; then
+              paths_to_process+=("$dir")
+            fi
+          fi
+        done <<< "$changed_files"
+        
+        # Output results
+        if [ ${#paths_to_process[@]} -eq 0 ]; then
+          echo "changed-paths=" >> $GITHUB_OUTPUT
+          echo "paths-count=0" >> $GITHUB_OUTPUT
+          echo "has-changes=false" >> $GITHUB_OUTPUT
+          echo "::notice title=No Paths::No paths require processing"
+        else
+          printf -v joined '%s\n' "${paths_to_process[@]}"
+          {
+            echo "changed-paths<<PATHS_EOF"
+            echo "$joined"
+            echo "PATHS_EOF"
+          } >> $GITHUB_OUTPUT
+          echo "paths-count=${#paths_to_process[@]}" >> $GITHUB_OUTPUT
+          echo "has-changes=true" >> $GITHUB_OUTPUT
+          echo "::notice title=Paths Detected::Will process ${#paths_to_process[@]} path(s): ${paths_to_process[*]}"
+        fi

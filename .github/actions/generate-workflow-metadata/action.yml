@@ -1,0 +1,90 @@
+name: 'Generate Workflow Metadata'
+description: 'Generates AVM-compliant workflow execution metadata'
+
+inputs:
+  operation:
+    description: 'Operation type (plan, apply, destroy, import, output, test)'
+    required: true
+  configuration:
+    description: 'Configuration name'
+    required: false
+  tfvars-file:
+    description: 'tfvars file name'
+    required: false
+  phase:
+    description: 'Execution phase (validation, planning, execution, etc.)'
+    required: false
+    default: 'execution'
+  additional-data:
+    description: 'Additional JSON data to include'
+    required: false
+    default: '{}'
+
+outputs:
+  metadata:
+    description: 'Generated metadata JSON'
+    value: ${{ steps.generate.outputs.metadata }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Generate Metadata
+      id: generate
+      shell: bash
+      run: |
+        timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+        terraform_version=$(terraform --version | head -1 | sed 's/Terraform v//' 2>/dev/null || echo 'not-available')
+        
+        # Generate base metadata
+        metadata_json=$(jq -n \
+          --arg timestamp "$timestamp" \
+          --arg workflow_run "${{ github.run_number }}" \
+          --arg workflow_id "${{ github.run_id }}" \
+          --arg generated_by "${{ github.actor }}" \
+          --arg tf_version "$terraform_version" \
+          --arg workflow_version "2.0.0" \
+          --arg operation "${{ inputs.operation }}" \
+          --arg phase "${{ inputs.phase }}" \
+          --arg configuration "${{ inputs.configuration }}" \
+          --arg tfvars_file "${{ inputs.tfvars-file }}" \
+          --arg repository "${{ github.repository }}" \
+          --arg ref "${{ github.ref }}" \
+          --arg sha "${{ github.sha }}" \
+          --arg event "${{ github.event_name }}" \
+          --arg runner_os "${{ runner.os }}" \
+          --arg runner_arch "${{ runner.arch }}" \
+          --argjson additional '${{ inputs.additional-data }}' \
+          '{
+            "generated_at": $timestamp,
+            "workflow": {
+              "run_number": $workflow_run,
+              "run_id": $workflow_id,
+              "generated_by": $generated_by,
+              "version": $workflow_version
+            },
+            "terraform_version": $tf_version,
+            "operation": $operation,
+            "phase": $phase,
+            "configuration": $configuration,
+            "tfvars_file": $tfvars_file,
+            "repository": {
+              "name": $repository,
+              "ref": $ref,
+              "sha": $sha,
+              "event": $event
+            },
+            "runner": {
+              "os": $runner_os,
+              "architecture": $runner_arch
+            },
+            "additional": $additional
+          }'
+        )
+        
+        {
+          echo "metadata<<METADATA_EOF"
+          echo "$metadata_json"
+          echo "METADATA_EOF"
+        } >> $GITHUB_OUTPUT
+        
+        echo "::notice title=Metadata Generated::📊 AVM-compliant metadata created"

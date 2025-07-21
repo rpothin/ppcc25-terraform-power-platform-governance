@@ -1,0 +1,110 @@
+name: 'Terraform Init with Backend Configuration'
+description: 'Initializes Terraform with Azure backend, standardized state naming, and retry logic'
+
+inputs:
+  configuration:
+    description: 'Configuration name for state file key'
+    required: true
+  tfvars-file:
+    description: 'tfvars file name (without extension) for state file key'
+    required: false
+  state-key-override:
+    description: 'Override the default state key pattern (for special cases like output/test)'
+    required: false
+  max-retries:
+    description: 'Maximum number of retry attempts'
+    required: false
+    default: '3'
+  wait-for-propagation:
+    description: 'Wait time for network rules to propagate (seconds)'
+    required: false
+    default: '10'
+
+outputs:
+  initialized:
+    description: 'Whether initialization was successful'
+    value: ${{ steps.init.outputs.initialized }}
+  state-key:
+    description: 'The state key used for initialization'
+    value: ${{ steps.init.outputs.state-key }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Wait for Network Propagation
+      shell: bash
+      run: |
+        echo "::notice title=Network Propagation::⏱️ Waiting ${{ inputs.wait-for-propagation }} seconds for network rules to propagate..."
+        sleep ${{ inputs.wait-for-propagation }}
+
+    - name: Generate State Key
+      id: state-key
+      shell: bash
+      run: |
+        config="${{ inputs.configuration }}"
+        tfvars_file="${{ inputs.tfvars-file }}"
+        override_key="${{ inputs.state-key-override }}"
+        
+        if [ -n "$override_key" ]; then
+          # Use override key for special cases (output, test workflows)
+          state_key="$override_key"
+          echo "::notice title=Override State Key::Using override: $state_key"
+        elif [ -n "$tfvars_file" ]; then
+          # Standard pattern: configuration-tfvarsfile.tfstate
+          state_key="${config}-${tfvars_file}.tfstate"
+          echo "::notice title=Standard State Key::Generated: $state_key"
+        else
+          # Fallback to configuration only (for compatibility)
+          state_key="${config}.tfstate"
+          echo "::warning title=Fallback State Key::Using fallback pattern: $state_key"
+        fi
+        
+        echo "state-key=$state_key" >> $GITHUB_OUTPUT
+
+    - name: Terraform Init with Retry Logic
+      id: init
+      shell: bash
+      run: |
+        state_key="${{ steps.state-key.outputs.state-key }}"
+        max_retries="${{ inputs.max-retries }}"
+        retry_count=0
+        init_success=false
+        
+        echo "::notice title=Init Configuration::State key: $state_key"
+        
+        while [ $retry_count -lt $max_retries ] && [ "$init_success" = false ]; do
+          retry_count=$((retry_count + 1))
+          echo "::notice title=Init Attempt::🔄 Terraform init attempt $retry_count of $max_retries..."
+          
+          if terraform init \
+            -backend-config="storage_account_name=${{ env.ARM_STORAGE_ACCOUNT_NAME || env.TERRAFORM_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ env.ARM_CONTAINER_NAME || env.TERRAFORM_CONTAINER }}" \
+            -backend-config="key=$state_key" \
+            -backend-config="resource_group_name=${{ env.ARM_RESOURCE_GROUP_NAME || env.TERRAFORM_RESOURCE_GROUP }}" \
+            -backend-config="subscription_id=${{ env.ARM_SUBSCRIPTION_ID || env.AZURE_SUBSCRIPTION_ID }}" \
+            -backend-config="tenant_id=${{ env.ARM_TENANT_ID || env.AZURE_TENANT_ID }}" \
+            -backend-config="use_oidc=true"; then
+            
+            init_success=true
+            echo "::notice title=Init Success::✅ Terraform init completed successfully on attempt $retry_count"
+            echo "::notice title=State Key Used::📋 State key: $state_key"
+          else
+            echo "::warning title=Init Failed::⚠️ Terraform init attempt $retry_count failed"
+            if [ $retry_count -lt $max_retries ]; then
+              wait_time=$((retry_count * 10))
+              echo "::notice title=Retry Delay::⏱️ Waiting ${wait_time} seconds before retry..."
+              sleep $wait_time
+            fi
+          fi
+        done
+        
+        if [ "$init_success" = false ]; then
+          echo "::error title=Init Failed::❌ Terraform init failed after $max_retries attempts"
+          echo "::error title=State Key::📋 Failed with state key: $state_key"
+          echo "initialized=false" >> $GITHUB_OUTPUT
+          echo "state-key=$state_key" >> $GITHUB_OUTPUT
+          exit 1
+        else
+          echo "initialized=true" >> $GITHUB_OUTPUT
+          echo "state-key=$state_key" >> $GITHUB_OUTPUT
+        fi

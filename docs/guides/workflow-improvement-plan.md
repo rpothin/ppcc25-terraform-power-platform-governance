@@ -1021,12 +1021,14 @@ jobs:
 - [x] **Standardize Terraform versions** (Action 1.2.1) ✅ **COMPLETED**
 - [x] **Standardize state file naming** (Action 1.3.1) ✅ **COMPLETED**
 - [x] **Add concurrency controls** (Action 1.4.1) ✅ **COMPLETED**
-- [ ] **Create terraform-init-with-backend action** (Action 2.1.1) - **PENDING**
-- [ ] **Test new composite action and state naming** - **PENDING** 
+- [x] **Create terraform-init-with-backend action** (Action 2.1.1) ✅ **COMPLETED**
+- [x] **Create generate-workflow-metadata action** (Action 2.1.2) ✅ **COMPLETED**
+- [x] **Create detect-terraform-changes action** (Action 2.1.3) ✅ **COMPLETED**
+- [ ] **Test new composite actions and state naming** - **PENDING** 
 
 ### Week 2: Duplication Reduction
-- [ ] **Create generate-workflow-metadata action** (Action 2.1.2) - **PENDING**
-- [ ] **Create detect-terraform-changes action** (Action 2.1.3) - **PENDING**
+- [x] **Create generate-workflow-metadata action** (Action 2.1.2) ✅ **COMPLETED**
+- [x] **Create detect-terraform-changes action** (Action 2.1.3) ✅ **COMPLETED**
 - [ ] **Refactor terraform-plan-apply.yml** (Action 2.2.1) - **PENDING**
 - [ ] **Refactor terraform-destroy.yml** (Action 2.2.1) - **PENDING**
 - [ ] **Add job timeouts** (Action 3.1.1) - **PENDING**
