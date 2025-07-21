@@ -144,11 +144,11 @@ ARM_KEY: test-integration-state                              # ❌ Static name
 ```
 
 **Files to Update**:
-- [ ] `terraform-destroy.yml`
-- [ ] `terraform-import.yml` 
-- [ ] `terraform-output.yml`
-- [ ] `terraform-plan-apply.yml`
-- [ ] `terraform-test.yml`
+- [x] `terraform-destroy.yml` ✅ **COMPLETED**
+- [x] `terraform-import.yml` ✅ **COMPLETED**
+- [x] `terraform-output.yml` ✅ **COMPLETED**
+- [x] `terraform-plan-apply.yml` ✅ **COMPLETED**
+- [x] `terraform-test.yml` ✅ **COMPLETED**
 
 **Validation Steps**:
 1. [x] Verify all workflows use consistent state key pattern ✅ **COMPLETED**
