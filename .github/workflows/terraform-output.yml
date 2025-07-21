@@ -132,15 +132,7 @@ jobs:
         terraform_version: ${{ vars.TERRAFORM_VERSION || '1.12.2' }}
         terraform_wrapper: false    # Disable wrapper for better JSON output handling
     
-    # Step 7: Initialize Terraform and validate configuration
-    - name: Initialize and Validate Terraform
-      run: |
-        config="${{ github.event.inputs.configuration }}"
-        
-        echo "::notice title=Initializing Terraform::Initializing Terraform for configuration: $config"
-        cd "configurations/$config"
-
-    # Step 7a: Initialize Terraform for output generation
+    # Step 7: Initialize Terraform for output generation
     - name: Initialize Terraform for Output
       uses: ./.github/actions/terraform-init-with-backend
       env:
@@ -153,20 +145,22 @@ jobs:
         configuration: ${{ github.event.inputs.configuration }}
         state-key-override: "output-${{ github.event.inputs.configuration }}.tfstate"
 
-    # Step 7b: Validate configuration
+    # Step 8: Validate configuration after initialization
     - name: Validate Configuration
       run: |
         config="${{ github.event.inputs.configuration }}"
         cd "configurations/$config"
         
-        # Validate Terraform configuration syntax
+        echo "::notice title=Validating Configuration::Validating Terraform configuration syntax for: $config"
+        
+        # Validate Terraform configuration syntax (now that providers are initialized)
         terraform validate
         
-        echo "::notice title=Terraform Initialized::✅ Terraform initialized and validated successfully"
+        echo "::notice title=Terraform Validated::✅ Terraform configuration validated successfully"
         
         cd - > /dev/null
     
-    # Step 8: Create backup of current state (if exists)
+    # Step 9: Create backup of current state (if exists)
     - name: Create State Backup for Output Generation
       run: |
         config="${{ github.event.inputs.configuration }}"
@@ -186,7 +180,7 @@ jobs:
         
         cd - > /dev/null
     
-    # Step 9: Execute Terraform configuration
+    # Step 10: Execute Terraform configuration
     # Run the selected configuration to query data sources and generate outputs
     - name: Execute Terraform Configuration
       run: |
@@ -212,7 +206,7 @@ jobs:
         
         cd - > /dev/null
     
-    # Step 10: Extract and Process Terraform Output (Consolidated)
+    # Step 11: Extract and Process Terraform Output (Consolidated)
     - name: Extract and Process Terraform Output
       id: process-output
       run: |
@@ -338,7 +332,7 @@ jobs:
         rm -f "terraform-output-raw.json"
         cd - > /dev/null
     
-    # Step 11: Remove Just-In-Time network access
+    # Step 12: Remove Just-In-Time network access
     - name: Remove JIT Network Access
       if: always()
       uses: ./.github/actions/jit-network-access
@@ -347,7 +341,7 @@ jobs:
         storage-account-name: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
         resource-group-name: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
     
-    # Step 12: Commit output files to repository
+    # Step 13: Commit output files to repository
     - name: Commit Terraform Output
       run: |
         config="${{ github.event.inputs.configuration }}"
@@ -392,7 +386,7 @@ jobs:
           echo "::notice title=Output Committed::✅ Terraform output committed successfully"
         fi
     
-    # Step 13: Upload output as workflow artifact
+    # Step 14: Upload output as workflow artifact
     - name: Upload Terraform Output Artifact
       uses: actions/upload-artifact@v4
       with:
@@ -405,7 +399,7 @@ jobs:
         description: 'Exported Terraform output data from ${{ github.event.inputs.configuration }} in ${{ github.event.inputs.export_format }} format - contains resource information for integration and reference with execution metadata'
         if-no-files-found: ignore  # Don't fail if only one format exists
     
-    # Step 14: Generate comprehensive execution summary
+    # Step 15: Generate comprehensive execution summary
     - name: Generate Execution Summary
       run: |
         config="${{ github.event.inputs.configuration }}"
@@ -428,14 +422,14 @@ jobs:
         echo "| Workflow run | [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         
-        # Use output file information from Step 10
+        # Use output file information from Step 11
         if [ "$export_format" = "yaml" ]; then
           latest_output="configurations/$config/terraform-output.yaml"
         else
           latest_output="configurations/$config/terraform-output.json"
         fi
         
-        # Generate output content section (trusting Step 10 validation)
+        # Generate output content section (trusting Step 11 validation)
         if [ -f "$latest_output" ]; then
           echo "### ✅ Output Content" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -508,7 +502,7 @@ jobs:
         else
           echo "### ❌ Output Status" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "No output file found. This should not happen if Step 10 completed successfully." >> $GITHUB_STEP_SUMMARY
+          echo "No output file found. This should not happen if Step 11 completed successfully." >> $GITHUB_STEP_SUMMARY
         fi
         
         echo "" >> $GITHUB_STEP_SUMMARY

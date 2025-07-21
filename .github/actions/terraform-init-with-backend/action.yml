@@ -101,12 +101,17 @@ runs:
       id: init
       shell: bash
       run: |
+        config="${{ inputs.configuration }}"
         state_key="${{ steps.state-key.outputs.state-key }}"
         max_retries="${{ inputs.max-retries }}"
         retry_count=0
         init_success=false
         
-        echo "::notice title=Init Configuration::State key: $state_key"
+        echo "::notice title=Init Configuration::Configuration: $config, State key: $state_key"
+        
+        # Change to configuration directory
+        cd "configurations/$config"
+        echo "::notice title=Working Directory::Changed to $(pwd)"
         
         # === RETRY LOOP ===
         # Implement exponential backoff retry pattern for reliability
@@ -158,3 +163,6 @@ runs:
           echo "initialized=true" >> $GITHUB_OUTPUT
           echo "state-key=$state_key" >> $GITHUB_OUTPUT
         fi
+        
+        # Return to original directory
+        cd - > /dev/null
