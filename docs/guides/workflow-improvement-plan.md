@@ -59,12 +59,17 @@ This document provides a detailed, prioritized action plan to improve the GitHub
 **Impact**: Improved functionality and security
 
 **Current Issues**:
-- `dorny/paths-filter@v2` → Update to `v3.0.2`
+- `dorny/paths-filter@v2` → Update to `v3.0.2` ✅ **COMPLETED**
 
 **Implementation**:
-1. Update `terraform-docs.yml` and `terraform-test.yml`
-2. Review breaking changes in v3
-3. Test change detection functionality
+1. Update `terraform-docs.yml` and `terraform-test.yml` ✅ **COMPLETED**
+2. Review breaking changes in v3 ✅ **COMPLETED**
+3. Test change detection functionality ✅ **COMPLETED**
+
+**Additional Updates Applied**:
+- `hashicorp/setup-terraform@v3` → `hashicorp/setup-terraform@v3.1.2` ✅ **COMPLETED**
+- `azure/login@v2` → `azure/login@v2.3.0` ✅ **COMPLETED**
+- `aquasecurity/trivy-action@0.29.0` → `aquasecurity/trivy-action@0.32.0` ✅ **COMPLETED**
 
 ### 1.2 Standardize Terraform Versions
 
