@@ -562,7 +562,7 @@ jobs:
             config_name=$(basename "$target_path")
             test_state_key="test-$config_name-integration.tfstate"
             
-                        echo "::notice title=Backend Config::Storage Account: $ARM_STORAGE_ACCOUNT_NAME, Container: $ARM_CONTAINER_NAME, Key: $test_state_key"
+            echo "::notice title=Backend Config::Storage Account: $ARM_STORAGE_ACCOUNT_NAME, Container: $ARM_CONTAINER_NAME, Key: $test_state_key"
             
             # Initialize terraform for integration testing
             if terraform init 
@@ -578,62 +578,6 @@ jobs:
               
               # Test discovery and execution
               echo "::group::Test Discovery"
-              echo "Running terraform test to see what tests are discovered:"
-              terraform test 2>&1 || test_exit_code=$?
-              echo "Test exit code: ${test_exit_code:-0}"
-              echo "::endgroup::"
-              
-              # Set test-specific environment for safer testing
-              export TF_VAR_test_mode="true"
-              export TF_VAR_expected_minimum_policies=0  # Allow for empty test tenants
-              
-              # Execute the integration tests
-              if [ "${test_exit_code:-0}" -eq 0 ]; then
-                echo "::notice title=Test Success::✅ terraform test passed"
-                tested_count=$((tested_count + 1))
-              else
-                echo "::error title=Test Failed::❌ terraform test failed for $target_path"
-                echo "::group::Test Output for $target_path"
-                terraform test 2>&1 || true
-                echo "::endgroup::"
-                failed_count=$((failed_count + 1))
-              fi
-            else
-              echo "::error title=Init Failed::terraform init failed for $target_path"
-              echo "::group::Init Output for $target_path"
-              terraform init -input=false 2>&1 || true
-              echo "::endgroup::"
-              failed_count=$((failed_count + 1))
-            fi
-            
-            # Cleanup
-            rm -rf .terraform .terraform.lock.hcl
-            
-            cd - > /dev/null
-              [ -z "$target_path" ] && continue
-              
-              echo "::group::🧪 Integration Test: $target_path"
-              cd "$target_path"
-              
-              # Extract configuration name from target_path (e.g., configurations/01-dlp-policies -> 01-dlp-policies)
-              config_name=$(basename "$target_path")
-            
-              echo "::notice title=Backend Success::✅ Backend initialized successfully"
-              echo "::notice title=Running Integration Test::Executing terraform test with authentication..."
-              
-              # Debug: Check what Terraform test sees
-              echo "::group::Terraform Test Discovery Debug"
-              echo "Current working directory: $(pwd)"
-              echo "Files in current directory:"
-              find . -name "*.tf" -o -name "*.tftest.hcl" | sort
-              echo ""
-              echo "Testing directory contents:"
-              if [ -d "tests" ]; then
-                find tests -name "*.tftest.hcl" 2>/dev/null || echo "No .tftest.hcl files found in tests/"
-              else
-                echo "No tests/ directory found"
-              fi
-              echo ""
               echo "Running terraform test to see what tests are discovered:"
               terraform test 2>&1 || test_exit_code=$?
               echo "Test exit code: ${test_exit_code:-0}"
