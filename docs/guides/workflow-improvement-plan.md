@@ -725,65 +725,61 @@ jobs:
 
 #### Action 3.2.1: Standardize Error Messages
 **Priority**: 🟡 Medium  
-**Effort**: 1 hour  
+**Effort**: 2 hours (1 hour completed + 1 hour integration)  
 **Impact**: Better debugging and user experience
 
-**Create Standard Error Template**:
+**Status**: 🟡 **PARTIALLY COMPLETED** - Enhanced error handler action created, integration pending
+
+**✅ Completed Tasks**:
+1. Created comprehensive `enhanced-error-handler` composite action
+2. Implemented operation-specific guidance and systematic troubleshooting
+3. Added contextual error reporting with structured output
+
+**⏳ Pending Tasks**:
+1. **Integrate error handler into workflows** - Add error handling steps to all Terraform workflows
+2. **Create workflow error reference documentation** - `docs/references/workflow-error-reference.md`
+3. **Test error scenarios** - Validate error handler across different failure types
+
+**Enhanced Error Handler Usage Pattern**:
 
 ```yaml
-# Create .github/actions/enhanced-error-handler/action.yml
-name: 'Enhanced Error Handler'
-description: 'Provides standardized error handling and troubleshooting guidance'
+# Usage in workflows when errors occur:
+- name: Handle Terraform Failure
+  if: failure()
+  uses: ./.github/actions/enhanced-error-handler
+  with:
+    error-context: "Terraform initialization in ${{ github.event.inputs.configuration }}"
+    operation: "terraform-init"
+    exit-code: ${{ steps.terraform-init.outputs.exit-code }}
+    include-troubleshooting: true
 
-inputs:
-  error-context:
-    description: 'Context where the error occurred'
-    required: true
-  operation:
-    description: 'Operation that failed'
-    required: true
-  exit-code:
-    description: 'Exit code of failed operation'
-    required: false
-  include-troubleshooting:
-    description: 'Include troubleshooting guide'
-    required: false
-    default: 'true'
+# Example integration in terraform-plan-apply.yml:
+- name: Terraform Plan
+  id: plan
+  run: terraform plan -var-file="${tfvars_file}.tfvars" -out=tfplan
+  continue-on-error: true
 
-runs:
-  using: 'composite'
-  steps:
-    - name: Process Error
-      shell: bash
-      run: |
-        echo "::error title=${{ inputs.operation }} Failed::❌ Operation failed in context: ${{ inputs.error-context }}"
-        echo "::notice title=Error Context::📋 ${{ inputs.error-context }}"
-        
-        if [ -n "${{ inputs.exit-code }}" ]; then
-          echo "::notice title=Exit Code::🔢 Process exited with code: ${{ inputs.exit-code }}"
-        fi
-        
-        if [ "${{ inputs.include-troubleshooting }}" = "true" ]; then
-          echo "::notice title=Troubleshooting::🔍 See troubleshooting guide at:"
-          echo "::notice title=Documentation::📚 https://github.com/${{ github.repository }}/blob/main/docs/references/workflow-error-reference.md"
-        fi
-        
-        # Add workflow-specific guidance based on operation
-        case "${{ inputs.operation }}" in
-          "terraform-init")
-            echo "::notice title=Common Causes::🔧 Network connectivity, authentication, or backend configuration issues"
-            echo "::notice title=Quick Fix::🔄 Try re-running the workflow for transient issues"
-            ;;
-          "terraform-plan")
-            echo "::notice title=Common Causes::🔧 Configuration syntax, provider issues, or resource conflicts"
-            echo "::notice title=Quick Fix::📝 Review configuration files and provider versions"
-            ;;
-          "terraform-apply")
-            echo "::notice title=Common Causes::🔧 Resource limits, permissions, or dependency issues"
-            echo "::notice title=Quick Fix::🔐 Verify service principal permissions and resource quotas"
-            ;;
-        esac
+- name: Handle Plan Failure
+  if: steps.plan.outcome == 'failure'
+  uses: ./.github/actions/enhanced-error-handler
+  with:
+    error-context: "Terraform planning for ${{ github.event.inputs.configuration }}"
+    operation: "terraform-plan"
+    include-troubleshooting: true
+
+- name: Fail Workflow After Error Handling
+  if: steps.plan.outcome == 'failure'
+  run: exit 1
 ```
+
+**Integration Checklist**:
+- [ ] Add error handling to `terraform-plan-apply.yml`
+- [ ] Add error handling to `terraform-destroy.yml`
+- [ ] Add error handling to `terraform-import.yml`
+- [ ] Add error handling to `terraform-output.yml`
+- [ ] Add error handling to `terraform-test.yml`
+- [ ] Create `docs/references/workflow-error-reference.md`
+- [ ] Test error scenarios and validate output
 
 ### 3.3 Add Artifact Management Improvements
 
@@ -1032,9 +1028,10 @@ jobs:
 - [x] **Refactor terraform-plan-apply.yml** (Action 2.2.1) ✅ **COMPLETED**
 - [x] **Refactor terraform-destroy.yml** (Action 2.2.1) ✅ **COMPLETED**
 - [x] **Add job timeouts** (Action 3.1.1) ✅ **COMPLETED**
-- [ ] **Create enhanced error handler** (Action 3.2.1) - **PENDING**
+- [ ] **Complete enhanced error handler integration** (Action 3.2.1) - 🟡 **IN PROGRESS** (action created, integration pending)
 
 ### Week 3: Documentation & Polish
+- [ ] **Complete error handler workflow integration** (Action 3.2.1) - 🟡 **IN PROGRESS** 
 - [ ] **Create workflow error reference** (Action 4.1.1) - **PENDING**
 - [ ] **Standardize artifact retention** (Action 3.3.1) - **PENDING**
 - [x] **Refactor remaining workflows** (Action 2.2.1) ✅ **COMPLETED**
