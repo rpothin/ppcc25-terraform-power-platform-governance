@@ -61,44 +61,25 @@ jobs:
   detect-changes:
     name: 🔍 Detect Documentation Changes
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
-      configurations: ${{ steps.changes.outputs.configurations }}
-      modules: ${{ steps.changes.outputs.modules }}
-      any-docs-changed: ${{ steps.changes.outputs.configurations == 'true' || steps.changes.outputs.modules == 'true' }}
-      changed-paths: ${{ steps.scan-changed.outputs.changed-paths }}
+      configurations: ${{ steps.detect.outputs.has-changes }}
+      modules: ${{ steps.detect.outputs.has-changes }}
+      any-docs-changed: ${{ steps.detect.outputs.has-changes }}
+      changed-paths: ${{ steps.detect.outputs.changed-paths }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0  # Need full history for change detection
 
-      - name: Detect File Changes
-        id: changes
-        uses: dorny/paths-filter@v3.0.2
+      - name: Detect Documentation Changes
+        id: detect
+        uses: ./.github/actions/detect-terraform-changes
         with:
-          filters: |
-            configurations:
-              - 'configurations/**/*.tf'
-              - 'configurations/**/.terraform-docs.yml'
-              - 'configurations/**/.terraform-docs.yaml'
-              - 'configurations/**/_header.md'
-              - 'configurations/**/_footer.md'
-            modules:
-              - 'modules/**/*.tf'
-              - 'modules/**/.terraform-docs.yml'
-              - 'modules/**/.terraform-docs.yaml'
-              - 'modules/**/_header.md'
-              - 'modules/**/_footer.md'
-
-      - name: Scan Changed Paths
-        id: scan-changed
-        if: steps.changes.outputs.configurations == 'true' || steps.changes.outputs.modules == 'true' || github.event_name == 'workflow_dispatch'
-        run: |
-          echo "::notice title=Scanning Changes::Identifying specific changed paths..."
-          
-          # Handle manual dispatch scenarios
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            # Check for specific target path
-            if [ -n "${{ github.event.inputs.target_path }}" ]; then
+          target-path: ${{ github.event.inputs.target_path }}
+          force-all: ${{ github.event.inputs.force_all }}
+          include-configs: 'true'
+          include-modules: 'true'
               target_path="${{ github.event.inputs.target_path }}"
               echo "::notice title=Manual Target::Processing specific path: $target_path"
               
@@ -227,14 +208,13 @@ jobs:
               echo "PATHS_EOF"
             } >> $GITHUB_OUTPUT
             echo "::notice title=Paths Identified::Will process ${#paths_to_process[@]} path(s): ${paths_to_process[*]}"
-          fi
-
   # Job 2: Generate Documentation - Only for changed paths
   terraform-docs:
     name: 📚 Generate terraform-docs
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: detect-changes
-    if: (needs.detect-changes.outputs.any-docs-changed == 'true' && needs.detect-changes.outputs.changed-paths != '') || (github.event_name == 'workflow_dispatch' && needs.detect-changes.outputs.changed-paths != '')
+    if: needs.detect-changes.outputs.has-changes == 'true'
 
     steps:
     # Step 1: Checkout repository code

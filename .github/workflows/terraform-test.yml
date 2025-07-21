@@ -49,8 +49,9 @@ env:
 jobs:
   # Job 1: Detect Changes - Foundation for all parallel workflows
   detect-changes:
-    name: 🔍 Detect Configuration Changes
+    name: 🔍 Detect Test Changes
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       configurations: ${{ steps.changes.outputs.configurations }}
       modules: ${{ steps.changes.outputs.modules }}
@@ -225,6 +226,7 @@ jobs:
   terraform-format-check:
     name: 🎨 Terraform Format Check
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs: detect-changes
     if: needs.detect-changes.outputs.any-config-changed == 'true'
     
@@ -266,6 +268,7 @@ jobs:
   terraform-syntax-validation:
     name: ✅ Terraform Syntax Validation
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: detect-changes
     if: needs.detect-changes.outputs.any-config-changed == 'true'
     
@@ -388,6 +391,7 @@ jobs:
   terraform-configuration-validation:
     name: 🔧 Configuration Structure Validation  
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: detect-changes
     if: needs.detect-changes.outputs.any-config-changed == 'true'
     
@@ -494,6 +498,7 @@ jobs:
   security-vulnerability-scan:
     name: 🛡️ Security Vulnerability Scan
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: detect-changes
     if: needs.detect-changes.outputs.any-config-changed == 'true'
     
@@ -554,6 +559,7 @@ jobs:
   integration-terraform-test:
     name: 🧪 Integration Terraform Test
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     timeout-minutes: 20
     environment: production
     needs: detect-changes
@@ -681,16 +687,35 @@ jobs:
             test_state_key="test-$config_name-integration.tfstate"
             
             echo "::notice title=Backend Config::Storage Account: $ARM_STORAGE_ACCOUNT_NAME, Container: $ARM_CONTAINER_NAME, Key: $test_state_key"
+
+        # Step: Use composite action for integration test initialization
+        - name: Initialize Terraform for Integration Test
+          uses: ./.github/actions/terraform-init-with-backend
+          env:
+            ARM_STORAGE_ACCOUNT_NAME: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
+            ARM_CONTAINER_NAME: ${{ secrets.TERRAFORM_CONTAINER }}
+            ARM_RESOURCE_GROUP_NAME: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
+            ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+            ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          with:
+            configuration: "integration"
+            state-key-override: "test-integration.tfstate"
+
+        # Step: Continue with integration test execution
+        - name: Execute Integration Tests
+          run: |
+            # Continue in the detected paths
+            IFS=$'\n' read -d '' -r -a paths_array <<< "${{ needs.detect-changes.outputs.changed-paths }}" || true
             
-            # Use explicit backend configuration with configuration-specific state file
-            if terraform init -input=false \
-              -backend-config="storage_account_name=$ARM_STORAGE_ACCOUNT_NAME" \
-              -backend-config="container_name=$ARM_CONTAINER_NAME" \
-              -backend-config="key=$test_state_key" \
-              -backend-config="resource_group_name=$ARM_RESOURCE_GROUP_NAME" \
-              -backend-config="subscription_id=$ARM_SUBSCRIPTION_ID" \
-              -backend-config="tenant_id=$ARM_TENANT_ID" \
-              -backend-config="use_oidc=true"; then
+            for target_path in "${paths_array[@]}"; do
+              [ -z "$target_path" ] && continue
+              
+              echo "::group::🧪 Integration Test: $target_path"
+              cd "$target_path"
+              
+              # Extract configuration name from target_path (e.g., configurations/01-dlp-policies -> 01-dlp-policies)
+              config_name=$(basename "$target_path")
+            
               echo "::notice title=Backend Success::✅ Backend initialized successfully"
               echo "::notice title=Running Integration Test::Executing terraform test with authentication..."
               
@@ -769,6 +794,7 @@ jobs:
   final-test-summary:
     name: 📋 Final Test Results Summary
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs: [
       detect-changes, 
       terraform-format-check, 

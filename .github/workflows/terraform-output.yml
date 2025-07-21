@@ -52,6 +52,7 @@ jobs:
   terraform-output:
     name: 🔍 Terraform Output
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     environment: production  # Required to access production environment secrets
     
     # Environment variables for Power Platform OIDC authentication
@@ -138,20 +139,25 @@ jobs:
         
         echo "::notice title=Initializing Terraform::Initializing Terraform for configuration: $config"
         cd "configurations/$config"
-        
-        # Add a small delay to ensure network rules are fully propagated
-        echo "Waiting 10 seconds for network rules to propagate..."
-        sleep 10
-        
-        # Initialize Terraform with Azure backend for state storage
-        terraform init \
-          -backend-config="storage_account_name=${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}" \
-          -backend-config="container_name=${{ secrets.TERRAFORM_CONTAINER }}" \
-          -backend-config="key=output-$config.tfstate" \
-          -backend-config="resource_group_name=${{ secrets.TERRAFORM_RESOURCE_GROUP }}" \
-          -backend-config="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
-          -backend-config="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
-          -backend-config="use_oidc=true"
+
+    # Step 7a: Initialize Terraform for output generation
+    - name: Initialize Terraform for Output
+      uses: ./.github/actions/terraform-init-with-backend
+      env:
+        ARM_STORAGE_ACCOUNT_NAME: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
+        ARM_CONTAINER_NAME: ${{ secrets.TERRAFORM_CONTAINER }}
+        ARM_RESOURCE_GROUP_NAME: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
+        ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      with:
+        configuration: ${{ github.event.inputs.configuration }}
+        state-key-override: "output-${{ github.event.inputs.configuration }}.tfstate"
+
+    # Step 7b: Validate configuration
+    - name: Validate Configuration
+      run: |
+        config="${{ github.event.inputs.configuration }}"
+        cd "configurations/$config"
         
         # Validate Terraform configuration syntax
         terraform validate

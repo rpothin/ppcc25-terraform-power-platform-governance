@@ -57,6 +57,7 @@ jobs:
   terraform-validate:
     name: 🔍 Validation and Safety Checks
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     environment: production  # Required to access production environment secrets
     
     # Environment variables for Power Platform OIDC authentication
@@ -73,12 +74,12 @@ jobs:
     
     # Output values that can be used by the destroy job
     outputs:
-      resources-exist: ${{ steps.state-check.outputs.resources-exist }}
-      resource-count: ${{ steps.state-check.outputs.resource-count }}
+      resources-exist: ${{ steps.analyze-state.outputs.resources-exist }}
+      resource-count: ${{ steps.analyze-state.outputs.resource-count }}
       configuration: ${{ github.event.inputs.configuration }}
       backup-created: ${{ steps.backup.outputs.backup-created }}
       # Execution metadata for workflow tracking and AVM compliance
-      validation-metadata: ${{ steps.state-check.outputs.validation-metadata }}
+      validation-metadata: ${{ steps.analyze-state.outputs.validation-metadata }}
     
     steps:
     # Step 1: Validate confirmation input
@@ -153,103 +154,44 @@ jobs:
         
         echo "::notice title=Initializing Terraform::Initializing Terraform for configuration: $config"
         cd "configurations/$config"
-        
-        # Add a small delay to ensure network rules are fully propagated
-        echo "Waiting 10 seconds for network rules to propagate..."
-        sleep 10
-        
-        # Initialize Terraform with Azure backend for state storage (with retry logic)
-        echo "::notice title=Terraform Init::Initializing Terraform for destroy planning..."
-        
-        # Retry logic for terraform init (network-dependent operation)
-        max_retries=3
-        retry_count=0
-        init_success=false
-        
-        while [ $retry_count -lt $max_retries ] && [ "$init_success" = false ]; do
-          retry_count=$((retry_count + 1))
-          echo "::notice title=Init Attempt::🔄 Terraform init attempt $retry_count of $max_retries..."
-          
-          if terraform init \
-            -backend-config="storage_account_name=${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}" \
-            -backend-config="container_name=${{ secrets.TERRAFORM_CONTAINER }}" \
-            -backend-config="key=$config-${{ github.event.inputs.tfvars_file }}.tfstate" \
-            -backend-config="resource_group_name=${{ secrets.TERRAFORM_RESOURCE_GROUP }}" \
-            -backend-config="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
-            -backend-config="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
-            -backend-config="use_oidc=true"; then
-            
-            init_success=true
-            echo "::notice title=Init Success::✅ Terraform init completed successfully on attempt $retry_count"
-          else
-            echo "::warning title=Init Failed::⚠️ Terraform init attempt $retry_count failed"
-            if [ $retry_count -lt $max_retries ]; then
-              wait_time=$((retry_count * 10))
-              echo "::notice title=Retry Delay::⏱️ Waiting ${wait_time} seconds before retry..."
-              sleep $wait_time
-            fi
-          fi
-        done
-        
-        if [ "$init_success" = false ]; then
-          echo "::error title=Init Failed::❌ Terraform init failed after $max_retries attempts"
-          echo "::notice title=Context::📋 This init occurs for destroy planning phase"
-          echo "::notice title=Documentation::📚 Error Reference: https://github.com/${{ github.repository }}/blob/main/docs/references/workflow-error-reference.md#terraform-init-errors"
-          exit 1
-        fi
-        
-        # Validate Terraform configuration syntax
-        terraform validate
+
+    # Step 7a: Initialize Terraform for state check
+    - name: Initialize Terraform for State Check
+      uses: ./.github/actions/terraform-init-with-backend
+      env:
+        ARM_STORAGE_ACCOUNT_NAME: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
+        ARM_CONTAINER_NAME: ${{ secrets.TERRAFORM_CONTAINER }}
+        ARM_RESOURCE_GROUP_NAME: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
+        ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      with:
+        configuration: ${{ github.event.inputs.configuration }}
+        tfvars-file: ${{ github.event.inputs.tfvars_file }}
+
+    # Step 7b: Generate metadata and check state  
+    - name: Generate Metadata and Check State
+      uses: ./.github/actions/generate-workflow-metadata
+      id: validation-metadata
+      with:
+        operation: 'destroy'
+        configuration: ${{ github.event.inputs.configuration }}
+        tfvars-file: ${{ github.event.inputs.tfvars_file }}
+        phase: 'validation'
+
+        # Step 7c: Analyze current state
+    - name: Analyze Current State
+      id: analyze-state
+      run: |
+        config="${{ github.event.inputs.configuration }}"
+        cd "configurations/$config"
         
         # Check current state for resources
         echo "::notice title=State Analysis::Analyzing current Terraform state..."
         
-        # Generate execution metadata for AVM compliance
-        timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-        terraform_version=$(terraform --version | head -1 | sed 's/Terraform v//')
-        
-        # Create comprehensive metadata object for validation phase using jq
-        validation_metadata_json=$(jq -n \
-          --arg timestamp "$timestamp" \
-          --arg workflow_run "${{ github.run_number }}" \
-          --arg workflow_id "${{ github.run_id }}" \
-          --arg generated_by "${{ github.actor }}" \
-          --arg tf_version "$terraform_version" \
-          --arg workflow_version "1.0.0" \
-          --arg configuration "$config" \
-          --arg tfvars_file "${{ github.event.inputs.tfvars_file }}" \
-          --arg repository "${{ github.repository }}" \
-          --arg ref "${{ github.ref }}" \
-          --arg sha "${{ github.sha }}" \
-          --arg event "${{ github.event_name }}" \
-          --arg runner_os "${{ runner.os }}" \
-          --arg runner_arch "${{ runner.arch }}" \
-          --arg phase "validation" \
-          --arg operation "destroy" \
-          '{
-            "generated_at": $timestamp,
-            "workflow_run": $workflow_run,
-            "workflow_id": $workflow_id,
-            "generated_by": $generated_by,
-            "terraform_version": $tf_version,
-            "workflow_version": $workflow_version,
-            "configuration": $configuration,
-            "tfvars_file": $tfvars_file,
-            "repository": $repository,
-            "ref": $ref,
-            "sha": $sha,
-            "event": $event,
-            "runner_os": $runner_os,
-            "runner_arch": $runner_arch,
-            "phase": $phase,
-            "operation": $operation
-          }'
-        )
-        
-        # Set GitHub output using multiline format
+        # Store metadata from previous step
         {
           echo "validation-metadata<<METADATA_EOF"
-          echo "$validation_metadata_json"
+          echo '${{ steps.validation-metadata.outputs.metadata }}'
           echo "METADATA_EOF"
         } >> $GITHUB_OUTPUT
         
@@ -422,6 +364,7 @@ jobs:
   terraform-destroy:
     name: 🚨 Terraform Destroy
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     environment: production  # Required to access production environment secrets
     needs: terraform-validate    # Depends on successful validation
     

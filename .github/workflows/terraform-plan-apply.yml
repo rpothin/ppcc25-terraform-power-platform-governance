@@ -54,6 +54,7 @@ jobs:
   terraform-plan:
     name: 📋 Terraform Plan
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     environment: production  # Required to access production environment secrets
     
     # Environment variables for Power Platform OIDC authentication
@@ -223,52 +224,26 @@ jobs:
         # Create backups directory if it doesn't exist
         mkdir -p backups
         
-        # Initialize Terraform first to access state (with retry logic for network reliability)
-        echo "::notice title=Terraform Init::Initializing Terraform with backend configuration..."
+    # Step 7a: Initialize Terraform for backup
+    - name: Initialize Terraform for Backup
+      uses: ./.github/actions/terraform-init-with-backend
+      env:
+        ARM_STORAGE_ACCOUNT_NAME: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
+        ARM_CONTAINER_NAME: ${{ secrets.TERRAFORM_CONTAINER }}
+        ARM_RESOURCE_GROUP_NAME: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
+        ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      with:
+        configuration: ${{ github.event.inputs.configuration }}
+        tfvars-file: ${{ github.event.inputs.tfvars_file }}
+
+    # Step 7b: Create backup after initialization
+    - name: Create Backup After Init
+      run: |
+        config="${{ github.event.inputs.configuration }}"
+        timestamp=$(date +%Y%m%d-%H%M%S)
         
-        # Retry logic for terraform init (network-dependent operation)
-        max_retries=3
-        retry_count=0
-        init_success=false
-        
-        while [ $retry_count -lt $max_retries ] && [ "$init_success" = false ]; do
-          retry_count=$((retry_count + 1))
-          echo "::notice title=Init Attempt::🔄 Terraform init attempt $retry_count of $max_retries..."
-          
-          if terraform init \
-            -backend-config="storage_account_name=${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}" \
-            -backend-config="container_name=${{ secrets.TERRAFORM_CONTAINER }}" \
-            -backend-config="key=$config-${{ github.event.inputs.tfvars_file }}.tfstate" \
-            -backend-config="resource_group_name=${{ secrets.TERRAFORM_RESOURCE_GROUP }}" \
-            -backend-config="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
-            -backend-config="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
-            -backend-config="use_oidc=true"; then
-            
-            init_success=true
-            echo "::notice title=Init Success::✅ Terraform init completed successfully on attempt $retry_count"
-          else
-            echo "::warning title=Init Failed::⚠️ Terraform init attempt $retry_count failed"
-            if [ $retry_count -lt $max_retries ]; then
-              wait_time=$((retry_count * 10))
-              echo "::notice title=Retry Delay::⏱️ Waiting ${wait_time} seconds before retry..."
-              sleep $wait_time
-            fi
-          fi
-        done
-        
-        if [ "$init_success" = false ]; then
-          echo "::error title=Init Failed::❌ Terraform init failed after $max_retries attempts"
-          echo "::notice title=Troubleshooting::📋 Common network-related init failures:"
-          echo "::notice title=Issue 1::🔒 Network connectivity to Azure Storage backend"
-          echo "::notice title=Issue 2::🔑 Authentication or permission issues with storage account"  
-          echo "::notice title=Issue 3::🌐 Transient network issues or Azure service availability"
-          echo "::notice title=Solution 1::🔄 Re-run the workflow (may resolve transient issues)"
-          echo "::notice title=Solution 2::🔍 Check Azure Storage account accessibility"
-          echo "::notice title=Solution 3::🔐 Verify service principal permissions"
-          echo "::notice title=Documentation::📚 Error Reference: https://github.com/${{ github.repository }}/blob/main/docs/references/workflow-error-reference.md#terraform-init-errors"
-          echo "::notice title=Azure Docs::📚 Azure Storage Network Security: https://docs.microsoft.com/azure/storage/common/storage-network-security"
-          exit 1
-        fi
+        cd "configurations/$config"
         
         # Pull current state and create timestamped backup
         backup_filename="backups/terraform.tfstate.backup-$timestamp"
@@ -290,8 +265,18 @@ jobs:
         
         cd - > /dev/null
     
-    # Step 8: Execute Terraform plan
-    # This is the core step that initializes, validates, and plans the configuration
+    # Step 8: Generate workflow metadata for AVM compliance
+    - name: Generate Workflow Metadata
+      id: metadata
+      uses: ./.github/actions/generate-workflow-metadata
+      with:
+        operation: 'plan'
+        configuration: ${{ github.event.inputs.configuration }}
+        tfvars-file: ${{ github.event.inputs.tfvars_file }}
+        phase: 'planning'
+    
+    # Step 9: Execute Terraform plan
+    # This is the core step that validates and plans the configuration
     - name: Generate Terraform Plan
       id: plan
       run: |
@@ -301,48 +286,10 @@ jobs:
         echo "::notice title=Planning Configuration::Starting Terraform plan for configuration: $config"
         cd "configurations/$config"
         
-        # Generate execution metadata for AVM compliance
-        timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-        terraform_version=$(terraform --version | head -1 | sed 's/Terraform v//')
-        
-        # Create comprehensive metadata object using jq (more reliable approach)
-        metadata_json=$(jq -n \
-          --arg timestamp "$timestamp" \
-          --arg workflow_run "${{ github.run_number }}" \
-          --arg workflow_id "${{ github.run_id }}" \
-          --arg generated_by "${{ github.actor }}" \
-          --arg tf_version "$terraform_version" \
-          --arg workflow_version "1.0.0" \
-          --arg configuration "$config" \
-          --arg tfvars_file "$tfvars_file" \
-          --arg repository "${{ github.repository }}" \
-          --arg ref "${{ github.ref }}" \
-          --arg sha "${{ github.sha }}" \
-          --arg event "${{ github.event_name }}" \
-          --arg runner_os "${{ runner.os }}" \
-          --arg runner_arch "${{ runner.arch }}" \
-          '{
-            "generated_at": $timestamp,
-            "workflow_run": $workflow_run,
-            "workflow_id": $workflow_id,
-            "generated_by": $generated_by,
-            "terraform_version": $tf_version,
-            "workflow_version": $workflow_version,
-            "configuration": $configuration,
-            "tfvars_file": $tfvars_file,
-            "repository": $repository,
-            "ref": $ref,
-            "sha": $sha,
-            "event": $event,
-            "runner_os": $runner_os,
-            "runner_arch": $runner_arch
-          }'
-        )
-        
-        # Set GitHub output using multiline format
+        # Store metadata from previous step
         {
           echo "execution-metadata<<METADATA_EOF"
-          echo "$metadata_json"
+          echo '${{ steps.metadata.outputs.metadata }}'
           echo "METADATA_EOF"
         } >> $GITHUB_OUTPUT
         
@@ -352,53 +299,29 @@ jobs:
         echo "Waiting 10 seconds for network rules to propagate..."
         sleep 10
         
-        # Terraform should already be initialized from backup step, but ensure it's current (with retry logic)
+        # Re-initialize Terraform to ensure consistent state access
         echo "::notice title=Terraform Re-init::Re-initializing Terraform after network configuration..."
+
+    # Step 9a: Re-initialize Terraform with retry logic
+    - name: Re-initialize Terraform for Plan
+      uses: ./.github/actions/terraform-init-with-backend
+      env:
+        ARM_STORAGE_ACCOUNT_NAME: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
+        ARM_CONTAINER_NAME: ${{ secrets.TERRAFORM_CONTAINER }}
+        ARM_RESOURCE_GROUP_NAME: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
+        ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      with:
+        configuration: ${{ github.event.inputs.configuration }}
+        tfvars-file: ${{ github.event.inputs.tfvars_file }}
+
+    # Step 9b: Continue with Terraform plan
+    - name: Execute Terraform Plan
+      run: |
+        config="${{ github.event.inputs.configuration }}"
+        tfvars_file="${{ github.event.inputs.tfvars_file }}"
         
-        # Retry logic for terraform init (network-dependent operation)
-        max_retries=3
-        retry_count=0
-        init_success=false
-        
-        while [ $retry_count -lt $max_retries ] && [ "$init_success" = false ]; do
-          retry_count=$((retry_count + 1))
-          echo "::notice title=Init Attempt::🔄 Terraform init attempt $retry_count of $max_retries..."
-          
-          if terraform init \
-            -backend-config="storage_account_name=${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}" \
-            -backend-config="container_name=${{ secrets.TERRAFORM_CONTAINER }}" \
-            -backend-config="key=$config-${{ github.event.inputs.tfvars_file }}.tfstate" \
-            -backend-config="resource_group_name=${{ secrets.TERRAFORM_RESOURCE_GROUP }}" \
-            -backend-config="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
-            -backend-config="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
-            -backend-config="use_oidc=true"; then
-            
-            init_success=true
-            echo "::notice title=Init Success::✅ Terraform re-init completed successfully on attempt $retry_count"
-          else
-            echo "::warning title=Init Failed::⚠️ Terraform init attempt $retry_count failed"
-            if [ $retry_count -lt $max_retries ]; then
-              wait_time=$((retry_count * 10))
-              echo "::notice title=Retry Delay::⏱️ Waiting ${wait_time} seconds before retry..."
-              sleep $wait_time
-            fi
-          fi
-        done
-        
-        if [ "$init_success" = false ]; then
-          echo "::error title=Init Failed::❌ Terraform init failed after $max_retries attempts"
-          echo "::notice title=Context::📋 This init occurs after network configuration changes"
-          echo "::notice title=Troubleshooting::📋 Common post-network-config init failures:"
-          echo "::notice title=Issue 1::🌐 Network propagation delays affecting backend access"
-          echo "::notice title=Issue 2::🔒 Modified network rules blocking storage access"  
-          echo "::notice title=Issue 3::🔑 Authentication token refresh needed after network changes"
-          echo "::notice title=Solution 1::🔄 Re-run the workflow (network rules may need more time)"
-          echo "::notice title=Solution 2::🔍 Check if JIT network access is still active"
-          echo "::notice title=Solution 3::🔐 Verify storage account network settings"
-          echo "::notice title=Documentation::📚 Error Reference: https://github.com/${{ github.repository }}/blob/main/docs/references/workflow-error-reference.md#terraform-init-errors"
-          echo "::notice title=Azure Docs::📚 JIT Network Access: https://docs.microsoft.com/azure/storage/common/storage-network-security"
-          exit 1
-        fi
+        cd "configurations/$config"
         
         # Validate Terraform configuration syntax and consistency
         echo "::notice title=Validating Configuration::Validating Terraform configuration syntax..."
@@ -476,7 +399,7 @@ jobs:
         
         cd - > /dev/null
     
-    # Step 9: Generate/Update Configuration Documentation
+    # Step 10: Generate/Update Configuration Documentation
     # AVM requires up-to-date documentation generated by terraform-docs
     - name: Generate Configuration Documentation
       run: |
@@ -658,6 +581,7 @@ jobs:
   terraform-apply:
     name: 🚀 Terraform Apply
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     environment: production  # Required to access production environment secrets
     needs: terraform-plan    # Depends on successful completion of plan job
     
@@ -728,53 +652,26 @@ jobs:
         # Add a small delay to ensure network rules are fully propagated
         echo "Waiting 10 seconds for network rules to propagate..."
         sleep 10
+
+    # Step 6a: Initialize Terraform for Apply  
+    - name: Initialize Terraform for Apply
+      uses: ./.github/actions/terraform-init-with-backend
+      env:
+        ARM_STORAGE_ACCOUNT_NAME: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
+        ARM_CONTAINER_NAME: ${{ secrets.TERRAFORM_CONTAINER }}
+        ARM_RESOURCE_GROUP_NAME: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
+        ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      with:
+        configuration: ${{ needs.terraform-plan.outputs.configuration }}
+        tfvars-file: ${{ github.event.inputs.tfvars_file }}
+
+    # Step 6b: Execute Terraform Apply
+    - name: Execute Terraform Apply
+      run: |
+        config="${{ needs.terraform-plan.outputs.configuration }}"
         
-        # Re-initialize Terraform (required after downloading artifacts) with retry logic
-        echo "::notice title=Terraform Re-init::Re-initializing Terraform after downloading plan artifacts..."
-        
-        # Retry logic for terraform init (network-dependent operation)
-        max_retries=3
-        retry_count=0
-        init_success=false
-        
-        while [ $retry_count -lt $max_retries ] && [ "$init_success" = false ]; do
-          retry_count=$((retry_count + 1))
-          echo "::notice title=Init Attempt::🔄 Terraform init attempt $retry_count of $max_retries..."
-          
-          if terraform init \
-            -backend-config="storage_account_name=${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}" \
-            -backend-config="container_name=${{ secrets.TERRAFORM_CONTAINER }}" \
-            -backend-config="key=$config-${{ github.event.inputs.tfvars_file }}.tfstate" \
-            -backend-config="resource_group_name=${{ secrets.TERRAFORM_RESOURCE_GROUP }}" \
-            -backend-config="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
-            -backend-config="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
-            -backend-config="use_oidc=true"; then
-            
-            init_success=true
-            echo "::notice title=Init Success::✅ Terraform re-init completed successfully on attempt $retry_count"
-          else
-            echo "::warning title=Init Failed::⚠️ Terraform init attempt $retry_count failed"
-            if [ $retry_count -lt $max_retries ]; then
-              wait_time=$((retry_count * 10))
-              echo "::notice title=Retry Delay::⏱️ Waiting ${wait_time} seconds before retry..."
-              sleep $wait_time
-            fi
-          fi
-        done
-        
-        if [ "$init_success" = false ]; then
-          echo "::error title=Init Failed::❌ Terraform init failed after $max_retries attempts"
-          echo "::notice title=Context::📋 This init occurs in apply job after downloading plan artifacts"
-          echo "::notice title=Troubleshooting::📋 Common post-artifact-download init failures:"
-          echo "::notice title=Issue 1::🌐 Network connectivity issues to Azure Storage backend"
-          echo "::notice title=Issue 2::📦 Local state cache conflicts after artifact extraction"  
-          echo "::notice title=Issue 3::🔑 Authentication token expiration during job transition"
-          echo "::notice title=Solution 1::🔄 Re-run the workflow (may resolve transient issues)"
-          echo "::notice title=Solution 2::🔍 Check if JIT network access is still active"
-          echo "::notice title=Solution 3::💾 Verify plan artifacts were downloaded correctly"
-          echo "::notice title=Documentation::📚 See apply job troubleshooting guide"
-          exit 1
-        fi
+        cd "configurations/$config"
         
         # Apply the previously created plan
         # -auto-approve: Skip interactive approval since we're using a pre-approved plan
@@ -861,84 +758,42 @@ jobs:
         
         echo "::notice title=Extracting Outputs::Getting Terraform outputs for configuration: $config"
         cd "configurations/$config"
-        
-        # Re-initialize to ensure we can read outputs from the updated state (with retry logic)
-        echo "::notice title=Terraform Init::Re-initializing Terraform to read updated state for outputs..."
-        
-        # Retry logic for terraform init (network-dependent operation)
-        max_retries=3
-        retry_count=0
-        init_success=false
-        
-        while [ $retry_count -lt $max_retries ] && [ "$init_success" = false ]; do
-          retry_count=$((retry_count + 1))
-          echo "::notice title=Init Attempt::🔄 Terraform init attempt $retry_count of $max_retries..."
-          
-          if terraform init \
-            -backend-config="storage_account_name=${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}" \
-            -backend-config="container_name=${{ secrets.TERRAFORM_CONTAINER }}" \
-            -backend-config="key=$config-${{ github.event.inputs.tfvars_file }}.tfstate" \
-            -backend-config="resource_group_name=${{ secrets.TERRAFORM_RESOURCE_GROUP }}" \
-            -backend-config="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
-            -backend-config="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
-            -backend-config="use_oidc=true"; then
-            
-            init_success=true
-            echo "::notice title=Init Success::✅ Terraform init for outputs completed successfully on attempt $retry_count"
-          else
-            echo "::warning title=Init Failed::⚠️ Terraform init attempt $retry_count failed"
-            if [ $retry_count -lt $max_retries ]; then
-              wait_time=$((retry_count * 10))
-              echo "::notice title=Retry Delay::⏱️ Waiting ${wait_time} seconds before retry..."
-              sleep $wait_time
-            fi
-          fi
-        done
-        
-        if [ "$init_success" = false ]; then
-          echo "::error title=Init Failed::❌ Terraform init failed after $max_retries attempts"
-          echo "::notice title=Context::📋 This init is required to read outputs from updated state"
-          echo "::notice title=Troubleshooting::📋 Common output extraction init failures:"
-          echo "::notice title=Issue 1::🌐 Network connectivity issues accessing state file"
-          echo "::notice title=Issue 2::💾 State file lock conflicts or corruption"  
-          echo "::notice title=Issue 3::🔑 Authentication issues reading from remote backend"
-          echo "::notice title=Solution 1::🔄 Re-run the workflow (may resolve transient issues)"
-          echo "::notice title=Solution 2::🔍 Check state file integrity in storage account"
-          echo "::notice title=Solution 3::🔐 Verify backend access permissions are still valid"
-          echo "::notice title=Documentation::📚 See state management troubleshooting guide"
-          exit 1
-        fi
+
+    # Step 7a: Initialize Terraform for output extraction
+    - name: Initialize Terraform for Output
+      uses: ./.github/actions/terraform-init-with-backend
+      env:
+        ARM_STORAGE_ACCOUNT_NAME: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
+        ARM_CONTAINER_NAME: ${{ secrets.TERRAFORM_CONTAINER }}
+        ARM_RESOURCE_GROUP_NAME: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
+        ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      with:
+        configuration: ${{ needs.terraform-plan.outputs.configuration }}
+        tfvars-file: ${{ github.event.inputs.tfvars_file }}
+
+    # Step 7b: Extract outputs and generate metadata
+    - name: Extract Outputs and Generate Metadata
+      uses: ./.github/actions/generate-workflow-metadata
+      id: output-metadata
+      with:
+        operation: 'apply'
+        configuration: ${{ needs.terraform-plan.outputs.configuration }}
+        tfvars-file: ${{ github.event.inputs.tfvars_file }}
+        phase: 'output'
+        additional-data: '${{ needs.terraform-plan.outputs.execution-metadata }}'
+
+    # Step 7c: Generate output files
+    - name: Generate Output Files
+      run: |
+        config="${{ needs.terraform-plan.outputs.configuration }}"
+        cd "configurations/$config"
         
         # Extract outputs in JSON format, fallback to empty object if no outputs
         terraform output -json > "outputs-$config.json" || echo "{}" > "outputs-$config.json"
         
-        # Generate comprehensive output metadata with plan metadata
-        timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-        terraform_version=$(terraform --version | head -1 | sed 's/Terraform v//')
-        
-        # Include plan metadata if available
-        plan_metadata='${{ needs.terraform-plan.outputs.execution-metadata }}'
-        
-        # Create metadata file with both apply and plan context
-        cat > "outputs-metadata.json" <<EOF
-          {
-            "generated_at": "$timestamp",
-            "workflow_run": "${{ github.run_number }}",
-            "workflow_id": "${{ github.run_id }}",
-            "generated_by": "${{ github.actor }}",
-            "terraform_version": "$terraform_version",
-            "workflow_version": "1.0.0",
-            "configuration": "$config",
-            "repository": "${{ github.repository }}",
-            "ref": "${{ github.ref }}",
-            "sha": "${{ github.sha }}",
-            "event": "${{ github.event_name }}",
-            "runner_os": "${{ runner.os }}",
-            "runner_arch": "${{ runner.arch }}",
-            "phase": "apply",
-            "plan_metadata": $plan_metadata
-          }
-          EOF
+        # Save metadata from previous step
+        echo '${{ steps.output-metadata.outputs.metadata }}' > "outputs-metadata.json"
         
         # Show a preview of the outputs
         echo "::group::Terraform Outputs Preview"

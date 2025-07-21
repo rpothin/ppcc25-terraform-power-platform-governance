@@ -61,6 +61,7 @@ jobs:
   terraform-import:
     name: 📥 Terraform Import
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     environment: production  # Required to access production environment secrets
     
     # Environment variables for Power Platform OIDC authentication
@@ -207,50 +208,39 @@ jobs:
         
         echo "::notice title=Initializing Terraform::Initializing Terraform for configuration: $config"
         cd "configurations/$config"
+
+    # Step 7a: Initialize Terraform for import
+    - name: Initialize Terraform for Import
+      uses: ./.github/actions/terraform-init-with-backend
+      env:
+        ARM_STORAGE_ACCOUNT_NAME: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
+        ARM_CONTAINER_NAME: ${{ secrets.TERRAFORM_CONTAINER }}
+        ARM_RESOURCE_GROUP_NAME: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
+        ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      with:
+        configuration: ${{ github.event.inputs.configuration }}
+        tfvars-file: ${{ github.event.inputs.tfvars_file }}
+
+    # Step 7b: Generate import metadata
+    - name: Generate Import Metadata
+      uses: ./.github/actions/generate-workflow-metadata
+      id: import-metadata
+      with:
+        operation: 'import'
+        configuration: ${{ github.event.inputs.configuration }}
+        tfvars-file: ${{ github.event.inputs.tfvars_file }}
+        phase: 'pre-import'
+        additional-data: '{"resource_type": "${{ github.event.inputs.resource_type }}", "resource_name": "${{ github.event.inputs.resource_name }}", "resource_id": "${{ github.event.inputs.resource_id }}"}'
+
+    # Step 7c: Validate and check pre-import state
+    - name: Validate and Check Pre-Import State
+      run: |
+        config="${{ github.event.inputs.configuration }}"
+        resource_type="${{ github.event.inputs.resource_type }}"
+        resource_name="${{ github.event.inputs.resource_name }}"
         
-        # Add a small delay to ensure network rules are fully propagated
-        echo "Waiting 10 seconds for network rules to propagate..."
-        sleep 10
-        
-        # Initialize Terraform with Azure backend for state storage (with retry logic)
-        echo "::notice title=Terraform Init::Initializing Terraform for import operations..."
-        
-        # Retry logic for terraform init (network-dependent operation)
-        max_retries=3
-        retry_count=0
-        init_success=false
-        
-        while [ $retry_count -lt $max_retries ] && [ "$init_success" = false ]; do
-          retry_count=$((retry_count + 1))
-          echo "::notice title=Init Attempt::🔄 Terraform init attempt $retry_count of $max_retries..."
-          
-          if terraform init \
-            -backend-config="storage_account_name=${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}" \
-            -backend-config="container_name=${{ secrets.TERRAFORM_CONTAINER }}" \
-            -backend-config="key=$config-${{ github.event.inputs.tfvars_file }}.tfstate" \
-            -backend-config="resource_group_name=${{ secrets.TERRAFORM_RESOURCE_GROUP }}" \
-            -backend-config="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
-            -backend-config="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
-            -backend-config="use_oidc=true"; then
-            
-            init_success=true
-            echo "::notice title=Init Success::✅ Terraform init for import completed successfully on attempt $retry_count"
-          else
-            echo "::warning title=Init Failed::⚠️ Terraform init attempt $retry_count failed"
-            if [ $retry_count -lt $max_retries ]; then
-              wait_time=$((retry_count * 10))
-              echo "::notice title=Retry Delay::⏱️ Waiting ${wait_time} seconds before retry..."
-              sleep $wait_time
-            fi
-          fi
-        done
-        
-        if [ "$init_success" = false ]; then
-          echo "::error title=Init Failed::❌ Terraform init failed after $max_retries attempts"
-          echo "::notice title=Context::📋 This init occurs for import operations"
-          echo "::notice title=Documentation::📚 Error Reference: https://github.com/${{ github.repository }}/blob/main/docs/references/workflow-error-reference.md#terraform-init-errors"
-          exit 1
-        fi
+        cd "configurations/$config"
         
         # Validate Terraform configuration syntax
         terraform validate

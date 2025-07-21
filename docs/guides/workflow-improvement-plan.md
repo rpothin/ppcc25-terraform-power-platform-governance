@@ -1029,15 +1029,15 @@ jobs:
 ### Week 2: Duplication Reduction
 - [x] **Create generate-workflow-metadata action** (Action 2.1.2) ✅ **COMPLETED**
 - [x] **Create detect-terraform-changes action** (Action 2.1.3) ✅ **COMPLETED**
-- [ ] **Refactor terraform-plan-apply.yml** (Action 2.2.1) - **PENDING**
-- [ ] **Refactor terraform-destroy.yml** (Action 2.2.1) - **PENDING**
-- [ ] **Add job timeouts** (Action 3.1.1) - **PENDING**
+- [x] **Refactor terraform-plan-apply.yml** (Action 2.2.1) ✅ **COMPLETED**
+- [x] **Refactor terraform-destroy.yml** (Action 2.2.1) ✅ **COMPLETED**
+- [x] **Add job timeouts** (Action 3.1.1) ✅ **COMPLETED**
 - [ ] **Create enhanced error handler** (Action 3.2.1) - **PENDING**
 
 ### Week 3: Documentation & Polish
 - [ ] **Create workflow error reference** (Action 4.1.1) - **PENDING**
 - [ ] **Standardize artifact retention** (Action 3.3.1) - **PENDING**
-- [ ] **Refactor remaining workflows** (Action 2.2.1) - **PENDING**
+- [x] **Refactor remaining workflows** (Action 2.2.1) ✅ **COMPLETED**
 - [ ] **Create action development guide** (Action 4.1.2) - **PENDING**
 - [ ] **Update main README.md** - **PENDING**
 - [ ] **Final testing of all workflows** - **PENDING**
