@@ -50,6 +50,7 @@ jobs:
   # Validates inputs, checks state, and prepares for destruction
   # This job acts as a safety gate before the actual destroy operation
   terraform-validate:
+    name: 🔍 Validation and Safety Checks
     runs-on: ubuntu-latest
     environment: production  # Required to access production environment secrets
     
@@ -414,6 +415,7 @@ jobs:
   # Only runs after successful validation and with explicit resource existence check
   # Performs the actual resource destruction with safety checks
   terraform-destroy:
+    name: 🚨 Terraform Destroy
     runs-on: ubuntu-latest
     environment: production  # Required to access production environment secrets
     needs: terraform-validate    # Depends on successful validation

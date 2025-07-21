@@ -45,6 +45,7 @@ jobs:
   # Runs the selected Terraform configuration and exports outputs in specified format
   # Includes validation, safety checks, and comprehensive output processing
   terraform-output:
+    name: 🔍 Terraform Output
     runs-on: ubuntu-latest
     environment: production  # Required to access production environment secrets
     

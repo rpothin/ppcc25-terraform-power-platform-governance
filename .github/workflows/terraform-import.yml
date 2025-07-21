@@ -54,6 +54,7 @@ jobs:
   # This job will import the specified resource and validate the import was successful
   # Includes comprehensive validation, backup, and verification steps
   terraform-import:
+    name: 📥 Terraform Import
     runs-on: ubuntu-latest
     environment: production  # Required to access production environment secrets
     

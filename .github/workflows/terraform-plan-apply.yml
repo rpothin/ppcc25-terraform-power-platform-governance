@@ -47,6 +47,7 @@ jobs:
   # Always runs to validate and plan the Terraform configuration
   # Creates execution plans and uploads them as artifacts for potential apply phase
   terraform-plan:
+    name: 📋 Terraform Plan
     runs-on: ubuntu-latest
     environment: production  # Required to access production environment secrets
     
@@ -650,6 +651,7 @@ jobs:
   # Only runs if plan job succeeded, has changes, and user requested apply
   # Applies the previously created plan to make actual infrastructure changes
   terraform-apply:
+    name: 🚀 Terraform Apply
     runs-on: ubuntu-latest
     environment: production  # Required to access production environment secrets
     needs: terraform-plan    # Depends on successful completion of plan job
