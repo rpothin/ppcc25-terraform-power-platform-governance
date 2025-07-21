@@ -209,13 +209,13 @@ concurrency:
   cancel-in-progress: true
 ```
 
-**Files to Update**:
-- [ ] `terraform-destroy.yml`
-- [ ] `terraform-import.yml` 
-- [ ] `terraform-output.yml`
-- [ ] `terraform-plan-apply.yml`
-- [ ] `terraform-test.yml`
-- [ ] `terraform-docs.yml`
+**Files Updated**:
+- [x] `terraform-destroy.yml` ✅ **COMPLETED**
+- [x] `terraform-import.yml` ✅ **COMPLETED**
+- [x] `terraform-output.yml` ✅ **COMPLETED**
+- [x] `terraform-plan-apply.yml` ✅ **COMPLETED**
+- [x] `terraform-test.yml` ✅ **COMPLETED**
+- [x] `terraform-docs.yml` ✅ **COMPLETED**
 
 ## 📋 Phase 2: Reduce Duplication (Week 1-2)
 
@@ -1020,7 +1020,7 @@ jobs:
 - [x] **Update outdated actions** (Action 1.1.2) ✅ **COMPLETED** 
 - [x] **Standardize Terraform versions** (Action 1.2.1) ✅ **COMPLETED**
 - [x] **Standardize state file naming** (Action 1.3.1) ✅ **COMPLETED**
-- [ ] **Add concurrency controls** (Action 1.4.1) - **IN PROGRESS**
+- [x] **Add concurrency controls** (Action 1.4.1) ✅ **COMPLETED**
 - [ ] **Create terraform-init-with-backend action** (Action 2.1.1) - **PENDING**
 - [ ] **Test new composite action and state naming** - **PENDING** 
 

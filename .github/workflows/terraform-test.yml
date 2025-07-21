@@ -5,6 +5,11 @@
 
 name: Test Terraform Configurations and Modules
 
+# Prevent concurrent test operations on same target path
+concurrency:
+  group: terraform-test-${{ github.event.inputs.target_path || 'all' }}-${{ github.ref }}
+  cancel-in-progress: false  # Don't cancel running test operations
+
 # Triggers: Automated testing on configuration/module changes and manual dispatch
 on:
   pull_request:

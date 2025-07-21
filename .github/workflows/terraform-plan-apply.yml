@@ -5,6 +5,11 @@
 
 name: Terraform Plan and Apply
 
+# Prevent concurrent Terraform operations on same configuration/tfvars combination
+concurrency:
+  group: terraform-${{ github.event.inputs.configuration || 'default' }}-${{ github.event.inputs.tfvars_file || 'default' }}-${{ github.ref }}
+  cancel-in-progress: false  # Don't cancel running Terraform operations
+
 # Trigger: Manual workflow dispatch only
 # Users can select which configuration to deploy and whether to apply changes
 on:

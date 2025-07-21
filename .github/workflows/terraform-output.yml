@@ -5,6 +5,11 @@
 
 name: Terraform Output
 
+# Prevent concurrent Terraform operations on same configuration
+concurrency:
+  group: terraform-${{ github.event.inputs.configuration || 'default' }}-output-${{ github.ref }}
+  cancel-in-progress: false  # Don't cancel running Terraform operations
+
 # Trigger: Manual workflow dispatch only
 # Users can select which configuration to execute for output
 on:

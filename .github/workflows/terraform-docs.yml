@@ -5,6 +5,11 @@
 
 name: Generate Terraform Docs
 
+# Allow safe cancellation of documentation generation workflows
+concurrency:
+  group: terraform-docs-${{ github.ref }}
+  cancel-in-progress: true
+
 # Trigger: Pull requests and pushes that modify Terraform files
 # Also supports manual dispatch for ad-hoc documentation generation
 on:

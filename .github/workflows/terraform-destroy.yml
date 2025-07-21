@@ -4,6 +4,11 @@
 
 name: Terraform Destroy
 
+# Prevent concurrent Terraform operations on same configuration/tfvars combination
+concurrency:
+  group: terraform-${{ github.event.inputs.configuration || 'default' }}-${{ github.event.inputs.tfvars_file || 'default' }}-${{ github.ref }}
+  cancel-in-progress: false  # Don't cancel running Terraform operations
+
 # Trigger: Manual workflow dispatch only with explicit confirmation
 # Users must provide explicit confirmation to prevent accidental resource destruction
 on:
