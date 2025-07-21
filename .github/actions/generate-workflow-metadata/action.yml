@@ -1,41 +1,70 @@
+# GitHub composite action for generating AVM-compliant workflow execution metadata
+# This action creates standardized metadata that can be used for audit trails, reporting,
+# and compliance tracking. It follows Azure Verified Modules (AVM) patterns for metadata structure.
 name: 'Generate Workflow Metadata'
 description: 'Generates AVM-compliant workflow execution metadata'
 
+# Input parameters that define the execution context and operation details
 inputs:
   operation:
     description: 'Operation type (plan, apply, destroy, import, output, test)'
     required: true
+    # Defines the type of Terraform operation being performed
+    # Used for categorizing and filtering metadata in downstream systems
   configuration:
     description: 'Configuration name'
     required: false
+    # The name of the Terraform configuration being processed (e.g., "01-dlp-policies")
+    # Optional to support operations that don't target specific configurations
   tfvars-file:
     description: 'tfvars file name'
     required: false
+    # The name of the tfvars file being used (without .tfvars extension)
+    # Helps track which variable set was used for the operation
   phase:
     description: 'Execution phase (validation, planning, execution, etc.)'
     required: false
     default: 'execution'
+    # Indicates which phase of the workflow is generating the metadata
+    # Useful for tracking progress through complex multi-stage workflows
   additional-data:
     description: 'Additional JSON data to include'
     required: false
     default: '{}'
+    # Allows injection of custom metadata specific to particular use cases
+    # Must be valid JSON format; will be merged into the final metadata object
 
+# Output that contains the generated metadata in JSON format
 outputs:
   metadata:
     description: 'Generated metadata JSON'
     value: ${{ steps.generate.outputs.metadata }}
+    # Returns a complete JSON object containing all workflow metadata
+    # Structure follows AVM patterns for consistency across all operations
+    # Can be consumed by downstream jobs for logging, reporting, or audit purposes
 
+# Define this as a composite action that runs shell commands
 runs:
   using: 'composite'
   steps:
+    # Step 1: Generate comprehensive workflow metadata
+    # This step collects system information and creates AVM-compliant metadata
+    # The metadata includes timestamps, versions, execution context, and environment details
     - name: Generate Metadata
       id: generate
       shell: bash
       run: |
+        # === COLLECT SYSTEM INFORMATION ===
+        # Generate ISO 8601 timestamp for precise execution tracking
         timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+        
+        # Extract Terraform version for compatibility and audit purposes
+        # Handle cases where Terraform might not be available (fallback to 'not-available')
         terraform_version=$(terraform --version | head -1 | sed 's/Terraform v//' 2>/dev/null || echo 'not-available')
         
-        # Generate base metadata
+        # === BUILD METADATA JSON OBJECT ===
+        # Use jq to construct a well-formed JSON object with all required fields
+        # This approach ensures proper JSON formatting and handles special characters safely
         metadata_json=$(jq -n \
           --arg timestamp "$timestamp" \
           --arg workflow_run "${{ github.run_number }}" \
@@ -57,34 +86,38 @@ runs:
           '{
             "generated_at": $timestamp,
             "workflow": {
-              "run_number": $workflow_run,
-              "run_id": $workflow_id,
-              "generated_by": $generated_by,
-              "version": $workflow_version
+              "run_number": $workflow_run,      # Sequential run number for this workflow
+              "run_id": $workflow_id,           # Unique identifier for this workflow execution
+              "generated_by": $generated_by,   # GitHub actor who triggered the workflow
+              "version": $workflow_version     # Version of the workflow metadata schema
             },
-            "terraform_version": $tf_version,
-            "operation": $operation,
-            "phase": $phase,
-            "configuration": $configuration,
-            "tfvars_file": $tfvars_file,
+            "terraform_version": $tf_version,   # Terraform version used for this execution
+            "operation": $operation,            # Type of Terraform operation (plan, apply, etc.)
+            "phase": $phase,                    # Current phase of the workflow execution
+            "configuration": $configuration,    # Name of the configuration being processed
+            "tfvars_file": $tfvars_file,       # Variables file being used
             "repository": {
-              "name": $repository,
-              "ref": $ref,
-              "sha": $sha,
-              "event": $event
+              "name": $repository,              # Full repository name (owner/repo)
+              "ref": $ref,                      # Git reference (branch, tag, or commit)
+              "sha": $sha,                      # Specific commit SHA for this execution
+              "event": $event                   # GitHub event that triggered the workflow
             },
             "runner": {
-              "os": $runner_os,
-              "architecture": $runner_arch
+              "os": $runner_os,                 # Operating system of the runner
+              "architecture": $runner_arch     # Architecture of the runner (x64, arm64, etc.)
             },
-            "additional": $additional
+            "additional": $additional           # Any additional custom metadata
           }'
         )
         
+        # === OUTPUT THE GENERATED METADATA ===
+        # Use heredoc format to safely output multi-line JSON without escaping issues
+        # This format is required for GitHub Actions to properly handle multi-line outputs
         {
           echo "metadata<<METADATA_EOF"
           echo "$metadata_json"
           echo "METADATA_EOF"
         } >> $GITHUB_OUTPUT
         
+        # Provide user feedback that metadata generation was successful
         echo "::notice title=Metadata Generated::📊 AVM-compliant metadata created"

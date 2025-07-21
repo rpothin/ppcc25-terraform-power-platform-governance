@@ -1,42 +1,69 @@
+# GitHub composite action for robust Terraform initialization with Azure backend
+# This action handles Terraform initialization with standardized state naming conventions,
+# built-in retry logic for reliability, and network propagation handling for secure setups.
+# It follows enterprise patterns for state management and provides comprehensive error handling.
 name: 'Terraform Init with Backend Configuration'
 description: 'Initializes Terraform with Azure backend, standardized state naming, and retry logic'
 
+# Input parameters that control initialization behavior and state management
 inputs:
   configuration:
     description: 'Configuration name for state file key'
     required: true
+    # Used as the primary component of the state file name
+    # Should match the directory name of the configuration (e.g., "01-dlp-policies")
   tfvars-file:
     description: 'tfvars file name (without extension) for state file key'
     required: false
+    # Used to create unique state files for different variable sets
+    # Combined with configuration to create pattern: "configuration-tfvarsfile.tfstate"
   state-key-override:
     description: 'Override the default state key pattern (for special cases like output/test)'
     required: false
+    # Allows complete override of state key generation for special operations
+    # Useful for output-only operations or testing scenarios that need custom naming
   max-retries:
     description: 'Maximum number of retry attempts'
     required: false
     default: '3'
+    # Number of times to retry initialization if it fails
+    # Helps handle transient network issues or Azure backend temporary unavailability
   wait-for-propagation:
     description: 'Wait time for network rules to propagate (seconds)'
     required: false
     default: '10'
+    # Time to wait for JIT network access rules to fully propagate
+    # Critical for setups using Just-In-Time network access with Azure Storage
 
+# Output values that provide feedback on initialization results
 outputs:
   initialized:
     description: 'Whether initialization was successful'
     value: ${{ steps.init.outputs.initialized }}
+    # Returns "true" if initialization completed successfully, "false" if it failed
+    # Can be used by downstream steps to conditionally execute based on init success
   state-key:
     description: 'The state key used for initialization'
     value: ${{ steps.init.outputs.state-key }}
+    # Returns the actual state key that was generated and used
+    # Useful for debugging state issues and confirming correct naming patterns
 
+# Define this as a composite action that runs multiple sequential steps
 runs:
   using: 'composite'
   steps:
+    # Step 1: Wait for network access rules to propagate
+    # This is critical when using JIT network access, as Azure firewall rules
+    # need time to propagate across the Azure infrastructure before they become effective
     - name: Wait for Network Propagation
       shell: bash
       run: |
         echo "::notice title=Network Propagation::⏱️ Waiting ${{ inputs.wait-for-propagation }} seconds for network rules to propagate..."
         sleep ${{ inputs.wait-for-propagation }}
 
+    # Step 2: Generate the appropriate state key for this initialization
+    # This step implements standardized state naming conventions that ensure
+    # unique state files for different configurations and variable sets
     - name: Generate State Key
       id: state-key
       shell: bash
@@ -45,22 +72,31 @@ runs:
         tfvars_file="${{ inputs.tfvars-file }}"
         override_key="${{ inputs.state-key-override }}"
         
+        # === STATE KEY GENERATION LOGIC ===
         if [ -n "$override_key" ]; then
-          # Use override key for special cases (output, test workflows)
+          # Use override key for special cases (output, test workflows, etc.)
+          # This bypasses standard naming conventions when specific naming is required
           state_key="$override_key"
           echo "::notice title=Override State Key::Using override: $state_key"
         elif [ -n "$tfvars_file" ]; then
           # Standard pattern: configuration-tfvarsfile.tfstate
+          # This creates unique state files for each configuration/tfvars combination
+          # Example: "01-dlp-policies-dev.tfstate", "01-dlp-policies-prod.tfstate"
           state_key="${config}-${tfvars_file}.tfstate"
           echo "::notice title=Standard State Key::Generated: $state_key"
         else
-          # Fallback to configuration only (for compatibility)
+          # Fallback to configuration only (for compatibility with legacy patterns)
+          # Used when no tfvars file is specified or for single-environment configs
           state_key="${config}.tfstate"
           echo "::warning title=Fallback State Key::Using fallback pattern: $state_key"
         fi
         
+        # Output the generated state key for use in subsequent steps
         echo "state-key=$state_key" >> $GITHUB_OUTPUT
 
+    # Step 3: Execute Terraform initialization with robust retry logic
+    # This step handles the actual terraform init command with comprehensive error handling,
+    # retry mechanisms, and support for both legacy and modern environment variable patterns
     - name: Terraform Init with Retry Logic
       id: init
       shell: bash
@@ -72,10 +108,17 @@ runs:
         
         echo "::notice title=Init Configuration::State key: $state_key"
         
+        # === RETRY LOOP ===
+        # Implement exponential backoff retry pattern for reliability
+        # This handles transient network issues, Azure backend temporary unavailability,
+        # or race conditions in JIT network access scenarios
         while [ $retry_count -lt $max_retries ] && [ "$init_success" = false ]; do
           retry_count=$((retry_count + 1))
           echo "::notice title=Init Attempt::🔄 Terraform init attempt $retry_count of $max_retries..."
           
+          # === TERRAFORM INIT EXECUTION ===
+          # Configure Azure backend using environment variables
+          # Support both ARM_* (modern) and TERRAFORM_* (legacy) variable patterns for compatibility
           if terraform init \
             -backend-config="storage_account_name=${{ env.ARM_STORAGE_ACCOUNT_NAME || env.TERRAFORM_STORAGE_ACCOUNT }}" \
             -backend-config="container_name=${{ env.ARM_CONTAINER_NAME || env.TERRAFORM_CONTAINER }}" \
@@ -85,11 +128,15 @@ runs:
             -backend-config="tenant_id=${{ env.ARM_TENANT_ID || env.AZURE_TENANT_ID }}" \
             -backend-config="use_oidc=true"; then
             
+            # === SUCCESS HANDLING ===
             init_success=true
             echo "::notice title=Init Success::✅ Terraform init completed successfully on attempt $retry_count"
             echo "::notice title=State Key Used::📋 State key: $state_key"
           else
+            # === FAILURE HANDLING ===
             echo "::warning title=Init Failed::⚠️ Terraform init attempt $retry_count failed"
+            
+            # Implement exponential backoff for retries (10s, 20s, 30s, etc.)
             if [ $retry_count -lt $max_retries ]; then
               wait_time=$((retry_count * 10))
               echo "::notice title=Retry Delay::⏱️ Waiting ${wait_time} seconds before retry..."
@@ -98,13 +145,16 @@ runs:
           fi
         done
         
+        # === FINAL RESULT HANDLING ===
         if [ "$init_success" = false ]; then
+          # All retry attempts exhausted - report failure
           echo "::error title=Init Failed::❌ Terraform init failed after $max_retries attempts"
           echo "::error title=State Key::📋 Failed with state key: $state_key"
           echo "initialized=false" >> $GITHUB_OUTPUT
           echo "state-key=$state_key" >> $GITHUB_OUTPUT
           exit 1
         else
+          # Success - report completion
           echo "initialized=true" >> $GITHUB_OUTPUT
           echo "state-key=$state_key" >> $GITHUB_OUTPUT
         fi

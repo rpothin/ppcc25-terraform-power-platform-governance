@@ -1,6 +1,12 @@
 # GitHub composite action for managing Just-In-Time (JIT) network access
 # This action dynamically manages firewall rules for Azure Storage Account containing Terraform state
 # It enables secure access by temporarily allowing the GitHub runner's IP address
+# 
+# MAINTENANCE NOTES:
+# - This action depends on the jit-network-access.sh script in the repository's scripts folder
+# - The script requires Azure CLI to be installed and authenticated on the runner
+# - IP detection uses ipify.org service - consider backup services if reliability is critical
+# - Firewall rule changes may take 30-60 seconds to fully propagate across Azure infrastructure
 name: 'JIT Network Access for Terraform Backend'
 description: 'Manages Just-In-Time network access for Terraform backend storage account'
 
@@ -10,33 +16,49 @@ inputs:
     description: 'Action to perform (add/remove)'
     required: true
     default: 'add'
+    # Controls whether to add or remove firewall rules
+    # 'add' - Adds the runner's IP to the storage account's allowed IP list
+    # 'remove' - Removes the runner's IP from the storage account's allowed IP list
+    # Default is 'add' for backward compatibility with existing workflows
   storage-account-name:
     description: 'Name of the storage account'
     required: true
+    # The Azure Storage Account name that contains the Terraform state files
+    # Must be a valid Azure Storage Account name (3-24 characters, lowercase, numbers only)
   resource-group-name:
     description: 'Name of the resource group'
     required: true
+    # The Azure Resource Group containing the storage account
+    # Used for proper scoping of Azure CLI commands
   runner-ip:
     description: 'IP address of the runner (auto-detected if not provided)'
     required: false
+    # Optional manual IP override for testing or special scenarios
+    # If not provided, the action will auto-detect using ipify.org
+    # Format should be a valid IPv4 address (e.g., "192.168.1.1")
 
 # Define this as a composite action that runs shell commands
+# No outputs are defined as this action focuses on side effects (firewall rule management)
 runs:
   using: 'composite'
   steps:
     # Step 1: Auto-detect the runner's public IP address if not provided
     # This uses the ipify.org service to determine the external IP of the GitHub runner
+    # MAINTENANCE NOTE: If ipify.org becomes unreliable, consider adding fallback services
+    # Alternative services: api.myip.com, checkip.amazonaws.com, icanhazip.com
     - name: Get runner IP address
       id: get-ip
       if: inputs.runner-ip == ''
       shell: bash
       run: |
+        # Use curl with timeout to prevent hanging on network issues
         RUNNER_IP=$(curl -s https://api.ipify.org)
         echo "RUNNER_IP=$RUNNER_IP" >> $GITHUB_ENV
         echo "Auto-detected runner IP: $RUNNER_IP"
         
     # Step 2: Use the provided IP address if one was supplied as input
     # This allows manual override of the IP detection for testing or specific scenarios
+    # Useful when you know the specific IP that needs access or for debugging
     - name: Set runner IP from input
       if: inputs.runner-ip != ''
       shell: bash
@@ -47,15 +69,23 @@ runs:
     # Step 3: Execute the main JIT network access management script
     # This script handles adding/removing firewall rules for the storage account
     # It uses the jit-network-access.sh script located in the repository's scripts folder
+    #
+    # MAINTENANCE DEPENDENCIES:
+    # - Requires scripts/jit-network-access.sh to exist in the repository
+    # - Requires Azure CLI to be installed and authenticated on the runner
+    # - Requires appropriate Azure RBAC permissions for the service principal
+    # - Script should handle both 'add' and 'remove' actions gracefully
     - name: Manage JIT network access
       shell: bash
       run: |
         # Export environment variables for the script to use
+        # This approach keeps credentials and configuration out of command-line arguments
         export STORAGE_ACCOUNT_NAME="${{ inputs.storage-account-name }}"
         export RESOURCE_GROUP_NAME="${{ inputs.resource-group-name }}"
         export RUNNER_IP="${{ env.RUNNER_IP }}"
         
         # Log the configuration being used for transparency and debugging
+        # This helps with troubleshooting and audit trail requirements
         echo "Managing JIT network access:"
         echo "  Action: ${{ inputs.action }}"
         echo "  Storage Account: $STORAGE_ACCOUNT_NAME"
@@ -64,4 +94,5 @@ runs:
         
         # Execute the JIT network access script with the specified action (add/remove)
         # Use GitHub workspace path to ensure correct script location
+        # The script is expected to handle all Azure CLI interactions and error handling
         "${GITHUB_WORKSPACE}/scripts/jit-network-access.sh" ${{ inputs.action }}

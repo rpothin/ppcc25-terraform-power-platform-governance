@@ -1,71 +1,109 @@
+# GitHub composite action for intelligent Terraform change detection
+# This action identifies which Terraform configurations and modules have changed
+# based on file modifications, supports manual targeting, and follows AVM patterns
 name: 'Detect Terraform Changes'
 description: 'Detects changed Terraform configurations and modules'
 
+# Input parameters that control change detection behavior
 inputs:
   target-path:
     description: 'Specific path to process (overrides change detection)'
     required: false
+    # When provided, this will bypass automatic change detection and process only the specified path
+    # Useful for manual testing or when you need to run specific configurations
   force-all:
     description: 'Force processing all paths'
     required: false
     default: 'false'
+    # When set to 'true', all eligible Terraform directories will be processed regardless of changes
+    # This is useful for full validation runs or when Git history doesn't accurately reflect changes
   include-configs:
     description: 'Include configuration directories'
     required: false
     default: 'true'
+    # Controls whether to include configuration directories (configurations/*) in the detection
+    # Set to 'false' to exclude configurations and only process modules
   include-modules:
     description: 'Include module directories'
     required: false
     default: 'true'
+    # Controls whether to include module directories (modules/*) in the detection
+    # Set to 'false' to exclude modules and only process configurations
 
+# Output values that downstream jobs can use for conditional processing
 outputs:
   changed-paths:
     description: 'Newline-separated list of changed paths'
     value: ${{ steps.detect.outputs.changed-paths }}
+    # Returns a multi-line string with each changed directory path on a separate line
+    # Empty string if no changes detected
   paths-count:
     description: 'Number of changed paths'
     value: ${{ steps.detect.outputs.paths-count }}
+    # Returns the count as a string (e.g., "0", "3", "10")
+    # Useful for conditional logic in workflows
   has-changes:
     description: 'Whether any changes were detected'
     value: ${{ steps.detect.outputs.has-changes }}
+    # Returns "true" if any paths need processing, "false" otherwise
+    # Primary flag for determining if downstream jobs should run
 
+# Define this as a composite action that runs multiple steps
 runs:
   using: 'composite'
   steps:
+    # Step 1: Use GitHub's paths-filter action to identify file changes
+    # This step creates filters for different types of Terraform-related files
+    # It's more efficient than manual git diff parsing and handles edge cases
     - name: Detect File Changes
       id: changes
       uses: dorny/paths-filter@v3
       with:
+        # Define patterns that trigger change detection
+        # These patterns follow standard Terraform project structure conventions
         filters: |
           configurations:
-            - 'configurations/**/*.tf'
-            - 'configurations/**/*.tfvars'
-            - 'configurations/**/.terraform-docs.yml'
-            - 'configurations/**/_header.md'
-            - 'configurations/**/_footer.md'
+            - 'configurations/**/*.tf'        # Terraform configuration files
+            - 'configurations/**/*.tfvars'    # Terraform variable files
+            - 'configurations/**/.terraform-docs.yml'  # Documentation configuration
+            - 'configurations/**/_header.md'  # Custom header files for docs
+            - 'configurations/**/_footer.md'  # Custom footer files for docs
           modules:
-            - 'modules/**/*.tf'
-            - 'modules/**/.terraform-docs.yml'
-            - 'modules/**/_header.md'
-            - 'modules/**/_footer.md'
+            - 'modules/**/*.tf'               # Module Terraform files
+            - 'modules/**/.terraform-docs.yml' # Module documentation configuration
+            - 'modules/**/_header.md'         # Module header files
+            - 'modules/**/_footer.md'         # Module footer files
 
+    # Step 2: Process the detected changes and apply business logic
+    # This is the main logic step that handles different scenarios:
+    # - Manual workflow dispatch with specific target path
+    # - Force all mode for comprehensive processing  
+    # - Automatic change detection based on Git differences
     - name: Process Changes
       id: detect
       shell: bash
       run: |
         echo "::notice title=Change Detection::🔍 Analyzing changed paths..."
         
-        # Handle manual inputs
+        # === MANUAL WORKFLOW DISPATCH HANDLING ===
+        # Handle manual inputs when triggered via workflow_dispatch
+        # This section provides flexibility for manual testing and specific targeting
         if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          
+          # Process specific target path if provided
+          # This bypasses all change detection and forces processing of a single path
           if [ -n "${{ inputs.target-path }}" ]; then
             target_path="${{ inputs.target-path }}"
             echo "::notice title=Manual Target::Processing specific path: $target_path"
             
+            # Validate that the target path actually exists
             if [ ! -d "$target_path" ]; then
               echo "::error title=Target Path Not Found::Path '$target_path' does not exist"
               exit 1
             fi
             
+            # Ensure the target path contains Terraform files
+            # This prevents processing non-Terraform directories
             if find "$target_path" -maxdepth 1 -name "*.tf" -type f | grep -q .; then
               echo "changed-paths=$target_path" >> $GITHUB_OUTPUT
               echo "paths-count=1" >> $GITHUB_OUTPUT
@@ -78,33 +116,41 @@ runs:
             fi
           fi
           
+          # Process all eligible paths when force-all is enabled
+          # This is useful for full validation runs or when Git history is unreliable
           if [ "${{ inputs.force-all }}" = "true" ]; then
             echo "::notice title=Force All::Processing all configurations and modules"
             paths_to_process=()
             
+            # Include configuration directories if enabled
             if [ "${{ inputs.include-configs }}" = "true" ] && [ -d "configurations" ]; then
               for config_dir in configurations/*/; do
-                dir=${config_dir%/}
+                dir=${config_dir%/}  # Remove trailing slash
+                # Only include directories that contain Terraform files
                 if [ -d "$dir" ] && find "$dir" -maxdepth 1 -name "*.tf" -type f | grep -q .; then
                   paths_to_process+=("$dir")
                 fi
               done
             fi
             
+            # Include module directories if enabled  
             if [ "${{ inputs.include-modules }}" = "true" ] && [ -d "modules" ]; then
               for module_dir in modules/*/; do
-                dir=${module_dir%/}
+                dir=${module_dir%/}  # Remove trailing slash
+                # Only include directories that contain Terraform files
                 if [ -d "$dir" ] && find "$dir" -maxdepth 1 -name "*.tf" -type f | grep -q .; then
                   paths_to_process+=("$dir")
                 fi
               done
             fi
             
+            # Generate output based on discovered paths
             if [ ${#paths_to_process[@]} -eq 0 ]; then
               echo "changed-paths=" >> $GITHUB_OUTPUT
               echo "paths-count=0" >> $GITHUB_OUTPUT
               echo "has-changes=false" >> $GITHUB_OUTPUT
             else
+              # Create newline-separated output using printf for reliable formatting
               printf -v joined '%s\n' "${paths_to_process[@]}"
               {
                 echo "changed-paths<<PATHS_EOF"
@@ -118,7 +164,9 @@ runs:
           fi
         fi
         
-        # Auto-detect changes
+        # === AUTOMATIC CHANGE DETECTION ===
+        # Check if the paths-filter action detected any relevant changes
+        # If no changes are detected, exit early to avoid unnecessary processing
         if [ "${{ steps.changes.outputs.configurations }}" != "true" ] && [ "${{ steps.changes.outputs.modules }}" != "true" ]; then
           echo "::notice title=No Changes::No relevant file changes detected"
           echo "changed-paths=" >> $GITHUB_OUTPUT
@@ -127,45 +175,58 @@ runs:
           exit 0
         fi
         
-        # Get changed files
+        # Determine the appropriate Git diff command based on event type
+        # Different events require different comparison strategies
         if [ "${{ github.event_name }}" = "pull_request" ]; then
+          # For PRs, compare against the base branch to see all PR changes
           changed_files=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
         elif [ "${{ github.event_name }}" = "push" ]; then
+          # For pushes, compare against the previous commit
           changed_files=$(git diff --name-only HEAD~1 HEAD)
         else
+          # Fallback for other event types (manual dispatch without specific inputs)
           changed_files=$(git diff --name-only HEAD~1 HEAD)
         fi
         
-        # Process changed files
+        # === PROCESS CHANGED FILES ===
+        # Parse the changed files and extract parent directories that need processing
         paths_to_process=()
         while IFS= read -r file; do
-          [ -z "$file" ] && continue
+          [ -z "$file" ] && continue  # Skip empty lines
           
+          # Extract the parent directory for configurations or modules
+          # Pattern matches: configurations/dirname/ or modules/dirname/
           if [[ "$file" =~ ^(configurations|modules)/[^/]+/ ]]; then
             dir=$(echo "$file" | grep -oE '^(configurations|modules)/[^/]+/')
-            dir=${dir%/}
+            dir=${dir%/}  # Remove trailing slash
             
-            # Filter based on inputs
+            # Apply include/exclude filters based on input parameters
             if [[ "$dir" =~ ^configurations/ ]] && [ "${{ inputs.include-configs }}" != "true" ]; then
-              continue
+              continue  # Skip configurations if not included
             fi
             if [[ "$dir" =~ ^modules/ ]] && [ "${{ inputs.include-modules }}" != "true" ]; then
-              continue
+              continue  # Skip modules if not included
             fi
             
+            # Add to processing list if:
+            # 1. Directory exists
+            # 2. Contains Terraform files  
+            # 3. Not already in the list (avoid duplicates)
             if [ -d "$dir" ] && find "$dir" -maxdepth 1 -name "*.tf" -type f | grep -q . && [[ ! " ${paths_to_process[@]} " =~ " ${dir} " ]]; then
               paths_to_process+=("$dir")
             fi
           fi
         done <<< "$changed_files"
         
-        # Output results
+        # === GENERATE FINAL OUTPUT ===
+        # Create the appropriate output format for downstream consumption
         if [ ${#paths_to_process[@]} -eq 0 ]; then
           echo "changed-paths=" >> $GITHUB_OUTPUT
           echo "paths-count=0" >> $GITHUB_OUTPUT
           echo "has-changes=false" >> $GITHUB_OUTPUT
           echo "::notice title=No Paths::No paths require processing"
         else
+          # Create newline-separated output using printf for reliable formatting
           printf -v joined '%s\n' "${paths_to_process[@]}"
           {
             echo "changed-paths<<PATHS_EOF"
