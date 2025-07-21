@@ -608,7 +608,6 @@ jobs:
           ARM_STORAGE_ACCOUNT_NAME: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
           ARM_CONTAINER_NAME: ${{ secrets.TERRAFORM_CONTAINER }}
           ARM_RESOURCE_GROUP_NAME: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
-          ARM_KEY: test-integration-state
           TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
         run: |
           echo "::notice title=Integration Testing::🧪 Running terraform test for changed configurations..."
@@ -671,13 +670,18 @@ jobs:
             
             # Initialize with proper backend configuration for integration testing
             echo "::notice title=Terraform Init::🔧 Initializing with backend for integration tests..."
-            echo "::notice title=Backend Config::Storage Account: $ARM_STORAGE_ACCOUNT_NAME, Container: $ARM_CONTAINER_NAME, Key: $ARM_KEY"
             
-            # Use explicit backend configuration like other workflows
+            # Extract configuration name from target_path (e.g., configurations/01-dlp-policies -> 01-dlp-policies)
+            config_name=$(basename "$target_path")
+            test_state_key="test-$config_name-integration.tfstate"
+            
+            echo "::notice title=Backend Config::Storage Account: $ARM_STORAGE_ACCOUNT_NAME, Container: $ARM_CONTAINER_NAME, Key: $test_state_key"
+            
+            # Use explicit backend configuration with configuration-specific state file
             if terraform init -input=false \
               -backend-config="storage_account_name=$ARM_STORAGE_ACCOUNT_NAME" \
               -backend-config="container_name=$ARM_CONTAINER_NAME" \
-              -backend-config="key=$ARM_KEY" \
+              -backend-config="key=$test_state_key" \
               -backend-config="resource_group_name=$ARM_RESOURCE_GROUP_NAME" \
               -backend-config="subscription_id=$ARM_SUBSCRIPTION_ID" \
               -backend-config="tenant_id=$ARM_TENANT_ID" \

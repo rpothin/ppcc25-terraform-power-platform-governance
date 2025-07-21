@@ -142,7 +142,7 @@ jobs:
         terraform init \
           -backend-config="storage_account_name=${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}" \
           -backend-config="container_name=${{ secrets.TERRAFORM_CONTAINER }}" \
-          -backend-config="key=output-$config-$(date +%Y%m%d).tfstate" \
+          -backend-config="key=output-$config.tfstate" \
           -backend-config="resource_group_name=${{ secrets.TERRAFORM_RESOURCE_GROUP }}" \
           -backend-config="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
           -backend-config="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
