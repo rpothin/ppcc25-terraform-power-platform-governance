@@ -385,8 +385,8 @@ jobs:
   terraform-configuration-validation:
     name: 🔧 Configuration Structure Validation  
     runs-on: ubuntu-latest
-    needs: [detect-changes, terraform-syntax-validation]
-    if: needs.detect-changes.outputs.any-config-changed == 'true' && needs.terraform-syntax-validation.outputs.validation-successful == 'true'
+    needs: detect-changes
+    if: needs.detect-changes.outputs.any-config-changed == 'true'
     
     outputs:
       configurations-validated: ${{ steps.validate-configs.outputs.configurations-validated }}
@@ -553,12 +553,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: production
-    needs: [detect-changes, terraform-syntax-validation]
+    needs: detect-changes
     if: |
-      always() && 
       needs.detect-changes.outputs.any-config-changed == 'true' && 
       needs.detect-changes.outputs.changed-paths != '' &&
-      needs.terraform-syntax-validation.outputs.validation-successful == 'true' &&
       github.event.inputs.skip_integration != 'true' &&
       (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
     
@@ -658,28 +656,35 @@ jobs:
             
             echo "::notice title=Found Integration Test::Running terraform test for $target_path"
             
-            # Detect if this is a hello world test (no powerplatform provider)
-            if ! grep -q "^[[:space:]]*[^#]*powerplatform" main.tf; then
-              echo "::notice title=Hello World Test::Running hello world terraform test (no backend)..."
+            # Initialize with proper backend configuration for integration testing
+            echo "::notice title=Terraform Init::🔧 Initializing with backend for integration tests..."
+            if terraform init -input=false; then
+              echo "::notice title=Running Integration Test::Executing terraform test with authentication..."
               
-              if terraform init -backend=false -input=false; then
-                echo "::notice title=Running Test::Executing terraform test..."
-                if terraform test; then
-                  echo "::notice title=Test Success::✅ terraform test passed for $target_path"
-                  tested_count=$((tested_count + 1))
-                else
-                  echo "::error title=Test Failed::❌ terraform test failed for $target_path"
-                  failed_count=$((failed_count + 1))
-                fi
+              # Set test-specific environment for safer testing
+              export TF_VAR_test_mode="true"
+              export TF_VAR_expected_minimum_policies=0  # Allow for empty test tenants
+              
+              if terraform test; then
+                echo "::notice title=Test Success::✅ terraform test passed for $target_path"
+                tested_count=$((tested_count + 1))
               else
-                echo "::error title=Init Failed::terraform init failed for $target_path"
+                echo "::error title=Test Failed::❌ terraform test failed for $target_path"
+                echo "::group::Test Output for $target_path"
+                terraform test 2>&1 || true
+                echo "::endgroup::"
                 failed_count=$((failed_count + 1))
               fi
-              
-              rm -rf .terraform .terraform.lock.hcl
             else
-              echo "::notice title=Full Configuration::Skipping full Power Platform configuration for now"
+              echo "::error title=Init Failed::terraform init failed for $target_path"
+              echo "::group::Init Output for $target_path"
+              terraform init -input=false 2>&1 || true
+              echo "::endgroup::"
+              failed_count=$((failed_count + 1))
             fi
+            
+            # Cleanup
+            rm -rf .terraform .terraform.lock.hcl
             
             cd - > /dev/null
           done
