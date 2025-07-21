@@ -795,7 +795,7 @@ jobs:
                 
                 # Run terraform test directly
                 echo "::notice title=Running Terraform Test::🧪 Executing terraform test..."
-                if timeout 60 terraform test tests/integration.tftest.hcl; then
+                if timeout 60 terraform test; then
                   echo "::notice title=Hello World Test Success::✅ Terraform test passed for $target_path"
                   tested_count=$((tested_count + 1))
                 else
