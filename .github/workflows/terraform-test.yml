@@ -483,6 +483,7 @@ jobs:
 
       - name: Run Terraform Integration Tests
         id: integration-tests
+        continue-on-error: true
         env:
           POWER_PLATFORM_USE_OIDC: true
           POWER_PLATFORM_CLIENT_ID: ${{ secrets.POWER_PLATFORM_CLIENT_ID }}
@@ -678,6 +679,18 @@ jobs:
           else
             echo "::notice title=All Tests Passed::✅ All terraform tests completed successfully!"
           fi
+
+      - name: Handle Terraform Test Failure
+        if: steps.integration-tests.outcome == 'failure'
+        uses: ./.github/actions/enhanced-error-handler
+        with:
+          error-context: "Terraform integration tests"
+          operation: "terraform-test"
+          include-troubleshooting: true
+
+      - name: Fail Workflow After Test Error
+        if: steps.integration-tests.outcome == 'failure'
+        run: exit 1
 
       - name: Remove JIT Network Access
         if: always()

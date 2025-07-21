@@ -211,7 +211,9 @@ jobs:
 
     # Step 7a: Initialize Terraform for import
     - name: Initialize Terraform for Import
+      id: terraform-init-import
       uses: ./.github/actions/terraform-init-with-backend
+      continue-on-error: true
       env:
         ARM_STORAGE_ACCOUNT_NAME: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
         ARM_CONTAINER_NAME: ${{ secrets.TERRAFORM_CONTAINER }}
@@ -221,6 +223,18 @@ jobs:
       with:
         configuration: ${{ github.event.inputs.configuration }}
         tfvars-file: ${{ github.event.inputs.tfvars_file }}
+
+    - name: Handle Init Import Failure
+      if: steps.terraform-init-import.outcome == 'failure'
+      uses: ./.github/actions/enhanced-error-handler
+      with:
+        error-context: "Terraform initialization for import in ${{ github.event.inputs.configuration }}"
+        operation: "terraform-init"
+        include-troubleshooting: true
+
+    - name: Fail Workflow After Init Import Error
+      if: steps.terraform-init-import.outcome == 'failure'
+      run: exit 1
 
     # Step 7b: Generate import metadata
     - name: Generate Import Metadata
@@ -325,6 +339,7 @@ jobs:
     # Step 9: Perform the import operation
     - name: Execute Terraform Import Operation
       id: terraform-import
+      continue-on-error: true
       run: |
         config="${{ github.event.inputs.configuration }}"
         tfvars_file="${{ github.event.inputs.tfvars_file }}"
@@ -431,6 +446,18 @@ jobs:
         fi
         
         cd - > /dev/null
+
+    - name: Handle Terraform Import Failure
+      if: steps.terraform-import.outcome == 'failure'
+      uses: ./.github/actions/enhanced-error-handler
+      with:
+        error-context: "Terraform import of ${{ github.event.inputs.resource_type }}.${{ github.event.inputs.resource_name }} in ${{ github.event.inputs.configuration }}"
+        operation: "terraform-import"
+        include-troubleshooting: true
+
+    - name: Fail Workflow After Import Error
+      if: steps.terraform-import.outcome == 'failure'
+      run: exit 1
     
     # Step 10: Verify import with state show
     - name: Verify Import
