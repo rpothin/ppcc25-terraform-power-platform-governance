@@ -150,29 +150,7 @@ jobs:
             
             if [ "$include_metadata" = "true" ]; then
               # Create enhanced output with metadata
-              enhanced_output=$(jq -n 
-                --argjson terraform_output "$raw_output" 
-                --arg timestamp "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" 
-                --arg configuration "$config" 
-                --arg workflow_run "${{ github.run_number }}" 
-                --arg generated_by "${{ github.actor }}" 
-                --arg repository "${{ github.repository }}" 
-                --arg ref "${{ github.ref }}" 
-                --arg sha "${{ github.sha }}" 
-                '{
-                  "metadata": {
-                    "generated_at": $timestamp,
-                    "configuration": $configuration,
-                    "workflow_run": $workflow_run,
-                    "generated_by": $generated_by,
-                    "repository": $repository,
-                    "ref": $ref,
-                    "sha": $sha,
-                    "export_format": "json"
-                  },
-                  "terraform_output": $terraform_output
-                }'
-              )
+              enhanced_output=$(jq -n --argjson terraform_output "$raw_output" --arg timestamp "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" --arg configuration "$config" --arg workflow_run "${{ github.run_number }}" --arg generated_by "${{ github.actor }}" --arg repository "${{ github.repository }}" --arg ref "${{ github.ref }}" --arg sha "${{ github.sha }}" '{"metadata": {"generated_at": $timestamp, "configuration": $configuration, "workflow_run": $workflow_run, "generated_by": $generated_by, "repository": $repository, "ref": $ref, "sha": $sha, "export_format": "json"}, "terraform_output": $terraform_output}')
               echo "$enhanced_output" | jq '.' > "$output_path"
             else
               # Just the raw Terraform output
@@ -187,29 +165,7 @@ jobs:
             
             if [ "$include_metadata" = "true" ]; then
               # Create enhanced output with metadata
-              enhanced_output=$(jq -n 
-                --argjson terraform_output "$raw_output" 
-                --arg timestamp "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" 
-                --arg configuration "$config" 
-                --arg workflow_run "${{ github.run_number }}" 
-                --arg generated_by "${{ github.actor }}" 
-                --arg repository "${{ github.repository }}" 
-                --arg ref "${{ github.ref }}" 
-                --arg sha "${{ github.sha }}" 
-                '{
-                  "metadata": {
-                    "generated_at": $timestamp,
-                    "configuration": $configuration,
-                    "workflow_run": $workflow_run,
-                    "generated_by": $generated_by,
-                    "repository": $repository,
-                    "ref": $ref,
-                    "sha": $sha,
-                    "export_format": "yaml"
-                  },
-                  "terraform_output": $terraform_output
-                }'
-              )
+              enhanced_output=$(jq -n --argjson terraform_output "$raw_output" --arg timestamp "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" --arg configuration "$config" --arg workflow_run "${{ github.run_number }}" --arg generated_by "${{ github.actor }}" --arg repository "${{ github.repository }}" --arg ref "${{ github.ref }}" --arg sha "${{ github.sha }}" '{"metadata": {"generated_at": $timestamp, "configuration": $configuration, "workflow_run": $workflow_run, "generated_by": $generated_by, "repository": $repository, "ref": $ref, "sha": $sha, "export_format": "yaml"}, "terraform_output": $terraform_output}')
               echo "$enhanced_output" | yq eval -P '.' > "$output_path"
             else
               # Just the raw Terraform output
