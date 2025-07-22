@@ -49,13 +49,12 @@ env:
 jobs:
   # Job 1: Detect Changes - Foundation for all parallel workflows
   detect-changes:
-    name: 🔍 Detect Test Changes
+    name: 🔍 Detect Changes
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
       configurations: ${{ steps.detect.outputs.has-changes }}
       modules: ${{ steps.detect.outputs.has-changes }}
-      test-utils: ${{ steps.changes.outputs.test-utils }}
       any-config-changed: ${{ steps.detect.outputs.has-changes }}
       changed-paths: ${{ steps.detect.outputs.changed-paths }}
     steps:
@@ -63,15 +62,7 @@ jobs:
         with:
           fetch-depth: 0  # Need full history for change detection
 
-      - name: Detect File Changes
-        id: changes
-        uses: dorny/paths-filter@v3.0.2
-        with:
-          filters: |
-            test-utils:
-              - 'scripts/test-utils/**'
-
-      - name: Detect Test Changes
+      - name: Detect Changes
         id: detect
         uses: ./.github/actions/detect-terraform-changes
         with:
@@ -94,6 +85,7 @@ jobs:
     
     outputs:
       format-issues: ${{ steps.format.outputs.format-issues }}
+      format-metadata: ${{ steps.format-metadata.outputs.metadata }}
     
     steps:
       - name: Checkout Repository
@@ -103,6 +95,20 @@ jobs:
         uses: hashicorp/setup-terraform@v3.1.2
         with:
           terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Generate Format Check Metadata
+        id: format-metadata
+        uses: ./.github/actions/generate-workflow-metadata
+        with:
+          operation: 'test'
+          phase: 'format-check'
+          additional-data: |
+            {
+              "check_type": "format",
+              "scope": "recursive",
+              "options": ["-check", "-diff"],
+              "target": "all_terraform_files"
+            }
 
       - name: Terraform Format Check
         id: format
@@ -136,7 +142,7 @@ jobs:
     
     outputs:
       validation-successful: ${{ steps.validate.outputs.validation-successful }}
-      validation-metadata: ${{ steps.validate.outputs.validation-metadata }}
+      validation-metadata: ${{ steps.validation-metadata.outputs.metadata }}
     
     steps:
       - name: Checkout Repository
@@ -147,33 +153,25 @@ jobs:
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
+      - name: Generate Syntax Validation Metadata
+        id: validation-metadata
+        uses: ./.github/actions/generate-workflow-metadata
+        with:
+          operation: 'test'
+          phase: 'syntax-validation'
+          additional-data: |
+            {
+              "validation_type": "syntax", 
+              "target_scope": "changed_paths",
+              "changed_paths": "${{ needs.detect-changes.outputs.changed-paths }}",
+              "target_path": "${{ github.event.inputs.target_path }}",
+              "force_all": "${{ github.event.inputs.force_all }}"
+            }
+
       - name: Terraform Syntax Validation
         id: validate
         run: |
           echo "::notice title=Syntax Validation::🔍 Performing Terraform syntax validation..."
-          
-          # Generate validation metadata
-          timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          terraform_version=$(terraform --version | head -1 | sed 's/Terraform v//')
-          
-          validation_metadata_json=$(jq -n \
-            --arg timestamp "$timestamp" \
-            --arg workflow_run "${{ github.run_number }}" \
-            --arg tf_version "$terraform_version" \
-            --arg operation "syntax-validation" \
-            '{
-              "generated_at": $timestamp,
-              "workflow_run": $workflow_run,
-              "terraform_version": $tf_version,
-              "operation": $operation
-            }'
-          )
-          
-          {
-            echo "validation-metadata<<METADATA_EOF"
-            echo "$validation_metadata_json"
-            echo "METADATA_EOF"
-          } >> $GITHUB_OUTPUT
           
           # Track validation statistics
           validated_count=0
@@ -259,6 +257,7 @@ jobs:
     
     outputs:
       configurations-validated: ${{ steps.validate-configs.outputs.configurations-validated }}
+      config-metadata: ${{ steps.config-metadata.outputs.metadata }}
     
     steps:
       - name: Checkout Repository
@@ -268,6 +267,19 @@ jobs:
         uses: hashicorp/setup-terraform@v3.1.2
         with:
           terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Generate Configuration Validation Metadata
+        id: config-metadata
+        uses: ./.github/actions/generate-workflow-metadata
+        with:
+          operation: 'test'
+          phase: 'configuration-validation'
+          additional-data: |
+            {
+              "validation_type": "enhanced_structure",
+              "checks": ["dependencies", "backend_config", "module_structure"],
+              "scope": "changed_paths"
+            }
 
       - name: Enhanced Configuration Validation
         id: validate-configs
@@ -372,10 +384,26 @@ jobs:
     outputs:
       scan-completed: ${{ steps.security-scan.outputs.scan-completed }}
       vulnerabilities-found: ${{ steps.security-scan.outputs.vulnerabilities-found }}
+      security-metadata: ${{ steps.security-metadata.outputs.metadata }}
     
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Generate Security Scan Metadata
+        id: security-metadata
+        uses: ./.github/actions/generate-workflow-metadata
+        with:
+          operation: 'test'
+          phase: 'security-scan'
+          additional-data: |
+            {
+              "scan_type": "vulnerability",
+              "tools": ["trivy"],
+              "targets": ["config", "terraform"],
+              "severity_levels": ["CRITICAL", "HIGH", "MEDIUM"],
+              "upload_sarif": true
+            }
 
       - name: Run Security Vulnerability Analysis
         id: security-scan
@@ -437,6 +465,7 @@ jobs:
     outputs:
       integration-successful: ${{ steps.integration-tests.outputs.integration-successful }}
       tests-executed: ${{ steps.integration-tests.outputs.tests-executed }}
+      integration-metadata: ${{ steps.integration-metadata.outputs.metadata }}
 
     steps:
       - name: Checkout Repository
@@ -466,6 +495,23 @@ jobs:
         run: |
           echo "::notice title=Network Propagation::⏱️ Waiting 15 seconds for network rules to propagate..."
           sleep 15
+
+      - name: Generate Integration Test Metadata
+        id: integration-metadata
+        uses: ./.github/actions/generate-workflow-metadata
+        with:
+          operation: 'test'
+          phase: 'integration'
+          additional-data: |
+            {
+              "test_type": "integration", 
+              "authentication": "oidc", 
+              "backend": "azure",
+              "changed_paths": "${{ needs.detect-changes.outputs.changed-paths }}",
+              "skip_integration": "${{ github.event.inputs.skip_integration }}",
+              "target_path": "${{ github.event.inputs.target_path }}",
+              "force_all": "${{ github.event.inputs.force_all }}"
+            }
 
       - name: Run Terraform Integration Tests
         id: integration-tests
@@ -672,54 +718,45 @@ jobs:
       - name: Checkout Repository for Summary Generation
         uses: actions/checkout@v4
 
-      - name: Generate Test Metadata and Artifacts
+      - name: Generate Comprehensive Test Summary Metadata
+        id: summary-metadata
+        uses: ./.github/actions/generate-workflow-metadata
+        with:
+          operation: 'test'
+          phase: 'comprehensive-summary'
+          additional-data: |
+            {
+              "test_results": {
+                "format_check": "${{ needs.terraform-format-check.result }}",
+                "syntax_validation": "${{ needs.terraform-syntax-validation.result }}",
+                "configuration_validation": "${{ needs.terraform-configuration-validation.result }}",
+                "security_scan": "${{ needs.security-vulnerability-scan.result }}",
+                "integration_tests": "${{ needs.integration-terraform-test.result }}"
+              },
+              "execution_stats": {
+                "tests_executed": "${{ needs.integration-terraform-test.outputs.tests-executed }}",
+                "changed_paths": "${{ needs.detect-changes.outputs.changed-paths != '' }}"
+              },
+              "job_metadata": {
+                "format_metadata": ${{ needs.terraform-format-check.outputs.format-metadata }},
+                "validation_metadata": ${{ needs.terraform-syntax-validation.outputs.validation-metadata }},
+                "config_metadata": ${{ needs.terraform-configuration-validation.outputs.config-metadata }},
+                "security_metadata": ${{ needs.security-vulnerability-scan.outputs.security-metadata }},
+                "integration_metadata": ${{ needs.integration-terraform-test.outputs.integration-metadata }}
+              }
+            }
+
+      - name: Generate Test Results Artifacts
         run: |
-          echo "::notice title=Summary Generation::📊 Generating comprehensive test results summary..."
+          echo "::notice title=Test Artifacts::📊 Preparing test results artifacts..."
           
           # Create results directory
           mkdir -p test-results
           
-          # Generate comprehensive test execution metadata
-          timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          # Save comprehensive metadata to file for artifacts
+          echo '${{ steps.summary-metadata.outputs.metadata }}' > test-results/test-summary-metadata.json
           
-          # Create comprehensive summary metadata
-          summary_metadata_json=$(jq -n \
-            --arg timestamp "$timestamp" \
-            --arg workflow_run "${{ github.run_number }}" \
-            --arg workflow_id "${{ github.run_id }}" \
-            --arg generated_by "${{ github.actor }}" \
-            --arg repository "${{ github.repository }}" \
-            --arg ref "${{ github.ref }}" \
-            --arg sha "${{ github.sha }}" \
-            --arg event "${{ github.event_name }}" \
-            --arg runner_os "${{ runner.os }}" \
-            --arg runner_arch "${{ runner.arch }}" \
-            --arg operation "test-summary" \
-            --arg phase "comprehensive-summary" \
-            '{
-              "generated_at": $timestamp,
-              "workflow": {
-                "run_number": $workflow_run,
-                "run_id": $workflow_id,
-                "generated_by": $generated_by,
-                "repository": $repository,
-                "ref": $ref,
-                "sha": $sha,
-                "event": $event
-              },
-              "runner": {
-                "os": $runner_os,
-                "architecture": $runner_arch
-              },
-              "operation": $operation,
-              "phase": $phase
-            }'
-          )
-          
-          # Save metadata to file
-          echo "$summary_metadata_json" > test-results/test-summary-metadata.json
-          
-          echo "::notice title=Summary Metadata::📊 Test summary metadata generated"
+          echo "::notice title=Artifacts Ready::📊 Test artifacts prepared with AVM-compliant metadata"
 
       - name: Upload Test Results Artifacts
         if: always()
