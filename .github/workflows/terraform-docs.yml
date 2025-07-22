@@ -59,7 +59,7 @@ permissions:
 jobs:
   # Job 1: Detect Changes - Only process what actually changed
   detect-changes:
-    name: 🔍 Detect Documentation Changes
+    name: 🔍 Detect Changes
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -72,7 +72,7 @@ jobs:
         with:
           fetch-depth: 0  # Need full history for change detection
 
-      - name: Detect Documentation Changes
+      - name: Detect Changes
         id: detect
         uses: ./.github/actions/detect-terraform-changes
         with:
