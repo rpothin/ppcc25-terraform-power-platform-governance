@@ -11,7 +11,7 @@ set -e  # Exit on any error
 
 # Load utility functions
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/utils/utils.sh"
+source "$SCRIPT_DIR/utils.sh"
 
 # Function to validate required parameters
 validate_parameters() {
