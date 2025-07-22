@@ -3,7 +3,7 @@
 # It enables secure access by temporarily allowing the GitHub runner's IP address
 # 
 # MAINTENANCE NOTES:
-# - This action depends on the jit-network-access.sh script in the repository's scripts folder
+# - This action depends on the jit-network-access.sh script in the repository's scripts/utils folder
 # - The script requires Azure CLI to be installed and authenticated on the runner
 # - IP detection uses ipify.org service - consider backup services if reliability is critical
 # - Firewall rule changes may take 30-60 seconds to fully propagate across Azure infrastructure
@@ -68,10 +68,10 @@ runs:
         
     # Step 3: Execute the main JIT network access management script
     # This script handles adding/removing firewall rules for the storage account
-    # It uses the jit-network-access.sh script located in the repository's scripts folder
+    # It uses the jit-network-access.sh script located in the repository's scripts/utils folder
     #
     # MAINTENANCE DEPENDENCIES:
-    # - Requires scripts/jit-network-access.sh to exist in the repository
+    # - Requires scripts/utils/jit-network-access.sh to exist in the repository
     # - Requires Azure CLI to be installed and authenticated on the runner
     # - Requires appropriate Azure RBAC permissions for the service principal
     # - Script should handle both 'add' and 'remove' actions gracefully
@@ -95,4 +95,4 @@ runs:
         # Execute the JIT network access script with the specified action (add/remove)
         # Use GitHub workspace path to ensure correct script location
         # The script is expected to handle all Azure CLI interactions and error handling
-        "${GITHUB_WORKSPACE}/scripts/jit-network-access.sh" ${{ inputs.action }}
+        "${GITHUB_WORKSPACE}/scripts/utils/jit-network-access.sh" ${{ inputs.action }}

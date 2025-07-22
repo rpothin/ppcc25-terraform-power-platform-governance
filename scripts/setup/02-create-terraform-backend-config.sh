@@ -203,7 +203,7 @@ validate_deployment_completion() {
     fi
     
     # Verify JIT network access script exists
-    JIT_SCRIPT="$SCRIPT_DIR/../jit-network-access.sh"
+    JIT_SCRIPT="$SCRIPT_DIR/../utils/jit-network-access.sh"
     
     if [[ -f "$JIT_SCRIPT" ]]; then
         print_success "✓ JIT network access script is available for GitHub Actions"
