@@ -238,14 +238,14 @@ jobs:
 ## Expected Results Summary
 
 ### Quantitative Impact
-| Workflow | Current Lines | Post-Migration Lines | Reduction | Impact Level |
-|----------|---------------|---------------------|-----------|--------------|
-| terraform-plan-apply.yml | ~900 | ~60 | **84%** | ⭐ MAXIMUM |
-| terraform-destroy.yml | ~750 | ~70 | **91%** | ⭐ MAXIMUM |
-| terraform-import.yml | ~670 | ~30 | **96%** | ⭐ MAXIMUM |
-| terraform-output.yml | ~550 | ~40 | **93%** | ⭐ MAXIMUM |
-| terraform-test.yml | ~600 | ~500 | **17%** | 🔶 LIMITED |
-| **TOTALS** | **~3,470** | **~700** | **80%** | **MASSIVE** |
+| Workflow                 | Current Lines | Post-Migration Lines | Reduction | Impact Level |
+| ------------------------ | ------------- | -------------------- | --------- | ------------ |
+| terraform-plan-apply.yml | ~900          | ~60                  | **84%**   | ⭐ MAXIMUM    |
+| terraform-destroy.yml    | ~750          | ~70                  | **91%**   | ⭐ MAXIMUM    |
+| terraform-import.yml     | ~670          | ~30                  | **96%**   | ⭐ MAXIMUM    |
+| terraform-output.yml     | ~550          | ~40                  | **93%**   | ⭐ MAXIMUM    |
+| terraform-test.yml       | ~600          | ~500                 | **17%**   | 🔶 LIMITED    |
+| **TOTALS**               | **~3,470**    | **~700**             | **80%**   | **MASSIVE**  |
 
 ### Qualitative Benefits
 - **Consistency**: All operations use identical authentication and initialization
