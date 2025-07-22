@@ -112,11 +112,9 @@ jobs:
           if [ -f "terraform-artifacts/terraform-output-artifact.json" ]; then
             artifact_file="terraform-artifacts/terraform-output-artifact.json"
             echo "::notice title=Artifact Found::📄 Using JSON artifact file"
-            raw_output=$(cat "$artifact_file")
           elif [ -f "terraform-artifacts/terraform-output-artifact.txt" ]; then
             artifact_file="terraform-artifacts/terraform-output-artifact.txt"
             echo "::notice title=Artifact Found::📄 Using text artifact file"
-            raw_output=$(cat "$artifact_file")
           else
             echo "::error title=No Artifact::❌ No Terraform output artifact found"
             echo "::debug::Available files in terraform-artifacts/:"
@@ -124,17 +122,32 @@ jobs:
             exit 1
           fi
           
-          if [ -z "$raw_output" ] || [ "$raw_output" = "null" ]; then
-            echo "::error title=Empty Output::❌ Terraform output artifact is empty"
+          # Check file size and content
+          file_size=$(stat -c%s "$artifact_file" 2>/dev/null || stat -f%z "$artifact_file" 2>/dev/null || echo "0")
+          file_size_mb=$((file_size / 1024 / 1024))
+          echo "::notice title=File Info::📊 Artifact file size: $file_size bytes (${file_size_mb}MB)"
+          
+          # Validate file content without loading into memory
+          if [ ! -s "$artifact_file" ]; then
+            echo "::error title=Empty File::❌ Terraform output artifact file is empty"
             exit 1
           fi
           
-          # Handle empty JSON object case (valid but no outputs defined)
-          if [ "$raw_output" = "{}" ]; then
-            echo "::notice title=Empty Output::📄 Configuration has no outputs defined - creating placeholder files"
-            # Continue processing with empty object - this is valid
+          # Check if file contains valid JSON (for .json files)
+          if [[ "$artifact_file" == *.json ]]; then
+            if ! jq empty "$artifact_file" 2>/dev/null; then
+              echo "::error title=Invalid JSON::❌ Terraform output artifact contains invalid JSON"
+              exit 1
+            fi
+            
+            # Handle empty JSON object case
+            if [ "$(jq -r 'length' "$artifact_file")" = "0" ]; then
+              echo "::notice title=Empty Output::📄 Configuration has no outputs defined - creating placeholder files"
+            else
+              echo "::notice title=Valid Output::📋 Terraform output data validated (file-based processing)"
+            fi
           else
-            echo "::notice title=Output Received::📋 Terraform output data received ($(echo "$raw_output" | wc -c) characters)"
+            echo "::notice title=Text Output::📋 Processing text format artifact"
           fi
           
           # Create output directory structure
@@ -143,37 +156,178 @@ jobs:
           # Generate timestamp for file naming
           timestamp=$(date +%Y%m%d-%H%M%S)
           
-          # Process output based on format
-          if [ "$export_format" = "json" ]; then
-            output_filename="terraform-output-$timestamp.json"
-            output_path="configurations/$config/outputs/$output_filename"
+          # Set size threshold for large file handling (50MB)
+          LARGE_FILE_THRESHOLD_MB=50
+          
+          # Determine processing approach based on file size
+          if [ "$file_size_mb" -gt "$LARGE_FILE_THRESHOLD_MB" ]; then
+            echo "::warning title=Large File::📦 File size (${file_size_mb}MB) exceeds threshold (${LARGE_FILE_THRESHOLD_MB}MB)"
+            echo "::notice title=Processing Mode::🔧 Switching to large file processing mode"
             
-            if [ "$include_metadata" = "true" ]; then
-              # Create enhanced output with metadata
-              enhanced_output=$(jq -n --argjson terraform_output "$raw_output" --arg timestamp "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" --arg configuration "$config" --arg workflow_run "${{ github.run_number }}" --arg generated_by "${{ github.actor }}" --arg repository "${{ github.repository }}" --arg ref "${{ github.ref }}" --arg sha "${{ github.sha }}" '{"metadata": {"generated_at": $timestamp, "configuration": $configuration, "workflow_run": $workflow_run, "generated_by": $generated_by, "repository": $repository, "ref": $ref, "sha": $sha, "export_format": "json"}, "terraform_output": $terraform_output}')
-              echo "$enhanced_output" | jq '.' > "$output_path"
+            # For very large files, create summary + compressed archive
+            output_filename="terraform-output-$timestamp-summary.$export_format"
+            output_path="configurations/$config/outputs/$output_filename"
+            archive_filename="terraform-output-$timestamp-full.json.gz"
+            archive_path="configurations/$config/outputs/$archive_filename"
+            
+            # Create compressed archive of full data
+            gzip -c "$artifact_file" > "$archive_path"
+            echo "::notice title=Archive Created::📦 Full data archived as: $archive_filename"
+            
+            # Create summary output
+            if [ "$export_format" = "json" ]; then
+              create_summary_json "$artifact_file" "$output_path" "$include_metadata" "$config" "$file_size_mb"
             else
-              # Just the raw Terraform output
-              echo "$raw_output" | jq '.' > "$output_path"
+              create_summary_yaml "$artifact_file" "$output_path" "$include_metadata" "$config" "$file_size_mb"
             fi
             
-            echo "::notice title=JSON Created::📄 JSON output created: $output_path"
+            echo "output-is-summary=true" >> $GITHUB_OUTPUT
+            echo "archive-filename=$archive_filename" >> $GITHUB_OUTPUT
             
-          elif [ "$export_format" = "yaml" ]; then
-            output_filename="terraform-output-$timestamp.yaml"
+          else
+            echo "::notice title=Standard Processing::✅ File size within normal limits"
+            
+            # Standard processing for normal-sized files
+            output_filename="terraform-output-$timestamp.$export_format"
             output_path="configurations/$config/outputs/$output_filename"
             
-            if [ "$include_metadata" = "true" ]; then
-              # Create enhanced output with metadata
-              enhanced_output=$(jq -n --argjson terraform_output "$raw_output" --arg timestamp "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" --arg configuration "$config" --arg workflow_run "${{ github.run_number }}" --arg generated_by "${{ github.actor }}" --arg repository "${{ github.repository }}" --arg ref "${{ github.ref }}" --arg sha "${{ github.sha }}" '{"metadata": {"generated_at": $timestamp, "configuration": $configuration, "workflow_run": $workflow_run, "generated_by": $generated_by, "repository": $repository, "ref": $ref, "sha": $sha, "export_format": "yaml"}, "terraform_output": $terraform_output}')
-              echo "$enhanced_output" | yq eval -P '.' > "$output_path"
-            else
-              # Just the raw Terraform output
-              echo "$raw_output" | yq eval -P '.' > "$output_path"
+            # Process output based on format using file-based operations
+            if [ "$export_format" = "json" ]; then
+              if [ "$include_metadata" = "true" ]; then
+                # Create enhanced output with metadata using file-based processing
+                temp_metadata=$(mktemp)
+                cat > "$temp_metadata" << EOF
+          {
+            "metadata": {
+              "generated_at": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+              "configuration": "$config",
+              "workflow_run": "${{ github.run_number }}",
+              "generated_by": "${{ github.actor }}",
+              "repository": "${{ github.repository }}",
+              "ref": "${{ github.ref }}",
+              "sha": "${{ github.sha }}",
+              "export_format": "json",
+              "file_size_mb": $file_size_mb
+            }
+          }
+          EOF
+                
+                # Combine metadata and terraform output using file operations
+                jq -s '.[0] + {"terraform_output": .[1]}' "$temp_metadata" "$artifact_file" > "$output_path"
+                rm "$temp_metadata"
+              else
+                # Just copy and format the raw Terraform output
+                jq '.' "$artifact_file" > "$output_path"
+              fi
+              
+              echo "::notice title=JSON Created::📄 JSON output created: $output_path"
+              
+            elif [ "$export_format" = "yaml" ]; then
+              if [ "$include_metadata" = "true" ]; then
+                # Create enhanced output with metadata using file-based processing
+                temp_metadata=$(mktemp)
+                cat > "$temp_metadata" << EOF
+          {
+            "metadata": {
+              "generated_at": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+              "configuration": "$config",
+              "workflow_run": "${{ github.run_number }}",
+              "generated_by": "${{ github.actor }}",
+              "repository": "${{ github.repository }}",
+              "ref": "${{ github.ref }}",
+              "sha": "${{ github.sha }}",
+              "export_format": "yaml",
+              "file_size_mb": $file_size_mb
+            }
+          }
+          EOF
+                
+                # Combine metadata and terraform output, then convert to YAML
+                jq -s '.[0] + {"terraform_output": .[1]}' "$temp_metadata" "$artifact_file" | yq eval -P '.' > "$output_path"
+                rm "$temp_metadata"
+              else
+                # Just convert the raw Terraform output to YAML
+                jq '.' "$artifact_file" | yq eval -P '.' > "$output_path"
+              fi
+              
+              echo "::notice title=YAML Created::📄 YAML output created: $output_path"
             fi
             
-            echo "::notice title=YAML Created::📄 YAML output created: $output_path"
+            echo "output-is-summary=false" >> $GITHUB_OUTPUT
           fi
+          
+          # Helper function to create JSON summary
+          create_summary_json() {
+            local input_file="$1"
+            local output_path="$2"
+            local include_metadata="$3"
+            local config="$4"
+            local file_size_mb="$5"
+            
+            # Generate summary statistics without loading full content
+            local total_keys
+            total_keys=$(jq -r 'keys | length' "$input_file")
+            local sample_keys
+            sample_keys=$(jq -r 'keys | .[0:5]' "$input_file")
+            
+            if [ "$include_metadata" = "true" ]; then
+              jq -n \
+                --arg total_keys "$total_keys" \
+                --argjson sample_keys "$sample_keys" \
+                --arg file_size_mb "$file_size_mb" \
+                --arg timestamp "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+                --arg configuration "$config" \
+                --arg workflow_run "${{ github.run_number }}" \
+                --arg generated_by "${{ github.actor }}" \
+                '{
+                  "metadata": {
+                    "generated_at": $timestamp,
+                    "configuration": $configuration,
+                    "workflow_run": $workflow_run,
+                    "generated_by": $generated_by,
+                    "export_format": "json",
+                    "processing_mode": "summary",
+                    "original_file_size_mb": ($file_size_mb | tonumber),
+                    "note": "Large dataset summary. Full data available in compressed archive."
+                  },
+                  "terraform_output_summary": {
+                    "total_outputs": ($total_keys | tonumber),
+                    "sample_output_keys": $sample_keys,
+                    "full_data_location": "See compressed archive in same directory",
+                    "processing_note": "File too large for standard processing"
+                  }
+                }' > "$output_path"
+            else
+              jq -n \
+                --arg total_keys "$total_keys" \
+                --argjson sample_keys "$sample_keys" \
+                '{
+                  "total_outputs": ($total_keys | tonumber),
+                  "sample_output_keys": $sample_keys,
+                  "full_data_location": "See compressed archive in same directory"
+                }' > "$output_path"
+            fi
+          }
+          
+          # Helper function to create YAML summary
+          create_summary_yaml() {
+            local input_file="$1"
+            local output_path="$2"
+            local include_metadata="$3"
+            local config="$4"
+            local file_size_mb="$5"
+            
+            # Create JSON summary first, then convert to YAML
+            local temp_json
+            temp_json=$(mktemp)
+            create_summary_json "$input_file" "$temp_json" "$include_metadata" "$config" "$file_size_mb"
+            yq eval -P '.' "$temp_json" > "$output_path"
+            rm "$temp_json"
+          }
+          
+          # Set common outputs
+          echo "output-generated=true" >> $GITHUB_OUTPUT
+          echo "output-filename=$output_filename" >> $GITHUB_OUTPUT
           
           # Generate processing metadata
           processing_metadata=$(jq -n \
@@ -183,6 +337,7 @@ jobs:
             --arg output_filename "$output_filename" \
             --arg workflow_run "${{ github.run_number }}" \
             --arg generated_by "${{ github.actor }}" \
+            --arg file_size_mb "$file_size_mb" \
             --argjson include_metadata "$include_metadata" \
             '{
               "processing": {
@@ -192,14 +347,13 @@ jobs:
                 "output_filename": $output_filename,
                 "include_metadata": $include_metadata,
                 "workflow_run": $workflow_run,
-                "generated_by": $generated_by
+                "generated_by": $generated_by,
+                "original_file_size_mb": ($file_size_mb | tonumber),
+                "processing_mode": (if ($file_size_mb | tonumber) > 50 then "large_file_summary" else "standard" end)
               }
             }'
           )
           
-          # Set outputs
-          echo "output-generated=true" >> $GITHUB_OUTPUT
-          echo "output-filename=$output_filename" >> $GITHUB_OUTPUT
           {
             echo "output-metadata<<METADATA_EOF"
             echo "$processing_metadata"
@@ -263,6 +417,8 @@ jobs:
           export_format="${{ github.event.inputs.export_format }}"
           output_filename="${{ steps.process-output.outputs.output-filename }}"
           include_metadata="${{ github.event.inputs.include_metadata }}"
+          is_summary="${{ steps.process-output.outputs.output-is-summary || 'false' }}"
+          archive_filename="${{ steps.process-output.outputs.archive-filename || '' }}"
           
           echo "## 🔍 Terraform Output Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -274,17 +430,48 @@ jobs:
           echo "| Export Format | \`$export_format\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Output File | \`$output_filename\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Include Metadata | \`$include_metadata\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Processing Mode | $([ "$is_summary" = "true" ] && echo "**Large File Summary**" || echo "Standard") |" >> $GITHUB_STEP_SUMMARY
           echo "| Generated At | $(date +%Y-%m-%d\ %H:%M:%S) |" >> $GITHUB_STEP_SUMMARY
           echo "| Executed By | @${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Workflow Run | [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          echo "### ✅ Generation Successful" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Terraform output has been successfully extracted and formatted:" >> $GITHUB_STEP_SUMMARY
-          echo "- **Output Location**: \`configurations/$config/outputs/$output_filename\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Format**: $export_format" >> $GITHUB_STEP_SUMMARY
-          echo "- **Metadata Included**: $include_metadata" >> $GITHUB_STEP_SUMMARY
+          if [ "$is_summary" = "true" ]; then
+            echo "### ⚠️ Large Dataset Processing" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Due to the large size of the Terraform output data, the system has created:" >> $GITHUB_STEP_SUMMARY
+            echo "- **📄 Summary File**: \`configurations/$config/outputs/$output_filename\` - Contains metadata and key statistics" >> $GITHUB_STEP_SUMMARY
+            if [ -n "$archive_filename" ]; then
+              echo "- **📦 Compressed Archive**: \`configurations/$config/outputs/$archive_filename\` - Complete dataset (gzipped)" >> $GITHUB_STEP_SUMMARY
+            fi
+            echo "- **🔧 Processing Mode**: Large file optimization enabled" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 📊 Why Summary Mode?" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Large Terraform outputs (>50MB) can cause:" >> $GITHUB_STEP_SUMMARY
+            echo "- Shell command length limitations" >> $GITHUB_STEP_SUMMARY
+            echo "- Memory exhaustion during processing" >> $GITHUB_STEP_SUMMARY
+            echo "- Git repository bloat" >> $GITHUB_STEP_SUMMARY
+            echo "- Slow download/upload times" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Solution**: Summary + compressed archive provides the best of both worlds!" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 🔓 Accessing Full Data" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "To access the complete dataset:" >> $GITHUB_STEP_SUMMARY
+            echo "1. Download the compressed archive file" >> $GITHUB_STEP_SUMMARY
+            echo "2. Extract using: \`gzip -d $archive_filename\`" >> $GITHUB_STEP_SUMMARY
+            echo "3. Process the extracted JSON file with your preferred tools" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### ✅ Generation Successful" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Terraform output has been successfully extracted and formatted:" >> $GITHUB_STEP_SUMMARY
+            echo "- **Output Location**: \`configurations/$config/outputs/$output_filename\`" >> $GITHUB_STEP_SUMMARY
+            echo "- **Format**: $export_format" >> $GITHUB_STEP_SUMMARY
+            echo "- **Metadata Included**: $include_metadata" >> $GITHUB_STEP_SUMMARY
+            echo "- **Processing Mode**: Standard (file size within normal limits)" >> $GITHUB_STEP_SUMMARY
+          fi
+          
           echo "- **Committed to Repository**: ✅ Available in main branch" >> $GITHUB_STEP_SUMMARY
           echo "- **Artifact Available**: ✅ Available for download for 30 days" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -300,10 +487,17 @@ jobs:
           
           echo "### 📋 Next Steps" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "1. **Review Output**: Examine the generated $export_format file for insights" >> $GITHUB_STEP_SUMMARY
-          echo "2. **Download Artifact**: Use the workflow artifact for offline analysis" >> $GITHUB_STEP_SUMMARY
-          echo "3. **Migration Planning**: Use output data for planning Terraform migrations" >> $GITHUB_STEP_SUMMARY
-          echo "4. **Documentation**: Update project documentation with current state" >> $GITHUB_STEP_SUMMARY
+          if [ "$is_summary" = "true" ]; then
+            echo "1. **Review Summary**: Examine the generated summary file for key insights" >> $GITHUB_STEP_SUMMARY
+            echo "2. **Extract Full Data**: Use the compressed archive for detailed analysis" >> $GITHUB_STEP_SUMMARY
+            echo "3. **Process in Chunks**: Consider processing the full dataset in smaller chunks" >> $GITHUB_STEP_SUMMARY
+            echo "4. **Optimize Queries**: Use the summary to optimize your data queries" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "1. **Review Output**: Examine the generated $export_format file for insights" >> $GITHUB_STEP_SUMMARY
+            echo "2. **Download Artifact**: Use the workflow artifact for offline analysis" >> $GITHUB_STEP_SUMMARY
+            echo "3. **Migration Planning**: Use output data for planning Terraform migrations" >> $GITHUB_STEP_SUMMARY
+            echo "4. **Documentation**: Update project documentation with current state" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "" >> $GITHUB_STEP_SUMMARY
           
           echo "### 🔧 Migration Benefits" >> $GITHUB_STEP_SUMMARY
@@ -314,3 +508,4 @@ jobs:
           echo "- ✅ **Consistent error handling and format validation**" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ **Enhanced metadata generation for better traceability**" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ **Improved maintainability through proven composite actions**" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ **Large file handling with automatic optimization**" >> $GITHUB_STEP_SUMMARY
