@@ -3,7 +3,7 @@
 # using terraform-docs for all configurations and modules in the repository
 # Follows AVM standards and ensures consistent documentation formatting
 
-name: Generate Terraform Docs
+name: Terraform Docs
 
 # Allow safe cancellation of documentation generation workflows
 concurrency:

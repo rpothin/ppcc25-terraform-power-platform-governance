@@ -3,7 +3,7 @@
 # It includes validation, security scanning, unit tests, and integration tests
 # Follows AVM best practices and provides detailed reporting for all test phases
 
-name: Test Terraform Configurations and Modules
+name: Terraform Test
 
 # Prevent concurrent test operations on same target path
 concurrency:

@@ -1,8 +1,31 @@
 # Power Platform Governance with Terraform - PPCC25
 
+<div align="center">
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Terraform](https://img.shields.io/badge/Terraform-1.5%2B-623CE4?logo=terraform)](https://www.terraform.io/)
 [![Power Platform](https://img.shields.io/badge/Power%20Platform-742774?logo=microsoft)](https://powerplatform.microsoft.com/)
+
+</div>
+
+> **Enhancing Power Platform Governance Through Terraform: Embracing Infrastructure as Code**  
+> *Presented at Power Platform Community Conference 2025 by Raphael Pothin*
+
+## 🎯 Purpose
+
+This repository contains the demonstration elements from the **"Enhancing Power Platform Governance Through Terraform: Embracing Infrastructure as Code"** session at the Power Platform Community Conference 2025. It serves as a **quickstart guide** for exploring how Terraform can be used to implement Power Platform governance and replace the traditional "ClickOps" approach.
+
+The repository provides practical examples and reusable patterns to help organizations transition from manual Power Platform administration to automated, code-driven governance using Infrastructure as Code (IaC) principles.
+
+## 🚀 What's Included
+
+- **Terraform modules** for Power Platform governance components
+- **Configuration examples** demonstrated in the PPCC25 session
+- **Migration patterns** from ClickOps to Infrastructure as Code
+- **Best practices** for enterprise Power Platform governance
+- **Integration scenarios** with Azure
+
+---
 
 ## 🚀 Workflow Status Dashboard
 
@@ -24,46 +47,17 @@
 
 ---
 
-> **Enhancing Power Platform Governance Through Terraform: Embracing Infrastructure as Code**  
-> *Presented at Power Platform Community Conference 2025 by Raphael Pothin*
-
-## 🎯 Purpose
-
-This repository contains the demonstration elements from the **"Enhancing Power Platform Governance Through Terraform: Embracing Infrastructure as Code"** session at the Power Platform Community Conference 2025. It serves as a **quickstart guide** for exploring how Terraform can be used to implement Power Platform governance and replace the traditional "ClickOps" approach.
-
-The repository provides practical examples and reusable patterns to help organizations transition from manual Power Platform administration to automated, code-driven governance using Infrastructure as Code (IaC) principles.
-
-## 🚀 What's Included
-
-- **Terraform modules** for Power Platform governance components
-- **Configuration examples** demonstrated in the PPCC25 session
-- **Migration patterns** from ClickOps to Infrastructure as Code
-- **Best practices** for enterprise Power Platform governance
-- **Integration scenarios** with Azure
-
-## ⏱️ Automation Timing and ROI
-
-This solution includes comprehensive timing measurement to demonstrate the value of automation:
-
-### Key Features
-- **⏱️ Comprehensive Timing**: Track execution time for complete processes and individual checkpoints
-- **📈 ROI Calculation**: Automatic calculation of time savings and efficiency gains  
-- **🎯 Progress Tracking**: Real-time estimates and progress indicators during execution
-
-### Typical Results
-- **Setup Process**: 85%+ time reduction vs manual execution
-- **Cleanup Process**: 80%+ time reduction vs manual execution  
-- **Error Reduction**: 100% elimination of manual configuration errors
-- **Consistency**: Identical, repeatable results every time
-
-### Business Value
-The timing system provides concrete data for:
-- **Executive Presentations**: Quantified automation ROI
-- **Process Optimization**: Identification of bottlenecks
-- **Resource Planning**: Accurate time estimates for similar projects
-- **Business Cases**: Evidence-based justification for automation initiatives
-
 ## 🚀 Quick Start
+
+### 📋 Prerequisites
+
+Before using this repository, ensure you have:
+
+- **Power Platform admin access** in your tenant
+- **Azure subscription** with appropriate permissions
+- **Terraform** >= 1.5.0 installed
+- **Power Platform CLI** installed
+- **Azure CLI** installed and configured
 
 ### 1. Setup Infrastructure
 
@@ -97,19 +91,7 @@ After setup, go to your GitHub repository and run the **Terraform Plan and Apply
 4. Select your tfvars file (e.g., `dlp-finance`)
 5. Click **Run workflow**
 
-### Alternative: Manual Setup
-
-If you prefer step-by-step setup, see the [setup documentation](docs/guides/setup-guide.md).
-
-## 📋 Prerequisites
-
-Before using this repository, ensure you have:
-
-- **Power Platform admin access** in your tenant
-- **Azure subscription** with appropriate permissions
-- **Terraform** >= 1.5.0 installed
-- **Power Platform CLI** installed
-- **Azure CLI** installed and configured
+---
 
 ## 📁 Repository Structure
 
@@ -141,48 +123,7 @@ Before using this repository, ensure you have:
 └── README.md                           # This file
 ```
 
-## 🏗️ tfvars Management Strategy
-
-This project uses a **configuration-scoped tfvars approach** that aligns with Power Platform's tenant-level nature:
-
-### Structure
-- **Root level**: `terraform.tfvars` - Shared tenant-wide configuration
-- **Configuration level**: `configurations/<config>/tfvars/<specific>.tfvars` - Required specific configurations
-
-### Usage Examples
-```bash
-# Deploy Finance-specific DLP policy  
-Configuration: 02-dlp-policy
-tfvars file: dlp-finance
-
-# Deploy HR-specific DLP policy
-Configuration: 02-dlp-policy
-tfvars file: dlp-hr
-
-# Deploy production environment
-Configuration: 03-environment
-tfvars file: env-production
-
-# Deploy development environment
-Configuration: 03-environment
-tfvars file: env-development
-```
-
-### Key Benefits
-- **Explicit Configuration**: No default fallback - requires intentional tfvars selection
-- **Clear Intent**: Each deployment explicitly states which configuration variant to use
-- **Simplified Input**: Only specify the meaningful name (e.g., `dlp-finance`) without file extension
-- **Maintainability**: Easy to add new variants without affecting existing configurations
-- **Governance**: Enforces deliberate decision-making for each deployment
-
-## 🎉 PPCC25 Attendees
-
-Welcome to the session materials! This repository contains all the code and examples from the presentation. Follow these steps to get started:
-
-1. **Review the prerequisites** above
-2. **Explore the configurations** in the `configurations/` folder
-3. **Check the documentation** in the `docs/` folder
-4. **Run the examples** using the provided scripts
+---
 
 ## 📄 License
 
