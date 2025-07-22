@@ -105,7 +105,7 @@
 # • Supports AVM compliance requirements and reporting standards
 # • Provides artifacts for downstream workflows and external integrations
 
-name: 🧪 Terraform Test
+name: Terraform Test
 
 # ============================================================
 # WORKFLOW EXECUTION CONTROL AND CONCURRENCY MANAGEMENT
@@ -1166,17 +1166,16 @@ jobs:
             echo "::notice title=Test Execution::🚀 Executing integration tests with live Azure connectivity..."
             
             test_exit_code=0
-            if terraform test > /dev/null 2>&1; then
+            echo "::group::Integration Test Output for $target_path"
+            if terraform test 2>&1; then
               echo "::notice title=Test Success::✅ Integration tests passed successfully for $target_path"
               tested_count=$((tested_count + 1))
             else
               test_exit_code=$?
               echo "::error title=Test Failed::❌ Integration tests failed for $target_path (exit code: $test_exit_code)"
-              echo "::group::Integration Test Output for $target_path"
-              terraform test 2>&1 || true
-              echo "::endgroup::"
               failed_count=$((failed_count + 1))
             fi
+            echo "::endgroup::"
             
             # === POST-TEST CLEANUP OPERATIONS ===
             # Clean up temporary files and state to prevent resource leaks
