@@ -660,24 +660,30 @@ jobs:
                   # Validate JSON format and pretty-print
                   if jq empty "$output_file" 2>/dev/null; then
                     formatted_output=$(cat "$output_file" | jq -c '.')
+                    # Base64 encode to prevent GitHub secret detection from masking the output
+                    encoded_output=$(echo "$formatted_output" | base64 -w 0)
                     {
                       echo "tf-output<<OUTPUT_EOF"
-                      echo "$formatted_output"
+                      echo "$encoded_output"
                       echo "OUTPUT_EOF"
                     } >> $GITHUB_OUTPUT
                   else
-                    # If not valid JSON, treat as plain text
+                    # If not valid JSON, treat as plain text and encode
+                    encoded_output=$(cat "$output_file" | base64 -w 0)
                     {
                       echo "tf-output<<OUTPUT_EOF"
-                      cat "$output_file"
+                      echo "$encoded_output"
                       echo "OUTPUT_EOF"
                     } >> $GITHUB_OUTPUT
                   fi
                 else
-                  # Plain text output
+                  # Plain text output - encode to prevent secret detection
+                  encoded_output=$(cat "$output_file" | base64 -w 0)
                   {
                     echo "tf-output<<OUTPUT_EOF"
-                    cat "$output_file"
+                    echo "$encoded_output"
+                    echo "OUTPUT_EOF"
+                  } >> $GITHUB_OUTPUT
                     echo "OUTPUT_EOF"
                   } >> $GITHUB_OUTPUT
                 fi

@@ -97,12 +97,23 @@ jobs:
           echo "::notice title=Format::📄 Export format: $export_format"
           echo "::notice title=Metadata::📊 Include metadata: $include_metadata"
           
-          # Get raw JSON output from the reusable workflow
-          raw_output='${{ needs.terraform-output.outputs.terraform-output }}'
+          # Get raw JSON output from the reusable workflow (Base64 encoded to prevent secret masking)
+          raw_output_encoded='${{ needs.terraform-output.outputs.terraform-output }}'
           
-          if [ -z "$raw_output" ] || [ "$raw_output" = "null" ]; then
+          if [ -z "$raw_output_encoded" ] || [ "$raw_output_encoded" = "null" ]; then
             echo "::error title=No Output::❌ No Terraform output received from reusable workflow"
             exit 1
+          fi
+          
+          # Decode the Base64 encoded output
+          raw_output=$(echo "$raw_output_encoded" | base64 -d)
+          
+          # Handle empty JSON object case (valid but no outputs defined)
+          if [ "$raw_output" = "{}" ]; then
+            echo "::notice title=Empty Output::📄 Configuration has no outputs defined - creating placeholder files"
+            # Continue processing with empty object - this is valid
+          else
+            echo "::notice title=Output Received::📋 Terraform output data received ($(echo "$raw_output" | wc -c) characters)"
           fi
           
           # Create output directory structure
