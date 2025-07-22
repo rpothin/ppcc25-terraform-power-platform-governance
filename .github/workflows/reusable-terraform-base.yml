@@ -684,8 +684,6 @@ jobs:
                     echo "$encoded_output"
                     echo "OUTPUT_EOF"
                   } >> $GITHUB_OUTPUT
-                    echo "OUTPUT_EOF"
-                  } >> $GITHUB_OUTPUT
                 fi
               else
                 echo "::error title=Output Failed::❌ Terraform output failed"
