@@ -33,7 +33,7 @@
 # • .github/actions/terraform-init-with-backend (initialization)
 # • .github/actions/jit-network-access (secure access management)
 
-name: 🔍 Terraform Output
+name: Terraform Output
 
 # ============================================================
 # WORKFLOW TRIGGER CONFIGURATION
