@@ -654,36 +654,27 @@ jobs:
                 echo "::notice title=Output Success::✅ Terraform output retrieved successfully"
                 echo "success=true" >> $GITHUB_OUTPUT
                 
-                # Capture output values for use by calling workflows
-                # For JSON output, we need to ensure it's properly formatted
+                # For output operations, store the result in an artifact instead of job output
+                # This avoids GitHub's job output size limitations and secret detection
                 if [[ "$output_args" == *"-json"* ]]; then
-                  # Validate JSON format and pretty-print
+                  # Validate JSON format and save to artifact file
                   if jq empty "$output_file" 2>/dev/null; then
-                    formatted_output=$(cat "$output_file" | jq -c '.')
-                    # Base64 encode to prevent GitHub secret detection from masking the output
-                    encoded_output=$(echo "$formatted_output" | base64 -w 0)
-                    {
-                      echo "tf-output<<OUTPUT_EOF"
-                      echo "$encoded_output"
-                      echo "OUTPUT_EOF"
-                    } >> $GITHUB_OUTPUT
+                    # Valid JSON - format and save for artifact upload
+                    cat "$output_file" | jq -c '.' > "terraform-output-artifact.json"
+                    echo "::notice title=JSON Output::📋 Valid JSON output saved for artifact upload"
+                    
+                    # Set a simple flag in job output instead of the full data
+                    echo "tf-output=json-artifact-available" >> $GITHUB_OUTPUT
                   else
-                    # If not valid JSON, treat as plain text and encode
-                    encoded_output=$(cat "$output_file" | base64 -w 0)
-                    {
-                      echo "tf-output<<OUTPUT_EOF"
-                      echo "$encoded_output"
-                      echo "OUTPUT_EOF"
-                    } >> $GITHUB_OUTPUT
+                    # If not valid JSON, treat as plain text
+                    cp "$output_file" "terraform-output-artifact.txt"
+                    echo "::warning title=Invalid JSON::⚠️ Output is not valid JSON, saved as plain text artifact"
+                    echo "tf-output=text-artifact-available" >> $GITHUB_OUTPUT
                   fi
                 else
-                  # Plain text output - encode to prevent secret detection
-                  encoded_output=$(cat "$output_file" | base64 -w 0)
-                  {
-                    echo "tf-output<<OUTPUT_EOF"
-                    echo "$encoded_output"
-                    echo "OUTPUT_EOF"
-                  } >> $GITHUB_OUTPUT
+                  # Plain text output - save to artifact file
+                  cp "$output_file" "terraform-output-artifact.txt"
+                  echo "tf-output=text-artifact-available" >> $GITHUB_OUTPUT
                 fi
               else
                 echo "::error title=Output Failed::❌ Terraform output failed"
@@ -735,9 +726,12 @@ jobs:
         with:
           # Unique artifact name for output files
           name: terraform-output-${{ inputs.configuration }}-${{ inputs.tfvars-file || 'default' }}
-          path: configurations/${{ inputs.configuration }}/terraform-output.txt
+          path: |
+            configurations/${{ inputs.configuration }}/terraform-output-artifact.*
+            configurations/${{ inputs.configuration }}/terraform-output.txt
           retention-days: 30  # Longer retention - outputs used for reference
           if-no-files-found: warn  # Warn if output file not found
+          compression-level: 6  # Good compression for potentially large JSON files
       
       # === STEP 11: FINAL RESULT DETERMINATION ===
       # Sets the final success/failure status for the workflow

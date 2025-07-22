@@ -80,12 +80,19 @@ jobs:
         with:
           fetch-depth: 0  # Full history for proper commit operations
       
-      # Step 2: Setup yq for YAML processing (if needed)
+      # Step 2: Download Terraform output artifact from reusable workflow
+      - name: Download Terraform Output Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-output-${{ github.event.inputs.configuration }}-default
+          path: terraform-artifacts
+      
+      # Step 3: Setup yq for YAML processing (if needed)
       - name: Setup yq for YAML Processing
         if: github.event.inputs.export_format == 'yaml'
         uses: mikefarah/yq@v4.46.1
       
-      # Step 3: Process Terraform Output
+      # Step 4: Process Terraform Output
       - name: Process and Format Terraform Output
         id: process-output
         run: |
@@ -97,16 +104,30 @@ jobs:
           echo "::notice title=Format::📄 Export format: $export_format"
           echo "::notice title=Metadata::📊 Include metadata: $include_metadata"
           
-          # Get raw JSON output from the reusable workflow (Base64 encoded to prevent secret masking)
-          raw_output_encoded='${{ needs.terraform-output.outputs.terraform-output }}'
+          # Check what the reusable workflow provided
+          tf_output_status='${{ needs.terraform-output.outputs.terraform-output }}'
+          echo "::debug::Terraform output status: $tf_output_status"
           
-          if [ -z "$raw_output_encoded" ] || [ "$raw_output_encoded" = "null" ]; then
-            echo "::error title=No Output::❌ No Terraform output received from reusable workflow"
+          # Find the artifact file (JSON takes precedence over text)
+          if [ -f "terraform-artifacts/terraform-output-artifact.json" ]; then
+            artifact_file="terraform-artifacts/terraform-output-artifact.json"
+            echo "::notice title=Artifact Found::📄 Using JSON artifact file"
+            raw_output=$(cat "$artifact_file")
+          elif [ -f "terraform-artifacts/terraform-output-artifact.txt" ]; then
+            artifact_file="terraform-artifacts/terraform-output-artifact.txt"
+            echo "::notice title=Artifact Found::📄 Using text artifact file"
+            raw_output=$(cat "$artifact_file")
+          else
+            echo "::error title=No Artifact::❌ No Terraform output artifact found"
+            echo "::debug::Available files in terraform-artifacts/:"
+            ls -la terraform-artifacts/ || echo "Directory not found"
             exit 1
           fi
           
-          # Decode the Base64 encoded output
-          raw_output=$(echo "$raw_output_encoded" | base64 -d)
+          if [ -z "$raw_output" ] || [ "$raw_output" = "null" ]; then
+            echo "::error title=Empty Output::❌ Terraform output artifact is empty"
+            exit 1
+          fi
           
           # Handle empty JSON object case (valid but no outputs defined)
           if [ "$raw_output" = "{}" ]; then
@@ -129,15 +150,15 @@ jobs:
             
             if [ "$include_metadata" = "true" ]; then
               # Create enhanced output with metadata
-              enhanced_output=$(jq -n \
-                --argjson terraform_output "$raw_output" \
-                --arg timestamp "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
-                --arg configuration "$config" \
-                --arg workflow_run "${{ github.run_number }}" \
-                --arg generated_by "${{ github.actor }}" \
-                --arg repository "${{ github.repository }}" \
-                --arg ref "${{ github.ref }}" \
-                --arg sha "${{ github.sha }}" \
+              enhanced_output=$(jq -n 
+                --argjson terraform_output "$raw_output" 
+                --arg timestamp "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" 
+                --arg configuration "$config" 
+                --arg workflow_run "${{ github.run_number }}" 
+                --arg generated_by "${{ github.actor }}" 
+                --arg repository "${{ github.repository }}" 
+                --arg ref "${{ github.ref }}" 
+                --arg sha "${{ github.sha }}" 
                 '{
                   "metadata": {
                     "generated_at": $timestamp,
@@ -166,15 +187,15 @@ jobs:
             
             if [ "$include_metadata" = "true" ]; then
               # Create enhanced output with metadata
-              enhanced_output=$(jq -n \
-                --argjson terraform_output "$raw_output" \
-                --arg timestamp "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
-                --arg configuration "$config" \
-                --arg workflow_run "${{ github.run_number }}" \
-                --arg generated_by "${{ github.actor }}" \
-                --arg repository "${{ github.repository }}" \
-                --arg ref "${{ github.ref }}" \
-                --arg sha "${{ github.sha }}" \
+              enhanced_output=$(jq -n 
+                --argjson terraform_output "$raw_output" 
+                --arg timestamp "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" 
+                --arg configuration "$config" 
+                --arg workflow_run "${{ github.run_number }}" 
+                --arg generated_by "${{ github.actor }}" 
+                --arg repository "${{ github.repository }}" 
+                --arg ref "${{ github.ref }}" 
+                --arg sha "${{ github.sha }}" 
                 '{
                   "metadata": {
                     "generated_at": $timestamp,
