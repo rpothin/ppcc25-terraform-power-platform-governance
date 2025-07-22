@@ -132,6 +132,15 @@ on:
         # Base name for generated plan files (extension .tfplan is added automatically)
         # Used for plan operations to generate files and apply operations to consume them
         # Must be consistent between plan and apply operations in the same workflow
+      
+      create-state-backup:
+        description: 'Create a backup of the state file before operations'
+        required: false
+        type: boolean
+        default: false
+        # Creates a timestamped backup of the current state file before operations
+        # Useful for import operations and other state-changing operations
+        # Backup will be named: terraform.tfstate.backup-YYYYMMDD-HHMMSS
     # === WORKFLOW OUTPUTS ===
     # These outputs provide comprehensive information about the operation execution
     # and can be consumed by subsequent jobs or workflows for conditional logic
@@ -575,6 +584,28 @@ jobs:
                 exit 1
               fi
               
+              # === STATE BACKUP (if requested) ===
+              # Create a backup of the current state file before import
+              if [ "${{ inputs.create-state-backup }}" = "true" ]; then
+                echo "::notice title=Creating State Backup::💾 Creating backup of current state"
+                timestamp=$(date +%Y%m%d-%H%M%S)
+                
+                # Check if state exists
+                if terraform state list > /dev/null 2>&1; then
+                  mkdir -p backups
+                  backup_file="backups/terraform.tfstate.backup-$timestamp"
+                  
+                  # Pull current state and save as backup
+                  if terraform state pull > "$backup_file"; then
+                    echo "::notice title=Backup Created::✅ State backup created: $backup_file"
+                  else
+                    echo "::warning title=Backup Failed::⚠️ Could not create state backup, continuing with import"
+                  fi
+                else
+                  echo "::notice title=No State::📄 No existing state found, no backup needed"
+                fi
+              fi
+              
               # Execute import with full output capture
               import_output_file="import-output.txt"
               if terraform import $tfvars_option $additional_options 2>&1 | tee "$import_output_file"; then
@@ -609,7 +640,14 @@ jobs:
               echo "::group::📤 Terraform Output"
               
               output_file="terraform-output.txt"
-              output_args="$additional_options"
+              
+              # For output operations, ensure we get JSON format for structured processing
+              # Check if -json is in additional options, if not add it
+              if [[ "$additional_options" == *"-json"* ]]; then
+                output_args="$additional_options"
+              else
+                output_args="-json $additional_options"
+              fi
               
               # Execute output extraction with capture
               if terraform output $output_args 2>&1 | tee "$output_file"; then
@@ -617,11 +655,32 @@ jobs:
                 echo "success=true" >> $GITHUB_OUTPUT
                 
                 # Capture output values for use by calling workflows
-                {
-                  echo "tf-output<<OUTPUT_EOF"
-                  cat "$output_file"
-                  echo "OUTPUT_EOF"
-                } >> $GITHUB_OUTPUT
+                # For JSON output, we need to ensure it's properly formatted
+                if [[ "$output_args" == *"-json"* ]]; then
+                  # Validate JSON format and pretty-print
+                  if jq empty "$output_file" 2>/dev/null; then
+                    formatted_output=$(cat "$output_file" | jq -c '.')
+                    {
+                      echo "tf-output<<OUTPUT_EOF"
+                      echo "$formatted_output"
+                      echo "OUTPUT_EOF"
+                    } >> $GITHUB_OUTPUT
+                  else
+                    # If not valid JSON, treat as plain text
+                    {
+                      echo "tf-output<<OUTPUT_EOF"
+                      cat "$output_file"
+                      echo "OUTPUT_EOF"
+                    } >> $GITHUB_OUTPUT
+                  fi
+                else
+                  # Plain text output
+                  {
+                    echo "tf-output<<OUTPUT_EOF"
+                    cat "$output_file"
+                    echo "OUTPUT_EOF"
+                  } >> $GITHUB_OUTPUT
+                fi
               else
                 echo "::error title=Output Failed::❌ Terraform output failed"
                 
