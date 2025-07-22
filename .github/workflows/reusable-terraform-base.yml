@@ -32,7 +32,7 @@
 # - Requires auto-approve=true for destructive operations (apply/destroy)
 # - All secrets are managed through GitHub environments
 
-name: Reusable Base Terraform Operations
+name: ♻️ Reusable Base Terraform Operations
 
 on:
   workflow_call:

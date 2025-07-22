@@ -81,6 +81,11 @@ on:
         type: boolean
         default: true
 
+# === DYNAMIC RUN IDENTIFICATION ===
+# Provides clear identification of workflow execution with configuration and format context
+# This naming pattern helps with monitoring, logging, and troubleshooting across multiple runs
+run-name: 🔍 Terraform Output for ${{ github.event.inputs.configuration }} (${{ github.event.inputs.export_format }}) by @${{ github.actor }}
+
 # ============================================================
 # WORKFLOW PERMISSIONS AND SECURITY
 # ============================================================
@@ -121,29 +126,22 @@ jobs:
       # === TERRAFORM OPERATION CONFIGURATION ===
       # Specify that we want to extract outputs rather than plan/apply operations
       # The reusable workflow handles all authentication, initialization, and execution
-      terraform_operation: 'output'           # Extract outputs from current state
-      working_directory: 'configurations/${{ github.event.inputs.configuration }}'
+      operation: 'output'                     # Extract outputs from current state
+      configuration: '${{ github.event.inputs.configuration }}'
       
       # === OUTPUT FORMAT AND OPTIONS ===
       # Configure output extraction parameters for optimal data capture
       # JSON format enables programmatic processing and integration
-      terraform_output_format: 'json'         # Always use JSON for data processing
-      terraform_output_options: '-no-color'   # Clean output without ANSI colors
+      additional-options: '-json -no-color'   # JSON format with clean output
       
-      # === ARTIFACT CONFIGURATION ===
-      # Enable artifact generation for workflow output consumption
-      # Artifacts provide persistent storage and cross-workflow data sharing
-      create_artifact: true                   # Generate downloadable artifacts
-      artifact_name: 'terraform-output-artifact'
-      artifact_retention_days: 30             # 30-day retention for operational needs
+      # === EXECUTION CONTROL ===
+      # Optimize timeout for output operations
+      timeout-minutes: 10                     # Output operations are typically fast
     
-    # === AZURE AUTHENTICATION SECRETS ===
-    # Pass through required Azure credentials for Terraform operations
-    # These secrets are managed at repository/organization level for security
-    secrets:
-      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+    # === AUTHENTICATION INHERITANCE ===
+    # The reusable workflow will use secrets from the calling environment
+    # Secrets are managed through GitHub environments for security
+    secrets: inherit
 
   # ============================================================
   # JOB 2: OUTPUT PROCESSING AND REPOSITORY INTEGRATION
