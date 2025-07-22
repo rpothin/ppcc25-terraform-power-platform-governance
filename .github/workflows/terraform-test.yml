@@ -102,13 +102,7 @@ jobs:
         with:
           operation: 'test'
           phase: 'format-check'
-          additional-data: |
-            {
-              "check_type": "format",
-              "scope": "recursive",
-              "options": ["-check", "-diff"],
-              "target": "all_terraform_files"
-            }
+          additional-data: '{}'
 
       - name: Terraform Format Check
         id: format
@@ -159,14 +153,7 @@ jobs:
         with:
           operation: 'test'
           phase: 'syntax-validation'
-          additional-data: |
-            {
-              "validation_type": "syntax", 
-              "target_scope": "changed_paths",
-              "changed_paths": "${{ needs.detect-changes.outputs.changed-paths }}",
-              "target_path": "${{ github.event.inputs.target_path }}",
-              "force_all": "${{ github.event.inputs.force_all }}"
-            }
+          additional-data: '{}'
 
       - name: Terraform Syntax Validation
         id: validate
@@ -274,12 +261,7 @@ jobs:
         with:
           operation: 'test'
           phase: 'configuration-validation'
-          additional-data: |
-            {
-              "validation_type": "enhanced_structure",
-              "checks": ["dependencies", "backend_config", "module_structure"],
-              "scope": "changed_paths"
-            }
+          additional-data: '{}'
 
       - name: Enhanced Configuration Validation
         id: validate-configs
@@ -396,14 +378,7 @@ jobs:
         with:
           operation: 'test'
           phase: 'security-scan'
-          additional-data: |
-            {
-              "scan_type": "vulnerability",
-              "tools": ["trivy"],
-              "targets": ["config", "terraform"],
-              "severity_levels": ["CRITICAL", "HIGH", "MEDIUM"],
-              "upload_sarif": true
-            }
+          additional-data: '{"scan_type": "vulnerability", "tools": "trivy", "upload_sarif": true}'
 
       - name: Run Security Vulnerability Analysis
         id: security-scan
@@ -502,16 +477,7 @@ jobs:
         with:
           operation: 'test'
           phase: 'integration'
-          additional-data: |
-            {
-              "test_type": "integration", 
-              "authentication": "oidc", 
-              "backend": "azure",
-              "changed_paths": "${{ needs.detect-changes.outputs.changed-paths }}",
-              "skip_integration": "${{ github.event.inputs.skip_integration }}",
-              "target_path": "${{ github.event.inputs.target_path }}",
-              "force_all": "${{ github.event.inputs.force_all }}"
-            }
+          additional-data: '{"test_type": "integration", "authentication": "oidc", "backend": "azure"}'
 
       - name: Run Terraform Integration Tests
         id: integration-tests
@@ -724,27 +690,7 @@ jobs:
         with:
           operation: 'test'
           phase: 'comprehensive-summary'
-          additional-data: |
-            {
-              "test_results": {
-                "format_check": "${{ needs.terraform-format-check.result }}",
-                "syntax_validation": "${{ needs.terraform-syntax-validation.result }}",
-                "configuration_validation": "${{ needs.terraform-configuration-validation.result }}",
-                "security_scan": "${{ needs.security-vulnerability-scan.result }}",
-                "integration_tests": "${{ needs.integration-terraform-test.result }}"
-              },
-              "execution_stats": {
-                "tests_executed": "${{ needs.integration-terraform-test.outputs.tests-executed }}",
-                "changed_paths": "${{ needs.detect-changes.outputs.changed-paths != '' }}"
-              },
-              "job_metadata": {
-                "format_metadata": ${{ needs.terraform-format-check.outputs.format-metadata }},
-                "validation_metadata": ${{ needs.terraform-syntax-validation.outputs.validation-metadata }},
-                "config_metadata": ${{ needs.terraform-configuration-validation.outputs.config-metadata }},
-                "security_metadata": ${{ needs.security-vulnerability-scan.outputs.security-metadata }},
-                "integration_metadata": ${{ needs.integration-terraform-test.outputs.integration-metadata }}
-              }
-            }
+          additional-data: '{}'
 
       - name: Generate Test Results Artifacts
         run: |
