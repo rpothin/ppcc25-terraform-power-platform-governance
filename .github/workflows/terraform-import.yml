@@ -211,9 +211,7 @@ jobs:
 
     # Step 7a: Initialize Terraform for import
     - name: Initialize Terraform for Import
-      id: terraform-init-import
       uses: ./.github/actions/terraform-init-with-backend
-      continue-on-error: true
       env:
         ARM_STORAGE_ACCOUNT_NAME: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
         ARM_CONTAINER_NAME: ${{ secrets.TERRAFORM_CONTAINER }}
@@ -223,18 +221,6 @@ jobs:
       with:
         configuration: ${{ github.event.inputs.configuration }}
         tfvars-file: ${{ github.event.inputs.tfvars_file }}
-
-    - name: Handle Init Import Failure
-      if: steps.terraform-init-import.outcome == 'failure'
-      uses: ./.github/actions/enhanced-error-handler
-      with:
-        error-context: "Terraform initialization for import in ${{ github.event.inputs.configuration }}"
-        operation: "terraform-init"
-        include-troubleshooting: true
-
-    - name: Fail Workflow After Init Import Error
-      if: steps.terraform-init-import.outcome == 'failure'
-      run: exit 1
 
     # Step 7b: Generate import metadata
     - name: Generate Import Metadata
@@ -339,7 +325,6 @@ jobs:
     # Step 9: Perform the import operation
     - name: Execute Terraform Import Operation
       id: terraform-import
-      continue-on-error: true
       run: |
         config="${{ github.event.inputs.configuration }}"
         tfvars_file="${{ github.event.inputs.tfvars_file }}"
@@ -438,7 +423,6 @@ jobs:
           echo "::notice title=Solution 3::🏷️ Confirm resource type matches Power Platform resource type"
           echo "::notice title=Solution 4::💾 Check if resource is already in state with 'terraform state list'"
           echo "::notice title=Solution 5::🔄 Re-run workflow if transient network issues occurred"
-          echo "::notice title=Documentation::📚 Error Reference: https://github.com/${{ github.repository }}/blob/main/docs/references/workflow-error-reference.md#terraform-apply-errors"
           echo "::notice title=Power Platform::📚 Terraform Provider: https://registry.terraform.io/providers/microsoft/power-platform/latest/docs"
           echo "import-successful=false" >> $GITHUB_OUTPUT
           echo "resource-imported=" >> $GITHUB_OUTPUT
@@ -446,18 +430,6 @@ jobs:
         fi
         
         cd - > /dev/null
-
-    - name: Handle Terraform Import Failure
-      if: steps.terraform-import.outcome == 'failure'
-      uses: ./.github/actions/enhanced-error-handler
-      with:
-        error-context: "Terraform import of ${{ github.event.inputs.resource_type }}.${{ github.event.inputs.resource_name }} in ${{ github.event.inputs.configuration }}"
-        operation: "terraform-import"
-        include-troubleshooting: true
-
-    - name: Fail Workflow After Import Error
-      if: steps.terraform-import.outcome == 'failure'
-      run: exit 1
     
     # Step 10: Verify import with state show
     - name: Verify Import
@@ -523,7 +495,6 @@ jobs:
           echo "::notice title=Solution 3::💾 Verify state file integrity after import"
           echo "::notice title=Solution 4::🔄 Re-run import process if state corruption suspected"
           echo "::notice title=Solution 5::📚 Review Power Platform provider documentation for resource requirements"
-          echo "::notice title=Documentation::📚 Error Reference: https://github.com/${{ github.repository }}/blob/main/docs/references/workflow-error-reference.md#terraform-plan-errors"
           echo "::notice title=Import Guide::📚 Terraform Import: https://developer.hashicorp.com/terraform/cli/import"
           exit 1
         fi

@@ -71,10 +71,10 @@ jobs:
     
     # Output values that can be used by dependent jobs
     outputs:
-      plan-changed: ${{ steps.terraform-plan.outputs.changed }}              # Whether the plan has changes
+      plan-changed: ${{ steps.plan.outputs.changed }}              # Whether the plan has changes
       configuration: ${{ github.event.inputs.configuration }}     # Pass configuration to apply job
       # Execution metadata for workflow tracking and AVM compliance
-      execution-metadata: ${{ steps.terraform-plan.outputs.execution-metadata }}    # Comprehensive execution metadata
+      execution-metadata: ${{ steps.plan.outputs.execution-metadata }}    # Comprehensive execution metadata
     
     steps:
     # Step 1: Checkout repository code
@@ -226,9 +226,7 @@ jobs:
         
     # Step 7a: Initialize Terraform for backup
     - name: Initialize Terraform for Backup
-      id: terraform-init-backup
       uses: ./.github/actions/terraform-init-with-backend
-      continue-on-error: true
       env:
         ARM_STORAGE_ACCOUNT_NAME: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
         ARM_CONTAINER_NAME: ${{ secrets.TERRAFORM_CONTAINER }}
@@ -238,18 +236,6 @@ jobs:
       with:
         configuration: ${{ github.event.inputs.configuration }}
         tfvars-file: ${{ github.event.inputs.tfvars_file }}
-
-    - name: Handle Init Backup Failure
-      if: steps.terraform-init-backup.outcome == 'failure'
-      uses: ./.github/actions/enhanced-error-handler
-      with:
-        error-context: "Terraform initialization for backup in ${{ github.event.inputs.configuration }}"
-        operation: "terraform-init"
-        include-troubleshooting: true
-
-    - name: Fail Workflow After Init Backup Error
-      if: steps.terraform-init-backup.outcome == 'failure'
-      run: exit 1
 
     # Step 7b: Create backup after initialization
     - name: Create Backup After Init
@@ -318,9 +304,7 @@ jobs:
 
     # Step 9a: Re-initialize Terraform with retry logic
     - name: Re-initialize Terraform for Plan
-      id: terraform-init-plan
       uses: ./.github/actions/terraform-init-with-backend
-      continue-on-error: true
       env:
         ARM_STORAGE_ACCOUNT_NAME: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
         ARM_CONTAINER_NAME: ${{ secrets.TERRAFORM_CONTAINER }}
@@ -331,22 +315,8 @@ jobs:
         configuration: ${{ github.event.inputs.configuration }}
         tfvars-file: ${{ github.event.inputs.tfvars_file }}
 
-    - name: Handle Init Plan Failure
-      if: steps.terraform-init-plan.outcome == 'failure'
-      uses: ./.github/actions/enhanced-error-handler
-      with:
-        error-context: "Terraform initialization for planning in ${{ github.event.inputs.configuration }}"
-        operation: "terraform-init"
-        include-troubleshooting: true
-
-    - name: Fail Workflow After Init Plan Error
-      if: steps.terraform-init-plan.outcome == 'failure'
-      run: exit 1
-
     # Step 9b: Continue with Terraform plan
     - name: Execute Terraform Plan
-      id: terraform-plan
-      continue-on-error: true
       run: |
         config="${{ github.event.inputs.configuration }}"
         tfvars_file="${{ github.event.inputs.tfvars_file }}"
@@ -370,7 +340,6 @@ jobs:
           echo "::notice title=Solution 3::📦 Verify provider version and configuration requirements"
           echo "::notice title=Solution 4::🧪 Test configuration locally with 'terraform validate'"
           echo "::notice title=Solution 5::📚 Review Terraform and Power Platform provider documentation"
-          echo "::notice title=Documentation::📚 Error Reference: https://github.com/${{ github.repository }}/blob/main/docs/references/workflow-error-reference.md#terraform-validate-errors"
           echo "::notice title=Terraform Docs::📚 Configuration Language: https://developer.hashicorp.com/terraform/language"
           exit 1
         fi
@@ -406,7 +375,6 @@ jobs:
           echo "::notice title=Solution 3::🔄 Re-run workflow if transient network or API issues occurred"
           echo "::notice title=Solution 4::💾 Check state file integrity and clear locks if needed"
           echo "::notice title=Solution 5::📚 Review Power Platform provider documentation for required permissions"
-          echo "::notice title=Documentation::📚 Error Reference: https://github.com/${{ github.repository }}/blob/main/docs/references/workflow-error-reference.md#terraform-plan-errors"
           echo "::notice title=Power Platform::📚 Service Principal Setup: https://docs.microsoft.com/power-platform/admin/powershell-create-service-principal"
           exit 1
         elif [ $plan_exit_code -eq 2 ]; then
@@ -428,18 +396,6 @@ jobs:
         fi
         
         cd - > /dev/null
-
-    - name: Handle Terraform Plan Failure
-      if: steps.terraform-plan.outcome == 'failure'
-      uses: ./.github/actions/enhanced-error-handler
-      with:
-        error-context: "Terraform planning for ${{ github.event.inputs.configuration }} using ${{ github.event.inputs.tfvars_file }}.tfvars"
-        operation: "terraform-plan"
-        include-troubleshooting: true
-
-    - name: Fail Workflow After Plan Error
-      if: steps.terraform-plan.outcome == 'failure'
-      run: exit 1
     
     # Step 10: Generate/Update Configuration Documentation
     # AVM requires up-to-date documentation generated by terraform-docs
@@ -679,7 +635,7 @@ jobs:
     - name: Download Terraform Plans from Artifacts
       uses: actions/download-artifact@v4
       with:
-        name: terraform-plans-${{ github.event.inputs.configuration }}-${{ github.run_number }}
+        name: tfplans-${{ github.run_number }}
         path: .
     
     # Step 6: Apply the Terraform plan
@@ -697,9 +653,7 @@ jobs:
 
     # Step 6a: Initialize Terraform for Apply  
     - name: Initialize Terraform for Apply
-      id: terraform-init-apply
       uses: ./.github/actions/terraform-init-with-backend
-      continue-on-error: true
       env:
         ARM_STORAGE_ACCOUNT_NAME: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
         ARM_CONTAINER_NAME: ${{ secrets.TERRAFORM_CONTAINER }}
@@ -710,22 +664,8 @@ jobs:
         configuration: ${{ needs.terraform-plan.outputs.configuration }}
         tfvars-file: ${{ github.event.inputs.tfvars_file }}
 
-    - name: Handle Init Apply Failure
-      if: steps.terraform-init-apply.outcome == 'failure'
-      uses: ./.github/actions/enhanced-error-handler
-      with:
-        error-context: "Terraform initialization for apply in ${{ needs.terraform-plan.outputs.configuration }}"
-        operation: "terraform-init"
-        include-troubleshooting: true
-
-    - name: Fail Workflow After Init Apply Error
-      if: steps.terraform-init-apply.outcome == 'failure'
-      run: exit 1
-
     # Step 6b: Execute Terraform Apply
     - name: Execute Terraform Apply
-      id: terraform-apply
-      continue-on-error: true
       run: |
         config="${{ needs.terraform-plan.outputs.configuration }}"
         
@@ -751,7 +691,6 @@ jobs:
           echo "::notice title=Solution 3::🔍 Check Power Platform admin center for resource conflicts"
           echo "::notice title=Solution 4::💾 Clear state locks and verify state file integrity"
           echo "::notice title=Solution 5::📈 Review Power Platform capacity and license requirements"
-          echo "::notice title=Documentation::📚 Error Reference: https://github.com/${{ github.repository }}/blob/main/docs/references/workflow-error-reference.md#terraform-apply-errors"
           echo "::notice title=Power Platform::📚 Admin Center: https://admin.powerplatform.microsoft.com/"
           exit 1
         fi
@@ -785,7 +724,6 @@ jobs:
           echo "::notice title=Solution 3::⏳ Add provider-specific wait conditions for eventual consistency"
           echo "::notice title=Solution 4::🔧 Use data sources instead of resources for read-only operations"
           echo "::notice title=Solution 5::📚 Review AVM guidelines for idempotency patterns"
-          echo "::notice title=Documentation::📚 Error Reference: https://github.com/${{ github.repository }}/blob/main/docs/references/workflow-error-reference.md#idempotency-test-errors"
           echo "::notice title=AVM Guidelines::📚 Azure Verified Modules: https://azure.github.io/Azure-Verified-Modules/"
           exit 1
         elif [ $idempotency_exit_code -eq 0 ]; then
@@ -807,18 +745,6 @@ jobs:
         fi
         
         cd - > /dev/null
-
-    - name: Handle Terraform Apply Failure
-      if: steps.terraform-apply.outcome == 'failure'
-      uses: ./.github/actions/enhanced-error-handler
-      with:
-        error-context: "Terraform apply for ${{ needs.terraform-plan.outputs.configuration }} using ${{ github.event.inputs.tfvars_file }}.tfvars"
-        operation: "terraform-apply"
-        include-troubleshooting: true
-
-    - name: Fail Workflow After Apply Error
-      if: steps.terraform-apply.outcome == 'failure'
-      run: exit 1
     
     # Step 7: Extract outputs from the applied configuration
     # Terraform outputs often contain important information like resource IDs
@@ -831,9 +757,7 @@ jobs:
 
     # Step 7a: Initialize Terraform for output extraction
     - name: Initialize Terraform for Output
-      id: terraform-init-output
       uses: ./.github/actions/terraform-init-with-backend
-      continue-on-error: true
       env:
         ARM_STORAGE_ACCOUNT_NAME: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
         ARM_CONTAINER_NAME: ${{ secrets.TERRAFORM_CONTAINER }}
@@ -843,18 +767,6 @@ jobs:
       with:
         configuration: ${{ needs.terraform-plan.outputs.configuration }}
         tfvars-file: ${{ github.event.inputs.tfvars_file }}
-
-    - name: Handle Init Output Failure
-      if: steps.terraform-init-output.outcome == 'failure'
-      uses: ./.github/actions/enhanced-error-handler
-      with:
-        error-context: "Terraform initialization for output extraction in ${{ needs.terraform-plan.outputs.configuration }}"
-        operation: "terraform-init"
-        include-troubleshooting: true
-
-    - name: Fail Workflow After Init Output Error
-      if: steps.terraform-init-output.outcome == 'failure'
-      run: exit 1
 
     # Step 7b: Extract outputs and generate metadata
     - name: Extract Outputs and Generate Metadata

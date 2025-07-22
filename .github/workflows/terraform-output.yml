@@ -134,9 +134,7 @@ jobs:
     
     # Step 7: Initialize Terraform for output generation
     - name: Initialize Terraform for Output
-      id: terraform-init-output
       uses: ./.github/actions/terraform-init-with-backend
-      continue-on-error: true
       env:
         ARM_STORAGE_ACCOUNT_NAME: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
         ARM_CONTAINER_NAME: ${{ secrets.TERRAFORM_CONTAINER }}
@@ -146,18 +144,6 @@ jobs:
       with:
         configuration: ${{ github.event.inputs.configuration }}
         state-key-override: "output-${{ github.event.inputs.configuration }}.tfstate"
-
-    - name: Handle Init Output Failure
-      if: steps.terraform-init-output.outcome == 'failure'
-      uses: ./.github/actions/enhanced-error-handler
-      with:
-        error-context: "Terraform initialization for output generation in ${{ github.event.inputs.configuration }}"
-        operation: "terraform-init"
-        include-troubleshooting: true
-
-    - name: Fail Workflow After Init Output Error
-      if: steps.terraform-init-output.outcome == 'failure'
-      run: exit 1
 
     # Step 8: Validate configuration after initialization
     - name: Validate Configuration
@@ -223,7 +209,6 @@ jobs:
     # Step 11: Extract and Process Terraform Output (Consolidated)
     - name: Extract and Process Terraform Output
       id: process-output
-      continue-on-error: true
       run: |
         config="${{ github.event.inputs.configuration }}"
         export_format="${{ github.event.inputs.export_format }}"
@@ -346,18 +331,6 @@ jobs:
         # Cleanup temporary file
         rm -f "terraform-output-raw.json"
         cd - > /dev/null
-
-    - name: Handle Terraform Output Failure
-      if: steps.process-output.outcome == 'failure'
-      uses: ./.github/actions/enhanced-error-handler
-      with:
-        error-context: "Terraform output extraction for ${{ github.event.inputs.configuration }}"
-        operation: "terraform-output"
-        include-troubleshooting: true
-
-    - name: Fail Workflow After Output Error
-      if: steps.process-output.outcome == 'failure'
-      run: exit 1
     
     # Step 12: Remove Just-In-Time network access
     - name: Remove JIT Network Access

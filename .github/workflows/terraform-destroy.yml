@@ -157,9 +157,7 @@ jobs:
 
     # Step 7a: Initialize Terraform for state check
     - name: Initialize Terraform for State Check
-      id: terraform-init-validate
       uses: ./.github/actions/terraform-init-with-backend
-      continue-on-error: true
       env:
         ARM_STORAGE_ACCOUNT_NAME: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
         ARM_CONTAINER_NAME: ${{ secrets.TERRAFORM_CONTAINER }}
@@ -169,18 +167,6 @@ jobs:
       with:
         configuration: ${{ github.event.inputs.configuration }}
         tfvars-file: ${{ github.event.inputs.tfvars_file }}
-
-    - name: Handle Init Validate Failure
-      if: steps.terraform-init-validate.outcome == 'failure'
-      uses: ./.github/actions/enhanced-error-handler
-      with:
-        error-context: "Terraform initialization for validation in ${{ github.event.inputs.configuration }}"
-        operation: "terraform-init"
-        include-troubleshooting: true
-
-    - name: Fail Workflow After Init Validate Error
-      if: steps.terraform-init-validate.outcome == 'failure'
-      run: exit 1
 
     # Step 7b: Generate metadata and check state  
     - name: Generate Metadata and Check State
@@ -289,8 +275,6 @@ jobs:
     
     # Step 9: Generate destroy plan for review
     - name: Generate Destroy Plan
-      id: terraform-destroy-plan
-      continue-on-error: true
       run: |
         config="${{ github.event.inputs.configuration }}"
         tfvars_file="${{ github.event.inputs.tfvars_file }}"
@@ -322,7 +306,6 @@ jobs:
           echo "::notice title=Solution 3::💾 Check state file integrity and clear locks if needed"
           echo "::notice title=Solution 4::🔗 Review resource dependencies in Power Platform admin center"
           echo "::notice title=Solution 5::📚 Review Power Platform provider documentation for destroy requirements"
-          echo "::notice title=Documentation::📚 Error Reference: https://github.com/${{ github.repository }}/blob/main/docs/references/workflow-error-reference.md#terraform-plan-errors"
           echo "::notice title=Power Platform::📚 Admin Center: https://admin.powerplatform.microsoft.com/"
           exit 1
         elif [ $destroy_plan_exit_code -eq 2 ]; then
@@ -340,18 +323,6 @@ jobs:
         echo "::endgroup::"
         
         cd - > /dev/null
-
-    - name: Handle Destroy Plan Failure
-      if: steps.terraform-destroy-plan.outcome == 'failure'
-      uses: ./.github/actions/enhanced-error-handler
-      with:
-        error-context: "Terraform destroy plan for ${{ github.event.inputs.configuration }} using ${{ github.event.inputs.tfvars_file }}.tfvars"
-        operation: "terraform-plan"
-        include-troubleshooting: true
-
-    - name: Fail Workflow After Destroy Plan Error
-      if: steps.terraform-destroy-plan.outcome == 'failure'
-      run: exit 1
     
     # Step 10: Upload destroy plan as artifact for audit trail
     - name: Upload Destroy Plan as Artifact
@@ -466,8 +437,6 @@ jobs:
     
     # Step 7: Execute the destroy operation
     - name: Execute Terraform Destroy
-      id: terraform-destroy
-      continue-on-error: true
       run: |
         config="${{ needs.terraform-validate.outputs.configuration }}"
         tfvars_file="${{ github.event.inputs.tfvars_file }}"
@@ -515,7 +484,6 @@ jobs:
         if [ "$init_success" = false ]; then
           echo "::error title=Init Failed::❌ Terraform init failed after $max_retries attempts"
           echo "::notice title=Context::📋 This init occurs before destroy execution after downloading artifacts"
-          echo "::notice title=Documentation::📚 Error Reference: https://github.com/${{ github.repository }}/blob/main/docs/references/workflow-error-reference.md#terraform-init-errors"
           exit 1
         fi
         
@@ -541,24 +509,11 @@ jobs:
           echo "::notice title=Solution 3::🔄 Re-run workflow if transient network issues occurred"
           echo "::notice title=Solution 4::💾 Verify state file integrity and clear locks"
           echo "::notice title=Solution 5::⏱️ Consider destroying resources in smaller batches"
-          echo "::notice title=Documentation::📚 Error Reference: https://github.com/${{ github.repository }}/blob/main/docs/references/workflow-error-reference.md#terraform-apply-errors"
           echo "::notice title=Power Platform::📚 Admin Center: https://admin.powerplatform.microsoft.com/"
           exit 1
         fi
         
         cd - > /dev/null
-
-    - name: Handle Terraform Destroy Failure
-      if: steps.terraform-destroy.outcome == 'failure'
-      uses: ./.github/actions/enhanced-error-handler
-      with:
-        error-context: "Terraform destroy execution for ${{ needs.terraform-validate.outputs.configuration }} using ${{ github.event.inputs.tfvars_file }}.tfvars"
-        operation: "terraform-destroy"
-        include-troubleshooting: true
-
-    - name: Fail Workflow After Destroy Error
-      if: steps.terraform-destroy.outcome == 'failure'
-      run: exit 1
     
     # Step 8: Verify state is clean after destroy
     - name: Verify Clean State
