@@ -4,6 +4,26 @@
 [![Terraform](https://img.shields.io/badge/Terraform-1.5%2B-623CE4?logo=terraform)](https://www.terraform.io/)
 [![Power Platform](https://img.shields.io/badge/Power%20Platform-742774?logo=microsoft)](https://powerplatform.microsoft.com/)
 
+## 🚀 Workflow Status Dashboard
+
+<div align="center">
+
+| Workflow                    | Status                                                                                                                                                                                                                                                                  | Last Run                                                                                                                                            | Purpose                       |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| **Terraform Plan & Apply**  | [![Terraform Plan & Apply](https://github.com/rpothin/ppcc25-terraform-power-platform-governance/workflows/Terraform%20Plan%20and%20Apply/badge.svg)](https://github.com/rpothin/ppcc25-terraform-power-platform-governance/actions/workflows/terraform-plan-apply.yml) | ![Last Run](https://img.shields.io/github/workflow/status/rpothin/ppcc25-terraform-power-platform-governance/Terraform%20Plan%20and%20Apply?label=) | Deploy infrastructure changes |
+| **Terraform Destroy**       | [![Terraform Destroy](https://github.com/rpothin/ppcc25-terraform-power-platform-governance/workflows/Terraform%20Destroy/badge.svg)](https://github.com/rpothin/ppcc25-terraform-power-platform-governance/actions/workflows/terraform-destroy.yml)                    | ![Last Run](https://img.shields.io/github/workflow/status/rpothin/ppcc25-terraform-power-platform-governance/Terraform%20Destroy?label=)            | Clean up resources            |
+| **Terraform Test**          | [![Terraform Test](https://github.com/rpothin/ppcc25-terraform-power-platform-governance/workflows/Terraform%20Test/badge.svg)](https://github.com/rpothin/ppcc25-terraform-power-platform-governance/actions/workflows/terraform-test.yml)                             | ![Last Run](https://img.shields.io/github/workflow/status/rpothin/ppcc25-terraform-power-platform-governance/Terraform%20Test?label=)               | Validate configurations       |
+| **Terraform Documentation** | [![Terraform Docs](https://github.com/rpothin/ppcc25-terraform-power-platform-governance/workflows/Terraform%20Documentation/badge.svg)](https://github.com/rpothin/ppcc25-terraform-power-platform-governance/actions/workflows/terraform-docs.yml)                    | ![Last Run](https://img.shields.io/github/workflow/status/rpothin/ppcc25-terraform-power-platform-governance/Terraform%20Documentation?label=)      | Generate documentation        |
+
+### Quick Actions
+[![Run Plan & Apply](https://img.shields.io/badge/▶️%20Deploy-Plan%20&%20Apply-brightgreen?style=for-the-badge)](https://github.com/rpothin/ppcc25-terraform-power-platform-governance/actions/workflows/terraform-plan-apply.yml)
+[![Run Tests](https://img.shields.io/badge/🧪%20Test-Validate-blue?style=for-the-badge)](https://github.com/rpothin/ppcc25-terraform-power-platform-governance/actions/workflows/terraform-test.yml)
+[![View All](https://img.shields.io/badge/📊%20View%20All-Actions-gray?style=for-the-badge)](https://github.com/rpothin/ppcc25-terraform-power-platform-governance/actions)
+
+</div>
+
+---
+
 > **Enhancing Power Platform Governance Through Terraform: Embracing Infrastructure as Code**  
 > *Presented at Power Platform Community Conference 2025 by Raphael Pothin*
 
