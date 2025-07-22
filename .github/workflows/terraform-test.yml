@@ -549,55 +549,76 @@ jobs:
             
             echo "::notice title=Backend Config::Storage Account: $ARM_STORAGE_ACCOUNT_NAME, Container: $ARM_CONTAINER_NAME, Key: $test_state_key"
             
-            # Use explicit backend configuration with configuration-specific state file
-            if terraform init -input=false \
-              -backend-config="storage_account_name=$ARM_STORAGE_ACCOUNT_NAME" \
-              -backend-config="container_name=$ARM_CONTAINER_NAME" \
-              -backend-config="key=$test_state_key" \
-              -backend-config="resource_group_name=$ARM_RESOURCE_GROUP_NAME" \
-              -backend-config="subscription_id=$ARM_SUBSCRIPTION_ID" \
-              -backend-config="tenant_id=$ARM_TENANT_ID" \
-              -backend-config="use_oidc=true"; then
-              echo "::notice title=Backend Success::✅ Backend initialized successfully"
-              echo "::notice title=Running Integration Test::Executing terraform test with authentication..."
+            # Use robust initialization with retry logic (inspired by terraform-init-with-backend)
+            max_retries=3
+            retry_count=0
+            init_success=false
+            
+            while [ $retry_count -lt $max_retries ] && [ "$init_success" = false ]; do
+              retry_count=$((retry_count + 1))
+              echo "::notice title=Init Attempt::🔄 Terraform init attempt $retry_count of $max_retries..."
               
-              # Debug: Check what Terraform test sees
-              echo "::group::Terraform Test Discovery Debug"
-              echo "Current working directory: $(pwd)"
-              echo "Files in current directory:"
-              find . -name "*.tf" -o -name "*.tftest.hcl" | sort
-              echo ""
-              echo "Testing directory contents:"
-              if [ -d "tests" ]; then
-                find tests -name "*.tftest.hcl" 2>/dev/null || echo "No .tftest.hcl files found in tests/"
+              if terraform init -input=false 
+                -backend-config="storage_account_name=$ARM_STORAGE_ACCOUNT_NAME" 
+                -backend-config="container_name=$ARM_CONTAINER_NAME" 
+                -backend-config="key=$test_state_key" 
+                -backend-config="resource_group_name=$ARM_RESOURCE_GROUP_NAME" 
+                -backend-config="subscription_id=$ARM_SUBSCRIPTION_ID" 
+                -backend-config="tenant_id=$ARM_TENANT_ID" 
+                -backend-config="use_oidc=true"; then
+                
+                init_success=true
+                echo "::notice title=Init Success::✅ Terraform init completed successfully on attempt $retry_count"
               else
-                echo "No tests/ directory found"
+                echo "::warning title=Init Failed::⚠️ Terraform init attempt $retry_count failed"
+                
+                if [ $retry_count -lt $max_retries ]; then
+                  wait_time=$((retry_count * 10))
+                  echo "::notice title=Retry Delay::⏱️ Waiting ${wait_time} seconds before retry..."
+                  sleep $wait_time
+                fi
               fi
-              echo ""
-              echo "Running terraform test to see what tests are discovered:"
-              terraform test 2>&1 || test_exit_code=$?
-              echo "Test exit code: ${test_exit_code:-0}"
-              echo "::endgroup::"
-              
-              # Set test-specific environment for safer testing
-              export TF_VAR_test_mode="true"
-              export TF_VAR_expected_minimum_policies=0  # Allow for empty test tenants
-              
-              # Execute the integration tests
-              if [ "${test_exit_code:-0}" -eq 0 ]; then
-                echo "::notice title=Test Success::✅ terraform test passed"
-                tested_count=$((tested_count + 1))
-              else
-                echo "::error title=Test Failed::❌ terraform test failed for $target_path"
-                echo "::group::Test Output for $target_path"
-                terraform test 2>&1 || true
-                echo "::endgroup::"
-                failed_count=$((failed_count + 1))
-              fi
+            done
+            
+            if [ "$init_success" = false ]; then
+              echo "::error title=Init Failed::❌ Terraform init failed after $max_retries attempts for $target_path"
+              failed_count=$((failed_count + 1))
+              cd - > /dev/null
+              continue
+            fi
+            
+            echo "::notice title=Running Integration Test::Executing terraform test with authentication..."
+            
+            # Debug: Check what Terraform test sees
+            echo "::group::Terraform Test Discovery Debug"
+            echo "Current working directory: $(pwd)"
+            echo "Files in current directory:"
+            find . -name "*.tf" -o -name "*.tftest.hcl" | sort
+            echo ""
+            echo "Testing directory contents:"
+            if [ -d "tests" ]; then
+              find tests -name "*.tftest.hcl" 2>/dev/null || echo "No .tftest.hcl files found in tests/"
             else
-              echo "::error title=Init Failed::terraform init failed for $target_path"
-              echo "::group::Init Output for $target_path"
-              terraform init -input=false 2>&1 || true
+              echo "No tests/ directory found"
+            fi
+            echo ""
+            echo "Running terraform test to see what tests are discovered:"
+            terraform test 2>&1 || test_exit_code=$?
+            echo "Test exit code: ${test_exit_code:-0}"
+            echo "::endgroup::"
+            
+            # Set test-specific environment for safer testing
+            export TF_VAR_test_mode="true"
+            export TF_VAR_expected_minimum_policies=0  # Allow for empty test tenants
+            
+            # Execute the integration tests
+            if [ "${test_exit_code:-0}" -eq 0 ]; then
+              echo "::notice title=Test Success::✅ terraform test passed"
+              tested_count=$((tested_count + 1))
+            else
+              echo "::error title=Test Failed::❌ terraform test failed for $target_path"
+              echo "::group::Test Output for $target_path"
+              terraform test 2>&1 || true
               echo "::endgroup::"
               failed_count=$((failed_count + 1))
             fi
