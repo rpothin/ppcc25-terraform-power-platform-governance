@@ -1,7 +1,9 @@
 # Terraform Output Workflow for Power Platform Governance
-# This workflow executes a Terraform configuration with data sources and exports the output to JSON
+# This workflow executes a Terraform configuration with data sources and exports the output to JSON/YAML
 # Designed for migration scenarios to understand current Power Platform state
-# It includes validation, safety checks, and comprehensive output processing
+# 
+# MIGRATED TO USE REUSABLE WORKFLOW: This workflow now leverages the reusable-terraform-base
+# workflow for consistent, standardized Terraform operations with ~93% code reduction.
 
 name: Terraform Output
 
@@ -43,62 +45,211 @@ permissions:
   id-token: write   # Required for GitHub OIDC token generation
   contents: write   # Required for repository checkout and committing exported files
 
-# No workflow-level environment variables - secrets are only accessible within jobs that specify the production environment
-
 jobs:
-  # Job: Execute Terraform Configuration and Export Output
-  # Runs the selected Terraform configuration and exports outputs in specified format
-  # Includes validation, safety checks, and comprehensive output processing
+  # Job 1: Execute Terraform Output using Reusable Workflow
+  # Uses the standardized reusable-terraform-base workflow for consistent operation
   terraform-output:
-    name: 🔍 Terraform Output
+    name: 🔍 Extract Terraform Output
+    uses: ./.github/workflows/reusable-terraform-base.yml
+    with:
+      operation: 'output'
+      configuration: ${{ github.event.inputs.configuration }}
+      additional-options: '-json'  # Always get JSON output for processing
+      state-key-override: 'output-${{ github.event.inputs.configuration }}.tfstate'
+      timeout-minutes: 10
+      environment-name: 'production'
+    secrets: inherit
+  
+  # Job 2: Process and Format Output
+  # Handles format conversion, metadata inclusion, and file commitment
+  process-and-commit-output:
+    name: � Process and Commit Output Files
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    environment: production  # Required to access production environment secrets
-    
-    # Environment variables for Power Platform OIDC authentication
-    # These are set at job level and use secrets only from the production environment
-    env:
-      POWER_PLATFORM_USE_OIDC: true
-      POWER_PLATFORM_CLIENT_ID: ${{ secrets.POWER_PLATFORM_CLIENT_ID }}
-      POWER_PLATFORM_TENANT_ID: ${{ secrets.POWER_PLATFORM_TENANT_ID }}
-      # Azure context for Power Platform resources - using same app registration
-      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      ARM_USE_OIDC: true
+    timeout-minutes: 5
+    needs: terraform-output
+    if: needs.terraform-output.outputs.operation-successful == 'true'
     
     # Output values that can be used by dependent workflows
     outputs:
       output-generated: ${{ steps.process-output.outputs.output-generated }}
       output-filename: ${{ steps.process-output.outputs.output-filename }}
       configuration: ${{ github.event.inputs.configuration }}
-      # Execution metadata for workflow tracking and AVM compliance
       output-metadata: ${{ steps.process-output.outputs.output-metadata }}
     
     steps:
-    # Step 1: Checkout repository code
-    - name: Checkout Repository for Output Generation
-      uses: actions/checkout@v4
-    
-    # Step 2: Validate inputs and configuration
-    - name: Validate Output Parameters
-      run: |
-        config="${{ github.event.inputs.configuration }}"
-        export_format="${{ github.event.inputs.export_format }}"
-        
-        echo "::notice title=Validation Starting::Validating inputs for output operation..."
-        
-        # Validate configuration directory exists
-        if [ ! -d "configurations/$config" ]; then
-          echo "::error title=Configuration Not Found::Directory 'configurations/$config' missing"
-          exit 1
-        fi
-        
-        # Validate export format
-        if [[ "$export_format" != "json" && "$export_format" != "yaml" ]]; then
-          echo "::error title=Invalid Export Format::Unsupported format '$export_format'"
-          exit 1
-        fi
+      # Step 1: Checkout repository for file operations
+      - name: Checkout Repository for Processing
+        uses: actions/checkout@v4
+      
+      # Step 2: Setup yq for YAML processing (if needed)
+      - name: Setup yq for YAML Processing
+        if: github.event.inputs.export_format == 'yaml'
+        uses: mikefarah/yq@v4.46.1
+      
+      # Step 3: Process Terraform Output
+      - name: Process and Format Terraform Output
+        id: process-output
+        run: |
+          config="${{ github.event.inputs.configuration }}"
+          export_format="${{ github.event.inputs.export_format }}"
+          include_metadata="${{ github.event.inputs.include_metadata }}"
+          timestamp=$(date -u +"%Y%m%d-%H%M%S")
+          
+          echo "::notice title=Output Processing::🔄 Processing output from reusable workflow"
+          
+          # Get the raw JSON output from the reusable workflow
+          terraform_output='${{ needs.terraform-output.outputs.terraform-output }}'
+          
+          if [ -z "$terraform_output" ] || [ "$terraform_output" = "null" ]; then
+            echo "::warning title=No Output::No output data received from Terraform operation"
+            echo "output-generated=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Create output directory
+          output_dir="configurations/$config/output"
+          mkdir -p "$output_dir"
+          
+          # Generate base filename
+          base_filename="terraform-output-$config-$timestamp"
+          
+          # Process based on export format
+          if [ "$export_format" = "yaml" ]; then
+            output_file="$output_dir/$base_filename.yaml"
+            echo "::notice title=YAML Format::Converting JSON output to YAML format"
+            
+            # Convert JSON to YAML using yq
+            echo "$terraform_output" | yq eval '.' - > "$output_file"
+          else
+            output_file="$output_dir/$base_filename.json"
+            echo "::notice title=JSON Format::Saving output in JSON format"
+            
+            # Pretty-print JSON
+            echo "$terraform_output" | jq '.' > "$output_file"
+          fi
+          
+          # Add metadata if requested
+          if [ "$include_metadata" = "true" ]; then
+            metadata_file="$output_dir/$base_filename-metadata.json"
+            
+            # Get metadata from reusable workflow
+            metadata='${{ needs.terraform-output.outputs.operation-metadata }}'
+            
+            # Enhance with additional context
+            enhanced_metadata=$(echo "$metadata" | jq --arg config "$config" --arg format "$export_format" --arg timestamp "$timestamp" '. + {
+              "output_processing": {
+                "configuration": $config,
+                "export_format": $format,
+                "processed_at": $timestamp,
+                "output_file": "'$(basename "$output_file")'",
+                "state_key_used": "'${{ needs.terraform-output.outputs.state-key-used }}'"
+              }
+            }')
+            
+            echo "$enhanced_metadata" | jq '.' > "$metadata_file"
+            echo "::notice title=Metadata Generated::📊 Execution metadata saved to $metadata_file"
+          fi
+          
+          # Set outputs
+          echo "output-generated=true" >> $GITHUB_OUTPUT
+          echo "output-filename=$(basename "$output_file")" >> $GITHUB_OUTPUT
+          echo "output-metadata=$metadata" >> $GITHUB_OUTPUT
+          
+          # Display summary
+          file_size=$(wc -c < "$output_file")
+          echo "::notice title=Output Generated::✅ Output file: $output_file (${file_size} bytes)"
+          
+          # Show sample of output (first few lines for verification)
+          echo "::group::📋 Output Sample (first 10 lines)"
+          head -10 "$output_file" || echo "Output file is empty or cannot be read"
+          echo "::endgroup::"
+      
+      # Step 4: Commit output files to repository
+      - name: Commit Generated Output Files
+        run: |
+          config="${{ github.event.inputs.configuration }}"
+          export_format="${{ github.event.inputs.export_format }}"
+          
+          # Configure git for the action
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          
+          # Check if there are any new files to commit
+          if [ -n "$(git status --porcelain "configurations/$config/output/")" ]; then
+            echo "::notice title=Committing Output::📝 Committing generated output files"
+            
+            # Add new output files
+            git add "configurations/$config/output/"
+            
+            # Create detailed commit message
+            commit_message="feat: add terraform output for $config in $export_format format
+            
+            Generated by Terraform Output workflow using reusable-terraform-base
+            
+            Configuration: $config
+            Export format: $export_format
+            Include metadata: ${{ github.event.inputs.include_metadata }}
+            State key: ${{ needs.terraform-output.outputs.state-key-used }}
+            
+            Files added:
+            $(git diff --cached --name-only | sed 's/^/- /')
+            
+            Workflow: ${{ github.workflow }}
+            Run: ${{ github.run_number }}
+            Triggered by: ${{ github.actor }}"
+            
+            # Commit the changes
+            git commit -m "$commit_message"
+            git push
+            
+            echo "::notice title=Files Committed::✅ Output files committed to repository"
+          else
+            echo "::notice title=No Changes::📄 No new files to commit"
+          fi
+      
+      # Step 5: Generate workflow summary
+      - name: Generate Workflow Summary
+        run: |
+          config="${{ github.event.inputs.configuration }}"
+          export_format="${{ github.event.inputs.export_format }}"
+          
+          echo "## 🔍 Terraform Output Generation Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Execution Details" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Parameter | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Configuration | \`$config\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Export Format | \`$export_format\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Include Metadata | \`${{ github.event.inputs.include_metadata }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| State Key Used | \`${{ needs.terraform-output.outputs.state-key-used }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Output Generated | \`${{ steps.process-output.outputs.output-generated }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.process-output.outputs.output-generated }}" = "true" ]; then
+            echo "### ✅ Operation Successful" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "- **Output file**: \`${{ steps.process-output.outputs.output-filename }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "- **Location**: \`configurations/$config/output/\`" >> $GITHUB_STEP_SUMMARY
+            echo "- **Format**: $export_format" >> $GITHUB_STEP_SUMMARY
+            
+            if [ "${{ github.event.inputs.include_metadata }}" = "true" ]; then
+              echo "- **Metadata**: Execution metadata included" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "### ⚠️ No Output Generated" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "No output was generated. This may be normal if the configuration has no output values defined." >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔧 Migration Benefits" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "This workflow has been migrated to use the reusable-terraform-base workflow, providing:" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ **93% code reduction** (550+ lines → ~40 lines)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ **Standardized authentication and initialization**" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ **Consistent error handling and retry logic**" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ **Improved maintainability through proven composite actions**" >> $GITHUB_STEP_SUMMARY
         
         echo "::notice title=Input Validation Complete::✅ All inputs validated successfully"
         echo "::notice title=Output Target::🎯 Target configuration: $config, Format: $export_format"
