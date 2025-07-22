@@ -352,12 +352,6 @@ jobs:
     - name: Fail Workflow After Destroy Plan Error
       if: steps.terraform-destroy-plan.outcome == 'failure'
       run: exit 1
-        
-        echo "::group::Destroy Plan Summary"
-        terraform show destroy-plan | head -50  # Show first 50 lines for review
-        echo "::endgroup::"
-        
-        cd - > /dev/null
     
     # Step 10: Upload destroy plan as artifact for audit trail
     - name: Upload Destroy Plan as Artifact
