@@ -40,10 +40,7 @@ The repository provides practical examples and reusable patterns to help organiz
 | **Terraform Import**        | [![Terraform Import](https://github.com/rpothin/ppcc25-terraform-power-platform-governance/actions/workflows/terraform-import.yml/badge.svg)](https://github.com/rpothin/ppcc25-terraform-power-platform-governance/actions/workflows/terraform-import.yml)                 | Import existing resources into state    |
 | **Terraform Destroy**       | [![Terraform Destroy](https://github.com/rpothin/ppcc25-terraform-power-platform-governance/actions/workflows/terraform-destroy.yml/badge.svg)](https://github.com/rpothin/ppcc25-terraform-power-platform-governance/actions/workflows/terraform-destroy.yml)              | Clean up resources                      |
 
-### Quick Actions
 [![Run Plan & Apply](https://img.shields.io/badge/▶️%20Deploy-Plan%20&%20Apply-brightgreen?style=for-the-badge)](https://github.com/rpothin/ppcc25-terraform-power-platform-governance/actions/workflows/terraform-plan-apply.yml)
-[![Run Tests](https://img.shields.io/badge/🧪%20Test-Validate-blue?style=for-the-badge)](https://github.com/rpothin/ppcc25-terraform-power-platform-governance/actions/workflows/terraform-test.yml)
-[![View All](https://img.shields.io/badge/📊%20View%20All-Actions-yellow?style=for-the-badge)](https://github.com/rpothin/ppcc25-terraform-power-platform-governance/actions)
 
 </div>
 
