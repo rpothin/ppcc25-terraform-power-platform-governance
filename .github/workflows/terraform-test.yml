@@ -49,15 +49,14 @@ env:
 jobs:
   # Job 1: Detect Changes - Foundation for all parallel workflows
   detect-changes:
-    name: 🔍 Detect Test Changes
+    name: 🔍 Detect Configuration Changes
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     outputs:
       configurations: ${{ steps.changes.outputs.configurations }}
       modules: ${{ steps.changes.outputs.modules }}
       test-utils: ${{ steps.changes.outputs.test-utils }}
-      any-config-changed: ${{ steps.detect.outputs.has-changes }}
-      changed-paths: ${{ steps.detect.outputs.changed-paths }}
+      any-config-changed: ${{ steps.changes.outputs.configurations == 'true' || steps.changes.outputs.modules == 'true' }}
+      changed-paths: ${{ steps.scan-changed.outputs.changed-paths }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -85,14 +84,138 @@ jobs:
             test-utils:
               - 'scripts/test-utils/**'
 
-      - name: Detect Test Changes
-        id: detect
-        uses: ./.github/actions/detect-terraform-changes
-        with:
-          target-path: ${{ github.event.inputs.target_path }}
-          force-all: ${{ github.event.inputs.force_all }}
-          include-configs: 'true'
-          include-modules: 'true'
+      - name: Scan Changed Paths
+        id: scan-changed
+        if: steps.changes.outputs.configurations == 'true' || steps.changes.outputs.modules == 'true' || github.event_name == 'workflow_dispatch'
+        run: |
+          echo "::notice title=Scanning Changes::Identifying specific changed paths for testing..."
+          
+          # Handle manual dispatch scenarios
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            # Check for specific target path
+            if [ -n "${{ github.event.inputs.target_path }}" ]; then
+              target_path="${{ github.event.inputs.target_path }}"
+              echo "::notice title=Manual Target::Processing specific path: $target_path"
+              
+              if [ ! -d "$target_path" ]; then
+                echo "::error title=Target Path Not Found::Specified path '$target_path' does not exist"
+                exit 1
+              fi
+              
+              # Validate target path has required files
+              if find "$target_path" -maxdepth 1 -name "*.tf" -type f | grep -q .; then
+                echo "changed-paths=$target_path" >> $GITHUB_OUTPUT
+                echo "::notice title=Manual Target Set::Tests will be executed for: $target_path"
+                exit 0
+              else
+                echo "::error title=Invalid Target::Path '$target_path' contains no Terraform files"
+                exit 1
+              fi
+            fi
+            
+            # Check for force all flag
+            if [ "${{ github.event.inputs.force_all }}" = "true" ]; then
+              echo "::notice title=Force All::Testing all configurations and modules"
+              
+              # Scan all valid paths
+              paths_to_process=()
+              
+              # Scan configurations
+              if [ -d "configurations" ]; then
+                for config_dir in configurations/*/; do
+                  dir=${config_dir%/}
+                  if [ -d "$dir" ] && find "$dir" -maxdepth 1 -name "*.tf" -type f | grep -q .; then
+                    paths_to_process+=("$dir")
+                    echo "::notice title=Configuration Found::$dir"
+                  fi
+                done
+              fi
+              
+              # Scan modules
+              if [ -d "modules" ]; then
+                for module_dir in modules/*/; do
+                  dir=${module_dir%/}
+                  if [ -d "$dir" ] && find "$dir" -maxdepth 1 -name "*.tf" -type f | grep -q .; then
+                    paths_to_process+=("$dir")
+                    echo "::notice title=Module Found::$dir"
+                  fi
+                done
+              fi
+              
+              if [ ${#paths_to_process[@]} -eq 0 ]; then
+                echo "::warning title=No Paths Found::No valid paths found for testing"
+                echo "changed-paths=" >> $GITHUB_OUTPUT
+              else
+                printf -v joined '%s\n' "${paths_to_process[@]}"
+                {
+                  echo "changed-paths<<PATHS_EOF"
+                  echo "$joined"
+                  echo "PATHS_EOF"
+                } >> $GITHUB_OUTPUT
+                echo "::notice title=Force All Complete::Will test ${#paths_to_process[@]} path(s)"
+              fi
+              exit 0
+            fi
+            
+            # If no specific inputs, detect changes
+            echo "::notice title=Manual Dispatch::No specific inputs, detecting recent changes..."
+          fi
+          
+          # Get list of changed files (for pull requests and pushes)
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            changed_files=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            changed_files=$(git diff --name-only HEAD~1 HEAD)
+          else
+            # For workflow_dispatch without specific inputs, check recent changes
+            changed_files=$(git diff --name-only HEAD~1 HEAD)
+          fi
+          
+          echo "::group::Changed Files"
+          echo "$changed_files"
+          echo "::endgroup::"
+          
+          # Function to check if directory has terraform files
+          should_process_path() {
+            local dir="$1"
+            [ -d "$dir" ] && find "$dir" -maxdepth 1 -name "*.tf" -type f | grep -q .
+          }
+          
+          # Identify unique parent directories that need testing
+          paths_to_process=()
+          
+          # Process each changed file
+          while IFS= read -r file; do
+            # Skip empty lines
+            [ -z "$file" ] && continue
+            
+            # Extract directory path
+            if [[ "$file" =~ ^(configurations|modules)/[^/]+/ ]]; then
+              # Extract the configuration/module directory (e.g., configurations/01-dlp-policies/)
+              dir=$(echo "$file" | grep -oE '^(configurations|modules)/[^/]+/')
+              dir=${dir%/}  # Remove trailing slash
+              
+              # Check if this path should be processed and isn't already in our list
+              if should_process_path "$dir" && [[ ! " ${paths_to_process[@]} " =~ " ${dir} " ]]; then
+                paths_to_process+=("$dir")
+                echo "::notice title=Path Added::Will test: $dir"
+              fi
+            fi
+          done <<< "$changed_files"
+          
+          if [ ${#paths_to_process[@]} -eq 0 ]; then
+            echo "::notice title=No Paths::No paths require testing"
+            echo "changed-paths=" >> $GITHUB_OUTPUT
+          else
+            # Join array elements with newline for multiline output
+            printf -v joined '%s\n' "${paths_to_process[@]}"
+            {
+              echo "changed-paths<<PATHS_EOF"
+              echo "$joined"
+              echo "PATHS_EOF"
+            } >> $GITHUB_OUTPUT
+            echo "::notice title=Paths Identified::Will test ${#paths_to_process[@]} path(s): ${paths_to_process[*]}"
+          fi
 
   # ========================================
   # LOCAL VALIDATION GROUP (Runs in parallel)
@@ -102,7 +225,6 @@ jobs:
   terraform-format-check:
     name: 🎨 Terraform Format Check
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     needs: detect-changes
     if: needs.detect-changes.outputs.any-config-changed == 'true'
     
@@ -144,7 +266,6 @@ jobs:
   terraform-syntax-validation:
     name: ✅ Terraform Syntax Validation
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     needs: detect-changes
     if: needs.detect-changes.outputs.any-config-changed == 'true'
     
@@ -267,7 +388,6 @@ jobs:
   terraform-configuration-validation:
     name: 🔧 Configuration Structure Validation  
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     needs: detect-changes
     if: needs.detect-changes.outputs.any-config-changed == 'true'
     
@@ -374,7 +494,6 @@ jobs:
   security-vulnerability-scan:
     name: 🛡️ Security Vulnerability Scan
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     needs: detect-changes
     if: needs.detect-changes.outputs.any-config-changed == 'true'
     
@@ -435,7 +554,7 @@ jobs:
   integration-terraform-test:
     name: 🧪 Integration Terraform Test
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 20
     environment: production
     needs: detect-changes
     if: |
@@ -483,7 +602,6 @@ jobs:
 
       - name: Run Terraform Integration Tests
         id: integration-tests
-        continue-on-error: true
         env:
           POWER_PLATFORM_USE_OIDC: true
           POWER_PLATFORM_CLIENT_ID: ${{ secrets.POWER_PLATFORM_CLIENT_ID }}
@@ -564,20 +682,31 @@ jobs:
             
             echo "::notice title=Backend Config::Storage Account: $ARM_STORAGE_ACCOUNT_NAME, Container: $ARM_CONTAINER_NAME, Key: $test_state_key"
             
-            # Initialize terraform for integration testing
-            if terraform init 
-              -backend-config="storage_account_name=$ARM_STORAGE_ACCOUNT_NAME" 
-              -backend-config="container_name=$ARM_CONTAINER_NAME" 
+            # Use explicit backend configuration with configuration-specific state file
+            if terraform init -input=false \
+              -backend-config="storage_account_name=$ARM_STORAGE_ACCOUNT_NAME" \
+              -backend-config="container_name=$ARM_CONTAINER_NAME" \
               -backend-config="key=$test_state_key" \
               -backend-config="resource_group_name=$ARM_RESOURCE_GROUP_NAME" \
               -backend-config="subscription_id=$ARM_SUBSCRIPTION_ID" \
               -backend-config="tenant_id=$ARM_TENANT_ID" \
               -backend-config="use_oidc=true"; then
+              echo "::notice title=Backend Success::✅ Backend initialized successfully"
+              echo "::notice title=Running Integration Test::Executing terraform test with authentication..."
               
-              echo "::notice title=Init Success::✅ Terraform initialized successfully"
-              
-              # Test discovery and execution
-              echo "::group::Test Discovery"
+              # Debug: Check what Terraform test sees
+              echo "::group::Terraform Test Discovery Debug"
+              echo "Current working directory: $(pwd)"
+              echo "Files in current directory:"
+              find . -name "*.tf" -o -name "*.tftest.hcl" | sort
+              echo ""
+              echo "Testing directory contents:"
+              if [ -d "tests" ]; then
+                find tests -name "*.tftest.hcl" 2>/dev/null || echo "No .tftest.hcl files found in tests/"
+              else
+                echo "No tests/ directory found"
+              fi
+              echo ""
               echo "Running terraform test to see what tests are discovered:"
               terraform test 2>&1 || test_exit_code=$?
               echo "Test exit code: ${test_exit_code:-0}"
@@ -624,18 +753,6 @@ jobs:
             echo "::notice title=All Tests Passed::✅ All terraform tests completed successfully!"
           fi
 
-      - name: Handle Terraform Test Failure
-        if: steps.integration-tests.outcome == 'failure'
-        uses: ./.github/actions/enhanced-error-handler
-        with:
-          error-context: "Terraform integration tests"
-          operation: "terraform-test"
-          include-troubleshooting: true
-
-      - name: Fail Workflow After Test Error
-        if: steps.integration-tests.outcome == 'failure'
-        run: exit 1
-
       - name: Remove JIT Network Access
         if: always()
         uses: ./.github/actions/jit-network-access
@@ -652,7 +769,6 @@ jobs:
   final-test-summary:
     name: 📋 Final Test Results Summary
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     needs: [
       detect-changes, 
       terraform-format-check, 
