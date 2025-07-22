@@ -413,7 +413,7 @@ jobs:
         with:
           name: security-scan-results-${{ github.run_number }}
           path: trivy-results.sarif
-          retention-days: 30
+          retention-days: 14    # Test results and security scans - development feedback
         continue-on-error: true
 
   # ========================================
@@ -711,7 +711,7 @@ jobs:
           name: test-results-summary-${{ github.run_number }}
           path: |
             test-results/
-          retention-days: 30
+          retention-days: 14    # Test results - development feedback
           description: 'Comprehensive test results summary with metadata - contains execution tracking information and test outcome analysis'
         continue-on-error: true
 
