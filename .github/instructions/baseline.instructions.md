@@ -128,6 +128,36 @@ This code serves as demonstration material for **"Enhancing Power Platform Gover
 "The configuration has been updated. Should I create a detailed report of the modifications for documentation purposes?"
 ```
 
+## 🤝 Task Collaboration and Validation
+
+**Ensure answers are organized, clear, concise and precise**
+
+### Pre-Task Confirmation
+- **Always state your understanding** of what is expected before beginning any task
+- Clarify whether you're answering a question, updating files, creating new content, etc.
+- Give users opportunity to correct misalignment before work begins
+
+### Debugging Task Approach
+**Follow systematic debugging methodology:**
+1. **Analyze carefully** all provided elements (screenshots, error messages, selected code)
+2. **Formulate hypothesis** about the root cause based on evidence
+3. **Propose specific plan** to fix the issue with clear steps
+4. **Ask for validation** before implementing the solution
+
+### Complex Implementation Tasks
+**Break down and validate complex work:**
+- **Propose detailed plan** for tasks involving long files or multiple files
+- **Ask for validation** of the approach before proceeding
+- Break complex tasks into logical phases for easier review
+- Provide clear milestones and checkpoints for user feedback
+
+**Good confirmation examples:**
+```
+"My understanding: You want me to create a new Terraform module for DLP policies. I'll structure it with main.tf, variables.tf, and outputs.tf following AVM principles. Should I proceed?"
+
+"I see the error is related to provider authentication. My hypothesis is the OIDC configuration is missing required permissions. I propose checking the service principal setup and updating the workflow. Shall I investigate this approach?"
+```
+
 ## 🔁 Consistency and Standards
 
 **Maintain professional demonstration quality:**
