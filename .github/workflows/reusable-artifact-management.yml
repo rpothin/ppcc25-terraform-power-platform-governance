@@ -1,0 +1,371 @@
+---
+# ╔══════════════════════════════════════════════════════════════════════════╗
+# ║                   📦 ARTIFACT MANAGEMENT REUSABLE WORKFLOW              ║
+# ║                       Enterprise-Grade Artifact Handling                ║
+# ╠══════════════════════════════════════════════════════════════════════════╣
+# ║ Provides standardized artifact upload capabilities with configurable    ║
+# ║ retention policies, consistent naming conventions, and comprehensive     ║
+# ║ metadata handling for all terraform workflows. Eliminates artifact      ║
+# ║ management code duplication and ensures enterprise compliance.          ║
+# ╚══════════════════════════════════════════════════════════════════════════╝
+
+name: 🏗️ Artifact Management
+# WORKFLOW_DISPATCH: Manual testing and troubleshooting capabilities
+# WORKFLOW_CALL: Primary usage as reusable workflow component
+
+on:
+  workflow_call:
+    inputs:
+      # === CORE ARTIFACT CONFIGURATION ===
+      artifact-name:
+        description: >-
+          Unique name for the artifact (without automatic suffixes)
+        required: true
+        type: string
+
+      artifact-path:
+        description: >-
+          Path or paths to files/directories to include in artifact
+          (supports multi-line patterns)
+        required: true
+        type: string
+
+      # === RETENTION AND LIFECYCLE MANAGEMENT ===
+      retention-days:
+        description: >-
+          Artifact retention period in days (1-400, defaults based on
+          artifact type)
+        required: false
+        type: number
+        default: 14
+
+      # === NAMING AND IDENTIFICATION ===
+      include-run-number:
+        description: >-
+          Include GitHub run number in artifact name for uniqueness
+        required: false
+        type: boolean
+        default: true
+
+      include-configuration:
+        description: >-
+          Include configuration name in artifact name
+          (requires configuration-name)
+        required: false
+        type: boolean
+        default: false
+
+      configuration-name:
+        description: 'Configuration name to include in artifact name'
+        required: false
+        type: string
+        default: ''
+
+      include-tfvars-file:
+        description: >-
+          Include tfvars file identifier in artifact name
+          (requires tfvars-file)
+        required: false
+        type: boolean
+        default: false
+
+      tfvars-file:
+        description: 'Tfvars file identifier to include in artifact name'
+        required: false
+        type: string
+        default: 'default'
+
+      # === METADATA AND DOCUMENTATION ===
+      artifact-description:
+        description: >-
+          Human-readable description of artifact contents and purpose
+        required: false
+        type: string
+        default: ''
+
+      # === EXECUTION CONTROL ===
+      continue-on-error:
+        description: >-
+          Continue workflow execution even if artifact upload fails
+        required: false
+        type: boolean
+        default: true
+
+      upload-condition:
+        description: >-
+          Condition for when to upload artifact (always, success, failure)
+        required: false
+        type: string
+        default: 'always'
+
+  workflow_dispatch:
+    inputs:
+      # === MANUAL TESTING CONFIGURATION ===
+      artifact-name:
+        description: 'Test artifact name'
+        required: true
+        type: string
+        default: 'test-artifact'
+
+      artifact-path:
+        description: 'Test artifact path (use README.md for testing)'
+        required: true
+        type: string
+        default: 'README.md'
+
+      retention-days:
+        description: 'Test retention period'
+        required: false
+        type: number
+        default: 1
+
+      include-run-number:
+        description: 'Include run number in name'
+        required: false
+        type: boolean
+        default: true
+
+# ══════════════════════════════════════════════════════════════════════════════
+#                              🔐 SECURITY AND PERMISSIONS
+# ══════════════════════════════════════════════════════════════════════════════
+
+permissions:
+  contents: read              # Read repository contents
+  actions: read              # Read workflow artifacts
+
+# ══════════════════════════════════════════════════════════════════════════════
+#                                🎯 WORKFLOW EXECUTION
+# ══════════════════════════════════════════════════════════════════════════════
+
+jobs:
+  # ╔══════════════════════════════════════════════════════════════════════════╗
+  # ║                           ARTIFACT UPLOAD JOB                           ║
+  # ║                     Standardized Artifact Management                    ║
+  # ╚══════════════════════════════════════════════════════════════════════════╝
+
+  upload-artifact:
+    name: 📦 Upload Artifact
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      # ════════════════════════════════════════════════════════════════════════
+      #                        🔍 ARTIFACT NAME GENERATION
+      # ════════════════════════════════════════════════════════════════════════
+
+      - name: Generate Artifact Name
+        id: artifact-name
+        run: |
+          # === ARTIFACT NAME CONSTRUCTION LOGIC ===
+          # Build standardized artifact name based on configuration inputs
+          echo "::group::🏷️ Artifact Name Construction"
+
+          # Start with base name
+          ARTIFACT_NAME="${{ inputs.artifact-name }}"
+          echo "Base name: $ARTIFACT_NAME"
+
+          # Add configuration name if requested
+          if [[ "${{ inputs.include-configuration }}" == "true" && \
+                -n "${{ inputs.configuration-name }}" ]]; then
+            ARTIFACT_NAME="${ARTIFACT_NAME}-${{ inputs.configuration-name }}"
+            echo "Added configuration: $ARTIFACT_NAME"
+          fi
+
+          # Add tfvars file identifier if requested
+          if [[ "${{ inputs.include-tfvars-file }}" == "true" && \
+                -n "${{ inputs.tfvars-file }}" ]]; then
+            ARTIFACT_NAME="${ARTIFACT_NAME}-${{ inputs.tfvars-file }}"
+            echo "Added tfvars file: $ARTIFACT_NAME"
+          fi
+
+          # Add run number if requested (default behavior)
+          if [[ "${{ inputs.include-run-number }}" == "true" ]]; then
+            ARTIFACT_NAME="${ARTIFACT_NAME}-${{ github.run_number }}"
+            echo "Added run number: $ARTIFACT_NAME"
+          fi
+
+          # Validate and sanitize artifact name
+          ARTIFACT_NAME=$(echo "$ARTIFACT_NAME" | sed 's/[^a-zA-Z0-9._-]/-/g')
+          echo "Sanitized name: $ARTIFACT_NAME"
+
+          # Set output for use in upload step
+          echo "name=$ARTIFACT_NAME" >> $GITHUB_OUTPUT
+
+          echo "::notice title=Artifact Name::📦 Generated artifact name: $ARTIFACT_NAME"
+          echo "::endgroup::"
+
+      # ════════════════════════════════════════════════════════════════════════
+      #                  📋 ARTIFACT VALIDATION AND PREPARATION
+      # ════════════════════════════════════════════════════════════════════════
+
+      - name: Validate Artifact Configuration
+        run: |
+          echo "::group::🔍 Artifact Configuration Validation"
+
+          # === CONFIGURATION VALIDATION ===
+          echo "📋 Validating artifact configuration parameters..."
+
+          # Validate retention period
+          RETENTION_DAYS=${{ inputs.retention-days }}
+          if [[ $RETENTION_DAYS -lt 1 || $RETENTION_DAYS -gt 400 ]]; then
+            echo "::error title=Invalid Retention::❌ Retention days must be between 1 and 400 (got: $RETENTION_DAYS)"
+            exit 1
+          fi
+          echo "✅ Retention period valid: $RETENTION_DAYS days"
+
+          # Validate upload condition
+          UPLOAD_CONDITION="${{ inputs.upload-condition }}"
+          if [[ ! "$UPLOAD_CONDITION" =~ ^(always|success|failure)$ ]]; then
+            echo "::error title=Invalid Condition::❌ Upload condition must be 'always', 'success', or 'failure' (got: $UPLOAD_CONDITION)"
+            exit 1
+          fi
+          echo "✅ Upload condition valid: $UPLOAD_CONDITION"
+
+          # Check for required configuration dependencies
+          if [[ "${{ inputs.include-configuration }}" == "true" && \
+                -z "${{ inputs.configuration-name }}" ]]; then
+            echo "::error title=Missing Configuration::❌ Configuration name required when include-configuration is true"
+            exit 1
+          fi
+
+          if [[ "${{ inputs.include-tfvars-file }}" == "true" && \
+                -z "${{ inputs.tfvars-file }}" ]]; then
+            echo "::error title=Missing Tfvars::❌ Tfvars file required when include-tfvars-file is true"
+            exit 1
+          fi
+
+          echo "::notice title=Validation Complete::✅ All artifact configuration parameters validated successfully"
+          echo "::endgroup::"
+
+      # ════════════════════════════════════════════════════════════════════════
+      #                     📦 STANDARDIZED ARTIFACT UPLOAD
+      # ════════════════════════════════════════════════════════════════════════
+
+      - name: Upload Artifact
+        if: >-
+          ${{ inputs.upload-condition == 'always' ||
+              (inputs.upload-condition == 'success' && success()) ||
+              (inputs.upload-condition == 'failure' && failure()) }}
+        uses: actions/upload-artifact@v4
+        with:
+          # === STANDARDIZED ARTIFACT CONFIGURATION ===
+          name: ${{ steps.artifact-name.outputs.name }}
+          path: ${{ inputs.artifact-path }}
+          retention-days: ${{ inputs.retention-days }}
+          if-no-files-found: warn
+          compression-level: 6    # Balanced compression for reasonable times
+
+          # === ENHANCED DESCRIPTION WITH METADATA ===
+          description: |
+            ${{ inputs.artifact-description != '' && inputs.artifact-description || format('Artifact uploaded from workflow {0} (run #{1})', github.workflow, github.run_number) }}
+
+            📋 Artifact Metadata:
+            • Workflow: ${{ github.workflow }}
+            • Run Number: ${{ github.run_number }}
+            • Configuration: ${{ inputs.configuration-name || 'N/A' }}
+            • Tfvars File: ${{ inputs.tfvars-file || 'N/A' }}
+            • Retention: ${{ inputs.retention-days }} days
+            • Upload Time: ${{ github.run_id }}
+            • Repository: ${{ github.repository }}
+            • Branch/Tag: ${{ github.ref_name }}
+            • Commit SHA: ${{ github.sha }}
+        continue-on-error: ${{ inputs.continue-on-error }}
+
+      # ════════════════════════════════════════════════════════════════════════
+      #                      📊 UPLOAD SUMMARY AND REPORTING
+      # ════════════════════════════════════════════════════════════════════════
+
+      - name: Artifact Upload Summary
+        if: always()
+        run: |
+          echo "::group::📊 Artifact Upload Summary"
+
+          # === UPLOAD RESULTS SUMMARY ===
+          echo "📦 **Artifact Upload Summary**"
+          echo "• Artifact Name: ${{ steps.artifact-name.outputs.name }}"
+          echo "• Retention Period: ${{ inputs.retention-days }} days"
+          echo "• Upload Condition: ${{ inputs.upload-condition }}"
+          echo "• Continue on Error: ${{ inputs.continue-on-error }}"
+          echo "• Configuration: ${{ inputs.configuration-name || 'Not specified' }}"
+          echo "• Tfvars File: ${{ inputs.tfvars-file || 'Not specified' }}"
+
+          # === PATH INFORMATION ===
+          echo ""
+          echo "📁 **Artifact Paths:**"
+          echo "${{ inputs.artifact-path }}" | while IFS= read -r path; do
+            if [[ -n "$path" ]]; then
+              echo "• $path"
+            fi
+          done
+
+          # === METADATA SUMMARY ===
+          echo ""
+          echo "🏷️ **Workflow Context:**"
+          echo "• Repository: ${{ github.repository }}"
+          echo "• Workflow: ${{ github.workflow }}"
+          echo "• Run Number: ${{ github.run_number }}"
+          echo "• Branch/Tag: ${{ github.ref_name }}"
+          echo "• Actor: ${{ github.actor }}"
+
+          echo "::notice title=Upload Complete::📦 Artifact upload process completed - check workflow artifacts for results"
+          echo "::endgroup::"
+
+# ══════════════════════════════════════════════════════════════════════════════
+#                              📋 WORKFLOW DOCUMENTATION
+# ══════════════════════════════════════════════════════════════════════════════
+
+# ARTIFACT MANAGEMENT PATTERNS:
+#
+# 1. TERRAFORM PLANS (Short-term retention)
+#    - retention-days: 7
+#    - include-run-number: true
+#    - include-configuration: true
+#    - Purpose: Plan files for immediate apply operations
+#
+# 2. TERRAFORM OUTPUTS (Medium-term retention)
+#    - retention-days: 30
+#    - include-run-number: true
+#    - include-configuration: true
+#    - Purpose: Output values for reference and downstream workflows
+#
+# 3. SECURITY SCANS (Development feedback)
+#    - retention-days: 14
+#    - include-run-number: true
+#    - Purpose: Security scan results for developer review
+#
+# 4. TEST RESULTS (Development feedback)
+#    - retention-days: 14
+#    - include-run-number: true
+#    - Purpose: Test execution results and validation reports
+#
+# 5. DESTROY METADATA (Long-term audit)
+#    - retention-days: 30
+#    - include-run-number: true
+#    - include-configuration: true
+#    - Purpose: Destruction audit trail for compliance
+#
+# USAGE EXAMPLES:
+#
+# Basic artifact upload:
+#   uses: ./.github/workflows/reusable-artifact-management.yml
+#   with:
+#     artifact-name: 'terraform-plan'
+#     artifact-path: '*.tfplan'
+#     retention-days: 7
+#
+# Configuration-specific output:
+#   uses: ./.github/workflows/reusable-artifact-management.yml
+#   with:
+#     artifact-name: 'terraform-output'
+#     artifact-path: 'outputs-*.json'
+#     retention-days: 30
+#     include-configuration: true
+#     configuration-name: ${{ inputs.configuration }}
+#
+# Security scan results:
+#   uses: ./.github/workflows/reusable-artifact-management.yml
+#   with:
+#     artifact-name: 'security-scan-results'
+#     artifact-path: 'trivy-results.sarif'
+#     retention-days: 14
+#     artifact-description: 'Trivy security scan results in SARIF format'
