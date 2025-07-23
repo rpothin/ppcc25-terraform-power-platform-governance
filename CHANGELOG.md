@@ -32,7 +32,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **GitHub Actions Workflows**
-  - **Terraform Output Workflow** (`terraform-output.yml`) - Updated commenting style to follow GitHub automation standards, integrated metadata consumption from reusable workflow, replaced inline execution summary with reusable summary workflow for consistency 
+  - **Terraform Output Workflow** (`terraform-output.yml`) - Updated commenting style to follow GitHub automation standards, integrated metadata consumption from reusable workflow, replaced inline execution summary with reusable summary workflow for consistency
+
+### Fixed
+- **GitHub Actions Workflows**
+  - **Terraform Output Workflow** (`terraform-output.yml`) - Corrected input parameters for reusable execution summary workflow call, removed invalid `metadata` and `include-artifacts` inputs, enhanced with proper configuration context and detailed summary level 
     - General business DLP policy (`tfvars/dlp-general.tfvars`)
   - **Environment Management** (`configurations/03-environment/`) - Power Platform environment configuration with tfvars examples:
     - Production environment (`tfvars/env-production.tfvars`)
