@@ -93,8 +93,9 @@ jobs:
     with:
       # === PASS-THROUGH WORKFLOW INPUTS ===
       # Maintains seamless user experience by forwarding all manual dispatch inputs
-      target-path: ${{ github.event.inputs.target_path }}
-      force-all: ${{ github.event.inputs.force_all }}
+      # Provides defaults for non-manual triggers (push, pull_request)
+      target-path: ${{ github.event.inputs.target_path || '' }}
+      force-all: ${{ github.event.inputs.force_all == 'true' || false }}
       
       # === TERRAFORM-DOCS SPECIFIC CONFIGURATION ===
       # Include both configurations and modules for comprehensive documentation coverage

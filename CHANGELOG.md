@@ -41,7 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Terraform Output Workflow** (`terraform-output.yml`) - Fixed regression in output file naming to use consistent filenames (`terraform-output.json/yaml`) instead of timestamped files, enabling proper Git-based change tracking 
   - **Terraform Output Workflow** (`terraform-output.yml`) - Fixed job output declarations and cross-job references, added missing `outputs` section to `process-and-commit` job and corrected execution-summary workflow call to use `needs.process-and-commit.outputs.output-filename` instead of invalid step reference
   - **Reusable Execution Summary Workflow** (`reusable-execution-summary.yml`) - Added missing `output-filename` input parameter definition to match usage in summary generation logic, enabling proper output file path references in execution summaries 
-    - General business DLP policy (`tfvars/dlp-general.tfvars`)
+  - **Terraform Documentation Workflow** (`terraform-docs.yml`) - Fixed input parameter handling for non-manual triggers (push, pull_request) by providing default values when `github.event.inputs` is empty, preventing YAML syntax errors in reusable workflow calls
   - **Environment Management** (`configurations/03-environment/`) - Power Platform environment configuration with tfvars examples:
     - Production environment (`tfvars/env-production.tfvars`)
     - Development environment (`tfvars/env-development.tfvars`)
