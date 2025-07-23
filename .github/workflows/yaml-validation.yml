@@ -90,6 +90,12 @@ jobs:
       - name: "Validate YAML Files - All GitHub Actions"
         run: |
           echo "🔍 Validating all GitHub Actions YAML files..."
+          echo "📂 Current working directory: $(pwd)"
+          echo "📁 Repository contents:"
+          ls -la
+          echo "📁 .github directory:"
+          ls -la .github/ || echo "No .github directory found"
+          echo "🚀 Running validation script..."
           ./scripts/utils/validate-yaml.sh --all-github
       
       # === COMPOSITE ACTION VALIDATION ===
@@ -98,6 +104,9 @@ jobs:
       - name: "Validate YAML Files - Composite Actions"
         run: |
           echo "🔍 Validating all composite actions..."
+          echo "📁 .github/actions directory:"
+          ls -la .github/actions/ || echo "No .github/actions directory found"
+          echo "🚀 Running validation script..."
           ./scripts/utils/validate-yaml.sh --all-actions
       
       # === VALIDATION REPORTING ===

@@ -21,10 +21,12 @@ set -euo pipefail
 
 # === CONFIGURATION ===
 readonly SCRIPT_NAME="$(basename "$0")"
-readonly PROJECT_ROOT="/workspaces/ppcc25-terraform-power-platform-governance"
+# Dynamically determine project root - works in both dev container and CI
+readonly PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 echo "🔍 YAML Validation Script for Power Platform Governance"
 echo "======================================================"
+echo "📂 Project root: $PROJECT_ROOT"
 echo
 
 # === INPUT VALIDATION ===
@@ -39,11 +41,29 @@ fi
 # Centralized file discovery to avoid duplication and ensure consistency
 
 find_composite_actions() {
-    find "$PROJECT_ROOT/.github/actions" -name "action.yml" 2>/dev/null || true
+    echo "🔍 Looking for composite actions in: $PROJECT_ROOT/.github/actions" >&2
+    local files
+    files=$(find "$PROJECT_ROOT/.github/actions" -name "action.yml" 2>/dev/null || true)
+    if [ -n "$files" ]; then
+        echo "$files"
+    else
+        echo "⚠️  No action.yml files found in $PROJECT_ROOT/.github/actions" >&2
+        echo "📁 Directory structure:" >&2
+        ls -la "$PROJECT_ROOT/.github/actions" 2>/dev/null || echo "Directory does not exist" >&2
+    fi
 }
 
 find_github_yaml_files() {
-    find "$PROJECT_ROOT/.github" -name "*.yml" -o -name "*.yaml" 2>/dev/null || true
+    echo "🔍 Looking for YAML files in: $PROJECT_ROOT/.github" >&2
+    local files
+    files=$(find "$PROJECT_ROOT/.github" -name "*.yml" -o -name "*.yaml" 2>/dev/null || true)
+    if [ -n "$files" ]; then
+        echo "$files"
+    else
+        echo "⚠️  No YAML files found in $PROJECT_ROOT/.github" >&2
+        echo "📁 Directory structure:" >&2
+        ls -la "$PROJECT_ROOT/.github" 2>/dev/null || echo "Directory does not exist" >&2
+    fi
 }
 
 # === VALIDATION FUNCTIONS ===
