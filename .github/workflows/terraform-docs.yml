@@ -337,98 +337,30 @@ jobs:
             body: commentBody
           });
 
-    # === COMPREHENSIVE WORKFLOW SUMMARY ===
-    # Generates detailed execution report for transparency and troubleshooting
-    # Always executes to provide feedback regardless of success or failure
-    - name: Generate Workflow Summary
-      if: always()
-      run: |
-        # Build comprehensive workflow summary for GitHub UI
-        echo "## 📚 Terraform Documentation Generation Summary" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### Execution Details" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "| Parameter | Value |" >> $GITHUB_STEP_SUMMARY
-        echo "|-----------|-------|" >> $GITHUB_STEP_SUMMARY
-        echo "| Trigger | ${{ github.event_name }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| Optimization | **Changed paths only** ⚡ |" >> $GITHUB_STEP_SUMMARY
-        echo "| Processed Paths | ${{ needs.detect-changes.outputs.changed-paths != '' && '✅ Detected changes' || '🔍 No changes detected' }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| Timestamp | $(date +%Y-%m-%d\ %H:%M:%S) |" >> $GITHUB_STEP_SUMMARY
-        echo "| Executed by | @${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| Workflow run | [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        
-        # Calculate and report efficiency metrics
-        changed_paths="${{ needs.detect-changes.outputs.changed-paths }}"
-        paths_count="${{ needs.detect-changes.outputs.paths-count }}"
-        
-        if [ -n "$changed_paths" ] && [ "$paths_count" != "0" ]; then
-          echo "### ⚡ Efficiency Report" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| **Paths Processed** | $paths_count (reusable workflow optimization) |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Change Detection** | ✅ Leveraged reusable workflow (60-80% code reduction) |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Time Saved** | ~$(( (10 - $paths_count) * 30 )) seconds (estimated) |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          echo "### 📁 Changed Paths Processed" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          # Use the structured output from reusable workflow
-          echo "$changed_paths" | while IFS= read -r path; do
-            [ -n "$path" ] && echo "- \`$path\`" >> $GITHUB_STEP_SUMMARY
-          done
-        else
-          echo "### ⚡ Efficiency Report" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| **Paths Processed** | 0 (no relevant changes detected) |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Change Detection** | ✅ Reusable workflow prevented unnecessary processing |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Time Saved** | ~5 minutes (full scan avoided) |" >> $GITHUB_STEP_SUMMARY
-        fi
-        echo "" >> $GITHUB_STEP_SUMMARY
-        
-        # Document execution status and results
-        has_changes="${{ steps.changes.outputs.has_changes }}"
-        if [ "$has_changes" = "true" ]; then
-          echo "### ✅ Documentation Updated" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Detail | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| **Status** | Documentation Changes Committed |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Action Taken** | README files updated and committed |" >> $GITHUB_STEP_SUMMARY
-          echo "| **terraform-docs Version** | 0.20.0 |" >> $GITHUB_STEP_SUMMARY
-        else
-          echo "### 🆗 Documentation Current" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Detail | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| **Status** | No Changes Needed |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Current State** | All documentation is up-to-date |" >> $GITHUB_STEP_SUMMARY
-        fi
-        echo "" >> $GITHUB_STEP_SUMMARY
-        
-        # Provide actionable next steps
-        echo "### 📋 Next Steps" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        if [ "$has_changes" = "true" ]; then
-          echo "1. **Review Changes**: Check the committed documentation updates" >> $GITHUB_STEP_SUMMARY
-          echo "2. **Verify Content**: Ensure generated content is accurate and complete" >> $GITHUB_STEP_SUMMARY
-          echo "3. **Continue Development**: Documentation is now current for your changes" >> $GITHUB_STEP_SUMMARY
-        else
-          echo "1. **No Action Required**: Documentation is current and consistent" >> $GITHUB_STEP_SUMMARY
-          echo "2. **Continue Development**: All documentation requirements are met" >> $GITHUB_STEP_SUMMARY
-        fi
-        echo "" >> $GITHUB_STEP_SUMMARY
-        
-        # Include important operational context
-        echo "### 📌 Important Notes" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "- **⚡ Smart Processing**: Uses reusable change detection for 60-80% efficiency improvement" >> $GITHUB_STEP_SUMMARY
-        echo "- **🚀 Performance**: Significantly faster than full repository scan" >> $GITHUB_STEP_SUMMARY
-        echo "- **🎯 Precision**: Advanced path filtering targets exactly what needs updating" >> $GITHUB_STEP_SUMMARY
-        echo "- **♻️ Resource Efficient**: Reusable workflow reduces code duplication and maintenance" >> $GITHUB_STEP_SUMMARY
-        echo "- **AVM Compliance**: Documentation follows Azure Verified Module standards" >> $GITHUB_STEP_SUMMARY
-        echo "- **Configuration**: Each path uses its own .terraform-docs.yml configuration" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
+  # ╔══════════════════════════════════════════════════════════════════════════╗
+  # ║                         EXECUTION SUMMARY GENERATION                    ║
+  # ║              Leverage standardized reusable workflow for reporting      ║
+  # ╚══════════════════════════════════════════════════════════════════════════╝
+  
+  execution-summary:
+    name: "🎯 Execution Summary"
+    needs: [detect-changes, terraform-docs]
+    uses: ./.github/workflows/reusable-execution-summary.yml
+    if: always()
+    with:
+      # === CORE WORKFLOW IDENTIFICATION ===
+      workflow-name: "terraform-docs"
+      operation-type: "docs"
+      configuration: "multiple-paths"
+      
+      # === EXECUTION CONTEXT ===
+      job-results: ${{ toJSON(needs) }}
+      workflow-inputs: ${{ toJSON(inputs) }}
+      
+      # === SUMMARY CUSTOMIZATION ===
+      include-troubleshooting: true
+      include-technical-details: true
+      summary-level: "detailed"
+      
+      # === ARTIFACT CONFIGURATION ===
+      artifact-retention-days: 14

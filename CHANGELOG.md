@@ -7,11 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **GitHub Actions Workflows**
+  - Replaced inline summary generation in terraform-docs workflow with reusable execution summary workflow for consistency with other Terraform operations
+  - Enhanced terraform-docs workflow to leverage standardized reusable-execution-summary.yml pattern used in terraform-output.yml
+
 ### Fixed
 - **GitHub Actions Workflows**
   - Fixed input parameter handling in terraform-docs workflow for non-manual triggers
   - Fixed metadata generation in reusable change detection workflow with proper JSON escaping and default values for push/pull_request events
   - Simplified metadata generation to avoid GitHub expression evaluation issues in shell scripts
+  - Fixed shell arithmetic and date formatting in terraform-docs workflow summary generation to prevent script failures
 - **Repository Infrastructure**
   - MIT License for open-source collaboration
   - Comprehensive .gitignore for Terraform, environment files, and development artifacts
