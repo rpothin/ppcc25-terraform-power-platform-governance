@@ -66,12 +66,11 @@ jobs:
       
       # === PYTHON ENVIRONMENT SETUP ===
       # Python 3.11 provides stable foundation for YAML processing libraries
-      # Pip cache reduces installation time for repeated workflow runs
+      # No pip cache needed since tools are installed via shell scripts
       - name: "Setup Python Environment"
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
       
       # === YAML VALIDATION TOOLS INSTALLATION ===
       # Use modular installation library for consistent tool setup across environments
