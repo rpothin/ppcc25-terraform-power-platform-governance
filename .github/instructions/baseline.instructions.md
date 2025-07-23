@@ -1,3 +1,4 @@
+---
 description: "Core coding principles for PPCC25 Power Platform governance demonstration - emphasizing security, simplicity, and reusability"
 applyTo: "**"
 ---
