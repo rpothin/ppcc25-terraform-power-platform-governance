@@ -165,3 +165,29 @@ This code serves as demonstration material for **"Enhancing Power Platform Gover
 - Use consistent variable naming and description formats
 - Implement standardized error handling approaches
 - Include proper validation for all user inputs
+
+## 📝 Changelog Maintenance
+
+**Keep the project history accurate and up-to-date:**
+- **Always check CHANGELOG.md** when making changes to any files in the repository
+- **Update the Unreleased section** if your changes represent notable additions, changes, or fixes
+- Follow the existing changelog format with clear categorization:
+  - **Added** - for new features, files, or capabilities
+  - **Changed** - for modifications to existing functionality
+  - **Fixed** - for bug fixes or corrections
+- Provide **descriptive entries** that help users understand the impact of changes
+- Reference specific files or components when changes are localized
+- **Group related changes** under single entries when appropriate to avoid changelog bloat
+
+**Examples of changelog-worthy changes:**
+- New Terraform configurations or modules
+- Updates to documentation structure or content
+- Changes to GitHub Actions workflows
+- Modifications to scripts or automation
+- Updates to instructions or guidelines
+- Bug fixes or error corrections
+
+**Examples of entries that may not need changelog updates:**
+- Minor typo fixes in comments
+- Code formatting adjustments without functional changes
+- Internal refactoring that doesn't affect end users
