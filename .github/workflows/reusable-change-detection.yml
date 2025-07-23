@@ -164,13 +164,14 @@ jobs:
           operation: 'change-detection'
           phase: 'analysis'
           # Include input parameters in metadata for debugging and audit trails
+          # Using proper JSON escaping and handling empty values for push/PR events
           additional-data: |
             {
-              "target_path": "${{ inputs.target-path }}",
-              "force_all": "${{ inputs.force-all }}",
-              "include_configs": "${{ inputs.include-configs }}",
-              "include_modules": "${{ inputs.include-modules }}",
-              "path_filter": "${{ inputs.path-filter }}",
+              "target_path": "${{ inputs.target-path || '' }}",
+              "force_all": ${{ inputs.force-all || false }},
+              "include_configs": ${{ inputs.include-configs || true }},
+              "include_modules": ${{ inputs.include-modules || true }},
+              "path_filter": "${{ inputs.path-filter || '' }}",
               "event_name": "${{ github.event_name }}"
             }
       
