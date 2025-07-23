@@ -82,6 +82,7 @@ run-name: 📚 Generate Terraform Docs${{ github.event.inputs.target_path && for
 permissions:
   contents: write     # Required for repository checkout and committing generated docs
   pull-requests: write # Required for commenting on PRs with documentation status
+  actions: read       # Required for reusable execution summary workflow to access job metadata
 
 jobs:
   # === REUSABLE CHANGE DETECTION ===
