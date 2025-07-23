@@ -10,6 +10,13 @@
 		},
 		"ghcr.io/devcontainers/features/azure-cli:1": {
 			"version": "latest"
+		},
+		"ghcr.io/devcontainers/features/python:1": {
+			"version": "latest",
+			"installTools": true
+		},
+		"ghcr.io/devcontainers/features/node:1": {
+			"version": "latest"
 		}
 	},
 	"customizations": {
@@ -18,8 +25,12 @@
 				"GitHub.copilot",
 				"yzhang.markdown-all-in-one",
 				"microsoft-IsvExpTools.powerplatform-vscode",
-				"ms-azuretools.vscode-bicep"
+				"ms-azuretools.vscode-bicep",
+				"redhat.vscode-yaml",
+				"ms-vscode.vscode-json"
 			]
 		}
-	}
+	},
+	"postCreateCommand": "bash .devcontainer/post-create.sh",
+	"remoteUser": "codespace"
 }

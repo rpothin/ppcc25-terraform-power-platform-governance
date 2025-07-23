@@ -1,0 +1,141 @@
+---
+# ═══════════════════════════════════════════════════════════════════════════════
+# YAML VALIDATION WORKFLOW FOR POWER PLATFORM GOVERNANCE
+# ═══════════════════════════════════════════════════════════════════════════════
+# Validates YAML syntax and style for all GitHub Actions files to prevent
+# runtime failures and ensure consistent code quality.
+#
+# 🎯 WHY THIS EXISTS:
+# - Prevents malformed workflows from breaking CI/CD automation
+# - Enforces consistent YAML style across Power Platform governance automation
+# - Provides early feedback on pull requests before merge
+#
+# 🔒 SECURITY DECISIONS:
+# - Read-only permissions minimize attack surface
+# - Uses only open-source validation tools, no secrets required
+#
+# ⚙️ OPERATIONAL CONTEXT:
+# - Runs on YAML file changes to optimize resource usage
+# - Cancellation enabled for rapid iteration workflows
+# - Uses project-specific .yamllint rules for consistency
+#
+# 📋 INTEGRATION REQUIREMENTS:
+# - Project validation script: scripts/utils/validate-yaml.sh
+# - Project yamllint config: .yamllint
+# - Tools: yamllint, actionlint, Python YAML
+# ═══════════════════════════════════════════════════════════════════════════════
+
+name: "🛠️ Validate YAML Files"
+
+concurrency:
+  group: yaml-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+    branches: main
+    paths:
+      - '.github/**/*.yml'
+      - '.github/**/*.yaml'
+      - '.yamllint'
+      - 'scripts/utils/validate-yaml.sh'
+  push:
+    branches: main
+    paths:
+      - '.github/**/*.yml'
+      - '.github/**/*.yaml'
+      - '.yamllint'
+  workflow_dispatch:
+
+run-name: "🛠️ YAML validation for ${{ github.event_name }} by @${{ github.actor }}"
+
+permissions:
+  contents: read
+
+jobs:
+  validate-yaml:
+    name: "Validate YAML Syntax and Style"
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: "Checkout Repository"
+        uses: actions/checkout@v4
+        with:
+          # Fetch full history for comprehensive validation
+          fetch-depth: 0
+      
+      # === PYTHON ENVIRONMENT SETUP ===
+      # Python 3.11 provides stable foundation for YAML processing libraries
+      # Pip cache reduces installation time for repeated workflow runs
+      - name: "Setup Python Environment"
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      # === YAML VALIDATION TOOLS INSTALLATION ===
+      # Use modular installation library for consistent tool setup across environments
+      # Leverages yaml-tools-installer.sh for reusable installation patterns
+      - name: "Install YAML Validation Tools"
+        run: |
+          # Source the installation library and install all validation tools
+          source scripts/utils/yaml-tools-installer.sh
+          install_all_yaml_tools
+      
+      # === COMPREHENSIVE YAML VALIDATION ===
+      # Validate all GitHub Actions YAML files using project validation script
+      # Includes syntax, style, and GitHub Actions-specific structure validation
+      - name: "Validate YAML Files - All GitHub Actions"
+        run: |
+          echo "🔍 Validating all GitHub Actions YAML files..."
+          ./scripts/utils/validate-yaml.sh --all-github
+      
+      # === COMPOSITE ACTION VALIDATION ===
+      # Focused validation of composite actions with required field verification
+      # Ensures all action.yml files meet GitHub Actions composite action standards
+      - name: "Validate YAML Files - Composite Actions"
+        run: |
+          echo "🔍 Validating all composite actions..."
+          ./scripts/utils/validate-yaml.sh --all-actions
+      
+      # === VALIDATION REPORTING ===
+      # Generate comprehensive validation report for developer feedback
+      # Uses GitHub step summary for enhanced visibility in workflow results
+      - name: "Generate Validation Report"
+        if: always()
+        run: |
+          echo "## 📋 YAML Validation Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Count YAML files validated for scope awareness
+          yaml_count=$(find .github -name "*.yml" -o -name "*.yaml" | wc -l)
+          echo "- **Files validated:** ${yaml_count}" >> $GITHUB_STEP_SUMMARY
+          
+          # Document validation scope and tools for transparency
+          echo "- **Validation scope:** GitHub Actions workflows and composite actions" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tools used:** yamllint, actionlint, Python YAML" >> $GITHUB_STEP_SUMMARY
+          echo "- **Configuration:** Project-specific .yamllint rules" >> $GITHUB_STEP_SUMMARY
+          
+          # Show key files validated for audit trail
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📁 Key Files Validated" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "```" >> $GITHUB_STEP_SUMMARY
+          find .github -name "*.yml" -o -name "*.yaml" | head -10 >> $GITHUB_STEP_SUMMARY
+          echo "```" >> $GITHUB_STEP_SUMMARY
+          
+          # Handle large file counts gracefully
+          if [ ${yaml_count} -gt 10 ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "_...and $((yaml_count - 10)) more files_" >> $GITHUB_STEP_SUMMARY
+          fi
+      
+      # === VALIDATION SUCCESS CONFIRMATION ===
+      # Provide clear success confirmation for workflow completion
+      # Supports automated quality gates and developer confidence
+      - name: "Validation Success"
+        run: |
+          echo "🎉 All YAML files validated successfully!"
+          echo "✅ Syntax validation: Passed"
+          echo "✅ Style validation: Passed" 
+          echo "✅ GitHub Actions validation: Passed"

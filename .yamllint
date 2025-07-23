@@ -1,0 +1,83 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# YAMLLINT CONFIGURATION FOR POWER PLATFORM GOVERNANCE PROJECT
+# ═══════════════════════════════════════════════════════════════════════════════
+# Optimized configuration for GitHub Actions workflows, composite actions,
+# and YAML files used in Power Platform governance automation.
+#
+# 🎯 PURPOSE:
+# - Enforce consistent YAML style across all GitHub automation files
+# - Balance code quality with practical GitHub Actions constraints
+# - Support both workflow files and composite action definitions
+# - Align with Azure and Power Platform automation best practices
+#
+# 🔧 CONFIGURATION DECISIONS:
+# - Line length: 100 characters (balances readability with GitHub UI)
+# - Indentation: 2 spaces (GitHub Actions standard)
+# - Document start: Required (YAML best practice)
+# - Truthy values: Flexible for GitHub Actions context
+# - Comments: Minimum 2 spaces from content for clarity
+#
+# 📋 USAGE:
+# - yamllint .                              # Validate entire project
+# - yamllint .github/actions/*/action.yml   # Validate composite actions
+# - yamllint .github/workflows/*.yml        # Validate workflows
+# - ./scripts/utils/validate-yaml.sh        # Use project validation script
+# ═══════════════════════════════════════════════════════════════════════════════
+
+extends: default
+
+rules:
+  # Line length optimized for GitHub Actions readability
+  line-length:
+    max: 100
+    allow-non-breakable-words: true
+    allow-non-breakable-inline-mappings: true
+
+  # Comment formatting for clear documentation
+  comments:
+    min-spaces-from-content: 2
+
+  # Indentation rules for GitHub Actions compatibility
+  indentation:
+    spaces: 2
+    indent-sequences: true
+    check-multi-line-strings: false
+
+  # Truthy values appropriate for GitHub Actions context
+  truthy:
+    allowed-values: ['true', 'false', 'on', 'off', 'yes', 'no']
+    check-keys: false  # GitHub Actions uses 'on' as key
+
+  # Document start required for proper YAML structure
+  document-start:
+    present: true
+
+  # Empty line management for clean file structure
+  empty-lines:
+    max: 2
+    max-start: 0
+    max-end: 1
+
+  # Bracket and brace spacing for readability
+  brackets:
+    max-spaces-inside: 1
+    max-spaces-inside-empty: 0
+
+  braces:
+    max-spaces-inside: 1
+    max-spaces-inside-empty: 0
+
+  # Octal values handling
+  octal-values:
+    forbid-implicit-octal: true
+    forbid-explicit-octal: true
+
+  # Key duplication prevention
+  key-duplicates: enable
+
+  # Floating point number formatting
+  float-values:
+    require-numeral-before-decimal: true
+    forbid-scientific-notation: false
+    forbid-nan: true
+    forbid-inf: true

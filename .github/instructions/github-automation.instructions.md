@@ -273,3 +273,98 @@ Provide troubleshooting context and available options:
 - Follow the established workflow naming conventions
 - Include proper status reporting and badge integration
 - Implement automated testing and validation steps
+
+## YAML Syntax Validation
+
+**Automated YAML Validation Framework:**
+This project includes comprehensive YAML validation that runs automatically on all GitHub Actions files. The validation framework ensures syntax correctness, consistent formatting, and GitHub Actions compliance.
+
+### Validation Infrastructure
+
+**Automated Validation Workflow:**
+- **CI/CD Integration**: `yaml-validation.yml` workflow validates all YAML changes automatically
+- **Trigger Events**: Runs on pull requests and pushes affecting YAML files
+- **Comprehensive Coverage**: Validates workflows, composite actions, and configuration files
+
+**Built-in Validation Tools:**
+The development environment includes pre-configured validation tools:
+- **yamllint**: Project-specific configuration in `.yamllint`
+- **actionlint**: GitHub Actions workflow validation
+- **Python YAML**: Structural syntax validation
+
+### Project Validation Commands
+
+**Use the project's validation script for all YAML validation needs:**
+
+```bash
+# Validate all GitHub Actions YAML files
+./scripts/utils/validate-yaml.sh --all-github
+
+# Validate all composite actions
+./scripts/utils/validate-yaml.sh --all-actions
+
+# Validate specific file
+./scripts/utils/validate-yaml.sh path/to/file.yml
+```
+
+**Manual validation (if needed):**
+```bash
+# Basic syntax check
+python3 -c "import yaml; yaml.safe_load(open('file.yml'))"
+
+# Style validation with project configuration
+yamllint file.yml
+
+# GitHub Actions workflow validation
+actionlint file.yml
+```
+
+### YAML Standards
+
+**Project Configuration:**
+All YAML validation uses the project's `.yamllint` configuration, which enforces:
+- **Line length**: 100 characters (with exceptions for non-breakable content)
+- **Indentation**: 2 spaces consistently
+- **Document start**: Required `---` at file beginning
+- **Comments**: Minimum 2 spaces from content
+- **GitHub Actions compatibility**: Flexible truthy values and proper structure
+
+**Quality Requirements:**
+- **Syntax correctness**: Must parse without errors
+- **Style consistency**: Follows project yamllint rules
+- **GitHub Actions compliance**: Valid workflow and action structure
+- **Documentation completeness**: Required fields and descriptions
+
+### Validation Enforcement
+
+**Automatic Validation:**
+- **Pull Request Validation**: All YAML changes validated before merge
+- **Development Environment**: Tools available in devcontainer
+- **CI/CD Integration**: Prevents merging invalid YAML files
+
+**Manual Validation:**
+Use the project validation script after making YAML changes:
+```bash
+# Quick validation of changed files
+./scripts/utils/validate-yaml.sh --all-github
+```
+
+**Common Issues and Solutions:**
+- **Line length**: Use YAML folding (`>-`) for long descriptions
+- **Indentation**: Use consistent 2-space indentation
+- **Missing fields**: Ensure composite actions have required `name`, `description`, `runs`
+- **Syntax errors**: Check quotes, brackets, and YAML structure
+
+### Integration Benefits
+
+**Development Workflow:**
+- **Early feedback**: Validation runs automatically on changes
+- **Consistent standards**: Project-wide YAML formatting rules
+- **Quality assurance**: Prevents runtime failures from syntax errors
+- **Documentation enforcement**: Ensures proper action and workflow documentation
+
+**Maintenance Advantages:**
+- **Automated checks**: No manual validation steps required
+- **Standardized configuration**: Single source of truth in `.yamllint`
+- **Comprehensive coverage**: All YAML files validated consistently
+- **Clear error reporting**: Detailed feedback for quick issue resolution
