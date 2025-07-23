@@ -106,7 +106,29 @@ This code serves as demonstration material for **"Enhancing Power Platform Gover
 - Reference relevant Power Platform governance concepts
 - Show progressive complexity from basic to advanced patterns
 
-## 🔄 Consistency and Standards
+## 📊 Report Generation Guidelines"
+
+**Respect user preferences and avoid unnecessary reports:**
+- **Never generate reports automatically** unless explicitly requested by the user
+- **Always ask for confirmation** before creating any summary, analysis, or status report
+- Focus on completing the requested task efficiently without additional overhead
+- Only provide reports when they add clear value to the user's workflow
+- Keep task completion responses concise and action-oriented
+
+**When reports are requested:**
+- Structure reports clearly with sections and headers
+- Include actionable insights and next steps
+- Provide relevant context for Power Platform governance decisions
+- Reference specific configurations or changes made during the task
+
+**Good confirmation examples:**
+```
+"Task completed successfully. Would you like me to generate a summary report of the changes made?"
+
+"The configuration has been updated. Should I create a detailed report of the modifications for documentation purposes?"
+```
+
+## 🔁 Consistency and Standards
 
 **Maintain professional demonstration quality:**
 - Follow established file organization patterns across all configurations
