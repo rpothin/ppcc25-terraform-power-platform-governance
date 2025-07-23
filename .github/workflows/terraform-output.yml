@@ -22,6 +22,7 @@
 # 📋 INTEGRATION REQUIREMENTS:
 # - Depends on reusable-terraform-base.yml for standardized Terraform operations
 # - Uses GitHub environments for secret management and OIDC authentication
+# - Leverages operation-metadata output from reusable workflow for consistent metadata
 # - Generates workflow artifacts for downstream consumption and integration
 # ═══════════════════════════════════════════════════════════════════════════════════════════════════════
 
@@ -111,6 +112,7 @@ jobs:
     # === REUSABLE WORKFLOW INTEGRATION ===
     # Delegate core Terraform operations to battle-tested reusable workflow
     # This ensures consistency, reliability, and maintainability across all Terraform workflows
+    # METADATA: The reusable workflow generates comprehensive operation metadata via generate-workflow-metadata composite action
     uses: ./.github/workflows/reusable-terraform-base.yml
     with:
       # === TERRAFORM OPERATION CONFIGURATION ===
@@ -300,7 +302,8 @@ jobs:
       
       # === OUTPUT PROCESSING AND FORMAT CONVERSION ===
       # Process the validated output into the requested format with optional metadata
-      # This step handles both standard processing and large file optimization
+      # METADATA APPROACH: Leverage operation-metadata output from reusable-terraform-base workflow
+      # This eliminates duplication and ensures consistency across all Terraform workflows
       - name: Process and Format Terraform Output
         id: process-output
         shell: bash
@@ -323,50 +326,67 @@ jobs:
           output_filename="terraform-output-$timestamp.$export_format"
           output_path="configurations/$config/outputs/$output_filename"
           
+          # === METADATA INTEGRATION FROM REUSABLE WORKFLOW ===
+          # Leverage existing metadata from reusable-terraform-base workflow
+          # This ensures consistency with other workflows and avoids duplication
+          operation_metadata='${{ needs.terraform-output.outputs.operation-metadata }}'
+          
           # === FORMAT-SPECIFIC PROCESSING ===
           if [ "$export_format" = "json" ]; then
             if [ "$include_metadata" = "true" ]; then
-              # JSON with metadata
-              temp_metadata=$(mktemp)
-              cat > "$temp_metadata" << EOF
-          {
-            "metadata": {
-              "generated_at": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
-              "configuration": "$config",
-              "workflow_run": "${{ github.run_number }}",
-              "generated_by": "${{ github.actor }}",
-              "export_format": "json",
-              "processing_mode": "standard"
-            }
-          }
-          EOF
-              jq -s '.[0] + {"terraform_output": .[1]}' "$temp_metadata" "$artifact_file" > "$output_path"
-              rm "$temp_metadata"
+              # JSON with comprehensive metadata from reusable workflow
+              temp_combined_metadata=$(mktemp)
+              
+              # === MERGE OPERATION METADATA WITH OUTPUT-SPECIFIC CONTEXT ===
+              # Combine reusable workflow metadata with terraform-output specific details
+              echo "$operation_metadata" | jq --arg export_format "$export_format" \
+                --arg processing_workflow "terraform-output" \
+                --arg output_filename "$output_filename" \
+                '. + {
+                  "output_processing": {
+                    "export_format": $export_format,
+                    "processing_workflow": $processing_workflow,
+                    "output_filename": $output_filename,
+                    "file_size_mb": '$file_size_mb'
+                  }
+                }' > "$temp_combined_metadata"
+              
+              # === CREATE FINAL OUTPUT WITH MERGED METADATA ===
+              # Structure: { "metadata": {...}, "terraform_output": {...} }
+              jq -s --argjson metadata "$(cat "$temp_combined_metadata")" \
+                '{"metadata": $metadata, "terraform_output": .[0]}' "$artifact_file" > "$output_path"
+              rm "$temp_combined_metadata"
             else
-              # Clean JSON output
+              # Clean JSON output without metadata
               jq '.' "$artifact_file" > "$output_path"
             fi
           else
             # YAML format processing
             if [ "$include_metadata" = "true" ]; then
-              # YAML with metadata
-              temp_json=$(mktemp)
-              cat > "$temp_json" << EOF
-          {
-            "metadata": {
-              "generated_at": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
-              "configuration": "$config",
-              "workflow_run": "${{ github.run_number }}",
-              "generated_by": "${{ github.actor }}",
-              "export_format": "yaml",
-              "processing_mode": "standard"
-            }
-          }
-          EOF
-              jq -s '.[0] + {"terraform_output": .[1]}' "$temp_json" "$artifact_file" | yq eval -P '.' > "$output_path"
-              rm "$temp_json"
+              # YAML with comprehensive metadata from reusable workflow
+              temp_combined_metadata=$(mktemp)
+              
+              # === MERGE OPERATION METADATA WITH OUTPUT-SPECIFIC CONTEXT ===
+              # Combine reusable workflow metadata with terraform-output specific details
+              echo "$operation_metadata" | jq --arg export_format "$export_format" \
+                --arg processing_workflow "terraform-output" \
+                --arg output_filename "$output_filename" \
+                '. + {
+                  "output_processing": {
+                    "export_format": $export_format,
+                    "processing_workflow": $processing_workflow,
+                    "output_filename": $output_filename,
+                    "file_size_mb": '$file_size_mb'
+                  }
+                }' > "$temp_combined_metadata"
+              
+              # === CREATE FINAL YAML OUTPUT WITH MERGED METADATA ===
+              # Structure: { "metadata": {...}, "terraform_output": {...} }
+              jq -s --argjson metadata "$(cat "$temp_combined_metadata")" \
+                '{"metadata": $metadata, "terraform_output": .[0]}' "$artifact_file" | yq eval -P '.' > "$output_path"
+              rm "$temp_combined_metadata"
             else
-              # Clean YAML output
+              # Clean YAML output without metadata
               jq '.' "$artifact_file" | yq eval -P '.' > "$output_path"
             fi
           fi
@@ -436,6 +456,17 @@ jobs:
             is_summary="${{ steps.process-output.outputs.output-is-summary }}"
             processing_mode=$([ "$is_summary" = "true" ] && echo "summary" || echo "standard")
             
+            # === EXTRACT TERRAFORM METADATA FOR COMMIT MESSAGE ===
+            # Include Terraform operation details from reusable workflow in commit
+            operation_metadata='${{ needs.terraform-output.outputs.operation-metadata }}'
+            if [ -n "$operation_metadata" ] && [ "$operation_metadata" != "null" ]; then
+              terraform_version=$(echo "$operation_metadata" | jq -r '.terraform_version // "unknown"')
+              execution_duration=$(echo "$operation_metadata" | jq -r '.execution_duration // "unknown"')
+            else
+              terraform_version="unknown"
+              execution_duration="unknown"
+            fi
+            
             # === COMPREHENSIVE COMMIT MESSAGE GENERATION ===
             # Create structured commit message with full context and metadata
             git commit -m "feat(terraform-output): generate $export_format output for $config configuration
@@ -454,6 +485,8 @@ jobs:
           • Branch: ${{ github.ref }}
           • Commit SHA: ${{ github.sha }}
           • Workflow: terraform-output
+          • Terraform Version: $terraform_version
+          • Execution Duration: $execution_duration
           • Generated At: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
           
           📋 File Information:
@@ -520,7 +553,26 @@ jobs:
           archive_filename="${{ steps.process-output.outputs.archive-filename || '' }}"
           file_size_mb="${{ steps.process-output.outputs.file-size-mb }}"
           
+          # === METADATA INTEGRATION FROM REUSABLE WORKFLOW ===
+          # Leverage comprehensive metadata from reusable-terraform-base workflow
+          # This provides consistent metadata across all Terraform operations
+          operation_metadata='${{ needs.terraform-output.outputs.operation-metadata }}'
+          
           echo "::notice title=Summary Generation::📊 Creating comprehensive execution summary"
+          
+          # === EXTRACT KEY METADATA FIELDS ===
+          # Parse essential metadata fields from the reusable workflow output
+          if [ -n "$operation_metadata" ] && [ "$operation_metadata" != "null" ]; then
+            terraform_version=$(echo "$operation_metadata" | jq -r '.terraform_version // "unknown"')
+            terraform_provider_versions=$(echo "$operation_metadata" | jq -r '.provider_versions // {} | to_entries | map("\(.key): \(.value)") | join(", ") // "none"')
+            execution_duration=$(echo "$operation_metadata" | jq -r '.execution_duration // "unknown"')
+            operation_timestamp=$(echo "$operation_metadata" | jq -r '.timestamp // "unknown"')
+          else
+            terraform_version="unknown"
+            terraform_provider_versions="unknown"
+            execution_duration="unknown"
+            operation_timestamp="unknown"
+          fi
           
           # === GITHUB STEP SUMMARY HEADER ===
           # Create visually appealing header with workflow context
@@ -541,6 +593,19 @@ jobs:
           echo "| 🕐 Generated At | $(date +%Y-%m-%d\ %H:%M:%S) UTC |" >> $GITHUB_STEP_SUMMARY
           echo "| 👤 Executed By | @${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
           echo "| 🔗 Workflow Run | [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # === TERRAFORM OPERATION DETAILS FROM REUSABLE WORKFLOW ===
+          # Include comprehensive Terraform operation metadata for full context
+          echo "### 🔧 Terraform Operation Details" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Detail | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| 🔨 Terraform Version | \`$terraform_version\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🔌 Provider Versions | \`$terraform_provider_versions\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| ⏱️ Execution Duration | \`$execution_duration\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| 📅 Operation Timestamp | \`$operation_timestamp\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| 📊 Operation Type | \`terraform output\` |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           # === PROCESSING MODE-SPECIFIC INFORMATION ===
@@ -600,28 +665,6 @@ jobs:
           echo "- ✅ **Workflow Artifact**: Available for download for 30 days" >> $GITHUB_STEP_SUMMARY
           echo "- 📦 **Artifact Name**: \`terraform-output-$config-${{ github.run_number }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
-          # === WORKFLOW MIGRATION BENEFITS SECTION ===
-          # Highlight the advantages of the reusable workflow architecture
-          echo "### 🚀 Workflow Architecture Benefits" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**📈 Enhanced Architecture:**" >> $GITHUB_STEP_SUMMARY
-          echo "This workflow leverages the reusable-terraform-base architecture, delivering:" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Efficiency Gains:**" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ **93% Code Reduction**: From 580+ lines to ~40 lines of configuration" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ **Standardized Processing**: Proven patterns for reliable output handling" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ **Enhanced Error Handling**: Comprehensive validation and recovery mechanisms" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ **Rich Metadata Generation**: Detailed traceability and audit capabilities" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ **Optimized Performance**: Large file handling and processing efficiency" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Operational Excellence:**" >> $GITHUB_STEP_SUMMARY
-          echo "- 🔒 **Consistent Security**: Standardized authentication and authorization" >> $GITHUB_STEP_SUMMARY
-          echo "- 📊 **Comprehensive Logging**: Detailed visibility into all processing operations" >> $GITHUB_STEP_SUMMARY
-          echo "- 🔄 **Maintainability**: Centralized logic reduces maintenance overhead" >> $GITHUB_STEP_SUMMARY
-          echo "- 🎯 **Reliability**: Battle-tested components with proven stability" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ **Improved maintainability through proven composite actions**" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ **Large file handling with automatic optimization**" >> $GITHUB_STEP_SUMMARY
           
           # === WORKFLOW COMPLETION NOTIFICATION ===
           # Final success notification for comprehensive summary
