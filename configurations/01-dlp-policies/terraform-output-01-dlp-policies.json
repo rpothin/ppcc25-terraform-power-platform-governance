@@ -1,0 +1,39 @@
+{
+  "metadata": {
+    "generated_at": "2025-07-23T18:36:40Z",
+    "workflow": {
+      "run_number": 77,
+      "run_id": "16478968376",
+      "generated_by": "rpothin",
+      "version": "2.0.0"
+    },
+    "terraform_version": "1.12.2",
+    "operation": "output",
+    "phase": "execution",
+    "configuration": "01-dlp-policies",
+    "tfvars_file": "",
+    "repository": {
+      "name": "rpothin/ppcc25-terraform-power-platform-governance",
+      "ref": "refs/heads/main",
+      "sha": "7413302721074d87e5d5d85a8e56be85cbd20060",
+      "event": "workflow_dispatch"
+    },
+    "runner": {
+      "os": "Linux",
+      "architecture": "X64"
+    },
+    "additional": {
+      "state_key": "01-dlp-policies.tfstate",
+      "additional_options": "-json -no-color",
+      "auto_approve": "false",
+      "timeout_minutes": 10
+    },
+    "output_processing": {
+      "export_format": "json",
+      "processing_workflow": "terraform-output",
+      "output_filename": "terraform-output-01-dlp-policies.json",
+      "file_size_mb": 0
+    }
+  },
+  "terraform_output": {}
+}
