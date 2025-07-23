@@ -90,6 +90,185 @@ jobs:
 - Optimize workflow triggers to reduce unnecessary runs
 - Use matrix strategies for parallel execution where appropriate
 
+## Documentation and Comments
+
+**Purpose-Driven Comments for Power Platform Governance:**
+This standard ensures GitHub Actions workflows provide clear context about governance decisions, security requirements, and operational needs without unnecessary verbosity.
+
+### Header Documentation Pattern
+
+All workflows **MUST** include a comprehensive header following this pattern:
+
+```yaml
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
+# TERRAFORM [OPERATION] WORKFLOW FOR POWER PLATFORM GOVERNANCE
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
+# Brief statement of workflow purpose and primary governance value.
+#
+# 🎯 WHY THIS EXISTS:
+# - Governance requirement it addresses (DLP, environment management, compliance)
+# - Business problem it solves (manual processes, security gaps, audit needs)
+# - Operational benefit it provides (automation, consistency, error reduction)
+#
+# 🔒 SECURITY DECISIONS:
+# - Why OIDC authentication is required for this operation
+# - Why specific environment protections are needed
+# - Why certain permissions are granted or restricted
+#
+# ⚙️ OPERATIONAL CONTEXT:
+# - Why concurrency controls are configured this way
+# - Why timeout values are set to specific durations  
+# - Why certain trigger patterns are used
+#
+# 📋 INTEGRATION REQUIREMENTS:
+# - Dependencies on other workflows or systems
+# - Why specific tool versions are pinned
+# - Why certain backends or storage patterns are used
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
+```
+
+### Section Documentation Pattern
+
+Document configuration sections that implement governance or security requirements:
+
+```yaml
+# === POWER PLATFORM AUTHENTICATION ===
+# OIDC required because stored credentials violate zero-trust security model
+# Power Platform provider needs explicit tenant context for multi-tenant scenarios
+env:
+  POWER_PLATFORM_USE_OIDC: true
+  POWER_PLATFORM_CLIENT_ID: ${{ secrets.POWER_PLATFORM_CLIENT_ID }}
+  POWER_PLATFORM_TENANT_ID: ${{ secrets.POWER_PLATFORM_TENANT_ID }}
+
+# === CONCURRENCY PROTECTION ===
+# Prevents state corruption when multiple deployments target same configuration
+# Never cancel running Terraform operations to avoid incomplete state changes
+concurrency:
+  group: terraform-${{ inputs.configuration }}-${{ inputs.tfvars-file }}-${{ github.ref }}
+  cancel-in-progress: false
+```
+
+### Input/Output Documentation Pattern
+
+All workflow inputs and outputs **MUST** include comprehensive documentation:
+
+```yaml
+inputs:
+  configuration:
+    description: 'Target configuration directory for deployment'
+    required: true
+    # WHY: Scopes permissions and isolates blast radius for governance
+    # VALIDATION: Must exist in configurations/ and contain .tf files
+    # SECURITY: Used in state key generation to prevent cross-configuration access
+    # EXAMPLES: '02-dlp-policy', '03-environment'
+    
+  auto-approve:
+    description: 'Bypass manual approval for apply operations'
+    required: false
+    default: false
+    # WHY: Production safety requires explicit confirmation for destructive operations
+    # GOVERNANCE: Supports automated deployments while maintaining audit trails
+    # SECURITY: Default false prevents accidental infrastructure changes
+```
+
+### Step Documentation Pattern
+
+Document non-obvious steps, security decisions, and governance context:
+
+```yaml
+  steps:
+    # === AZURE OIDC AUTHENTICATION ===
+    # Required for backend state access and resource management
+    # Uses GitHub OIDC identity federation to eliminate stored credentials
+    - name: Azure Login via OIDC
+      uses: azure/login@v2.3.0
+      with:
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+    
+    # === JIT NETWORK ACCESS ===
+    # Storage accounts use firewall restrictions for defense-in-depth security
+    # Temporary access prevents permanent security holes while enabling automation
+    - name: Enable Temporary Storage Access
+      uses: ./.github/actions/jit-network-access
+      with:
+        action: 'add'
+        # WHY: Backend storage requires network-level protection for compliance
+        storage-account-name: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
+```
+
+### Conditional Logic Documentation
+
+Explain complex conditions and business logic:
+
+```yaml
+# Only execute if resources exist - prevents unnecessary operations on empty state
+# Force override available for emergency cleanup scenarios
+if: |
+  needs.validate.outputs.resources-exist == 'true' || 
+  inputs.force-destroy == 'true'
+
+# Pull request events need different branch handling for documentation commits
+# HEAD ref ensures commits go to PR branch, not base branch
+ref: ${{ github.event.pull_request.head.ref || github.ref }}
+```
+
+### Error Context Documentation
+
+Provide troubleshooting context and available options:
+
+```yaml
+  run: |
+    if [ ! -d "configurations/$config" ]; then
+      echo "::error title=Configuration Not Found::Directory 'configurations/$config' does not exist"
+      # WHY: Early validation prevents confusing failures in later steps
+      # CONTEXT: Available configurations are determined by repository structure
+      echo "::notice title=Available Options::$(ls configurations/ | grep -E '^[0-9]+-')"
+      exit 1
+    fi
+```
+
+### What NOT to Document
+
+❌ **Avoid explaining obvious operations:**
+```yaml
+# BAD: Obvious what the step does
+- name: Checkout Repository
+  uses: actions/checkout@v4
+  # Checks out the repository code for processing
+```
+
+❌ **Avoid repeating step names in comments:**
+```yaml
+# BAD: Redundant with step name  
+# Setup Terraform CLI
+- name: Setup Terraform CLI
+```
+
+❌ **Avoid implementation details that change frequently:**
+```yaml
+# BAD: Too specific to implementation
+# Uses version 1.12.2 with wrapper disabled for clean output parsing
+```
+
+### Key Principles
+
+1. **Focus on WHY** - Explain decisions, not obvious operations
+2. **Governance Context** - Include Power Platform specific requirements
+3. **Security Rationale** - Explain authentication and permission choices
+4. **Operational Impact** - Document behavior that affects reliability
+5. **Maintenance Guidance** - Include context for future updates
+6. **Concise but Complete** - Provide necessary context without noise
+
+### Enforcement Requirements
+
+- Comments should pass the "6-month test" - understandable by someone (including yourself) 6 months later
+- Every non-obvious configuration choice should have a WHY comment
+- Security and governance decisions must be documented
+- Integration points and dependencies require context
+- Error scenarios should include troubleshooting guidance
+
 ## Integration with Repository Standards
 - Follow the established workflow naming conventions
 - Include proper status reporting and badge integration
