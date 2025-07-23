@@ -80,6 +80,9 @@ jobs:
           # Source the installation library and install all validation tools
           source scripts/utils/yaml-tools-installer.sh
           install_all_yaml_tools
+          
+          # Ensure PATH includes user-installed packages for subsequent steps
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
       
       # === COMPREHENSIVE YAML VALIDATION ===
       # Validate all GitHub Actions YAML files using project validation script

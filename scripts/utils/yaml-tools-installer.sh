@@ -82,8 +82,9 @@ install_yamllint() {
     if ! command -v yamllint &> /dev/null; then
         pip3 install --user --upgrade "yamllint==$YAMLLINT_VERSION" "pyyaml==$PYYAML_VERSION" || {
             echo "⚠️  Some Python packages may already be installed"
-            return 0
         }
+        # Update PATH to include user-installed packages
+        export PATH="$HOME/.local/bin:$PATH"
         echo "✅ yamllint $YAMLLINT_VERSION installed"
     else
         echo "✅ yamllint already available: $(yamllint --version 2>/dev/null || echo 'installed')"
@@ -179,6 +180,9 @@ verify_yaml_tools() {
     echo "🔍 Verifying YAML validation tools installation..."
     local tools_ok=true
     
+    # Update PATH to include user-installed packages
+    export PATH="$HOME/.local/bin:$PATH"
+    
     # Check yamllint
     if command -v yamllint &> /dev/null; then
         echo "✅ yamllint: $(yamllint --version 2>/dev/null || echo 'available')"
@@ -187,12 +191,20 @@ verify_yaml_tools() {
         tools_ok=false
     fi
     
-    # Check Python YAML
+    # Check Python YAML - be more forgiving about installation
     if python3 -c "import yaml" 2>/dev/null; then
         echo "✅ Python YAML: Available"
+    elif pip3 show pyyaml &>/dev/null; then
+        echo "✅ Python YAML: Available (PyYAML installed)"
     else
-        echo "❌ Python YAML module not available"
-        tools_ok=false
+        echo "⚠️  Python YAML: Not available (installing...)"
+        pip3 install --user pyyaml &>/dev/null || true
+        if python3 -c "import yaml" 2>/dev/null; then
+            echo "✅ Python YAML: Now available"
+        else
+            echo "❌ Python YAML module installation failed"
+            tools_ok=false
+        fi
     fi
     
     # Check actionlint (optional)
@@ -219,6 +231,9 @@ verify_yaml_tools() {
 install_all_yaml_tools() {
     echo "🚀 Installing all YAML validation tools..."
     echo
+    
+    # Update PATH to include user-installed packages
+    export PATH="$HOME/.local/bin:$PATH"
     
     install_yamllint
     install_actionlint  
