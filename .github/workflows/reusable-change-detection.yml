@@ -163,17 +163,9 @@ jobs:
         with:
           operation: 'change-detection'
           phase: 'analysis'
-          # Include input parameters in metadata for debugging and audit trails
-          # Using proper JSON escaping and handling empty values for push/PR events
-          additional-data: |
-            {
-              "target_path": "${{ inputs.target-path || '' }}",
-              "force_all": ${{ inputs.force-all || false }},
-              "include_configs": ${{ inputs.include-configs || true }},
-              "include_modules": ${{ inputs.include-modules || true }},
-              "path_filter": "${{ inputs.path-filter || '' }}",
-              "event_name": "${{ github.event_name }}"
-            }
+          # Simplified metadata to avoid GitHub expression evaluation issues
+          # Using basic JSON without complex expressions that might cause shell parsing errors
+          additional-data: '{"event_name": "${{ github.event_name }}", "trigger_type": "automated"}'
       
       # === CORE CHANGE DETECTION ===
       # Executes the proven change detection logic using the composite action
