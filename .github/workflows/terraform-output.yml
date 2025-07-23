@@ -283,9 +283,9 @@ jobs:
           fi
           
           # === SETUP OUTPUT DIRECTORY ===
-          # Create structured output directory for organized artifact storage
+          # Create centralized output directory for organized artifact storage
           # This ensures consistent file organization across all configurations
-          mkdir -p "configurations/$config/outputs"
+          mkdir -p "configurations/outputs"
           timestamp=$(date +%Y%m%d-%H%M%S)
           
           # === ENVIRONMENT VARIABLE STORAGE ===
@@ -323,8 +323,10 @@ jobs:
           LARGE_FILE_THRESHOLD_MB=50
           
           # === OUTPUT FILE GENERATION ===
-          output_filename="terraform-output-$timestamp.$export_format"
-          output_path="configurations/$config/outputs/$output_filename"
+          # Use consistent filename with configuration context for Git-tracked changes
+          # Store in centralized outputs directory for simplified access
+          output_filename="terraform-output-$config.$export_format"
+          output_path="configurations/$config/$output_filename"
           
           # === METADATA INTEGRATION FROM REUSABLE WORKFLOW ===
           # Leverage existing metadata from reusable-terraform-base workflow
@@ -429,8 +431,8 @@ jobs:
           echo "::notice title=File Staging::📁 Discovering and staging generated output files"
           
           output_files_staged=0
-          if [ -f "configurations/$config/outputs/$output_filename" ]; then
-            git add "configurations/$config/outputs/$output_filename"
+          if [ -f "configurations/$config/$output_filename" ]; then
+            git add "configurations/$config/$output_filename"
             output_files_staged=$((output_files_staged + 1))
             echo "::notice title=File Staged::📄 Primary output: $output_filename"
           fi
@@ -438,8 +440,8 @@ jobs:
           # === ARCHIVE FILE STAGING (FOR LARGE FILE PROCESSING) ===
           # Stage archive file if it exists from large file processing
           archive_filename="${{ steps.process-output.outputs.archive-filename }}"
-          if [ -n "$archive_filename" ] && [ -f "configurations/$config/outputs/$archive_filename" ]; then
-            git add "configurations/$config/outputs/$archive_filename"
+          if [ -n "$archive_filename" ] && [ -f "configurations/$config/$archive_filename" ]; then
+            git add "configurations/$config/$archive_filename"
             output_files_staged=$((output_files_staged + 1))
             echo "::notice title=Archive Staged::📦 Archive file: $archive_filename"
           fi
@@ -525,13 +527,13 @@ jobs:
           name: terraform-output-${{ github.event.inputs.configuration }}-${{ github.run_number }}
           
           # === ARTIFACT PATH CONFIGURATION ===
-          # Include all generated output files in both JSON and YAML formats
-          # Uses glob patterns to capture timestamped files and optional archive files
+          # Include generated output files with consistent names for Git tracking
+          # Files are stored in centralized outputs directory with configuration context
           path: |
-            configurations/${{ github.event.inputs.configuration }}/outputs/terraform-output-*.json
-            configurations/${{ github.event.inputs.configuration }}/outputs/terraform-output-*.yaml
-            configurations/${{ github.event.inputs.configuration }}/outputs/terraform-output-*.gz
-          
+            configurations/$config/terraform-output-${{ github.event.inputs.configuration }}.json
+            configurations/$config/terraform-output-${{ github.event.inputs.configuration }}.yaml
+            configurations/$config/terraform-output-${{ github.event.inputs.configuration }}.yml
+
           # === ARTIFACT RETENTION AND COMPRESSION ===
           # Configure retention period for compliance and storage optimization
           retention-days: 30                    # 30-day retention for operational needs
