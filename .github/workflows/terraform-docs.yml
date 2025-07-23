@@ -118,6 +118,13 @@ jobs:
     needs: detect-changes
     # Only execute if changes detected - prevents unnecessary workflow runs
     if: needs.detect-changes.outputs.has-changes == 'true'
+    
+    # === JOB OUTPUT DECLARATIONS ===
+    # Export key processing results for use by subsequent jobs
+    outputs:
+      output-files: ${{ steps.generate-docs.outputs.output_files }}
+      generated-count: ${{ steps.generate-docs.outputs.generated_count }}
+      failed-count: ${{ steps.generate-docs.outputs.failed_count }}
 
     steps:
     # === REPOSITORY CHECKOUT ===
@@ -134,12 +141,14 @@ jobs:
     # Processes only changed paths for efficiency and resource optimization
     # Uses terraform-docs Docker container for consistent execution environment
     - name: Generate Documentation for Changed Configurations
+      id: generate-docs
       run: |
         echo "::notice title=Documentation Generation::Starting terraform-docs generation for changed paths only..."
         
         # Initialize counters for execution reporting
         generated_count=0
         failed_count=0
+        output_files=()
         
         # Retrieve changed paths from reusable change detection workflow
         paths_input="${{ needs.detect-changes.outputs.changed-paths }}"
@@ -195,6 +204,13 @@ jobs:
             
             echo "::notice title=Generation Success::✅ Documentation generated successfully for $target_path"
             generated_count=$((generated_count + 1))
+            
+            # Determine output filename from terraform-docs config (typically README.md)
+            output_file="$target_path/README.md"
+            if [ -f "$output_file" ]; then
+              output_files+=("$output_file")
+              echo "::notice title=Output File::📄 Generated: $output_file"
+            fi
           else
             echo "::error title=Generation Failed::❌ terraform-docs failed for $target_path"
             failed_count=$((failed_count + 1))
@@ -213,6 +229,16 @@ jobs:
         # Store results for downstream job usage
         echo "generated_count=$generated_count" >> $GITHUB_OUTPUT
         echo "failed_count=$failed_count" >> $GITHUB_OUTPUT
+        
+        # Format output files as comma-separated list for execution summary
+        if [ ${#output_files[@]} -gt 0 ]; then
+          output_files_list=$(printf "%s," "${output_files[@]}")
+          output_files_list="${output_files_list%,}"  # Remove trailing comma
+          echo "output_files=$output_files_list" >> $GITHUB_OUTPUT
+          echo "::notice title=Output Files::📋 Generated files: $output_files_list"
+        else
+          echo "output_files=" >> $GITHUB_OUTPUT
+        fi
 
     # === CHANGE DETECTION AND GIT CONFIGURATION ===
     # Detects documentation changes and prepares for automated commits
@@ -353,6 +379,7 @@ jobs:
       workflow-name: "terraform-docs"
       operation-type: "docs"
       configuration: "multiple-paths"
+      output-filename: ${{ needs.terraform-docs.outputs.output-files }}
       
       # === EXECUTION CONTEXT ===
       job-results: ${{ toJSON(needs) }}

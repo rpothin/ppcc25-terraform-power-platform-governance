@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **GitHub Actions Workflows**
+  - Enhanced terraform-docs workflow to track and report specific documentation files generated (e.g., configurations/01-dlp-policies/README.md)
   - Replaced inline summary generation in terraform-docs workflow with reusable execution summary workflow for consistency with other Terraform operations
   - Enhanced terraform-docs workflow to leverage standardized reusable-execution-summary.yml pattern used in terraform-output.yml
 
