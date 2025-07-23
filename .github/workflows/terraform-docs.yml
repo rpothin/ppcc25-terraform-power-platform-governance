@@ -1,17 +1,43 @@
-# Terraform Documentation Generation Workflow for Power Platform Governance
-# This workflow automatically generates and maintains up-to-date Terraform documentation
-# using terraform-docs for all configurations and modules in the repository
-# Follows AVM standards and ensures consistent documentation formatting
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
+# TERRAFORM DOCUMENTATION WORKFLOW FOR POWER PLATFORM GOVERNANCE
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
+# Automatically generates and maintains up-to-date Terraform documentation using terraform-docs
+# for all configurations and modules, ensuring governance compliance and developer productivity.
+#
+# 🎯 WHY THIS EXISTS:
+# - Documentation governance requirement for Infrastructure as Code transparency
+# - Eliminates manual documentation updates that become stale and inaccurate
+# - Ensures consistent documentation format across all Terraform configurations
+# - Supports audit trails and compliance through automated documentation generation
+#
+# 🔒 SECURITY DECISIONS:
+# - Uses GITHUB_TOKEN for repository access with minimal required permissions
+# - No external secrets required - documentation generation is read-only operation
+# - Smart change detection prevents unnecessary processing of unmodified paths
+#
+# ⚙️ OPERATIONAL CONTEXT:
+# - Cancellation allowed because documentation generation is idempotent
+# - Processes only changed paths for efficiency and reduced resource usage
+# - Commits documentation updates automatically to maintain consistency
+#
+# 📋 INTEGRATION REQUIREMENTS:
+# - Depends on .terraform-docs.yml configuration in each Terraform directory
+# - Uses terraform-docs v0.20.0 for consistent formatting standards
+# - Follows Azure Verified Module (AVM) documentation patterns
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
 
 name: Terraform Docs
 
-# Allow safe cancellation of documentation generation workflows
+# === CONCURRENCY PROTECTION ===
+# Allow safe cancellation because documentation generation is idempotent
+# No risk of state corruption since this only updates documentation files
 concurrency:
   group: terraform-docs-${{ github.ref }}
   cancel-in-progress: true
 
-# Trigger: Pull requests and pushes that modify Terraform files
-# Also supports manual dispatch for ad-hoc documentation generation
+# === TRIGGER CONFIGURATION ===
+# Smart trigger pattern focuses on files that affect documentation generation
+# Manual dispatch supports ad-hoc generation for specific paths or full repository
 on:
   pull_request:
     paths:
@@ -40,24 +66,33 @@ on:
         description: 'Specific path to generate docs for (e.g., configurations/01-dlp-policies). Leave empty to process all changed or all paths.'
         required: false
         type: string
+        # WHY: Allows targeted documentation generation for specific configurations
+        # GOVERNANCE: Enables focused updates without processing entire repository
+        # EFFICIENCY: Reduces processing time for large repositories with many configurations
+        
       force_all:
         description: 'Force processing all configurations and modules (ignore change detection)'
         required: false
         default: false
         type: boolean
+        # WHY: Override for scenarios where change detection may miss important updates
+        # USE CASE: Repository restructuring, configuration file changes, or manual refresh
+        # SAFETY: Default false prevents accidental full repository processing
 
-# Dynamic run name that shows what triggered the documentation generation
+# === DYNAMIC RUN NAMING ===
+# Provides clear identification of what documentation generation covers
 run-name: 📚 Generate Terraform Docs${{ github.event.inputs.target_path && format(' for {0}', github.event.inputs.target_path) || (github.event.inputs.force_all == 'true' && ' for ALL paths' || ' for changed paths') }} by @${{ github.actor }}
 
-# Required permissions for committing documentation updates
+# === MINIMAL PERMISSIONS ===
+# Documentation workflow requires only specific repository access
 permissions:
   contents: write     # Required for repository checkout and committing generated docs
   pull-requests: write # Required for commenting on PRs with documentation status
 
-# No workflow-level environment variables needed - this is a documentation-only workflow
-
 jobs:
-  # Job 1: Detect Changes - Only process what actually changed
+  # === CHANGE DETECTION JOB ===
+  # Optimizes workflow execution by processing only modified Terraform configurations
+  # Prevents unnecessary documentation generation and reduces CI/CD resource usage
   detect-changes:
     name: 🔍 Detect Changes
     runs-on: ubuntu-latest
@@ -70,7 +105,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Need full history for change detection
+          fetch-depth: 0  # Full history required for accurate change detection between commits
 
       - name: Detect Changes
         id: detect
@@ -81,37 +116,43 @@ jobs:
           include-configs: 'true'
           include-modules: 'true'
 
-  # Job 2: Generate Documentation - Only for changed paths
+  # === DOCUMENTATION GENERATION JOB ===
+  # Generates terraform-docs only for paths with detected changes
+  # Maintains documentation consistency and compliance with AVM standards
   terraform-docs:
     name: 📚 Generate terraform-docs
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: detect-changes
+    # Only execute if changes detected - prevents unnecessary workflow runs
     if: needs.detect-changes.outputs.has-changes == 'true'
 
     steps:
-    # Step 1: Checkout repository code
+    # === REPOSITORY CHECKOUT ===
+    # For pull requests, checkout head branch to enable documentation commits
+    # Uses GITHUB_TOKEN with write permissions for automated documentation updates
     - name: Checkout Repository for Documentation
       uses: actions/checkout@v4
       with:
-        # For pull requests, checkout the head branch to enable commits
+        # Pull request events need head branch for commits, push events use current ref
         ref: ${{ github.event.pull_request.head.ref || github.ref }}
-        # Use a token that can push to protected branches
         token: ${{ secrets.GITHUB_TOKEN }}
 
-    # Step 2: Generate documentation only for changed paths
+    # === TERRAFORM DOCUMENTATION GENERATION ===
+    # Processes only changed paths for efficiency and resource optimization
+    # Uses terraform-docs Docker container for consistent execution environment
     - name: Generate Documentation for Changed Configurations
       run: |
         echo "::notice title=Documentation Generation::Starting terraform-docs generation for changed paths only..."
         
-        # Track generation results
+        # Initialize counters for execution reporting
         generated_count=0
         failed_count=0
         
-        # Get the changed paths from the detect-changes job
+        # Retrieve changed paths from change detection job
         paths_input="${{ needs.detect-changes.outputs.changed-paths }}"
         
-        # Convert to array
+        # Convert multi-line string to array for processing
         if [ -n "$paths_input" ]; then
           readarray -t paths <<< "$paths_input"
         else
@@ -119,21 +160,22 @@ jobs:
           exit 0
         fi
         
-        # Process each changed path
+        # Process each detected change path individually
         for target_path in "${paths[@]}"; do
-          # Skip empty lines
+          # Skip empty lines from array conversion
           [ -z "$target_path" ] && continue
           
           echo "::notice title=Processing Changed Path::Generating documentation for: $target_path"
           
-          # Verify path exists and has required files
+          # Validate path exists before attempting documentation generation
           if [ ! -d "$target_path" ]; then
             echo "::error title=Path Not Found::Directory does not exist: $target_path"
+            # WHY: Continue processing other paths despite individual failures
             failed_count=$((failed_count + 1))
             continue
           fi
           
-          # Determine configuration file
+          # Locate terraform-docs configuration file with fallback support
           config_file=""
           if [ -f "$target_path/.terraform-docs.yml" ]; then
             config_file=".terraform-docs.yml"
@@ -144,13 +186,13 @@ jobs:
             continue
           fi
           
-          # Check for Terraform files
+          # Verify Terraform files exist before processing
           if ! find "$target_path" -maxdepth 1 -name "*.tf" -type f | grep -q .; then
             echo "::warning title=No TF Files::No Terraform files found in $target_path, skipping"
             continue
           fi
           
-          # Generate documentation using terraform-docs Docker
+          # Execute terraform-docs using pinned Docker image for consistency
           echo "::notice title=Generating Docs::Running terraform-docs for $target_path..."
           
           if docker run --rm \
@@ -167,29 +209,33 @@ jobs:
           fi
         done
         
-        # Report results
+        # Report execution summary for transparency
         echo "::notice title=Generation Complete::📊 Generated: $generated_count, Failed: $failed_count"
         
+        # Fail workflow if any documentation generation failed
         if [ $failed_count -gt 0 ]; then
           echo "::error title=Generation Failures::Some documentation generation failed. Check logs above."
           exit 1
         fi
         
-        # Store results for summary
+        # Store results for downstream job usage
         echo "generated_count=$generated_count" >> $GITHUB_OUTPUT
         echo "failed_count=$failed_count" >> $GITHUB_OUTPUT
 
-    # Step 4: Check for documentation changes and commit if necessary
+    # === CHANGE DETECTION AND GIT CONFIGURATION ===
+    # Detects documentation changes and prepares for automated commits
+    # Configures git identity for consistent commit attribution
     - name: Check for Documentation Changes
       id: changes
       run: |
         echo "::notice title=Change Detection::Checking for documentation changes..."
         
-        # Configure git for the action
+        # Configure git identity for automated commits
+        # Uses GitHub Actions bot identity for traceability
         git config user.name "github-actions[bot]"
         git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
         
-        # Check if there are any changes
+        # Detect if documentation generation created any file changes
         if git diff --quiet; then
           echo "::notice title=No Changes::No documentation changes detected"
           echo "has_changes=false" >> $GITHUB_OUTPUT
@@ -197,22 +243,24 @@ jobs:
           echo "::notice title=Changes Detected::Documentation changes found"
           echo "has_changes=true" >> $GITHUB_OUTPUT
           
-          # Show what files changed
+          # Display changed files for transparency and debugging
           echo "::group::Changed Files"
           git diff --name-only
           echo "::endgroup::"
         fi
 
-    # Step 5: Commit documentation changes
+    # === AUTOMATED DOCUMENTATION COMMIT ===
+    # Commits generated documentation with detailed metadata for audit trails
+    # Only executes when documentation changes are detected
     - name: Commit Documentation Updates
       if: steps.changes.outputs.has_changes == 'true'
       run: |
         echo "::notice title=Committing Changes::Committing updated documentation..."
         
-        # Add all changes
+        # Stage all documentation changes for commit
         git add -A
         
-        # Create detailed commit message
+        # Build comprehensive commit message with change context
         changed_paths="${{ needs.detect-changes.outputs.changed-paths }}"
         readarray -t paths <<< "$changed_paths"
         
@@ -231,21 +279,23 @@ jobs:
         Triggered by: ${{ github.actor }}
         Event: ${{ github.event_name }}"
         
-        # Commit changes
+        # Execute commit with detailed message
         git commit -m "$commit_message"
         
-        # Push changes back to the branch
+        # Push changes with appropriate branch handling
+        # Pull request events require pushing to head branch
         if [ "${{ github.event_name }}" = "pull_request" ]; then
-          # For pull requests, push to the head branch
           git push origin "${{ github.event.pull_request.head.ref }}"
           echo "::notice title=Pushed to PR::✅ Documentation committed to pull request branch"
         else
-          # For push events, push to the current branch
+          # Push events use current branch reference
           git push origin "${{ github.ref_name }}"
           echo "::notice title=Pushed to Branch::✅ Documentation committed to branch ${{ github.ref_name }}"
         fi
 
-    # Step 6: Add PR comment with documentation status (for pull requests only)
+    # === PULL REQUEST NOTIFICATION ===
+    # Provides feedback on documentation changes for pull request reviews
+    # Only executes for pull request events to avoid unnecessary comments
     - name: Comment on Pull Request
       if: github.event_name == 'pull_request'
       uses: actions/github-script@v7
@@ -296,11 +346,13 @@ jobs:
             body: commentBody
           });
 
-    # Step 7: Generate workflow summary
+    # === COMPREHENSIVE WORKFLOW SUMMARY ===
+    # Generates detailed execution report for transparency and troubleshooting
+    # Always executes to provide feedback regardless of success or failure
     - name: Generate Workflow Summary
       if: always()
       run: |
-        # Generate comprehensive workflow summary
+        # Build comprehensive workflow summary for GitHub UI
         echo "## 📚 Terraform Documentation Generation Summary" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### Execution Details" >> $GITHUB_STEP_SUMMARY
@@ -315,7 +367,7 @@ jobs:
         echo "| Workflow run | [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         
-        # Efficiency report
+        # Calculate and report efficiency metrics
         changed_paths="${{ needs.detect-changes.outputs.changed-paths }}"
         if [ -n "$changed_paths" ]; then
           readarray -t paths <<< "$changed_paths"
@@ -346,7 +398,7 @@ jobs:
         fi
         echo "" >> $GITHUB_STEP_SUMMARY
         
-        # Status section
+        # Document execution status and results
         has_changes="${{ steps.changes.outputs.has_changes }}"
         if [ "$has_changes" = "true" ]; then
           echo "### ✅ Documentation Updated" >> $GITHUB_STEP_SUMMARY
@@ -366,7 +418,7 @@ jobs:
         fi
         echo "" >> $GITHUB_STEP_SUMMARY
         
-        # Next steps
+        # Provide actionable next steps
         echo "### 📋 Next Steps" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         if [ "$has_changes" = "true" ]; then
@@ -379,7 +431,7 @@ jobs:
         fi
         echo "" >> $GITHUB_STEP_SUMMARY
         
-        # Important notes
+        # Include important operational context
         echo "### 📌 Important Notes" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "- **⚡ Smart Processing**: Only processes changed configurations/modules" >> $GITHUB_STEP_SUMMARY

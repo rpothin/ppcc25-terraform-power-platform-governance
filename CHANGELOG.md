@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **GitHub Actions Workflows**
   - **Terraform Output Workflow** (`terraform-output.yml`) - Updated commenting style to follow GitHub automation standards, integrated metadata consumption from reusable workflow, replaced inline execution summary with reusable summary workflow for consistency, added optional `output_filename` input parameter for flexible output file naming
+  - **Terraform Documentation Workflow** (`terraform-docs.yml`) - Updated commenting style to align with GitHub automation standards, enhanced header structure with comprehensive governance context, improved section documentation with operational context and security rationale
 
 ### Fixed
 - **GitHub Actions Workflows**
