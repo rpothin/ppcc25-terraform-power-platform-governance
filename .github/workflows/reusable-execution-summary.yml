@@ -363,7 +363,12 @@ jobs:
           echo "- **Workflow Run**: [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
           echo "- **Configuration Path**: \`configurations/$configuration/\`" >> $GITHUB_STEP_SUMMARY
           if [ "$operation_type" = "output" ]; then
-            echo "- **Output Files**: \`configurations/$configuration/outputs/\`" >> $GITHUB_STEP_SUMMARY
+            output_filename="${{ inputs.output-filename }}"
+            if [ -n "$output_filename" ] && [ "$output_filename" != "" ]; then
+              echo "- **Output File**: \`configurations/$configuration/$output_filename\`" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "- **Output Directory**: \`configurations/$configuration/outputs/\`" >> $GITHUB_STEP_SUMMARY
+            fi
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
           

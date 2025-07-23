@@ -529,6 +529,7 @@ jobs:
       workflow-name: "terraform-output"
       operation-type: "output"
       configuration: ${{ github.event.inputs.configuration }}
+      output-filename: ${{ steps.process-output.outputs.output-filename }}
       
       # === EXECUTION CONTEXT ===
       job-results: ${{ toJSON(needs) }}

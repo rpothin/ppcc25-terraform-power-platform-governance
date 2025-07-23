@@ -32,7 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **GitHub Actions Workflows**
-  - **Terraform Output Workflow** (`terraform-output.yml`) - Updated commenting style to follow GitHub automation standards, integrated metadata consumption from reusable workflow, replaced inline execution summary with reusable summary workflow for consistency
+  - **Terraform Output Workflow** (`terraform-output.yml`) - Updated commenting style to follow GitHub automation standards, integrated metadata consumption from reusable workflow, replaced inline execution summary with reusable summary workflow for consistency, added optional `output_filename` input parameter for flexible output file naming
 
 ### Fixed
 - **GitHub Actions Workflows**
@@ -58,6 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Validation suite (`reusable-validation-suite.yml`) for quality assurance
     - Documentation generation (`reusable-docs-generation.yml`)
     - Artifact management (`reusable-artifact-management.yml`)
+    - **Execution Summary Workflow** (`reusable-execution-summary.yml`) - Standardized execution reporting across all workflows with always-on visibility for troubleshooting and optional output-filename input for accurate file path references
     - Reusable Execution Summary Workflow (`reusable-execution-summary.yml`) for standardized execution reporting across all workflows with always-on visibility for troubleshooting
 
 - **Custom GitHub Actions**
