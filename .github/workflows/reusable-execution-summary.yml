@@ -438,17 +438,6 @@ jobs:
           echo "ARTIFACT_NAME=$artifact_name" >> $GITHUB_ENV
           echo "artifact-name=$artifact_name" >> $GITHUB_OUTPUT
           echo "::notice title=Artifact Ready::📦 Summary artifact prepared: $artifact_name"
-      
-      # === ARTIFACT UPLOAD ===
-      # Upload summary artifacts for retention and external access
-      - name: Upload Summary Artifact
-        id: upload-summary
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.ARTIFACT_NAME }}
-          path: summary-artifacts/
-          retention-days: ${{ inputs.artifact-retention-days }}
-          compression-level: 6
         
       # === FINAL STATUS REPORTING ===
       # Provide final status notification with comprehensive context

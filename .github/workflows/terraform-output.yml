@@ -515,30 +515,6 @@ jobs:
             echo "::notice title=No Changes::ℹ️ No new output files to commit - existing outputs are current"
             echo "::notice title=Status::📊 Repository state unchanged - no action required"
           fi
-      
-      # === ARTIFACT PUBLISHING AND WORKFLOW OUTPUTS ===
-      # Upload processed output as workflow artifact for external consumption
-      # Artifacts enable integration with other workflows, external systems, and manual download
-      - name: Upload Terraform Output Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          # === ARTIFACT NAMING STRATEGY ===
-          # Create descriptive artifact name with configuration and run number for uniqueness
-          name: terraform-output-${{ github.event.inputs.configuration }}-${{ github.run_number }}
-          
-          # === ARTIFACT PATH CONFIGURATION ===
-          # Include generated output files with consistent names for Git tracking
-          # Files are stored in centralized outputs directory with configuration context
-          path: |
-            configurations/$config/terraform-output-${{ github.event.inputs.configuration }}.json
-            configurations/$config/terraform-output-${{ github.event.inputs.configuration }}.yaml
-            configurations/$config/terraform-output-${{ github.event.inputs.configuration }}.yml
-
-          # === ARTIFACT RETENTION AND COMPRESSION ===
-          # Configure retention period for compliance and storage optimization
-          retention-days: 30                    # 30-day retention for operational needs
-          if-no-files-found: ignore             # Don't fail if only one format exists
-          compression-level: 6                  # Balanced compression for storage efficiency
 
   # === EXECUTION SUMMARY GENERATION ===
   # Leverage standardized reusable workflow for consistent execution reporting
