@@ -44,6 +44,7 @@ jobs:
 
 **Additional Organization Standards:**
 - Use reusable workflows for common patterns to reduce duplication
+- **REQUIRED**: Reusable workflow names **MUST** start with "♻️" to ensure they appear at the end of the list in the GitHub UI
 - Implement proper job dependencies and conditional execution
 - Follow semantic naming conventions for workflows and jobs
 - Group related actions into composite actions for reusability

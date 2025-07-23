@@ -6,6 +6,32 @@ mode: agent
 
 You are tasked with conducting a comprehensive assessment of the attached repository folder(s) against our established guidelines and standards. This assessment should be thorough, actionable, and consistent with our quality benchmarks.
 
+## 📚 **Applicable Standards & Guidelines**
+
+**MANDATORY**: Always apply these instruction files to your assessment:
+
+### **Universal Standards**
+- **`baseline.instructions.md`** - ALWAYS apply to ALL components regardless of type
+
+### **Component-Specific Standards** 
+Apply the relevant instruction file(s) based on the folder path and content type:
+
+| **Folder Pattern**                | **Instruction File**                | **Example Paths**                                            |
+| --------------------------------- | ----------------------------------- | ------------------------------------------------------------ |
+| `scripts/**`                      | `bash-scripts.instructions.md`      | `scripts/setup/`, `scripts/cleanup/`, `scripts/utils/`       |
+| `docs/**`                         | `docs.instructions.md`              | `docs/guides/`, `docs/references/`, `docs/explanations/`     |
+| `.github/*.yml`, `.github/*.yaml` | `github-automation.instructions.md` | `.github/workflows/`, `.github/actions/`                     |
+| `configurations/**`, `modules/**` | `terraform-iac.instructions.md`     | `configurations/01-dlp-policies/`, `modules/power-platform/` |
+
+### **Assessment Scope Examples**
+- **Assessing `scripts/setup/`** → Apply: `baseline.instructions.md` + `bash-scripts.instructions.md`
+- **Assessing `docs/guides/`** → Apply: `baseline.instructions.md` + `docs.instructions.md`  
+- **Assessing `.github/workflows/`** → Apply: `baseline.instructions.md` + `github-automation.instructions.md`
+- **Assessing `configurations/01-dlp-policies/`** → Apply: `baseline.instructions.md` + `terraform-iac.instructions.md`
+- **Assessing multiple folder types** → Apply: `baseline.instructions.md` + ALL relevant component-specific instructions
+
+**Note**: If the attached folder contains multiple component types, apply ALL relevant instruction files and clearly indicate which standards apply to which parts of your assessment.
+
 ### Phase 1: Comprehensive Validation
 Conduct detailed validation across these dimensions:
 
