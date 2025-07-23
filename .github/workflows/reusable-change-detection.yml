@@ -38,7 +38,7 @@
 # - Output format is optimized for GitHub Actions matrix strategy consumption
 # - All business logic remains in the composite action for maintainability
 
-name: 🔍 Terraform Change Detection
+name: ♻️ Terraform Change Detection
 
 # === WORKFLOW INVOCATION INTERFACE ===
 # This interface provides comprehensive control over change detection behavior
