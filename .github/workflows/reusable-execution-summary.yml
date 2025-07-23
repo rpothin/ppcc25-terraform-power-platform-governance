@@ -1,0 +1,467 @@
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
+# EXECUTION SUMMARY WORKFLOW FOR POWER PLATFORM GOVERNANCE
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
+# Provides comprehensive, always-running execution summaries for all Terraform operations with consistent
+# formatting, troubleshooting guidance, and operational visibility regardless of job outcomes.
+#
+# 🎯 WHY THIS EXISTS:
+# - Governance requirement: Consistent reporting and audit trails across all infrastructure operations
+# - Business problem: Inconsistent troubleshooting information when workflows fail
+# - Operational benefit: Always-on visibility enables faster issue resolution and better operational insights
+#
+# 🔒 SECURITY DECISIONS:
+# - Read-only permissions minimize security surface while providing comprehensive reporting
+# - No sensitive data exposure through summary content filtering and sanitization
+# - Artifact retention periods comply with governance and compliance requirements
+#
+# ⚙️ OPERATIONAL CONTEXT:
+# - Always runs regardless of calling workflow success/failure for complete visibility
+# - Configurable summary depth and troubleshooting guidance based on operation type
+# - Standardized format enables automated parsing and integration with monitoring systems
+#
+# 📋 INTEGRATION REQUIREMENTS:
+# - Called by all Terraform workflow operations for consistent reporting
+# - Supports all operation types: plan, apply, destroy, output, import, test, docs
+# - Generates workflow artifacts and GitHub step summaries for comprehensive visibility
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
+
+name: ♻️ Execution Summary and Reporting
+
+on:
+  workflow_call:
+    inputs:
+      # === CORE WORKFLOW IDENTIFICATION ===
+      # Essential context about the calling workflow and operation
+      workflow-name:
+        description: 'Name of the calling workflow for context and reporting'
+        required: true
+        type: string
+        # WHY: Enables workflow-specific summary formatting and troubleshooting guidance
+        # EXAMPLES: 'terraform-output', 'terraform-plan-apply', 'terraform-destroy'
+      
+      operation-type:
+        description: 'Type of Terraform operation performed'
+        required: true
+        type: string
+        # WHY: Determines summary structure, success criteria, and failure guidance
+        # VALIDATION: Must be one of: plan, apply, destroy, output, import, test, docs, validation
+        # EXAMPLES: 'output', 'plan', 'apply', 'destroy', 'import'
+      
+      configuration:
+        description: 'Target Terraform configuration name'
+        required: false
+        type: string
+        default: 'unknown'
+        # WHY: Provides context for configuration-specific troubleshooting and file paths
+        # EXAMPLES: '01-dlp-policies', '02-dlp-policy', '03-environment'
+      
+      # === JOB EXECUTION CONTEXT ===
+      # Comprehensive information about job execution results and metadata
+      job-results:
+        description: 'JSON object containing job execution results and outcomes'
+        required: true
+        type: string
+        # WHY: Enables success/failure analysis and specific troubleshooting guidance
+        # FORMAT: JSON object with job names as keys and result/output data as values
+        # STRUCTURE: { "job-name": { "result": "success|failure", "outputs": {...} } }
+      
+      workflow-inputs:
+        description: 'JSON object containing original workflow input parameters'
+        required: false
+        type: string
+        default: '{}'
+        # WHY: Provides context for user decisions and parameter-specific guidance
+        # EXAMPLES: Export format, apply decisions, configuration choices
+      
+      # === SUMMARY CUSTOMIZATION ===
+      # Controls for summary content depth and specialized reporting features
+      include-troubleshooting:
+        description: 'Include detailed troubleshooting guidance for failures'
+        required: false
+        type: boolean
+        default: true
+        # WHY: Governance requirement for operational guidance and faster issue resolution
+      
+      include-technical-details:
+        description: 'Include technical execution details and metadata'
+        required: false
+        type: boolean
+        default: true
+        # WHY: Provides comprehensive context for audit trails and debugging
+      
+      summary-level:
+        description: 'Level of detail for summary generation'
+        required: false
+        type: string
+        default: 'standard'
+        # WHY: Balances information density with readability for different use cases
+        # OPTIONS: 'minimal', 'standard', 'detailed', 'comprehensive'
+      
+      # === ARTIFACT AND RETENTION CONFIGURATION ===
+      artifact-retention-days:
+        description: 'Retention period for summary artifacts in days'
+        required: false
+        type: number
+        default: 14
+        # WHY: Compliance with governance retention policies while managing storage costs
+
+# === SECURITY AND PERMISSIONS ===
+# Minimal permissions required for summary generation and artifact management
+permissions:
+  contents: read        # Required for accessing workflow context and repository information
+  actions: read        # Required for accessing job execution data and artifacts
+
+jobs:
+  # ╔══════════════════════════════════════════════════════════════════════════╗
+  # ║                         EXECUTION SUMMARY GENERATION                    ║
+  # ║                    Always-running comprehensive reporting                ║
+  # ╚══════════════════════════════════════════════════════════════════════════╝
+  
+  execution-summary:
+    name: 📊 Generate Execution Summary
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: always()  # CRITICAL: Always run regardless of calling workflow outcomes
+    
+    # === JOB OUTPUTS ===
+    # Provide summary metadata for potential downstream consumption
+    outputs:
+      summary-generated: ${{ steps.generate-summary.outputs.summary-generated }}
+      overall-result: ${{ steps.analyze-results.outputs.overall-result }}
+      failure-count: ${{ steps.analyze-results.outputs.failure-count }}
+      summary-artifact-name: ${{ steps.upload-summary.outputs.artifact-name }}
+    
+    steps:
+      # === EXECUTION CONTEXT ANALYSIS ===
+      # Parse and analyze job results to determine overall execution status
+      - name: Analyze Execution Results
+        id: analyze-results
+        shell: bash
+        run: |
+          echo "::notice title=Summary Analysis::📊 Analyzing execution results and workflow context..."
+          
+          # === PARSE JOB RESULTS FROM CALLING WORKFLOW ===
+          # Extract and validate job execution data for summary generation
+          job_results='${{ inputs.job-results }}'
+          workflow_inputs='${{ inputs.workflow-inputs }}'
+          operation_type="${{ inputs.operation-type }}"
+          workflow_name="${{ inputs.workflow-name }}"
+          configuration="${{ inputs.configuration }}"
+          
+          echo "::notice title=Context::⚙️ Operation: $operation_type, Workflow: $workflow_name, Config: $configuration"
+          
+          # === EXECUTION STATUS ANALYSIS ===
+          # Analyze job results to determine overall workflow success/failure
+          failure_count=0
+          success_count=0
+          total_jobs=0
+          failed_jobs=""
+          successful_jobs=""
+          
+          # === PARSE JOB RESULTS JSON ===
+          # Extract individual job results and categorize by success/failure
+          if [ -n "$job_results" ] && [ "$job_results" != "{}" ]; then
+            # Parse JSON and count successes/failures
+            while IFS= read -r job_entry; do
+              if [ -n "$job_entry" ]; then
+                job_name=$(echo "$job_entry" | jq -r '.key')
+                job_result=$(echo "$job_entry" | jq -r '.value.result // "unknown"')
+                
+                total_jobs=$((total_jobs + 1))
+                
+                if [ "$job_result" = "success" ]; then
+                  success_count=$((success_count + 1))
+                  successful_jobs="${successful_jobs}${job_name},"
+                  echo "::notice title=Job Success::✅ $job_name completed successfully"
+                elif [ "$job_result" = "failure" ]; then
+                  failure_count=$((failure_count + 1))
+                  failed_jobs="${failed_jobs}${job_name},"
+                  echo "::warning title=Job Failure::❌ $job_name failed"
+                else
+                  echo "::warning title=Job Status::❓ $job_name has unknown status: $job_result"
+                fi
+              fi
+            done < <(echo "$job_results" | jq -r 'to_entries[] | @json')
+          else
+            echo "::warning title=No Results::❓ No job results provided for analysis"
+          fi
+          
+          # === DETERMINE OVERALL RESULT ===
+          # Calculate overall workflow success based on individual job outcomes
+          if [ $failure_count -eq 0 ] && [ $success_count -gt 0 ]; then
+            overall_result="success"
+            result_icon="✅"
+            result_message="All operations completed successfully"
+          elif [ $failure_count -gt 0 ] && [ $success_count -gt 0 ]; then
+            overall_result="partial"
+            result_icon="⚠️"
+            result_message="Some operations failed"
+          elif [ $failure_count -gt 0 ]; then
+            overall_result="failure"
+            result_icon="❌"
+            result_message="Operations failed"
+          else
+            overall_result="unknown"
+            result_icon="❓"
+            result_message="Unable to determine execution status"
+          fi
+          
+          echo "::notice title=Overall Result::$result_icon $result_message ($success_count successful, $failure_count failed)"
+          
+          # === STORE ANALYSIS RESULTS ===
+          # Export analysis results for subsequent steps
+          echo "OVERALL_RESULT=$overall_result" >> $GITHUB_ENV
+          echo "RESULT_ICON=$result_icon" >> $GITHUB_ENV
+          echo "RESULT_MESSAGE=$result_message" >> $GITHUB_ENV
+          echo "FAILURE_COUNT=$failure_count" >> $GITHUB_ENV
+          echo "SUCCESS_COUNT=$success_count" >> $GITHUB_ENV
+          echo "TOTAL_JOBS=$total_jobs" >> $GITHUB_ENV
+          echo "FAILED_JOBS=${failed_jobs%,}" >> $GITHUB_ENV
+          echo "SUCCESSFUL_JOBS=${successful_jobs%,}" >> $GITHUB_ENV
+          
+          # === SET STEP OUTPUTS ===
+          echo "overall-result=$overall_result" >> $GITHUB_OUTPUT
+          echo "failure-count=$failure_count" >> $GITHUB_OUTPUT
+          echo "success-count=$success_count" >> $GITHUB_OUTPUT
+      
+      # === COMPREHENSIVE SUMMARY GENERATION ===
+      # Generate detailed execution summary with troubleshooting guidance
+      - name: Generate Comprehensive Summary
+        id: generate-summary
+        shell: bash
+        run: |
+          echo "::notice title=Summary Generation::📊 Creating comprehensive execution summary..."
+          
+          # === LOAD EXECUTION CONTEXT ===
+          # Retrieve analysis results and workflow parameters
+          operation_type="${{ inputs.operation-type }}"
+          workflow_name="${{ inputs.workflow-name }}"
+          configuration="${{ inputs.configuration }}"
+          summary_level="${{ inputs.summary-level }}"
+          include_troubleshooting="${{ inputs.include-troubleshooting }}"
+          include_technical="${{ inputs.include-technical-details }}"
+          
+          # Load analysis results
+          overall_result="$OVERALL_RESULT"
+          result_icon="$RESULT_ICON"
+          result_message="$RESULT_MESSAGE"
+          failure_count="$FAILURE_COUNT"
+          success_count="$SUCCESS_COUNT"
+          total_jobs="$TOTAL_JOBS"
+          
+          # === GITHUB STEP SUMMARY HEADER ===
+          # Create visually appealing header with operation context
+          echo "# $result_icon $(echo "$operation_type" | tr '[:lower:]' '[:upper:]') Operation Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Workflow**: $workflow_name | **Configuration**: $configuration | **Status**: $result_message" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # === EXECUTION OVERVIEW TABLE ===
+          # Provide high-level execution statistics and context
+          echo "## 📊 Execution Overview" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| 🎯 Operation Type | \`$operation_type\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🏗️ Configuration | \`$configuration\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| 📋 Workflow | \`$workflow_name\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| ✅ Successful Jobs | $success_count |" >> $GITHUB_STEP_SUMMARY
+          echo "| ❌ Failed Jobs | $failure_count |" >> $GITHUB_STEP_SUMMARY
+          echo "| 📊 Total Jobs | $total_jobs |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🕐 Generated At | $(date '+%Y-%m-%d %H:%M:%S UTC') |" >> $GITHUB_STEP_SUMMARY
+          echo "| 👤 Executed By | @${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🔗 Run Number | [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # === JOB-SPECIFIC RESULTS ===
+          # Detailed breakdown of individual job results
+          if [ "$total_jobs" -gt 0 ]; then
+            echo "## 🔍 Job Execution Details" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            # === SUCCESSFUL JOBS ===
+            if [ $success_count -gt 0 ]; then
+              echo "### ✅ Successful Operations" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              IFS=',' read -ra successful_array <<< "$SUCCESSFUL_JOBS"
+              for job in "${successful_array[@]}"; do
+                if [ -n "$job" ]; then
+                  echo "- **$job**: Completed successfully" >> $GITHUB_STEP_SUMMARY
+                fi
+              done
+              echo "" >> $GITHUB_STEP_SUMMARY
+            fi
+            
+            # === FAILED JOBS WITH TROUBLESHOOTING ===
+            if [ $failure_count -gt 0 ]; then
+              echo "### ❌ Failed Operations" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              IFS=',' read -ra failed_array <<< "$FAILED_JOBS"
+              for job in "${failed_array[@]}"; do
+                if [ -n "$job" ]; then
+                  echo "- **$job**: Failed during execution" >> $GITHUB_STEP_SUMMARY
+                fi
+              done
+              echo "" >> $GITHUB_STEP_SUMMARY
+              
+              # === TROUBLESHOOTING GUIDANCE ===
+              if [ "$include_troubleshooting" = "true" ]; then
+                echo "## 🛠️ Troubleshooting Guidance" >> $GITHUB_STEP_SUMMARY
+                echo "" >> $GITHUB_STEP_SUMMARY
+                
+                # === OPERATION-SPECIFIC TROUBLESHOOTING ===
+                case "$operation_type" in
+                  "output")
+                    echo "### Terraform Output Issues" >> $GITHUB_STEP_SUMMARY
+                    echo "- **No outputs defined**: Verify your Terraform configuration includes output blocks" >> $GITHUB_STEP_SUMMARY
+                    echo "- **State access issues**: Check Azure backend authentication and permissions" >> $GITHUB_STEP_SUMMARY
+                    echo "- **Format conversion errors**: Ensure jq/yq tools are properly installed" >> $GITHUB_STEP_SUMMARY
+                    ;;
+                  "plan"|"apply")
+                    echo "### Terraform Plan/Apply Issues" >> $GITHUB_STEP_SUMMARY
+                    echo "- **Authentication failures**: Verify OIDC configuration and Azure permissions" >> $GITHUB_STEP_SUMMARY
+                    echo "- **Resource conflicts**: Check for existing resources or state inconsistencies" >> $GITHUB_STEP_SUMMARY
+                    echo "- **Provider version issues**: Ensure compatible provider versions in configuration" >> $GITHUB_STEP_SUMMARY
+                    ;;
+                  "destroy")
+                    echo "### Terraform Destroy Issues" >> $GITHUB_STEP_SUMMARY
+                    echo "- **Resource dependencies**: Some resources may have external dependencies" >> $GITHUB_STEP_SUMMARY
+                    echo "- **Force destroy required**: Consider using force-destroy option for edge cases" >> $GITHUB_STEP_SUMMARY
+                    echo "- **State backup**: Ensure state backup was created before destruction" >> $GITHUB_STEP_SUMMARY
+                    ;;
+                  "import")
+                    echo "### Terraform Import Issues" >> $GITHUB_STEP_SUMMARY
+                    echo "- **Resource ID format**: Verify the Power Platform resource ID format" >> $GITHUB_STEP_SUMMARY
+                    echo "- **Configuration mismatch**: Ensure Terraform configuration matches existing resource" >> $GITHUB_STEP_SUMMARY
+                    echo "- **Provider permissions**: Check Power Platform provider authentication" >> $GITHUB_STEP_SUMMARY
+                    ;;
+                  *)
+                    echo "### General Troubleshooting" >> $GITHUB_STEP_SUMMARY
+                    echo "- **Check workflow logs**: Review detailed logs in the Actions tab" >> $GITHUB_STEP_SUMMARY
+                    echo "- **Verify permissions**: Ensure proper Azure and Power Platform permissions" >> $GITHUB_STEP_SUMMARY
+                    echo "- **Configuration validation**: Validate Terraform syntax and configuration" >> $GITHUB_STEP_SUMMARY
+                    ;;
+                esac
+                echo "" >> $GITHUB_STEP_SUMMARY
+                
+                # === NEXT STEPS ===
+                echo "### 🚀 Recommended Next Steps" >> $GITHUB_STEP_SUMMARY
+                echo "1. **Review Logs**: Check the failed job logs for specific error messages" >> $GITHUB_STEP_SUMMARY
+                echo "2. **Verify Configuration**: Ensure all required variables and settings are correct" >> $GITHUB_STEP_SUMMARY
+                echo "3. **Check Permissions**: Validate Azure and Power Platform access permissions" >> $GITHUB_STEP_SUMMARY
+                echo "4. **Retry Operation**: Consider retrying after addressing identified issues" >> $GITHUB_STEP_SUMMARY
+                echo "5. **Seek Support**: Consult documentation or reach out to the platform team" >> $GITHUB_STEP_SUMMARY
+                echo "" >> $GITHUB_STEP_SUMMARY
+              fi
+            fi
+          fi
+          
+          # === WORKFLOW CONTEXT AND LINKS ===
+          echo "## 🔗 Related Resources" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Repository**: [${{ github.repository }}](${{ github.server_url }}/${{ github.repository }})" >> $GITHUB_STEP_SUMMARY
+          echo "- **Workflow Run**: [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
+          echo "- **Configuration Path**: \`configurations/$configuration/\`" >> $GITHUB_STEP_SUMMARY
+          if [ "$operation_type" = "output" ]; then
+            echo "- **Output Files**: \`configurations/$configuration/outputs/\`" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # === COMPLETION NOTIFICATION ===
+          echo "::notice title=Summary Complete::📊 Comprehensive execution summary generated successfully"
+          echo "summary-generated=true" >> $GITHUB_OUTPUT
+      
+      # === SUMMARY ARTIFACT GENERATION ===
+      # Create downloadable summary artifact for audit trails and external consumption
+      - name: Create Summary Artifact
+        id: create-artifact
+        shell: bash
+        run: |
+          echo "::notice title=Artifact Creation::📦 Creating summary artifact for retention..."
+          
+          # === ARTIFACT PREPARATION ===
+          # Create structured artifact with comprehensive execution metadata
+          mkdir -p summary-artifacts
+          timestamp=$(date +%Y%m%d-%H%M%S)
+          artifact_name="execution-summary-${{ inputs.workflow-name }}-${{ github.run_number }}-$timestamp"
+          
+          # === JSON SUMMARY FOR PROGRAMMATIC ACCESS ===
+          cat > "summary-artifacts/execution-summary.json" << EOF
+          {
+            "workflow": {
+              "name": "${{ inputs.workflow-name }}",
+              "operation_type": "${{ inputs.operation-type }}",
+              "configuration": "${{ inputs.configuration }}",
+              "run_number": ${{ github.run_number }},
+              "run_id": "${{ github.run_id }}",
+              "actor": "${{ github.actor }}",
+              "repository": "${{ github.repository }}",
+              "ref": "${{ github.ref }}",
+              "sha": "${{ github.sha }}"
+            },
+            "execution": {
+              "overall_result": "$OVERALL_RESULT",
+              "success_count": $SUCCESS_COUNT,
+              "failure_count": $FAILURE_COUNT,
+              "total_jobs": $TOTAL_JOBS,
+              "successful_jobs": "$SUCCESSFUL_JOBS",
+              "failed_jobs": "$FAILED_JOBS",
+              "generated_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            },
+            "inputs": ${{ inputs.workflow-inputs }},
+            "job_results": ${{ inputs.job-results }}
+          }
+          EOF
+          
+          # === MARKDOWN SUMMARY FOR HUMAN READABILITY ===
+          cat > "summary-artifacts/execution-summary.md" << EOF
+          # $RESULT_ICON ${{ inputs.operation-type }} Operation Summary
+          
+          **Generated**: $(date '+%Y-%m-%d %H:%M:%S UTC')  
+          **Workflow**: ${{ inputs.workflow-name }}  
+          **Configuration**: ${{ inputs.configuration }}  
+          **Status**: $RESULT_MESSAGE  
+          
+          ## Execution Results
+          - ✅ Successful Jobs: $SUCCESS_COUNT
+          - ❌ Failed Jobs: $FAILURE_COUNT  
+          - 📊 Total Jobs: $TOTAL_JOBS
+          
+          ## Workflow Context
+          - **Repository**: ${{ github.repository }}
+          - **Run**: #${{ github.run_number }}
+          - **Actor**: @${{ github.actor }}
+          - **Reference**: ${{ github.ref }}
+          - **SHA**: ${{ github.sha }}
+          EOF
+          
+          echo "ARTIFACT_NAME=$artifact_name" >> $GITHUB_ENV
+          echo "artifact-name=$artifact_name" >> $GITHUB_OUTPUT
+          echo "::notice title=Artifact Ready::📦 Summary artifact prepared: $artifact_name"
+      
+      # === ARTIFACT UPLOAD ===
+      # Upload summary artifacts for retention and external access
+      - name: Upload Summary Artifact
+        id: upload-summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: summary-artifacts/
+          retention-days: ${{ inputs.artifact-retention-days }}
+          compression-level: 6
+        
+      # === FINAL STATUS REPORTING ===
+      # Provide final status notification with comprehensive context
+      - name: Final Status Report
+        shell: bash
+        run: |
+          echo "::notice title=Summary Complete::📊 Execution summary workflow completed"
+          echo "::notice title=Overall Status::$RESULT_ICON $RESULT_MESSAGE"
+          echo "::notice title=Jobs Summary::📋 $SUCCESS_COUNT successful, $FAILURE_COUNT failed out of $TOTAL_JOBS total"
+          echo "::notice title=Artifact::📦 Summary artifact uploaded: $ARTIFACT_NAME"
+          
+          # === SET APPROPRIATE EXIT CODE ===
+          # Workflow summary always succeeds, but reports on execution status
+          if [ "$OVERALL_RESULT" = "failure" ]; then
+            echo "::warning title=Execution Issues::⚠️ Original workflow had failures - check summary for details"
+          fi

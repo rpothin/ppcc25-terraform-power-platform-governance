@@ -537,136 +537,19 @@ jobs:
           retention-days: 30                    # 30-day retention for operational needs
           if-no-files-found: ignore             # Don't fail if only one format exists
           compression-level: 6                  # Balanced compression for storage efficiency
-      
-      # === EXECUTION SUMMARY AND WORKFLOW REPORTING ===
-      # Generate comprehensive execution summary for GitHub workflow visibility
-      # Provides detailed information about processing results, file locations, and operational context
-      - name: Generate Execution Summary
-        run: |
-          # === PARAMETER COLLECTION FOR SUMMARY GENERATION ===
-          # Gather all essential information from workflow inputs and step outputs
-          config="${{ github.event.inputs.configuration }}"
-          export_format="${{ github.event.inputs.export_format }}"
-          output_filename="${{ steps.process-output.outputs.output-filename }}"
-          include_metadata="${{ github.event.inputs.include_metadata }}"
-          is_summary="${{ steps.process-output.outputs.output-is-summary || 'false' }}"
-          archive_filename="${{ steps.process-output.outputs.archive-filename || '' }}"
-          file_size_mb="${{ steps.process-output.outputs.file-size-mb }}"
-          
-          # === METADATA INTEGRATION FROM REUSABLE WORKFLOW ===
-          # Leverage comprehensive metadata from reusable-terraform-base workflow
-          # This provides consistent metadata across all Terraform operations
-          operation_metadata='${{ needs.terraform-output.outputs.operation-metadata }}'
-          
-          echo "::notice title=Summary Generation::📊 Creating comprehensive execution summary"
-          
-          # === EXTRACT KEY METADATA FIELDS ===
-          # Parse essential metadata fields from the reusable workflow output
-          if [ -n "$operation_metadata" ] && [ "$operation_metadata" != "null" ]; then
-            terraform_version=$(echo "$operation_metadata" | jq -r '.terraform_version // "unknown"')
-            terraform_provider_versions=$(echo "$operation_metadata" | jq -r '.provider_versions // {} | to_entries | map("\(.key): \(.value)") | join(", ") // "none"')
-            execution_duration=$(echo "$operation_metadata" | jq -r '.execution_duration // "unknown"')
-            operation_timestamp=$(echo "$operation_metadata" | jq -r '.timestamp // "unknown"')
-          else
-            terraform_version="unknown"
-            terraform_provider_versions="unknown"
-            execution_duration="unknown"
-            operation_timestamp="unknown"
-          fi
-          
-          # === GITHUB STEP SUMMARY HEADER ===
-          # Create visually appealing header with workflow context
-          echo "## 🔍 Terraform Output Processing Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📋 Processing Details" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          # === PROCESSING DETAILS TABLE ===
-          # Create comprehensive table with all processing parameters and results
-          echo "| Parameter | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "|-----------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| 🏗️ Configuration | \`$config\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| 📄 Export Format | \`$export_format\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| 📁 Output File | \`$output_filename\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| 📋 Include Metadata | \`$include_metadata\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| ⚙️ Processing Mode | $([ "$is_summary" = "true" ] && echo "**Large File Summary** (${file_size_mb}MB)" || echo "Standard (${file_size_mb}MB)") |" >> $GITHUB_STEP_SUMMARY
-          echo "| 🕐 Generated At | $(date +%Y-%m-%d\ %H:%M:%S) UTC |" >> $GITHUB_STEP_SUMMARY
-          echo "| 👤 Executed By | @${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| 🔗 Workflow Run | [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          # === TERRAFORM OPERATION DETAILS FROM REUSABLE WORKFLOW ===
-          # Include comprehensive Terraform operation metadata for full context
-          echo "### 🔧 Terraform Operation Details" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Detail | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| 🔨 Terraform Version | \`$terraform_version\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| 🔌 Provider Versions | \`$terraform_provider_versions\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| ⏱️ Execution Duration | \`$execution_duration\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| 📅 Operation Timestamp | \`$operation_timestamp\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| 📊 Operation Type | \`terraform output\` |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          # === PROCESSING MODE-SPECIFIC INFORMATION ===
-          # Provide detailed information based on whether large file processing was used
-          if [ "$is_summary" = "true" ]; then
-            # === LARGE FILE PROCESSING NOTIFICATION ===
-            # Provide specific information for large file processing scenarios
-            echo "### ⚠️ Large Dataset Processing" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "Due to the large size of the Terraform output data (${file_size_mb}MB), the system has created optimized outputs:" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**📄 Generated Files:**" >> $GITHUB_STEP_SUMMARY
-            echo "- **Summary File**: \`configurations/$config/outputs/$output_filename\`" >> $GITHUB_STEP_SUMMARY
-            echo "  - Contains metadata, statistics, and key information" >> $GITHUB_STEP_SUMMARY
-            echo "  - Optimized for quick review and programmatic access" >> $GITHUB_STEP_SUMMARY
-            if [ -n "$archive_filename" ]; then
-              echo "- **Compressed Archive**: \`configurations/$config/outputs/$archive_filename\`" >> $GITHUB_STEP_SUMMARY
-              echo "  - Complete dataset in compressed format" >> $GITHUB_STEP_SUMMARY
-              echo "  - Preserves all original data with space efficiency" >> $GITHUB_STEP_SUMMARY
-            fi
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "### 📊 Why Summary Mode?" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "Large Terraform outputs (>50MB) require special handling to prevent:" >> $GITHUB_STEP_SUMMARY
-            echo "- 💾 Memory exhaustion during processing" >> $GITHUB_STEP_SUMMARY
-            echo "- 📏 Shell command length limitations" >> $GITHUB_STEP_SUMMARY
-            echo "- 🗂️ Git repository bloat and performance issues" >> $GITHUB_STEP_SUMMARY
-            echo "- ⏱️ Slow download/upload times and timeouts" >> $GITHUB_STEP_SUMMARY
-            echo "- 🔧 Workflow processing failures" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**💡 Solution**: Summary + compressed archive provides optimal balance of accessibility and performance!" >> $GITHUB_STEP_SUMMARY
-          else
-            # === STANDARD PROCESSING SUCCESS NOTIFICATION ===
-            # Provide success information for standard processing scenarios
-            echo "### ✅ Standard Processing Complete" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "Terraform output has been successfully extracted and formatted with all data preserved:" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**📁 Generated File:**" >> $GITHUB_STEP_SUMMARY
-            echo "- **Output Location**: \`configurations/$config/outputs/$output_filename\`" >> $GITHUB_STEP_SUMMARY
-            echo "- **Format**: $export_format ($(echo "$export_format" | tr '[:lower:]' '[:upper:]')) format)" >> $GITHUB_STEP_SUMMARY
-            echo "- **Metadata Included**: $include_metadata" >> $GITHUB_STEP_SUMMARY
-            echo "- **File Size**: ${file_size_mb}MB (within standard processing limits)" >> $GITHUB_STEP_SUMMARY
-            echo "- **Processing Mode**: Standard - Complete data included" >> $GITHUB_STEP_SUMMARY
-          fi
-          
-          # === AVAILABILITY AND ACCESS INFORMATION ===
-          # Provide information about where and how to access the generated outputs
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📂 Output Availability" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Repository Access:**" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ **Committed to Repository**: Available in main branch permanently" >> $GITHUB_STEP_SUMMARY
-          echo "- 🔗 **Direct Path**: \`configurations/$config/outputs/$output_filename\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Artifact Access:**" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ **Workflow Artifact**: Available for download for 30 days" >> $GITHUB_STEP_SUMMARY
-          echo "- 📦 **Artifact Name**: \`terraform-output-$config-${{ github.run_number }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          # === WORKFLOW COMPLETION NOTIFICATION ===
-          # Final success notification for comprehensive summary
-          echo "::notice title=Summary Complete::📊 Comprehensive execution summary generated"
-          echo "::notice title=Workflow Status::✅ All terraform-output processing operations completed successfully"
+
+  # === EXECUTION SUMMARY GENERATION ===
+  # Leverage standardized reusable workflow for consistent execution reporting
+  # Provides comprehensive summary with troubleshooting guidance and artifact information
+  execution-summary:
+    name: "🎯 Execution Summary"
+    needs: terraform-output
+    uses: ./.github/workflows/reusable-execution-summary.yml
+    if: always()
+    with:
+      workflow-name: "Terraform Output Processing"
+      operation-type: "output-extraction"
+      job-results: ${{ toJson(needs) }}
+      metadata: ${{ needs.terraform-output.outputs.operation-metadata }}
+      include-troubleshooting: true
+      include-artifacts: true

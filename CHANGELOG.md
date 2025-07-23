@@ -28,7 +28,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **DLP Policies Export** (`configurations/01-dlp-policies/`) - Export current Data Loss Prevention policies for migration analysis
   - **DLP Policy Management** (`configurations/02-dlp-policy/`) - Create and manage specific DLP policies with multiple tfvars examples:
     - Finance-specific DLP policy (`tfvars/dlp-finance.tfvars`)
-    - HR-specific DLP policy (`tfvars/dlp-hr.tfvars`) 
+    - HR-specific DLP policy (`tfvars/dlp-hr.tfvars`)
+
+### Changed
+- **GitHub Actions Workflows**
+  - **Terraform Output Workflow** (`terraform-output.yml`) - Updated commenting style to follow GitHub automation standards, integrated metadata consumption from reusable workflow, replaced inline execution summary with reusable summary workflow for consistency 
     - General business DLP policy (`tfvars/dlp-general.tfvars`)
   - **Environment Management** (`configurations/03-environment/`) - Power Platform environment configuration with tfvars examples:
     - Production environment (`tfvars/env-production.tfvars`)
@@ -49,6 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Validation suite (`reusable-validation-suite.yml`) for quality assurance
     - Documentation generation (`reusable-docs-generation.yml`)
     - Artifact management (`reusable-artifact-management.yml`)
+    - Reusable Execution Summary Workflow (`reusable-execution-summary.yml`) for standardized execution reporting across all workflows with always-on visibility for troubleshooting
 
 - **Custom GitHub Actions**
   - **Terraform Change Detection** (`actions/detect-terraform-changes/`) - Intelligent detection of changed configurations for optimized CI/CD
