@@ -1,17 +1,32 @@
 ---
-# ╔══════════════════════════════════════════════════════════════════════════╗
-# ║                   📦 ARTIFACT MANAGEMENT REUSABLE WORKFLOW              ║
-# ║                       Enterprise-Grade Artifact Handling                ║
-# ╠══════════════════════════════════════════════════════════════════════════╣
-# ║ Provides standardized artifact upload capabilities with configurable    ║
-# ║ retention policies, consistent naming conventions, and comprehensive     ║
-# ║ metadata handling for all terraform workflows. Eliminates artifact      ║
-# ║ management code duplication and ensures enterprise compliance.          ║
-# ╚══════════════════════════════════════════════════════════════════════════╝
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
+# TERRAFORM ARTIFACT MANAGEMENT WORKFLOW FOR POWER PLATFORM GOVERNANCE
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
+# Provides standardized artifact upload capabilities with configurable retention policies, consistent
+# naming conventions, and comprehensive metadata handling for all terraform workflows.
+#
+# 🎯 WHY THIS EXISTS:
+# - Governance requirement: Audit trails for all infrastructure changes and deployments
+# - Business problem: Manual artifact management leads to inconsistent retention and naming
+# - Operational benefit: Centralized artifact handling reduces duplication across workflows
+#
+# 🔒 SECURITY DECISIONS:
+# - Limited permissions to read contents and actions only for artifact operations
+# - No sensitive data exposure through artifact names or metadata
+# - Retention policies prevent indefinite storage of potentially sensitive outputs
+#
+# ⚙️ OPERATIONAL CONTEXT:
+# - No concurrency controls needed as artifact uploads are independent operations
+# - Short timeout prevents hanging uploads from blocking other workflows
+# - Multiple trigger patterns support both reusable calls and manual testing
+#
+# 📋 INTEGRATION REQUIREMENTS:
+# - Used by terraform-plan-apply.yml for plan file and output management
+# - Integrates with GitHub Actions artifact storage with automatic cleanup
+# - Standardized naming prevents artifact conflicts across configurations
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
 
-name: 🏗️ Artifact Management
-# WORKFLOW_DISPATCH: Manual testing and troubleshooting capabilities
-# WORKFLOW_CALL: Primary usage as reusable workflow component
+name: ♻️ Artifact Management
 
 on:
   workflow_call:
@@ -22,6 +37,9 @@ on:
           Unique name for the artifact (without automatic suffixes)
         required: true
         type: string
+        # WHY: Base name enables consistent identification across workflows
+        # VALIDATION: Must be non-empty and valid for GitHub artifact naming
+        # EXAMPLES: 'terraform-plan', 'terraform-output', 'security-scan-results'
 
       artifact-path:
         description: >-
@@ -29,6 +47,9 @@ on:
           (supports multi-line patterns)
         required: true
         type: string
+        # WHY: Flexible path specification supports both single files and directory patterns
+        # VALIDATION: Paths must exist relative to repository root
+        # EXAMPLES: '*.tfplan', 'outputs-*.json', 'configurations/*/README.md'
 
       # === RETENTION AND LIFECYCLE MANAGEMENT ===
       retention-days:
@@ -38,6 +59,9 @@ on:
         required: false
         type: number
         default: 14
+        # WHY: Configurable retention balances storage costs with audit requirements
+        # GOVERNANCE: Minimum retention supports compliance and troubleshooting needs
+        # LIMITS: GitHub Actions maximum retention is 400 days
 
       # === NAMING AND IDENTIFICATION ===
       include-run-number:
@@ -46,6 +70,9 @@ on:
         required: false
         type: boolean
         default: true
+        # WHY: Run numbers ensure unique artifact names across workflow executions
+        # GOVERNANCE: Supports audit trails by linking artifacts to specific runs
+        # DEFAULT: True because most use cases benefit from unique naming
 
       include-configuration:
         description: >-
@@ -54,12 +81,18 @@ on:
         required: false
         type: boolean
         default: false
+        # WHY: Configuration names enable filtering artifacts by infrastructure scope
+        # GOVERNANCE: Essential for multi-configuration deployments
+        # DEPENDENCY: Requires configuration-name parameter when enabled
 
       configuration-name:
         description: 'Configuration name to include in artifact name'
         required: false
         type: string
         default: ''
+        # WHY: Identifies specific configuration for scope-based artifact management
+        # VALIDATION: Must match existing configuration directory when used
+        # EXAMPLES: '01-dlp-policies', '02-dlp-policy', '03-environment'
 
       include-tfvars-file:
         description: >-
@@ -68,12 +101,18 @@ on:
         required: false
         type: boolean
         default: false
+        # WHY: Environment-specific naming supports parallel deployments
+        # GOVERNANCE: Prevents artifact conflicts between environments
+        # DEPENDENCY: Requires tfvars-file parameter when enabled
 
       tfvars-file:
         description: 'Tfvars file identifier to include in artifact name'
         required: false
         type: string
         default: 'default'
+        # WHY: Environment identification enables environment-specific artifact tracking
+        # VALIDATION: Should match tfvars file naming convention
+        # EXAMPLES: 'dev', 'prod', 'dlp-finance', 'env-development'
 
       # === METADATA AND DOCUMENTATION ===
       artifact-description:
@@ -82,6 +121,9 @@ on:
         required: false
         type: string
         default: ''
+        # WHY: Improves artifact discoverability and understanding
+        # GOVERNANCE: Supports documentation requirements for audit trails
+        # FALLBACK: Auto-generated description when not provided
 
       # === EXECUTION CONTROL ===
       continue-on-error:
@@ -90,6 +132,9 @@ on:
         required: false
         type: boolean
         default: true
+        # WHY: Artifact upload failures shouldn't block critical deployment operations
+        # OPERATIONAL: Allows infrastructure operations to complete despite storage issues
+        # SECURITY: Default true prevents deployment interruptions from storage problems
 
       upload-condition:
         description: >-
@@ -97,6 +142,9 @@ on:
         required: false
         type: string
         default: 'always'
+        # WHY: Flexible upload conditions support debugging and audit requirements
+        # GOVERNANCE: 'always' ensures artifacts available for failure analysis
+        # OPTIONS: 'always', 'success', 'failure' for different use cases
 
   workflow_dispatch:
     inputs:
@@ -106,37 +154,37 @@ on:
         required: true
         type: string
         default: 'test-artifact'
+        # WHY: Manual testing requires simple, predictable naming
 
       artifact-path:
         description: 'Test artifact path (use README.md for testing)'
         required: true
         type: string
         default: 'README.md'
+        # WHY: README.md provides reliable test file that always exists
 
       retention-days:
         description: 'Test retention period'
         required: false
         type: number
         default: 1
+        # WHY: Short retention for testing minimizes storage usage
 
       include-run-number:
         description: 'Include run number in name'
         required: false
         type: boolean
         default: true
+        # WHY: Maintains consistency with reusable workflow defaults
 
-# ══════════════════════════════════════════════════════════════════════════════
-#                              🔐 SECURITY AND PERMISSIONS
-# ══════════════════════════════════════════════════════════════════════════════
-
+# === SECURITY AND PERMISSIONS ===
+# Limited permissions following principle of least privilege
+# Only artifact and content operations needed for upload functionality
 permissions:
   contents: read              # Read repository contents
   actions: read              # Read workflow artifacts
 
-# ══════════════════════════════════════════════════════════════════════════════
-#                                🎯 WORKFLOW EXECUTION
-# ══════════════════════════════════════════════════════════════════════════════
-
+# === WORKFLOW EXECUTION ===
 jobs:
   # ╔══════════════════════════════════════════════════════════════════════════╗
   # ║                           ARTIFACT UPLOAD JOB                           ║
@@ -147,12 +195,11 @@ jobs:
     name: 📦 Upload Artifact
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # WHY: Short timeout prevents hanging uploads from affecting other workflows
 
     steps:
-      # ════════════════════════════════════════════════════════════════════════
-      #                        🔍 ARTIFACT NAME GENERATION
-      # ════════════════════════════════════════════════════════════════════════
-
+      # === ARTIFACT NAME GENERATION ===
+      # Build standardized artifact name based on configuration inputs
       - name: Generate Artifact Name
         id: artifact-name
         run: |
@@ -194,10 +241,8 @@ jobs:
           echo "::notice title=Artifact Name::📦 Generated artifact name: $ARTIFACT_NAME"
           echo "::endgroup::"
 
-      # ════════════════════════════════════════════════════════════════════════
-      #                  📋 ARTIFACT VALIDATION AND PREPARATION
-      # ════════════════════════════════════════════════════════════════════════
-
+      # === ARTIFACT VALIDATION AND PREPARATION ===
+      # Validates configuration parameters before upload to prevent failures
       - name: Validate Artifact Configuration
         run: |
           echo "::group::🔍 Artifact Configuration Validation"
@@ -237,10 +282,8 @@ jobs:
           echo "::notice title=Validation Complete::✅ All artifact configuration parameters validated successfully"
           echo "::endgroup::"
 
-      # ════════════════════════════════════════════════════════════════════════
-      #                     📦 STANDARDIZED ARTIFACT UPLOAD
-      # ════════════════════════════════════════════════════════════════════════
-
+      # === STANDARDIZED ARTIFACT UPLOAD ===
+      # Upload artifact with comprehensive metadata and flexible condition handling
       - name: Upload Artifact
         if: >-
           ${{ inputs.upload-condition == 'always' ||
@@ -271,10 +314,8 @@ jobs:
             • Commit SHA: ${{ github.sha }}
         continue-on-error: ${{ inputs.continue-on-error }}
 
-      # ════════════════════════════════════════════════════════════════════════
-      #                      📊 UPLOAD SUMMARY AND REPORTING
-      # ════════════════════════════════════════════════════════════════════════
-
+      # === UPLOAD SUMMARY AND REPORTING ===
+      # Provides comprehensive summary regardless of upload success/failure
       - name: Artifact Upload Summary
         if: always()
         run: |
@@ -309,63 +350,3 @@ jobs:
 
           echo "::notice title=Upload Complete::📦 Artifact upload process completed - check workflow artifacts for results"
           echo "::endgroup::"
-
-# ══════════════════════════════════════════════════════════════════════════════
-#                              📋 WORKFLOW DOCUMENTATION
-# ══════════════════════════════════════════════════════════════════════════════
-
-# ARTIFACT MANAGEMENT PATTERNS:
-#
-# 1. TERRAFORM PLANS (Short-term retention)
-#    - retention-days: 7
-#    - include-run-number: true
-#    - include-configuration: true
-#    - Purpose: Plan files for immediate apply operations
-#
-# 2. TERRAFORM OUTPUTS (Medium-term retention)
-#    - retention-days: 30
-#    - include-run-number: true
-#    - include-configuration: true
-#    - Purpose: Output values for reference and downstream workflows
-#
-# 3. SECURITY SCANS (Development feedback)
-#    - retention-days: 14
-#    - include-run-number: true
-#    - Purpose: Security scan results for developer review
-#
-# 4. TEST RESULTS (Development feedback)
-#    - retention-days: 14
-#    - include-run-number: true
-#    - Purpose: Test execution results and validation reports
-#
-# 5. DESTROY METADATA (Long-term audit)
-#    - retention-days: 30
-#    - include-run-number: true
-#    - include-configuration: true
-#    - Purpose: Destruction audit trail for compliance
-#
-# USAGE EXAMPLES:
-#
-# Basic artifact upload:
-#   uses: ./.github/workflows/reusable-artifact-management.yml
-#   with:
-#     artifact-name: 'terraform-plan'
-#     artifact-path: '*.tfplan'
-#     retention-days: 7
-#
-# Configuration-specific output:
-#   uses: ./.github/workflows/reusable-artifact-management.yml
-#   with:
-#     artifact-name: 'terraform-output'
-#     artifact-path: 'outputs-*.json'
-#     retention-days: 30
-#     include-configuration: true
-#     configuration-name: ${{ inputs.configuration }}
-#
-# Security scan results:
-#   uses: ./.github/workflows/reusable-artifact-management.yml
-#   with:
-#     artifact-name: 'security-scan-results'
-#     artifact-path: 'trivy-results.sarif'
-#     retention-days: 14
-#     artifact-description: 'Trivy security scan results in SARIF format'

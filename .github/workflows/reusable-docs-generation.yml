@@ -1,45 +1,29 @@
-# Terraform Documentation Generation Reusable Workflow
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
+# TERRAFORM DOCUMENTATION GENERATION WORKFLOW FOR POWER PLATFORM GOVERNANCE
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
+# Provides comprehensive, standardized approach to generating and maintaining Terraform documentation
+# using terraform-docs with batch processing and automated commit capabilities.
 #
-# This reusable workflow provides a comprehensive, standardized approach to generating
-# and maintaining Terraform documentation using terraform-docs. It consolidates
-# documentation generation logic from multiple workflows and enables both batch
-# processing and targeted documentation updates.
+# 🎯 WHY THIS EXISTS:
+# - Governance requirement: Consistent documentation standards across all configurations
+# - Business problem: Manual documentation maintenance leads to outdated and inconsistent docs
+# - Operational benefit: Automated documentation generation eliminates manual overhead
 #
-# Key Benefits:
-# - Eliminates documentation generation code duplication across terraform-docs.yml
-# - Provides consistent terraform-docs configuration and formatting across all paths
-# - Enables batch processing of multiple configurations/modules efficiently
-# - Standardizes documentation commit messages and pull request comments
-# - Includes comprehensive error handling and validation for robust operation
+# 🔒 SECURITY DECISIONS:
+# - GitHub token with write permissions required for automated documentation commits
+# - Git configuration uses GitHub Actions bot identity to maintain audit trails
+# - Branch reference validation prevents unauthorized commits to protected branches
 #
-# Architecture:
-# This workflow uses a single-job architecture that processes multiple paths
-# in sequence, with intelligent validation and error handling for each path.
-# It supports both automatic change detection and manual path specification.
+# ⚙️ OPERATIONAL CONTEXT:
+# - Moderate timeout allows processing multiple paths with terraform-docs generation
+# - No concurrency controls needed as documentation generation doesn't conflict
+# - Batch processing reduces workflow overhead compared to individual path processing
 #
-# Performance Impact:
-# - Batch processing reduces workflow overhead by ~70%
-# - Smart validation prevents unnecessary processing of invalid paths
-# - Configurable docker image versions ensure consistent output
-# - Parallel-friendly design enables future optimization if needed
-#
-# Usage Patterns:
-# - Primary: terraform-docs.yml comprehensive documentation generation
-# - Secondary: terraform-plan-apply.yml pre-deployment documentation updates
-# - Development: Targeted updates for specific configurations during development
-# - CI/CD: Automated documentation maintenance in pull request workflows
-#
-# Dependencies:
-# - quay.io/terraform-docs/terraform-docs (configurable version)
-# - .terraform-docs.yml configuration files in target directories
-# - _header.md and _footer.md files (optional, for customization)
-# - GitHub token with write permissions for committing changes
-#
-# Maintenance Notes:
-# - Documentation generation logic is centralized here to eliminate duplication
-# - terraform-docs version can be configured via input parameter
-# - Commit message format follows conventional commit standards
-# - Error handling ensures partial failures don't break entire workflow
+# 📋 INTEGRATION REQUIREMENTS:
+# - Used by terraform-docs.yml for comprehensive documentation maintenance
+# - Depends on terraform-docs Docker image for consistent output formatting
+# - Integrates with Git for automated commit and push operations
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
 
 name: ♻️ Terraform Documentation Generation
 
@@ -153,6 +137,7 @@ jobs:
     name: 📚 Generate Documentation
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # WHY: Moderate timeout allows processing multiple configurations without blocking CI/CD
     
     # === JOB OUTPUTS ===
     outputs:
@@ -163,7 +148,8 @@ jobs:
       metadata: ${{ steps.generate-metadata.outputs.metadata }}
     
     steps:
-      # === STEP 1: SOURCE CODE ACCESS ===
+      # === SOURCE CODE ACCESS ===
+      # Retrieves repository source with specific branch handling for pull requests
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
@@ -174,7 +160,8 @@ jobs:
           # Need full history for git operations
           fetch-depth: 0
       
-      # === STEP 2: GIT CONFIGURATION ===
+      # === GIT CONFIGURATION ===
+      # Configures Git for automated commits using GitHub Actions bot identity
       - name: Configure Git
         run: |
           echo "::notice title=Git Setup::🔧 Configuring Git for automated commits..."
@@ -185,7 +172,8 @@ jobs:
           
           echo "::notice title=Git Configured::✅ Git configured for automated documentation commits"
       
-      # === STEP 3: DOCUMENTATION GENERATION ===
+      # === DOCUMENTATION GENERATION ===
+      # Processes multiple paths with terraform-docs, handling validation and error cases
       - name: Process Target Paths
         id: process-paths
         run: |
@@ -304,7 +292,8 @@ jobs:
             echo "::endgroup::"
           fi
       
-      # === STEP 4: CHANGE DETECTION ===
+      # === CHANGE DETECTION ===
+      # Analyzes git diff to determine if documentation was actually modified
       - name: Detect Documentation Changes
         id: detect-changes
         run: |

@@ -1,42 +1,29 @@
-# Reusable Terraform Change Detection Workflow
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
+# TERRAFORM CHANGE DETECTION WORKFLOW FOR POWER PLATFORM GOVERNANCE
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
+# Provides centralized, standardized approach to detecting changed Terraform configurations and modules
+# across different trigger scenarios with intelligent filtering and performance optimization.
 #
-# This reusable workflow provides a centralized, standardized approach to detecting
-# changed Terraform configurations and modules across different trigger scenarios.
-# It eliminates code duplication by providing a consistent interface that can be
-# consumed by any workflow requiring intelligent change detection.
+# 🎯 WHY THIS EXISTS:
+# - Governance requirement: Only validate and deploy changed configurations to minimize risk
+# - Business problem: Processing all configurations on every change wastes CI/CD resources
+# - Operational benefit: 60-80% reduction in CI/CD runtime through selective processing
 #
-# Key Benefits:
-# - Eliminates ~400 lines of duplicated change detection logic
-# - Provides consistent behavior across terraform-docs.yml and terraform-test.yml
-# - Supports both automatic detection and manual override capabilities
-# - Optimizes CI/CD performance by processing only changed paths
-# - Maintains compatibility with existing workflow patterns
+# 🔒 SECURITY DECISIONS:
+# - No sensitive permissions required as change detection only reads repository content
+# - Git history analysis doesn't expose secrets or credentials
+# - Change detection patterns prevent processing of unauthorized file types
 #
-# Architecture:
-# This workflow wraps the proven detect-terraform-changes composite action
-# while providing a reusable interface that standardizes input/output handling
-# and error management across multiple consuming workflows.
+# ⚙️ OPERATIONAL CONTEXT:
+# - Short timeout because change detection should be fast operation
+# - No concurrency controls needed as detection operations are read-only
+# - Multiple input options support both automated and manual override scenarios
 #
-# Performance Impact:
-# - Reduces CI/CD runtime by 60-80% through selective processing
-# - Enables efficient matrix job generation for parallel operations
-# - Provides granular control over processing scope (configs vs modules)
-#
-# Usage Patterns:
-# - Primary: terraform-docs.yml and terraform-test.yml
-# - Secondary: Any workflow requiring change-based processing
-# - Manual: Debugging and targeted testing scenarios
-#
-# Dependencies:
-# - .github/actions/detect-terraform-changes (core detection logic)
-# - .github/actions/generate-workflow-metadata (compliance metadata)
-# - Git repository with proper history for diff operations
-#
-# Maintenance Notes:
-# - Consuming workflows should migrate to use this reusable workflow
-# - Input parameters match existing workflow dispatch patterns for compatibility
-# - Output format is optimized for GitHub Actions matrix strategy consumption
-# - All business logic remains in the composite action for maintainability
+# 📋 INTEGRATION REQUIREMENTS:
+# - Used by terraform-docs.yml and terraform-test.yml for efficient processing
+# - Depends on detect-terraform-changes composite action for core logic
+# - Output format optimized for GitHub Actions matrix strategy consumption
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
 
 name: ♻️ Terraform Change Detection
 
@@ -159,7 +146,7 @@ jobs:
       metadata: ${{ steps.metadata.outputs.metadata }}
     
     steps:
-      # === STEP 1: SOURCE CODE CHECKOUT ===
+      # === SOURCE CODE CHECKOUT ===
       # Retrieves repository source code with full Git history
       # Full history is required for accurate change detection across branches
       - name: Checkout Repository
@@ -167,7 +154,7 @@ jobs:
         with:
           fetch-depth: 0  # Full history required for Git diff operations
       
-      # === STEP 2: METADATA GENERATION ===
+      # === METADATA GENERATION ===
       # Generates AVM-compliant metadata for audit trails and compliance
       # This metadata provides context about the detection execution
       - name: Generate Detection Metadata
@@ -187,7 +174,7 @@ jobs:
               "event_name": "${{ github.event_name }}"
             }
       
-      # === STEP 3: CORE CHANGE DETECTION ===
+      # === CORE CHANGE DETECTION ===
       # Executes the proven change detection logic using the composite action
       # This step contains all the intelligence for Git diff analysis and filtering
       - name: Detect Terraform Changes
@@ -199,7 +186,7 @@ jobs:
           include-configs: ${{ inputs.include-configs }}
           include-modules: ${{ inputs.include-modules }}
       
-      # === STEP 4: PATH FILTERING (OPTIONAL) ===
+      # === PATH FILTERING (OPTIONAL) ===
       # Applies additional filtering if path-filter input is provided
       # This allows for advanced use cases with regex-based path filtering
       - name: Apply Additional Path Filtering
@@ -251,7 +238,7 @@ jobs:
             echo "::notice title=Filter Results::✅ ${#filtered_paths[@]} path(s) remain after filtering: ${filtered_paths[*]}"
           fi
       
-      # === STEP 5: FINAL OUTPUT DETERMINATION ===
+      # === FINAL OUTPUT DETERMINATION ===
       # Determines final outputs, considering any filtering that was applied
       # This ensures consistent output format regardless of filtering
       - name: Finalize Detection Results

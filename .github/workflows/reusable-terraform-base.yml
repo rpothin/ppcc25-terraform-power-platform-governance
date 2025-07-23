@@ -1,36 +1,29 @@
-# Reusable Terraform Operations Workflow
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
+# TERRAFORM OPERATIONS WORKFLOW FOR POWER PLATFORM GOVERNANCE
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
+# Provides centralized, standardized approach to executing Terraform operations across all Power Platform
+# configurations with comprehensive operation support and robust error handling.
 #
-# This workflow provides a centralized, standardized approach to executing Terraform operations
-# across all Power Platform configurations. It leverages existing composite actions to ensure
-# consistent behavior while reducing code duplication by ~78%.
+# 🎯 WHY THIS EXISTS:
+# - Governance requirement: Consistent infrastructure deployment patterns across environments
+# - Business problem: Duplicated deployment logic leads to inconsistent results and maintenance overhead
+# - Operational benefit: 78% reduction in code duplication through centralized operations
 #
-# Key Benefits:
-# - Eliminates 1,800+ lines of duplicated code across 6 workflows
-# - Standardizes authentication, initialization, and error handling
-# - Provides comprehensive operation support (validate, plan, apply, destroy, import, output)
-# - Uses proven composite actions as building blocks
-# - Includes robust error handling and retry logic
+# 🔒 SECURITY DECISIONS:
+# - OIDC authentication required for both Azure and Power Platform to eliminate stored credentials
+# - JIT network access prevents permanent firewall exceptions on storage accounts
+# - Environment protection rules enforce approval gates for production deployments
 #
-# Architecture:
-# This workflow follows the hybrid approach of using composite actions for specialized logic
-# while providing workflow-level orchestration and standardization.
+# ⚙️ OPERATIONAL CONTEXT:
+# - Configurable timeouts prevent runaway operations while allowing for complex deployments
+# - Concurrency controls prevent simultaneous operations on same state to avoid corruption
+# - Never cancel running operations to prevent incomplete state changes
 #
-# Maintenance Notes:
-# - All Terraform operations should use this workflow instead of duplicating initialization logic
-# - Updates to common patterns (auth, init, JIT access) should be made in composite actions
-# - New operations can be added to the switch statement in the execute-operation step
-# - State key generation follows the pattern: {configuration}-{tfvars-file}.tfstate
-#
-# Dependencies:
-# - .github/actions/jit-network-access (manages Azure Storage firewall rules)
-# - .github/actions/terraform-init-with-backend (handles initialization with retry logic)
-# - .github/actions/generate-workflow-metadata (creates AVM-compliant metadata)
-#
-# Security Considerations:
-# - Uses OIDC authentication for both Azure and Power Platform
-# - Implements JIT network access for enhanced security
-# - Requires auto-approve=true for destructive operations (apply/destroy)
-# - All secrets are managed through GitHub environments
+# 📋 INTEGRATION REQUIREMENTS:
+# - Used by terraform-plan-apply.yml for all infrastructure operations
+# - Depends on composite actions for JIT access and initialization logic
+# - Integrates with Azure Storage backend for centralized state management
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
 
 name: ♻️ Reusable Base Terraform Operations
 
