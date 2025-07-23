@@ -139,6 +139,12 @@ jobs:
     needs: terraform-output
     runs-on: ubuntu-latest
     
+    # === JOB OUTPUT DECLARATIONS ===
+    # Export key processing results for use by subsequent jobs
+    # These outputs enable proper data flow to the execution summary workflow
+    outputs:
+      output-filename: ${{ steps.process-output.outputs.output-filename }}
+    
     # === JOB-LEVEL PERMISSIONS ===
     # Inherit workflow permissions with explicit declaration for clarity
     permissions:
@@ -529,7 +535,7 @@ jobs:
       workflow-name: "terraform-output"
       operation-type: "output"
       configuration: ${{ github.event.inputs.configuration }}
-      output-filename: ${{ steps.process-output.outputs.output-filename }}
+      output-filename: ${{ needs.process-and-commit.outputs.output-filename }}
       
       # === EXECUTION CONTEXT ===
       job-results: ${{ toJSON(needs) }}
