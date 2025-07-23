@@ -355,7 +355,7 @@ jobs:
       
       # === EXECUTION CONTEXT ===
       job-results: ${{ toJSON(needs) }}
-      workflow-inputs: ${{ toJSON(inputs) }}
+      workflow-inputs: ${{ github.event_name == 'workflow_dispatch' && toJSON(inputs) || '{}' }}
       
       # === SUMMARY CUSTOMIZATION ===
       include-troubleshooting: true
