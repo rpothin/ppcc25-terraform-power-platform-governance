@@ -100,13 +100,6 @@ permissions:
   actions: read           # Required for accessing workflow artifacts and metadata
   id-token: write         # Required for Azure authentication via OIDC
 
-# === CONCURRENCY CONTROL ===
-# Prevent multiple concurrent executions of the same configuration
-# This ensures data consistency and prevents resource conflicts
-concurrency:
-  group: terraform-output-${{ github.event.inputs.configuration }}
-  cancel-in-progress: false  # Allow current execution to complete before starting new one
-
 jobs:
   # ╔══════════════════════════════════════════════════════════════════════════╗
   # ║                        TERRAFORM OUTPUT EXTRACTION                      ║
