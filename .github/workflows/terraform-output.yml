@@ -543,7 +543,7 @@ jobs:
   # Provides comprehensive summary with troubleshooting guidance and artifact information
   execution-summary:
     name: "🎯 Execution Summary"
-    needs: terraform-output
+    needs: [terraform-output, process-and-commit]
     uses: ./.github/workflows/reusable-execution-summary.yml
     if: always()
     with:
