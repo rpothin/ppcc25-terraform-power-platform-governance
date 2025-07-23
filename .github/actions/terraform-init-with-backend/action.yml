@@ -1,70 +1,34 @@
-# Terraform Backend Initialization Composite Action
+---
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
+# TERRAFORM BACKEND INITIALIZATION COMPOSITE ACTION FOR POWER PLATFORM GOVERNANCE
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
+# Enterprise-grade Terraform initialization with Azure backend implementing standardized state
+# management conventions and resilience patterns for reliable Power Platform infrastructure automation.
 #
-# This composite action provides enterprise-grade Terraform initialization with Azure Backend,
-# implementing standardized state management conventions, robust retry mechanisms, and 
-# comprehensive error handling for reliable infrastructure automation at scale.
+# 🎯 WHY THIS EXISTS:
+# - Implements standardized state file naming conventions preventing conflicts in multi-environment scenarios
+# - Provides built-in retry logic with exponential backoff handling transient Azure API failures gracefully
+# - Eliminates manual state management overhead while maintaining audit trails for governance compliance
+# - Supports specialized operations like output-only workflows and testing scenarios through flexible naming
 #
-# Key Benefits:
-# - Implements standardized state file naming conventions for multi-environment management
-# - Provides built-in retry logic with exponential backoff for handling transient failures
-# - Supports both legacy and modern Azure environment variable patterns
-# - Includes network propagation handling for Just-In-Time access scenarios
-# - Enables state key override for specialized operations (testing, output-only workflows)
-# - Provides comprehensive logging and error reporting for troubleshooting
+# 🔒 SECURITY DECISIONS:
+# - Uses OIDC authentication by default eliminating stored credential vulnerabilities in CI/CD pipelines
+# - Validates all input parameters to prevent state key injection attacks and unauthorized access patterns
+# - Supports network-restricted storage accounts through JIT access compatibility with propagation delays
+# - Implements environment variable validation preventing exposure of sensitive backend configuration
 #
-# Architecture:
-# This action implements a three-phase initialization process:
-# 1. Network Propagation Wait: Ensures JIT access rules are fully effective
-# 2. State Key Generation: Creates standardized, predictable state file naming
-# 3. Terraform Init with Retry: Executes initialization with resilience patterns
+# ⚙️ OPERATIONAL CONTEXT:
+# - Handles Azure backend temporary unavailability through exponential backoff retry strategy (10s, 20s, 30s)
+# - Manages network propagation delays for JIT access scenarios through configurable wait periods
+# - Supports both modern ARM_* and legacy environment variable patterns for backward compatibility
+# - Creates hierarchical state naming: override → multi-environment → single environment fallback
 #
-# State Management Strategy:
-# The action implements a hierarchical state naming convention:
-# - Primary: {configuration}-{tfvars-file}.tfstate (e.g., "01-dlp-policies-dev.tfstate")
-# - Fallback: {configuration}.tfstate (for single-environment scenarios)
-# - Override: Custom naming for specialized operations (testing, output-only)
-#
-# This strategy ensures:
-# - Unique state files for each configuration/environment combination
-# - Predictable naming patterns for automation and troubleshooting
-# - Flexibility for specialized use cases without breaking conventions
-#
-# Resilience Patterns:
-# - Exponential backoff retry logic (10s, 20s, 30s intervals)
-# - Network propagation waiting for JIT access compatibility
-# - Graceful handling of Azure backend temporary unavailability
-# - Support for both ARM_* and legacy environment variable patterns
-#
-# Use Cases:
-# - Standard multi-environment Terraform deployments
-# - CI/CD pipelines with Just-In-Time network access
-# - Testing and validation workflows requiring isolated state
-# - Output-only operations needing specific state targeting
-# - Migration scenarios requiring legacy environment variable support
-#
-# Integration Points:
-# - Works seamlessly with JIT network access composite actions
-# - Compatible with all major Terraform workflow patterns
-# - Supports both Azure DevOps and GitHub Actions environments
-# - Integrates with monitoring and audit logging systems
-#
-# Dependencies:
-# - Terraform CLI installed and available in PATH
-# - Azure authentication configured (OIDC recommended)
-# - Azure Storage Account with appropriate RBAC permissions
-# - Network connectivity to Azure Storage (direct or via JIT access)
-#
-# Security Considerations:
-# - Uses OIDC authentication by default (no stored secrets)
-# - Supports network-restricted storage accounts via JIT access
-# - Environment variables are used for backend configuration (no CLI exposure)
-# - State key patterns prevent accidental state conflicts
-#
-# Maintenance Notes:
-# - Retry timing may need adjustment based on Azure region performance
-# - State key patterns should remain consistent across workflow updates  
-# - Network propagation timing may vary by Azure infrastructure changes
-# - Environment variable fallback patterns ensure backward compatibility
+# 📋 INTEGRATION REQUIREMENTS:
+# - Requires Terraform CLI available in PATH with compatible version for target configurations
+# - Depends on Azure authentication configured through OIDC or Azure CLI for backend state operations
+# - Needs Azure Storage Account with appropriate RBAC permissions for state file management
+# - Integrates with JIT network access actions requiring coordination of access timing and cleanup
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
 
 name: 'Terraform Init with Backend Configuration'
 description: 'Enterprise-grade Terraform initialization with Azure backend, standardized state management, and resilience patterns'
@@ -80,14 +44,14 @@ inputs:
     # Purpose: Primary component of state file naming convention
     # Usage: Must match the actual directory name containing Terraform configuration files
     # Examples: '01-dlp-policies', '02-dlp-policy', '03-environment'
-    # 
+    #
     # State Key Impact: Forms the base of state file naming
     # - With tfvars: configuration-tfvars.tfstate
     # - Without tfvars: configuration.tfstate
     # - With override: Uses override value completely
     #
     # Validation: Action will fail if directory doesn't exist under configurations/
-    
+
   tfvars-file:
     description: 'Variables file name for multi-environment state differentiation'
     required: false
@@ -95,17 +59,17 @@ inputs:
     # Purpose: Creates unique state files for different environments/configurations
     # When provided: Generates pattern {configuration}-{tfvars-file}.tfstate
     # When omitted: Falls back to {configuration}.tfstate pattern
-    # 
+    #
     # Examples:
     # - 'dev' → '01-dlp-policies-dev.tfstate'
-    # - 'prod' → '01-dlp-policies-prod.tfstate'  
+    # - 'prod' → '01-dlp-policies-prod.tfstate'
     # - 'dlp-finance' → '02-dlp-policy-dlp-finance.tfstate'
     #
     # Best Practices:
     # - Use consistent naming across environments (dev, staging, prod)
     # - Align with tfvars file names in configurations/{config}/tfvars/
     # - Consider using semantic names for specialized configurations
-    
+
   state-key-override:
     description: 'Complete state key override for specialized operations'
     required: false
@@ -116,7 +80,7 @@ inputs:
     #
     # Use Cases:
     # - Output-only operations: 'output-{configuration}.tfstate'
-    # - Testing workflows: 'test-{configuration}-{timestamp}.tfstate'  
+    # - Testing workflows: 'test-{configuration}-{timestamp}.tfstate'
     # - Migration scenarios: Legacy state key patterns
     # - Shared state operations: Cross-configuration dependencies
     #
@@ -126,7 +90,7 @@ inputs:
     # - 'shared-data-layer.tfstate' (for shared resources)
     #
     # Security: Ensure override keys don't conflict with existing state files
-    
+
   max-retries:
     description: 'Maximum initialization retry attempts for resilience'
     required: false
@@ -145,7 +109,7 @@ inputs:
     # Retry Strategy: Exponential backoff (10s, 20s, 30s intervals)
     # Total timeout: ~60 seconds with default 3 retries
     # Adjustment: Increase for unreliable networks, decrease for fast failure
-    
+
   wait-for-propagation:
     description: 'Network rule propagation wait time in seconds'
     required: false
@@ -173,7 +137,7 @@ outputs:
     value: ${{ steps.init.outputs.initialized }}
     # Format: String 'true' or 'false' (GitHub Actions boolean representation)
     # Usage: Primary gate for conditional execution of subsequent Terraform operations
-    # 
+    #
     # Success Conditions:
     # - Terraform init completed without errors
     # - Backend configuration accepted and validated
@@ -191,7 +155,7 @@ outputs:
     # - State file conflicts or corruption
     # - Invalid backend configuration
     # - Terraform version compatibility issues
-    
+
   state-key:
     description: 'Actual state key used for backend initialization'
     value: ${{ steps.init.outputs.state-key }}
@@ -229,16 +193,16 @@ runs:
       run: |
         echo "::notice title=Network Propagation::⏱️ Waiting for network access rules to propagate..."
         echo "::debug::Propagation wait time: ${{ inputs.wait-for-propagation }} seconds"
-        
+
         # === PROPAGATION TIMING EXPLANATION ===
         # Azure Storage Account firewall rules require time to propagate globally
         # This ensures JIT access rules added by previous steps are fully effective
         # Typical propagation times:
         # - Same region: 5-15 seconds
-        # - Cross-region: 15-60 seconds  
+        # - Cross-region: 15-60 seconds
         # - GitHub Actions to Azure: Usually under 10 seconds
         wait_time="${{ inputs.wait-for-propagation }}"
-        
+
         if [ "$wait_time" -gt 0 ]; then
           echo "::notice title=Propagation Wait::⏳ Sleeping for $wait_time seconds to ensure network rules are active..."
           sleep "$wait_time"
@@ -255,19 +219,19 @@ runs:
       shell: bash
       run: |
         echo "::notice title=State Key Generation::🔑 Generating state file name using standardized conventions..."
-        
+
         # === INPUT PARAMETER EXTRACTION ===
         config="${{ inputs.configuration }}"
         tfvars_file="${{ inputs.tfvars-file }}"
         override_key="${{ inputs.state-key-override }}"
-        
+
         echo "::debug::Configuration: '$config'"
         echo "::debug::TFVars file: '$tfvars_file'"
         echo "::debug::Override key: '$override_key'"
-        
+
         # === STATE KEY GENERATION HIERARCHY ===
         # Implements three-tier naming strategy for maximum flexibility
-        
+
         if [ -n "$override_key" ]; then
           # === TIER 1: COMPLETE OVERRIDE ===
           # Highest priority - bypasses all standard conventions
@@ -275,33 +239,33 @@ runs:
           state_key="$override_key"
           echo "::notice title=Override Pattern::🎯 Using complete state key override: $state_key"
           echo "::notice::This bypasses standard naming conventions for specialized operations"
-          
+
         elif [ -n "$tfvars_file" ]; then
-          # === TIER 2: STANDARD MULTI-ENVIRONMENT PATTERN ===  
+          # === TIER 2: STANDARD MULTI-ENVIRONMENT PATTERN ===
           # Primary pattern for production multi-environment deployments
           # Format: {configuration}-{tfvars-file}.tfstate
           # Example: "01-dlp-policies-dev.tfstate", "02-dlp-policy-prod.tfstate"
           state_key="${config}-${tfvars_file}.tfstate"
           echo "::notice title=Standard Pattern::⚙️ Generated multi-environment state key: $state_key"
           echo "::notice::Pattern: {configuration}-{environment}.tfstate"
-          
+
         else
           # === TIER 3: SINGLE ENVIRONMENT FALLBACK ===
           # Legacy compatibility pattern when no environment differentiation is needed
-          # Format: {configuration}.tfstate  
+          # Format: {configuration}.tfstate
           # Example: "01-dlp-policies.tfstate"
           state_key="${config}.tfstate"
           echo "::warning title=Fallback Pattern::⚠️ Using single-environment state key: $state_key"
           echo "::warning::Consider using tfvars-file parameter for environment differentiation"
         fi
-        
+
         # === STATE KEY VALIDATION ===
         # Basic validation to ensure state key follows expected patterns
         if [[ ! "$state_key" =~ \.tfstate$ ]]; then
           echo "::error title=Invalid State Key::❌ Generated state key '$state_key' does not end with .tfstate"
           exit 1
         fi
-        
+
         # === OUTPUT GENERATION ===
         echo "state-key=$state_key" >> $GITHUB_OUTPUT
         echo "::notice title=State Key Ready::✅ State key generated and ready for initialization"
@@ -314,25 +278,25 @@ runs:
       shell: bash
       run: |
         echo "::notice title=Terraform Initialization::🚀 Starting enterprise-grade Terraform initialization..."
-        
+
         # === INITIALIZATION CONTEXT SETUP ===
         config="${{ inputs.configuration }}"
         state_key="${{ steps.state-key.outputs.state-key }}"
         max_retries="${{ inputs.max-retries }}"
         retry_count=0
         init_success=false
-        
+
         echo "::notice title=Initialization Context::📋 Configuration details:"
         echo "::notice::• Configuration: $config"
         echo "::notice::• State key: $state_key"
         echo "::notice::• Max retries: $max_retries"
         echo "::notice::• Timestamp: $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-        
+
         # === WORKING DIRECTORY SETUP ===
         # Change to the target configuration directory for Terraform operations
         # This ensures Terraform operates in the correct context with proper file access
         target_dir="configurations/$config"
-        
+
         if [ ! -d "$target_dir" ]; then
           echo "::error title=Directory Not Found::❌ Configuration directory '$target_dir' does not exist"
           echo "::error::Ensure the configuration parameter matches an existing directory under configurations/"
@@ -340,19 +304,19 @@ runs:
           echo "state-key=$state_key" >> $GITHUB_OUTPUT
           exit 1
         fi
-        
+
         cd "$target_dir"
         echo "::notice title=Working Directory::📁 Changed to $(pwd)"
-        
-        # === ENVIRONMENT VARIABLE VALIDATION ===
-        # Verify required backend configuration environment variables are available
-        # Support both modern ARM_* and legacy patterns for maximum compatibility
+
+        # === AZURE BACKEND CONFIGURATION VALIDATION ===
+        # Verify required backend configuration environment variables for secure state management
+        # Supports both modern ARM_* and legacy patterns for maximum compatibility
         storage_account="${ARM_STORAGE_ACCOUNT_NAME:-${TERRAFORM_STORAGE_ACCOUNT:-}}"
         container_name="${ARM_CONTAINER_NAME:-${TERRAFORM_CONTAINER:-}}"
         resource_group="${ARM_RESOURCE_GROUP_NAME:-${TERRAFORM_RESOURCE_GROUP:-}}"
         subscription_id="${ARM_SUBSCRIPTION_ID:-${AZURE_SUBSCRIPTION_ID:-}}"
         tenant_id="${ARM_TENANT_ID:-${AZURE_TENANT_ID:-}}"
-        
+
         # Validate critical backend parameters
         missing_vars=()
         [ -z "$storage_account" ] && missing_vars+=("storage_account")
@@ -360,7 +324,7 @@ runs:
         [ -z "$resource_group" ] && missing_vars+=("resource_group")
         [ -z "$subscription_id" ] && missing_vars+=("subscription_id")
         [ -z "$tenant_id" ] && missing_vars+=("tenant_id")
-        
+
         if [ ${#missing_vars[@]} -gt 0 ]; then
           echo "::error title=Missing Configuration::❌ Required backend configuration variables missing:"
           printf '::error::• %s\n' "${missing_vars[@]}"
@@ -369,21 +333,21 @@ runs:
           echo "state-key=$state_key" >> $GITHUB_OUTPUT
           exit 1
         fi
-        
+
         echo "::debug::Backend configuration validated successfully"
-        
+
         # === RETRY LOOP WITH EXPONENTIAL BACKOFF ===
         # Implement robust retry logic to handle transient failures
         # Uses exponential backoff to avoid overwhelming Azure services during outages
         while [ $retry_count -lt $max_retries ] && [ "$init_success" = false ]; do
           retry_count=$((retry_count + 1))
           echo "::notice title=Initialization Attempt::🔄 Attempt $retry_count of $max_retries..."
-          
+
           # === TERRAFORM INITIALIZATION EXECUTION ===
           # Execute terraform init with comprehensive backend configuration
           # Use OIDC authentication for enhanced security (no stored credentials)
           echo "::debug::Executing terraform init with backend configuration..."
-          
+
           if terraform init \
             -backend-config="storage_account_name=$storage_account" \
             -backend-config="container_name=$container_name" \
@@ -393,30 +357,30 @@ runs:
             -backend-config="tenant_id=$tenant_id" \
             -backend-config="use_oidc=true" \
             -no-color 2>&1 | tee /tmp/terraform_init_output.log; then
-            
+
             # === SUCCESS HANDLING ===
             init_success=true
             echo "::notice title=Initialization Success::✅ Terraform initialized successfully!"
             echo "::notice title=Attempt Details::📊 Succeeded on attempt $retry_count of $max_retries"
             echo "::notice title=Backend Details::🏗️ Using state: $state_key in $storage_account"
-            
+
             # Validate initialization by checking for .terraform directory
             if [ -d ".terraform" ]; then
               echo "::debug::Terraform working directory created successfully"
             else
               echo "::warning title=Partial Success::⚠️ Init succeeded but .terraform directory not found"
             fi
-            
+
           else
             # === FAILURE HANDLING ===
             echo "::warning title=Initialization Failed::⚠️ Attempt $retry_count failed"
-            
+
             # Log failure details for troubleshooting
             if [ -f /tmp/terraform_init_output.log ]; then
               echo "::debug::Terraform init output:"
               cat /tmp/terraform_init_output.log | head -20
             fi
-            
+
             # Implement exponential backoff before retry
             if [ $retry_count -lt $max_retries ]; then
               # Calculate wait time: attempt * 10 seconds (10s, 20s, 30s)
@@ -429,21 +393,21 @@ runs:
             fi
           fi
         done
-        
+
         # === FINAL RESULT PROCESSING ===
         # Clean up temporary files and set appropriate outputs
         rm -f /tmp/terraform_init_output.log
-        
+
         if [ "$init_success" = false ]; then
           # === COMPREHENSIVE FAILURE REPORTING ===
           echo "::error title=Initialization Failed::❌ Terraform initialization failed after $max_retries attempts"
           echo "::error title=Configuration Details::📋 Failed configuration:"
           echo "::error::• Configuration: $config"
-          echo "::error::• State key: $state_key" 
+          echo "::error::• State key: $state_key"
           echo "::error::• Storage account: $storage_account"
           echo "::error::• Container: $container_name"
           echo "::error::• Resource group: $resource_group"
-          
+
           # Provide troubleshooting guidance
           echo "::error title=Troubleshooting::🔧 Common solutions:"
           echo "::error::• Verify Azure authentication and permissions"
@@ -451,7 +415,7 @@ runs:
           echo "::error::• Ensure JIT network access rules have propagated"
           echo "::error::• Validate RBAC permissions for state management"
           echo "::error::• Check for state file locks or corruption"
-          
+
           # Set failure outputs
           echo "initialized=false" >> $GITHUB_OUTPUT
           echo "state-key=$state_key" >> $GITHUB_OUTPUT
@@ -462,12 +426,12 @@ runs:
           echo "::notice title=Initialization Complete::🎉 Terraform initialization completed successfully"
           echo "::notice title=Performance::⚡ Completed in $retry_count attempt(s)"
           echo "::notice title=State Management::📋 State file: $state_key"
-          
+
           # Set success outputs
           echo "initialized=true" >> $GITHUB_OUTPUT
           echo "state-key=$state_key" >> $GITHUB_OUTPUT
         fi
-        
+
         # === CLEANUP AND RETURN ===
         # Return to original directory to avoid affecting subsequent steps
         cd - > /dev/null

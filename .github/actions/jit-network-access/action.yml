@@ -1,56 +1,34 @@
-# Just-In-Time Network Access Management Composite Action
+---
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
+# JUST-IN-TIME NETWORK ACCESS COMPOSITE ACTION FOR POWER PLATFORM GOVERNANCE
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
+# Zero-trust network access management for Azure Storage Accounts containing Terraform state files,
+# implementing temporary firewall rule management for secure CI/CD operations.
 #
-# This composite action provides secure, temporary network access management for Azure Storage Accounts
-# containing Terraform state files. It implements a zero-trust security model by dynamically managing
-# firewall rules, ensuring storage accounts remain protected while enabling necessary CI/CD operations.
+# 🎯 WHY THIS EXISTS:
+# - Implements zero-trust security model eliminating permanently opened firewall rules for state storage
+# - Enables secure Terraform operations in network-restricted environments without compromising security
+# - Reduces attack surface by providing time-bounded access only during active CI/CD operations
+# - Supports compliance requirements for network-level access controls on infrastructure state
 #
-# Key Benefits:
-# - Implements zero-trust security for Terraform state storage
-# - Eliminates need for permanently opened firewall rules
-# - Provides automatic IP detection for GitHub runners
-# - Supports both grant and revoke operations for complete lifecycle management
-# - Includes comprehensive error handling and retry logic
-# - Enables audit trails through detailed logging
+# 🔒 SECURITY DECISIONS:
+# - Uses temporary IP-based access rules that are automatically cleaned up after workflow completion
+# - Implements principle of least privilege by granting access only to specific runner IP addresses
+# - Validates IP address formats to prevent injection attacks through malformed network parameters
+# - Provides comprehensive audit logging for all network access grant and revoke operations
 #
-# Architecture:
-# This action serves as a GitHub Actions wrapper around a specialized shell script that handles
-# Azure CLI interactions. The two-tier approach provides separation of concerns:
-# 1. GitHub Actions layer: Input validation, IP detection, environment setup
-# 2. Shell script layer: Azure CLI operations, error handling, retry logic
+# ⚙️ OPERATIONAL CONTEXT:
+# - Handles Azure firewall rule propagation delays (30-60 seconds) through configurable wait times
+# - Supports both automatic IP detection via api.ipify.org and manual IP override for complex networks
+# - Implements retry logic in underlying script to handle transient Azure API failures gracefully
+# - Designed for integration with cleanup workflows using GitHub Actions 'always()' condition
 #
-# Security Model:
-# - Temporary access: Rules are added and removed within the same workflow execution
-# - Principle of least privilege: Only the specific runner IP gets access
-# - Time-bounded: Access is automatically revoked after workflow completion
-# - Audit-ready: All operations are logged for compliance tracking
-#
-# Use Cases:
-# - Terraform backend access during CI/CD operations
-# - Secure state file operations (read, write, locking)
-# - Multi-environment deployments with network-restricted storage
-# - Compliance scenarios requiring network-level access controls
-#
-# Network Propagation:
-# Azure firewall rule changes typically propagate within 30-60 seconds globally.
-# The underlying script includes appropriate wait logic to ensure rules are effective.
-#
-# Dependencies:
-# - scripts/utils/jit-network-access.sh (core implementation script)
-# - Azure CLI with authentication configured
-# - Internet connectivity for IP detection (api.ipify.org)
-# - Azure RBAC permissions: Storage Account Contributor or equivalent
-#
-# Error Scenarios:
-# - IP detection failures: Action will fail fast with clear error message
-# - Azure authentication issues: Propagated from Azure CLI with context
-# - Storage account access denied: RBAC permission errors with guidance
-# - Network connectivity issues: Timeout handling with retry suggestions
-#
-# Maintenance Notes:
-# - IP detection service (ipify.org) should be monitored for availability
-# - Firewall rule propagation timing may vary by Azure region
-# - Script dependencies must be maintained in scripts/utils/jit-network-access.sh
-# - Azure CLI version compatibility should be validated during runner updates
+# 📋 INTEGRATION REQUIREMENTS:
+# - Depends on scripts/utils/jit-network-access.sh for Azure CLI operations and error handling
+# - Requires Azure CLI authentication with Storage Account Contributor or Network Contributor permissions
+# - Needs internet connectivity to api.ipify.org for automatic runner IP detection in most scenarios
+# - Must be paired with corresponding 'remove' action in workflow cleanup to prevent security holes
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
 
 name: 'JIT Network Access for Terraform Backend'
 description: 'Provides secure Just-In-Time network access management for Terraform backend storage with zero-trust principles'
@@ -66,52 +44,52 @@ inputs:
     # Supported values: 'add', 'remove'
     # 'add': Grants temporary network access by adding runner IP to allowed list
     # 'remove': Revokes network access by removing runner IP from allowed list
-    # 
+    #
     # Workflow Pattern:
     # 1. Start of workflow: action: 'add' (enable access)
     # 2. End of workflow: action: 'remove' (cleanup access)
-    # 
+    #
     # Security Considerations:
     # - Always ensure 'remove' operations run even if workflow fails
     # - Use workflow job cleanup steps or GitHub Actions 'always()' condition
     # - Default 'add' maintains backward compatibility with existing workflows
-    
+
   storage-account-name:
     description: 'Azure Storage Account name containing Terraform state files'
     required: true
     # Format: Must be valid Azure Storage Account name (3-24 characters, lowercase, numbers only)
     # Example: 'terraformstate001', 'myorgterraform'
-    # 
+    #
     # Validation: Action will fail if storage account doesn't exist or is inaccessible
     # Security: This account should have network restrictions enabled
     # Best Practice: Use dedicated storage accounts for Terraform state only
-    # 
+    #
     # Required Azure RBAC permissions on this storage account:
     # - Storage Account Contributor (full management)
     # - OR Network Contributor (firewall management) + Storage Blob Data Contributor (state access)
-    
+
   resource-group-name:
     description: 'Azure Resource Group containing the target storage account'
     required: true
     # Format: Valid Azure Resource Group name
     # Example: 'rg-terraform-state', 'terraform-backend-rg'
-    # 
+    #
     # Validation: Must exist and be accessible with current Azure credentials
     # Scope: Used for proper Azure CLI command scoping and resource identification
     # Security: Service principal must have access to this resource group
-    
+
   runner-ip:
     description: 'Manual IP address override for testing and special scenarios'
     required: false
     # Format: Valid IPv4 address (e.g., '192.168.1.100', '203.0.113.42')
     # Default behavior: When omitted, action auto-detects public IP using api.ipify.org
-    # 
+    #
     # Use Cases:
     # - Testing with specific IP addresses
     # - Debugging network access issues
     # - Working with proxy or NAT environments where auto-detection fails
     # - Corporate environments with complex network routing
-    # 
+    #
     # Security: Only use trusted IP addresses - this IP will get storage access
     # Validation: Action validates IPv4 format before processing
 
@@ -130,7 +108,7 @@ runs:
       shell: bash
       run: |
         echo "::notice title=IP Detection::🌐 Auto-detecting runner public IP address..."
-        
+
         # === IP DETECTION WITH ERROR HANDLING ===
         # Use ipify.org service with timeout and error handling
         # This service provides simple, reliable IPv4 detection
@@ -149,9 +127,9 @@ runs:
           echo "::error::Consider using the 'runner-ip' input parameter to manually specify the IP address"
           exit 1
         fi
-        
+
         echo "::debug::IP detection completed successfully"
-        
+
     # === STEP 2: MANUAL IP VALIDATION ===
     # Validates and sets manually provided IP address when specified in inputs
     # This step only runs when a manual IP override is provided
@@ -160,12 +138,12 @@ runs:
       shell: bash
       run: |
         echo "::notice title=Manual IP::🎯 Using manually specified IP address..."
-        
+
         # === INPUT VALIDATION ===
         # Validate the manually provided IP address format
         # This prevents invalid IPs from being used in Azure CLI commands
         PROVIDED_IP="${{ inputs.runner-ip }}"
-        
+
         if [[ $PROVIDED_IP =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
           # Additional validation: Check each octet is within valid range (0-255)
           IFS='.' read -r -a octets <<< "$PROVIDED_IP"
@@ -176,7 +154,7 @@ runs:
               exit 1
             fi
           done
-          
+
           echo "RUNNER_IP=$PROVIDED_IP" >> $GITHUB_ENV
           echo "::notice title=Manual IP Set::✅ Using provided runner IP: $PROVIDED_IP"
         else
@@ -184,9 +162,9 @@ runs:
           echo "::error::IP address must be in format: xxx.xxx.xxx.xxx (e.g., 192.168.1.100)"
           exit 1
         fi
-        
+
         echo "::debug::Manual IP validation completed successfully"
-        
+
     # === STEP 3: AZURE NETWORK ACCESS MANAGEMENT ===
     # Executes the core Just-In-Time network access logic using the specialized script
     # This step handles all Azure CLI interactions and implements the actual firewall management
@@ -194,37 +172,37 @@ runs:
       shell: bash
       run: |
         echo "::notice title=JIT Access Management::🔐 Managing Just-In-Time network access..."
-        
+
         # === ENVIRONMENT VARIABLE SETUP ===
         # Export all required variables for the underlying script to consume
         # This approach keeps sensitive information out of command-line arguments
         export STORAGE_ACCOUNT_NAME="${{ inputs.storage-account-name }}"
-        export RESOURCE_GROUP_NAME="${{ inputs.resource-group-name }}"  
+        export RESOURCE_GROUP_NAME="${{ inputs.resource-group-name }}"
         export RUNNER_IP="${{ env.RUNNER_IP }}"
         export JIT_ACTION="${{ inputs.action }}"
-        
+
         # === OPERATION CONTEXT LOGGING ===
         # Provide comprehensive logging for audit trails and troubleshooting
         # This information is crucial for security audits and operational debugging
         echo "::notice title=Operation Context::📋 JIT network access configuration:"
         echo "::notice::• Action: ${{ inputs.action }}"
         echo "::notice::• Storage Account: $STORAGE_ACCOUNT_NAME"
-        echo "::notice::• Resource Group: $RESOURCE_GROUP_NAME" 
+        echo "::notice::• Resource Group: $RESOURCE_GROUP_NAME"
         echo "::notice::• Runner IP: ${{ env.RUNNER_IP }}"
         echo "::notice::• Timestamp: $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-        
+
         # === SCRIPT EXISTENCE VALIDATION ===
         # Verify the required script exists before attempting execution
         # This provides a clear error message if the dependency is missing
         SCRIPT_PATH="${GITHUB_WORKSPACE}/scripts/utils/jit-network-access.sh"
-        
+
         if [ ! -f "$SCRIPT_PATH" ]; then
           echo "::error title=Script Not Found::❌ JIT network access script not found at: $SCRIPT_PATH"
           echo "::error::Ensure the jit-network-access.sh script exists in scripts/utils/ directory"
           echo "::error::This script is required for Azure CLI operations and firewall management"
           exit 1
         fi
-        
+
         # === SCRIPT PERMISSIONS VALIDATION ===
         # Ensure the script has execute permissions
         # This prevents cryptic "Permission denied" errors during execution
@@ -232,15 +210,15 @@ runs:
           echo "::warning title=Script Permissions::⚠️ Making script executable..."
           chmod +x "$SCRIPT_PATH"
         fi
-        
-        # === EXECUTE JIT NETWORK ACCESS SCRIPT ===
-        # Run the core script that handles Azure CLI interactions
-        # The script implements retry logic, error handling, and propagation waiting
+
+        # === AZURE JIT NETWORK ACCESS EXECUTION ===
+        # Manages Azure Storage Account firewall rules for temporary Terraform backend access
+        # Uses dedicated script for Azure CLI operations with comprehensive error handling
         echo "::debug::Executing JIT network access script with action: ${{ inputs.action }}"
-        
+
         if "$SCRIPT_PATH" "${{ inputs.action }}"; then
           echo "::notice title=JIT Access Success::✅ Network access management completed successfully"
-          
+
           # Provide action-specific success messages for clarity
           if [ "${{ inputs.action }}" = "add" ]; then
             echo "::notice title=Access Granted::🔓 Temporary network access granted to runner IP"
@@ -257,5 +235,5 @@ runs:
           echo "::error::Common causes: Azure authentication, RBAC permissions, network connectivity"
           exit 1
         fi
-        
+
         echo "::debug::JIT network access management completed"

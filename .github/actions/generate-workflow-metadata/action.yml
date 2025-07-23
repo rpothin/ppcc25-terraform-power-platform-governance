@@ -1,53 +1,34 @@
-# AVM-Compliant Workflow Metadata Generation Composite Action
+---
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
+# WORKFLOW METADATA GENERATION COMPOSITE ACTION FOR POWER PLATFORM GOVERNANCE
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
+# Standardized metadata factory creating comprehensive audit trails and compliance tracking
+# for all Terraform operations in Power Platform governance automation workflows.
 #
-# This composite action creates standardized, comprehensive metadata for all Terraform workflow
-# executions, ensuring consistent audit trails, compliance reporting, and operational visibility
-# across the entire Power Platform governance infrastructure automation pipeline.
+# 🎯 WHY THIS EXISTS:
+# - Provides comprehensive audit trails required for enterprise governance and compliance reporting
+# - Enables operational dashboards and monitoring integration for infrastructure change tracking
+# - Supports regulatory requirements for infrastructure change documentation and accountability
+# - Facilitates troubleshooting and forensic analysis of Power Platform governance operations
 #
-# Key Benefits:
-# - Provides comprehensive audit trails for all infrastructure operations
-# - Enables compliance tracking and regulatory reporting capabilities
-# - Supports operational dashboards and monitoring integration
-# - Ensures consistent metadata structure across all workflow executions
-# - Facilitates troubleshooting and forensic analysis of infrastructure changes
+# 🔒 SECURITY DECISIONS:
+# - Generates metadata in UTC timestamps to prevent timezone-based confusion in audit logs
+# - Uses jq for secure JSON construction preventing injection attacks from user inputs
+# - Validates additional-data as valid JSON to prevent downstream parsing vulnerabilities
+# - Avoids sensitive data exposure through structured logging patterns that exclude secrets
 #
-# Architecture:
-# This action serves as a centralized metadata factory that standardizes information collection
-# from GitHub Actions context, system environment, and custom inputs. The generated metadata
-# follows Azure Verified Modules (AVM) patterns for maximum interoperability and compliance.
+# ⚙️ OPERATIONAL CONTEXT:
+# - Implements AVM-compliant metadata schema v2.0.0 for maximum interoperability with Azure tooling
+# - Supports custom metadata extensions through validated JSON input for specialized tracking needs
+# - Provides phase-based tracking for workflow progress monitoring and performance analysis
+# - Enables correlation between multiple workflow executions through consistent identification patterns
 #
-# The metadata schema includes:
-# - Execution timestamps and identification
-# - Source control and versioning information
-# - Environment and system details
-# - Operation-specific context
-# - Custom extensibility for specific use cases
-#
-# Use Cases:
-# - Compliance auditing and regulatory reporting
-# - Operational monitoring and alerting
-# - Troubleshooting and root cause analysis
-# - Performance tracking and optimization
-# - Security and access logging
-# - Cost allocation and resource tracking
-#
-# Compliance Standards:
-# - Azure Verified Modules (AVM) metadata requirements
-# - ISO 8601 timestamp formatting for global compatibility
-# - JSON schema validation for downstream consumption
-# - Structured logging for SIEM integration
-#
-# Dependencies:
-# - jq (JSON processor for reliable JSON construction)
-# - Terraform CLI (for version extraction)
-# - GitHub Actions context variables
-# - POSIX-compliant shell environment
-#
-# Maintenance Notes:
-# - Metadata schema version should be updated when structure changes
-# - Additional data input must be valid JSON to prevent parsing errors
-# - All timestamps are generated in UTC for consistency across time zones
-# - Custom metadata extensions should follow the additional-data pattern
+# 📋 INTEGRATION REQUIREMENTS:
+# - Requires jq JSON processor for reliable and secure JSON construction in all runner environments
+# - Depends on Terraform CLI availability for version extraction in infrastructure automation workflows
+# - Output format designed for consumption by SIEM systems, audit platforms, and monitoring dashboards
+# - Metadata schema must remain consistent across action versions to maintain audit trail integrity
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
 
 name: 'Generate Workflow Metadata'
 description: 'Generates comprehensive AVM-compliant metadata for workflow execution tracking and compliance'
@@ -64,7 +45,7 @@ inputs:
     # Examples: 'plan' for infrastructure planning, 'apply' for deployment
     # This field is required as it's fundamental for operational tracking
     # Impact: Affects downstream monitoring and alerting logic
-    
+
   configuration:
     description: 'Target configuration directory name for operation context'
     required: false
@@ -73,7 +54,7 @@ inputs:
     # When omitted: Indicates operation doesn't target specific configuration (e.g., global operations)
     # Examples: '01-dlp-policies' for DLP policy configurations, '02-dlp-policy' for specific policies
     # Impact: Enables configuration-level reporting and access control
-    
+
   tfvars-file:
     description: 'Variables file name for environment and context identification'
     required: false
@@ -82,7 +63,7 @@ inputs:
     # When omitted: Indicates operation uses default variables or doesn't require specific variable files
     # Examples: 'dev' for development environment, 'prod' for production deployment
     # Impact: Critical for environment-specific compliance and change tracking
-    
+
   phase:
     description: 'Current execution phase for workflow progress tracking'
     required: false
@@ -92,7 +73,7 @@ inputs:
     # Default: 'execution' covers most standard Terraform operations
     # Examples: 'validation' for syntax checking, 'planning' for change analysis
     # Impact: Enables phase-specific monitoring and troubleshooting
-    
+
   additional-data:
     description: 'Custom JSON metadata for specialized tracking requirements'
     required: false
@@ -113,7 +94,7 @@ outputs:
     value: ${{ steps.generate.outputs.metadata }}
     # Format: JSON object containing comprehensive execution metadata
     # Structure: Follows AVM metadata schema v2.0.0 for maximum compatibility
-    # 
+    #
     # Schema Overview:
     # {
     #   "generated_at": "2025-01-15T10:30:00Z",           # ISO 8601 UTC timestamp
@@ -169,17 +150,17 @@ runs:
       shell: bash
       run: |
         echo "::notice title=Metadata Generation::📊 Starting AVM-compliant metadata generation..."
-        
+
         # === SYSTEM INFORMATION COLLECTION ===
         # Collect temporal and environmental data with proper error handling
         # This section ensures consistent timestamp formatting and version detection
-        
+
         # Generate ISO 8601 UTC timestamp for global consistency
         # Format: YYYY-MM-DDTHH:MM:SSZ (e.g., 2025-01-15T10:30:00Z)
         # UTC ensures consistent timestamps regardless of runner timezone
         timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
         echo "::debug::Generated timestamp: $timestamp"
-        
+
         # === TERRAFORM VERSION EXTRACTION ===
         # Extract Terraform version with fallback handling for environment compatibility
         # This is critical for audit trails and compatibility tracking
@@ -193,7 +174,7 @@ runs:
           terraform_version='not-available'
           echo "::warning title=Terraform Not Available::Terraform CLI not found, using fallback version"
         fi
-        
+
         # === INPUT VALIDATION ===
         # Validate additional-data input to prevent JSON parsing failures
         # This prevents downstream failures in monitoring and reporting systems
@@ -202,12 +183,12 @@ runs:
           echo "::error::Provided value: '${{ inputs.additional-data }}'"
           exit 1
         fi
-        
+
         # === COMPREHENSIVE METADATA CONSTRUCTION ===
         # Use jq for reliable JSON construction with proper escaping and type handling
         # This approach ensures valid JSON output regardless of input complexity
         echo "::debug::Constructing metadata JSON object..."
-        
+
         metadata_json=$(jq -n \
           --arg timestamp "$timestamp" \
           --arg workflow_run "${{ github.run_number }}" \
@@ -252,7 +233,7 @@ runs:
             "additional": $additional
           }'
         )
-        
+
         # === METADATA VALIDATION ===
         # Verify the generated JSON is valid before output
         # This prevents downstream failures in consuming systems
@@ -260,7 +241,7 @@ runs:
           echo "::error title=Metadata Generation Failed::Generated metadata is not valid JSON"
           exit 1
         fi
-        
+
         # === SECURE OUTPUT GENERATION ===
         # Use GitHub Actions multiline output format to safely handle JSON content
         # This prevents issues with special characters and ensures reliable transmission
@@ -269,7 +250,7 @@ runs:
           echo "$metadata_json"
           echo "METADATA_EOF"
         } >> $GITHUB_OUTPUT
-        
+
         # === SUCCESS CONFIRMATION ===
         # Provide confirmation and summary of generated metadata
         echo "::notice title=Metadata Generated::✅ AVM-compliant metadata successfully created"
@@ -280,5 +261,5 @@ runs:
         if [ -n "${{ inputs.tfvars-file }}" ]; then
           echo "::notice title=Variables::Using tfvars file: ${{ inputs.tfvars-file }}"
         fi
-        
+
         echo "::debug::Metadata generation completed successfully"
