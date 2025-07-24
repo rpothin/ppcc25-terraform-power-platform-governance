@@ -200,3 +200,34 @@ DESCRIPTION
 - Implement state encryption at rest
 - Follow least privilege access for state storage
 - Document state management procedures for team onboarding
+
+## Terraform Test Writing Best Practices for Performance
+
+**Optimize test performance by minimizing the number of Terraform plan/apply executions:**
+
+- **Consolidate assertions:** Group as many related assertions as possible into a single `run` block using one `command = plan` (or `apply`) instead of creating many separate `run` blocks. This dramatically reduces the number of expensive plan/apply operations and speeds up test execution.
+- **Leverage Terraform's test discovery:** Let `terraform test` automatically find and run all `.tftest.hcl` files recursively—avoid unnecessary file checks or manual test file filtering in your workflow.
+- **Prefer plan for structure and data checks:** Use `command = plan` for most validation and only use `apply` when you need to test real resource changes or stateful operations.
+- **Cache expensive data source calls:** Where possible, use variables to store data source results and reference them in multiple assertions within the same run block.
+- **Group tests by execution requirements:** Separate quick validations (structure, syntax) from integration or stateful tests, but keep each group as consolidated as possible.
+- **Example:**
+
+```hcl
+# Good: All assertions in a single run block
+run "comprehensive_validation" {
+  command = plan
+  assert { condition = can(data.example_resource.id) error_message = "Resource should exist" }
+  assert { condition = output.example_output != null error_message = "Output should not be null" }
+  # ...more assertions...
+}
+
+# Bad: Each assertion in a separate run block (slow)
+run "test_1" { command = plan assert { ... } }
+run "test_2" { command = plan assert { ... } }
+run "test_3" { command = plan assert { ... } }
+```
+
+**Result:**
+- Reduces test execution time by 60-90% in CI/CD pipelines
+- Minimizes redundant provider initialization and API calls
+- Improves feedback loop for module and configuration authors
