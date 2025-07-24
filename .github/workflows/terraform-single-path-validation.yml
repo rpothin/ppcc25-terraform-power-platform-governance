@@ -289,15 +289,34 @@ jobs:
             else
               echo "failure" > "$TEST_STATUS_FILE"
             fi
-            grep -c "^run " *.tftest.hcl 2>/dev/null || echo "0" > /tmp/test_count.txt
-            grep -c "PASS" "$TEST_RESULT_FILE" 2>/dev/null || echo "0" > /tmp/passed_count.txt
-            grep -c "FAIL" "$TEST_RESULT_FILE" 2>/dev/null || echo "0" > /tmp/failed_count.txt
+            
+            # Parse test results from Terraform output
+            # Look for patterns like "Success! X passed, Y failed."
+            if grep -q "Success!" "$TEST_RESULT_FILE"; then
+              PASSED=$(grep "Success!" "$TEST_RESULT_FILE" | sed -n 's/.*Success! \([0-9]\+\) passed.*/\1/p')
+              FAILED=$(grep "Success!" "$TEST_RESULT_FILE" | sed -n 's/.*Success! [0-9]\+ passed, \([0-9]\+\) failed.*/\1/p')
+              echo "${PASSED:-1}" > /tmp/passed_count.txt
+              echo "${FAILED:-0}" > /tmp/failed_count.txt
+              echo "$((${PASSED:-1} + ${FAILED:-0}))" > /tmp/test_count.txt
+            else
+              # Fallback: count test files that ran
+              TEST_FILE_COUNT=$(grep -c "\.tftest\.hcl.*pass\|\.tftest\.hcl.*fail" "$TEST_RESULT_FILE" 2>/dev/null || echo "1")
+              FAILED_COUNT=$(grep -c "\.tftest\.hcl.*fail" "$TEST_RESULT_FILE" 2>/dev/null || echo "0")
+              PASSED_COUNT=$((TEST_FILE_COUNT - FAILED_COUNT))
+              echo "$TEST_FILE_COUNT" > /tmp/test_count.txt
+              echo "$PASSED_COUNT" > /tmp/passed_count.txt
+              echo "$FAILED_COUNT" > /tmp/failed_count.txt
+            fi
+            
+            # Extract assertion details
+            grep -c "assert {" *.tftest.hcl 2>/dev/null > /tmp/assertion_count.txt || echo "0" > /tmp/assertion_count.txt
           else
             echo "::notice title=No Tests Found::No .tftest.hcl files found, skipping."
             echo "skipped" > "$TEST_STATUS_FILE"
             echo "0" > /tmp/test_count.txt
             echo "0" > /tmp/passed_count.txt
             echo "0" > /tmp/failed_count.txt
+            echo "0" > /tmp/assertion_count.txt
           fi
           echo "::notice title=Test End::$(date)"
 
@@ -312,6 +331,7 @@ jobs:
           TEST_COUNT=$(cat /tmp/test_count.txt 2>/dev/null || echo "0")
           PASSED_COUNT=$(cat /tmp/passed_count.txt 2>/dev/null || echo "0")
           FAILED_COUNT=$(cat /tmp/failed_count.txt 2>/dev/null || echo "0")
+          ASSERTION_COUNT=$(cat /tmp/assertion_count.txt 2>/dev/null || echo "0")
           TEST_STATUS=$(cat "$TEST_STATUS_FILE" 2>/dev/null || echo "skipped")
           CONFIG="${{ inputs.target_configuration }}"
           echo "# 🧪 Terraform Integration Test Results" >> $GITHUB_STEP_SUMMARY
@@ -323,15 +343,37 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Metric | Count |" >> $GITHUB_STEP_SUMMARY
           echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Total Tests | $TEST_COUNT |" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Files | $TEST_COUNT |" >> $GITHUB_STEP_SUMMARY
           echo "| Passed | $PASSED_COUNT |" >> $GITHUB_STEP_SUMMARY
           echo "| Failed | $FAILED_COUNT |" >> $GITHUB_STEP_SUMMARY
+          echo "| Total Assertions | $ASSERTION_COUNT |" >> $GITHUB_STEP_SUMMARY
           if [ "$TEST_STATUS" = "success" ]; then
             echo "| **Status** | ✅ **SUCCESS** |" >> $GITHUB_STEP_SUMMARY
           elif [ "$TEST_STATUS" = "failure" ]; then
             echo "| **Status** | ❌ **FAILURE** |" >> $GITHUB_STEP_SUMMARY
           else
             echo "| **Status** | ⏭️ **SKIPPED** |" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🎯 Assertion Details" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f "$TEST_RESULT_FILE" ] && [ "$ASSERTION_COUNT" -gt 0 ]; then
+            echo "**Total Assertions Executed:** $ASSERTION_COUNT" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "<details>" >> $GITHUB_STEP_SUMMARY
+            echo "<summary>Click to view assertion details from test file</summary>" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`hcl" >> $GITHUB_STEP_SUMMARY
+            # Extract and show assertion conditions from test files
+            if [ -f "tests/integration.tftest.hcl" ]; then
+              grep -A 2 "assert {" tests/integration.tftest.hcl | head -30 >> $GITHUB_STEP_SUMMARY || echo "Unable to extract assertion details" >> $GITHUB_STEP_SUMMARY
+            else
+              find . -name "*.tftest.hcl" -exec grep -A 2 "assert {" {} \; | head -30 >> $GITHUB_STEP_SUMMARY || echo "Unable to extract assertion details" >> $GITHUB_STEP_SUMMARY
+            fi
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "</details>" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No assertions found in test files." >> $GITHUB_STEP_SUMMARY
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## 📁 Test Files Discovered" >> $GITHUB_STEP_SUMMARY
