@@ -637,13 +637,6 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # === TERRAFORM ENVIRONMENT SETUP ===
-      # Install consistent Terraform version for reliable integration testing behavior
-      - name: Setup Terraform CLI
-        uses: hashicorp/setup-terraform@v3.1.2
-        with:
-          terraform_version: ${{ env.TF_VERSION }}
-
       # === AZURE OIDC AUTHENTICATION ===
       # Secure Azure authentication using OIDC identity federation (no stored credentials)
       - name: Azure Login (OIDC)
@@ -663,12 +656,25 @@ jobs:
           storage-account-name: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
           resource-group-name: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
 
-      # === NETWORK PROPAGATION DELAY ===
-      # Allow time for Azure network rules to propagate for reliable connectivity
-      - name: Wait for Network Rules Propagation
-        run: |
-          echo "::notice title=Network Propagation::⏱️ Waiting 15 seconds for network rules to propagate..."
-          sleep 15
+      # === TERRAFORM ENVIRONMENT SETUP ===
+      # Installs the specified version of Terraform
+      # Uses terraform_wrapper: false to ensure clean output capture
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3.1.2
+        with:
+          terraform_version: ${{ vars.TERRAFORM_VERSION || '1.12.2' }}  # Uses repository variable with fallback
+          terraform_wrapper: false  # Disable wrapper for clean output capture
+
+      # === TERRAFORM BACKEND INITIALIZATION USING COMPOSITE ACTION ===
+      # Initialize Terraform backends using proven enterprise-grade patterns
+      - name: Initialize Terraform Backend for Integration Testing
+        id: terraform-init
+        uses: ./.github/actions/terraform-init-with-backend
+        with:
+          configuration: 'integration-test'
+          state-key-override: 'integration-test-base.tfstate'
+          max-retries: '3'
+          wait-for-propagation: '15'
 
       # === EXECUTION METADATA GENERATION ===
       # Generate comprehensive metadata for integration test audit trails
@@ -680,38 +686,30 @@ jobs:
           phase: 'integration'
           additional-data: '{"test_type": "integration", "authentication": "oidc", "backend": "azure"}'
 
-      # === COMPREHENSIVE INTEGRATION TESTING EXECUTION ===
-      # Execute end-to-end Terraform integration tests with live Azure infrastructure validation
-      - name: Run Terraform Integration Tests
+      # === COMPREHENSIVE INTEGRATION TESTING WITH COMPOSITE ACTION ===
+      # Execute integration tests using standardized backend initialization
+      - name: Execute Integration Tests with Standardized Backend
         id: integration-tests
         env:
           # === POWER PLATFORM AUTHENTICATION CONFIGURATION ===
-          # Configure Power Platform provider for OIDC authentication
           POWER_PLATFORM_USE_OIDC: true
           POWER_PLATFORM_CLIENT_ID: ${{ secrets.POWER_PLATFORM_CLIENT_ID }}
           POWER_PLATFORM_TENANT_ID: ${{ secrets.POWER_PLATFORM_TENANT_ID }}
           
           # === AZURE RESOURCE MANAGER AUTHENTICATION CONFIGURATION ===
-          # Configure ARM provider for secure OIDC authentication
           ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           ARM_USE_OIDC: true
           
-          # === TERRAFORM BACKEND CONFIGURATION ===
-          # Configure Azure Storage backend for secure state management
-          ARM_STORAGE_ACCOUNT_NAME: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
-          ARM_CONTAINER_NAME: ${{ secrets.TERRAFORM_CONTAINER }}
-          ARM_RESOURCE_GROUP_NAME: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
-          
           # === TERRAFORM VARIABLE CONFIGURATION ===
-          # Provide required Terraform variables for integration testing
           TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          TF_VAR_test_mode: "true"
+          TF_VAR_expected_minimum_policies: 0
         run: |
-          echo "::notice title=Integration Testing::🧪 Running terraform test for changed configurations..."
+          echo "::notice title=Integration Testing::🧪 Starting comprehensive integration testing..."
           
           # === CHANGED PATHS PROCESSING ===
-          # Process only modified paths for efficient and targeted integration testing
           paths_input="${{ needs.detect-changes.outputs.changed-paths }}"
           
           if [ -n "$paths_input" ]; then
@@ -723,139 +721,116 @@ jobs:
             exit 0
           fi
           
-          # === INTEGRATION TESTING STATISTICS INITIALIZATION ===
-          # Initialize comprehensive tracking for integration testing results
-          tested_count=0
-          failed_count=0
+          # === VALIDATE CONFIGURATIONS FOR TESTING ===
+          valid_configs=()
           skipped_count=0
           
-          # === COMPREHENSIVE PATH-BY-PATH INTEGRATION TESTING ===
-          # Execute detailed integration testing for each modified configuration path
           for target_path in "${paths[@]}"; do
             [ -z "$target_path" ] && continue
             
-            echo "::notice title=Testing Path::🧪 Processing integration tests for: $target_path"
+            echo "::notice title=Validating::🔍 Checking: $target_path"
             
-            # === PATH VALIDATION AND ACCESSIBILITY CHECK ===
-            # Ensure target path exists and is accessible for integration testing
-            if [ ! -d "$target_path" ]; then
-              echo "::error title=Path Not Found::Directory does not exist: $target_path"
-              failed_count=$((failed_count + 1))
-              continue
-            fi
-            
-            cd "$target_path" || {
-              echo "::error title=CD Failed::Cannot change to directory $target_path"
-              failed_count=$((failed_count + 1))
-              continue
-            }
-            
-            # === INTEGRATION TEST FILE DETECTION ===
-            # Check for integration test files to determine testing requirements
-            if [ ! -f "tests/integration.tftest.hcl" ]; then
-              echo "::notice title=No Integration Test::No integration.tftest.hcl found in $target_path, skipping"
+            if [ ! -d "$target_path" ] || [ ! -f "$target_path/tests/integration.tftest.hcl" ]; then
+              echo "::notice title=Skip::No integration test found in $target_path"
               skipped_count=$((skipped_count + 1))
-              cd - > /dev/null
               continue
             fi
-            
-            echo "::notice title=Found Integration Test::✅ Integration test file detected, proceeding with testing"
-            
-            # === TERRAFORM BACKEND INITIALIZATION ===
-            # Initialize Terraform with Azure backend configuration for integration testing
-            echo "::notice title=Terraform Init::🔧 Initializing with Azure backend for integration tests..."
             
             config_name=$(basename "$target_path")
-            test_state_key="test-$config_name-integration.tfstate"
-            echo "::notice title=Backend Config::📋 Storage: $ARM_STORAGE_ACCOUNT_NAME, Container: $ARM_CONTAINER_NAME, Key: $test_state_key"
+            valid_configs+=("$target_path:$config_name")
+            echo "::notice title=Valid Config::✅ Added $config_name for testing"
+          done
+          
+          if [ ${#valid_configs[@]} -eq 0 ]; then
+            echo "::notice title=No Configs::No valid configurations found for integration testing"
+            echo "integration-successful=true" >> $GITHUB_OUTPUT
+            echo "tests-executed=0" >> $GITHUB_OUTPUT
+            if [ $skipped_count -gt 0 ]; then
+              echo "::notice title=Skipped::ℹ️ $skipped_count path(s) skipped (no integration test files)"
+            fi
+            exit 0
+          fi
+          
+          # === EXECUTE TESTS FOR EACH CONFIGURATION ===
+          tested_count=0
+          failed_count=0
+          
+          for config_line in "${valid_configs[@]}"; do
+            IFS=':' read -r target_path config_name <<< "$config_line"
             
-            # === ROBUST INITIALIZATION WITH RETRY LOGIC ===
-            # Implement comprehensive retry logic for reliable backend initialization
+            echo "::notice title=Testing::🧪 Processing: $config_name"
+            cd "$target_path" || continue
+            
+            # === TERRAFORM BACKEND INITIALIZATION FOR CONFIGURATION ===
+            # Initialize each configuration's backend using the same patterns as the composite action
+            echo "::group::Backend Initialization for $config_name"
+            
+            # Use the same proven patterns from the composite action for each configuration
+            test_state_key="test-$config_name-integration.tfstate"
             max_retries=3
             retry_count=0
             init_success=false
             
+            # Skip network propagation wait since composite action already handled it
+            echo "::notice title=Configuration Init::🔧 Initializing backend for $config_name..."
+            
             while [ $retry_count -lt $max_retries ] && [ "$init_success" = false ]; do
               retry_count=$((retry_count + 1))
-              echo "::notice title=Init Attempt::🔄 Terraform init attempt $retry_count of $max_retries..."
+              echo "::notice title=Init Attempt::🔄 Terraform init attempt $retry_count/$max_retries for $config_name"
               
               if terraform init -input=false \
-                -backend-config="storage_account_name=$ARM_STORAGE_ACCOUNT_NAME" \
-                -backend-config="container_name=$ARM_CONTAINER_NAME" \
+                -backend-config="storage_account_name=${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}" \
+                -backend-config="container_name=${{ secrets.TERRAFORM_CONTAINER }}" \
                 -backend-config="key=$test_state_key" \
-                -backend-config="resource_group_name=$ARM_RESOURCE_GROUP_NAME" \
-                -backend-config="subscription_id=$ARM_SUBSCRIPTION_ID" \
-                -backend-config="tenant_id=$ARM_TENANT_ID" \
+                -backend-config="resource_group_name=${{ secrets.TERRAFORM_RESOURCE_GROUP }}" \
+                -backend-config="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
+                -backend-config="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
                 -backend-config="use_oidc=true"; then
                 
                 init_success=true
-                echo "::notice title=Init Success::✅ Terraform init completed successfully on attempt $retry_count"
+                echo "::notice title=Init Success::✅ Backend initialized for $config_name"
               else
-                echo "::warning title=Init Failed::⚠️ Terraform init attempt $retry_count failed"
-                
+                echo "::warning title=Init Failed::⚠️ Init attempt $retry_count failed for $config_name"
                 if [ $retry_count -lt $max_retries ]; then
-                  wait_time=$((retry_count * 10))
-                  echo "::notice title=Retry Delay::⏱️ Waiting ${wait_time} seconds before retry..."
+                  wait_time=$((retry_count * 5))  # Shorter wait since network is already established
+                  echo "::notice title=Retry Delay::⏱️ Waiting ${wait_time}s before retry..."
                   sleep $wait_time
                 fi
               fi
             done
+            echo "::endgroup::"
             
             if [ "$init_success" = false ]; then
-              echo "::error title=Init Failed::❌ Terraform init failed after $max_retries attempts for $target_path"
+              echo "::error title=Init Failed::❌ Backend init failed for $config_name after $max_retries attempts"
               failed_count=$((failed_count + 1))
               cd - > /dev/null
               continue
             fi
             
-            # === SAFE TESTING ENVIRONMENT CONFIGURATION ===
-            # Configure environment variables for safe integration testing
-            export TF_VAR_test_mode="true"
-            export TF_VAR_expected_minimum_policies=0
-            
             # === INTEGRATION TEST EXECUTION ===
-            # Execute comprehensive Terraform integration tests with error handling
-            echo "::notice title=Test Execution::🚀 Executing integration tests with live Azure connectivity..."
-            
-            test_exit_code=0
-            echo "::group::Integration Test Output for $target_path"
-            if terraform test 2>&1; then
-              echo "::notice title=Test Success::✅ Integration tests passed successfully for $target_path"
+            echo "::group::Integration Test Execution for $config_name"
+            if terraform test; then
+              echo "::notice title=Test Success::✅ Integration tests passed for $config_name"
               tested_count=$((tested_count + 1))
             else
-              test_exit_code=$?
-              echo "::error title=Test Failed::❌ Integration tests failed for $target_path (exit code: $test_exit_code)"
+              echo "::error title=Test Failed::❌ Integration tests failed for $config_name"
               failed_count=$((failed_count + 1))
             fi
             echo "::endgroup::"
             
-            # === POST-TEST CLEANUP OPERATIONS ===
-            # Clean up temporary files and state to prevent resource leaks
-            echo "::notice title=Cleanup::🧹 Cleaning up temporary files and state..."
+            # Cleanup
             rm -rf .terraform .terraform.lock.hcl
-            
             cd - > /dev/null
           done
           
-          # === COMPREHENSIVE INTEGRATION TESTING SUMMARY ===
-          # Provide detailed summary of all integration testing activities and results
-          echo "::notice title=Integration Testing Complete::📊 Summary: Tested $tested_count, Failed $failed_count, Skipped $skipped_count"
-          
-          # === OUTPUT GENERATION FOR WORKFLOW INTEGRATION ===
-          # Generate outputs for integration with downstream jobs and reporting systems
+          # === RESULTS SUMMARY ===
+          echo "::notice title=Testing Complete::📊 Tested: $tested_count, Failed: $failed_count"
           echo "integration-successful=$([ $failed_count -eq 0 ] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
           echo "tests-executed=$tested_count" >> $GITHUB_OUTPUT
           
-          # === FINAL STATUS DETERMINATION AND REPORTING ===
-          # Determine overall integration test status and provide actionable feedback
           if [ $failed_count -gt 0 ]; then
-            echo "::error title=Integration Test Failures::❌ $failed_count integration test(s) failed"
+            echo "::error title=Test Failures::❌ $failed_count integration test(s) failed"
             exit 1
-          else
-            echo "::notice title=All Tests Passed::✅ All integration tests completed successfully!"
-            if [ $skipped_count -gt 0 ]; then
-              echo "::notice title=Skipped Tests::ℹ️ $skipped_count path(s) skipped (no integration test files)"
-            fi
           fi
 
       # === NETWORK ACCESS CLEANUP ===
