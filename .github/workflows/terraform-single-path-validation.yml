@@ -276,13 +276,38 @@ jobs:
           cd "configurations/${{ inputs.target_configuration }}"
           echo "::notice title=Test Start::$(date)"
           
-          if find . -name "*.tftest.hcl" -type f | grep -q .; then
-            time terraform test -verbose
+          export TEST_RESULT_FILE="/tmp/terraform_test_output.log"
+          export JUNIT_XML_FILE="/tmp/terraform_test_results.xml"
+          export TEST_STATUS_FILE="/tmp/terraform_test_status.txt"
+          export TEST_FILES_FILE="/tmp/terraform_test_files.txt"
+          
+          if find . -name "*.tftest.hcl" -type f | tee "$TEST_FILES_FILE" | grep -q .; then
+            echo "::notice title=Test Files Found::$(cat $TEST_FILES_FILE | wc -l) test file(s) discovered"
+            
+            # Run tests with JUnit XML output and verbose logging
+            if terraform test -verbose -no-color -junit-xml="$JUNIT_XML_FILE" 2>&1 | tee "$TEST_RESULT_FILE"; then
+              echo "success" > "$TEST_STATUS_FILE"
+            else
+              echo "failure" > "$TEST_STATUS_FILE"
+            fi
           else
             echo "::notice title=No Tests Found::No .tftest.hcl files found, skipping."
+            echo "skipped" > "$TEST_STATUS_FILE"
           fi
           
           echo "::notice title=Test End::$(date)"
+
+      # === PUBLISH TEST RESULTS ===
+      # WHY: Publishes JUnit XML test results for GitHub UI integration
+      - name: Publish Test Results
+        uses: dorny/test-reporter@v2.1.1
+        if: always() && hashFiles('/tmp/terraform_test_results.xml') != ''
+        with:
+          name: 'Terraform Integration Test Results'
+          path: '/tmp/terraform_test_results.xml'
+          reporter: 'java-junit'
+          fail-on-error: false
+          max-annotations: 50
 
       # === JIT NETWORK ACCESS CLEANUP ===
       # WHY: Removes temporary network access to maintain security posture
