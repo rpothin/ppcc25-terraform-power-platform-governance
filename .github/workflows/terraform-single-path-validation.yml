@@ -25,22 +25,22 @@
 name: "Terraform Single Path Validation"
 
 concurrency:
-  group: terraform-single-path-validation-${{ inputs.target_path }}-${{ github.ref }}
+  group: terraform-single-path-validation-${{ inputs.target_configuration }}-${{ github.ref }}
   cancel-in-progress: false
 
 on:
   workflow_dispatch:
     inputs:
-      target_path:
+      target_configuration:
         description: >-
-          Directory to validate (e.g., configurations/01-dlp-policies or modules/my-module).
+          Configuration to validate under the configurations directory (e.g., 01-dlp-policies).
           Must exist and contain Terraform files.
         required: true
         type: string
         # WHY: Enables per-path validation for robust, parallelized quality checks
         # VALIDATION: Must be a valid configuration/module directory
 
-run-name: "Validate ${{ inputs.target_path }} by @${{ github.actor }}"
+run-name: "Validate ${{ inputs.target_configuration }} by @${{ github.actor }}"
 
 permissions:
   contents: read          # Required: Repository content access for validation
@@ -73,7 +73,7 @@ jobs:
       - name: Format Check
         id: format
         run: |
-          cd "${{ inputs.target_path }}"
+          cd "configurations/${{ inputs.target_configuration }}"
           format_output=$(terraform fmt -recursive -check -diff 2>&1) || format_exit_code=$?
           if [ "${format_exit_code:-0}" -eq 0 ]; then
             echo "::notice title=Format Success::All Terraform files are properly formatted"
@@ -110,7 +110,7 @@ jobs:
       - name: Syntax Validation
         id: validate
         run: |
-          cd "${{ inputs.target_path }}"
+          cd "configurations/${{ inputs.target_configuration }}"
           if ! find . -maxdepth 1 -name "*.tf" -type f | grep -q .; then
             echo "::warning title=No TF Files::No Terraform files found, skipping validation"
             exit 0
@@ -143,7 +143,7 @@ jobs:
       - name: Structure Validation
         id: structure
         run: |
-          cd "${{ inputs.target_path }}"
+          cd "configurations/${{ inputs.target_configuration }}"
           if [ -d "tfvars" ]; then
             find tfvars -name "*.tfvars" -type f | while read -r tfvars_file; do
               if [ ! -s "$tfvars_file" ]; then
@@ -180,7 +180,7 @@ jobs:
         uses: aquasecurity/trivy-action@0.32.0
         with:
           scan-type: 'config'
-          scan-ref: '${{ inputs.target_path }}'
+          scan-ref: 'configurations/${{ inputs.target_configuration }}'
           format: 'sarif'
           output: 'trivy-results.sarif'
           exit-code: '0'
@@ -245,8 +245,8 @@ jobs:
         id: terraform-init
         uses: ./.github/actions/terraform-init-with-backend
         with:
-          configuration: '${{ inputs.target_path }}'
-          state-key-override: 'integration-test-${{ inputs.target_path }}.tfstate'
+          configuration: '${{ inputs.target_configuration }}'
+          state-key-override: 'integration-test-${{ inputs.target_configuration }}.tfstate'
           max-retries: '3'
           wait-for-propagation: '15'
 
@@ -265,7 +265,7 @@ jobs:
           TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
           TF_VAR_test_mode: "true"
         run: |
-          cd "${{ inputs.target_path }}"
+          cd "configurations/${{ inputs.target_configuration }}"
           terraform init -input=false
           if [ -f "tests/integration.tftest.hcl" ]; then
             terraform test
@@ -299,7 +299,7 @@ jobs:
       # === CORE WORKFLOW IDENTIFICATION ===
       workflow-name: "terraform-single-path-validation"
       operation-type: "validation"
-      configuration: ${{ inputs.target_path }}
+      configuration: ${{ inputs.target_configuration }}
 
       # === EXECUTION CONTEXT ===
       job-results: ${{ toJSON(needs) }}

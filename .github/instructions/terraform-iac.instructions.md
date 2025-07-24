@@ -14,9 +14,9 @@ applyTo: "configurations/**,modules/**"
 - Plan for future transition to full AVM compliance when technically feasible
 
 ### AVM Module Classifications
-- **Resource Modules**: Deploy primary resources with WAF best practices (e.g., `terraform-azurerm-avm-res-*`)
-- **Pattern Modules**: Deploy multiple resources using composable patterns (e.g., `terraform-azurerm-avm-ptn-*`)
-- **Utility Modules**: Provide reusable functions without deploying resources (e.g., `terraform-azurerm-avm-utl-*`)
+- **Resource Modules**: Deploy primary resources with WAF best practices (e.g., `res-*`)
+- **Pattern Modules**: Deploy multiple resources using composable patterns (e.g., `ptn-*`)
+- **Utility Modules**: Provide reusable functions without deploying resources (e.g., `utl-*`)
 
 ## Terraform Code Structure and Standards
 - Use consistent formatting with `terraform fmt` for all configuration files
