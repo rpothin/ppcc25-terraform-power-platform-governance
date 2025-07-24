@@ -84,12 +84,29 @@ This code serves as demonstration material for **"Enhancing Power Platform Gover
 - `docs/` - All documentation organized by Diataxis framework
 - `.github/` - GitHub workflows, actions, and automation
 
-### File Type Routing Guidelines
+### File Type Routing Guidelines with Instructions
+
+**⚠️ IMPORTANT: Always consult the relevant instruction file before modifying any directory:**
+
 - **Shell scripts (*.sh)** → Place in appropriate `scripts/` subfolder
+  - **Instructions**: `.github/instructions/bash-scripts.instructions.md`
+  - **Standards**: Bash scripting safety, Azure CLI usage, error handling
+  
 - **Configuration files (*.tf, *.tfvars)** → Place in `configurations/` or `modules/`
+  - **Instructions**: `.github/instructions/terraform-iac.instructions.md`
+  - **Standards**: AVM compliance, provider management, security patterns
+  
 - **Documentation (*.md)** → Place in `docs/` with proper categorization
-- **Workflows (*.yml)** → Place in `.github/workflows/`
+  - **Instructions**: `.github/instructions/docs.instructions.md`
+  - **Standards**: Diataxis framework, badges, content organization
+  
+- **Workflows (*.yml, *.yaml)** → Place in `.github/workflows/`
+  - **Instructions**: `.github/instructions/github-automation.instructions.md`
+  - **Standards**: OIDC authentication, security, error handling
+  
 - **Actions** → Place in `.github/actions/[action-name]/`
+  - **Instructions**: `.github/instructions/github-automation.instructions.md`
+  - **Standards**: Composite actions, reusability, documentation
 
 ### Naming Conventions
 - Use **kebab-case** for directories and files (e.g., `setup-guide.md`)
