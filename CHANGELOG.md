@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Enhanced terraform-docs workflow to track and report specific documentation files generated (e.g., configurations/01-dlp-policies/README.md)
   - Replaced inline summary generation in terraform-docs workflow with reusable execution summary workflow for consistency with other Terraform operations
   - Enhanced terraform-docs workflow to leverage standardized reusable-execution-summary.yml pattern used in terraform-output.yml
+  - Updated terraform-docs workflow commenting style to fully comply with GitHub automation documentation standards
+  - Improved terraform-docs workflow structure to follow required order: name, concurrency, on, run-name, permissions
 
 ### Fixed
 - **GitHub Actions Workflows**
@@ -19,6 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Fixed input parameter handling in terraform-docs workflow execution summary for non-manual triggers (push/pull_request events)
   - Fixed input parameter handling in terraform-docs workflow for non-manual triggers
   - Fixed metadata generation in reusable change detection workflow with proper JSON escaping and default values for push/pull_request events
+  - Fixed YAML syntax and formatting issues in terraform-docs workflow to comply with project yamllint standards
+  - Fixed step indentation and line length issues in terraform-docs workflow for proper YAML structure
   - Simplified metadata generation to avoid GitHub expression evaluation issues in shell scripts
   - Fixed shell arithmetic and date formatting in terraform-docs workflow summary generation to prevent script failures
 - **Repository Infrastructure**
