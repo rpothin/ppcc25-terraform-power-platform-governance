@@ -204,8 +204,33 @@ jobs:
     needs: format-check
     if: always()
     permissions:
-      id-token: write
-      contents: read
+      id-token: write # Required for OIDC authentication with Azure AD
+      contents: read # Required to access the repository code for integration testing
+    
+    # === ENVIRONMENT VARIABLES ===
+    # These environment variables configure authentication for both Azure and Power Platform
+    # All use OIDC (OpenID Connect) for secure, passwordless authentication
+    env:
+      # Power Platform OIDC Configuration
+      # Required for Power Platform Terraform provider authentication
+      POWER_PLATFORM_USE_OIDC: true
+      POWER_PLATFORM_CLIENT_ID: ${{ secrets.POWER_PLATFORM_CLIENT_ID }}
+      POWER_PLATFORM_TENANT_ID: ${{ secrets.POWER_PLATFORM_TENANT_ID }}
+      
+      # Azure OIDC Configuration
+      # Required for Azure provider authentication and resource management
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_USE_OIDC: true
+      
+      # Terraform Backend Configuration
+      # Required for Azure Storage backend where Terraform state is stored
+      # Used by terraform-init-with-backend composite action
+      ARM_STORAGE_ACCOUNT_NAME: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
+      ARM_CONTAINER_NAME: ${{ secrets.TERRAFORM_CONTAINER }}
+      ARM_RESOURCE_GROUP_NAME: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
+
     steps:
       # === REPOSITORY ACCESS ===
       # WHY: Required to access the repository code for integration testing
@@ -254,26 +279,6 @@ jobs:
       # WHY: Runs integration tests for the configuration/module if present
       - name: Integration Test
         id: integration-tests
-        env:
-          # === POWER PLATFORM AUTHENTICATION ===
-          POWER_PLATFORM_USE_OIDC: true
-          POWER_PLATFORM_CLIENT_ID: ${{ secrets.POWER_PLATFORM_CLIENT_ID }}
-          POWER_PLATFORM_TENANT_ID: ${{ secrets.POWER_PLATFORM_TENANT_ID }}
-
-          # === AZURE PROVIDER AUTHENTICATION ===
-          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          ARM_USE_OIDC: true
-
-          # === AZURE BACKEND CONFIGURATION ===
-          ARM_STORAGE_ACCOUNT_NAME: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
-          ARM_CONTAINER_NAME: ${{ secrets.TERRAFORM_CONTAINER }}
-          ARM_RESOURCE_GROUP_NAME: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
-
-          # === TERRAFORM VARIABLES ===
-          TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
-          TF_VAR_test_mode: "true"
         run: |
           cd "configurations/${{ inputs.target_configuration }}"
           terraform init -input=false
