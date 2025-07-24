@@ -860,15 +860,15 @@ jobs:
           storage-account-name: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
           resource-group-name: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
 
-  # Unified analysis and reporting of all validation group results with comprehensive audit trail generation
-  # WHY: Provides centralized reporting and insights for the entire testing pipeline execution
+  # Specialized test artifacts and AVM-compliant metadata generation
+  # WHY: Provides test-specific artifacts while reusable execution summary handles comprehensive reporting
   final-test-summary:
-    name: 📋 Final Test Results Summary
+    name: 📋 Test Artifacts Generation
     runs-on: ubuntu-latest
     timeout-minutes: 5
     
     # === COMPREHENSIVE DEPENDENCY MANAGEMENT ===
-    # Wait for completion of all validation groups before executing summary analysis
+    # Wait for completion of all validation groups before executing artifact generation
     needs: [
       detect-changes,
       terraform-format-check,
@@ -879,7 +879,7 @@ jobs:
     ]
     
     # === EXECUTION CONDITIONS ===
-    # Execute summary regardless of individual job outcomes when changes are detected
+    # Generate artifacts regardless of individual job outcomes when changes are detected
     if: always() && needs.detect-changes.outputs.has-changes == 'true'
     
     steps:
@@ -1003,335 +1003,84 @@ jobs:
           retention-days: 14                                         # Test results retention for development feedback
         continue-on-error: true                       # Continue even if artifact upload fails
 
-      # === COMPREHENSIVE RESULTS ANALYSIS AND REPORTING ===
-      # Generate detailed analysis of entire testing pipeline with actionable insights
-      - name: Generate Comprehensive Test Results Summary
-        if: always()                                  # Always execute for complete pipeline visibility
-        run: |
-          echo "::notice title=Comprehensive Analysis::📊 Generating detailed testing pipeline analysis and insights..."
-          echo "::notice title=Pipeline Overview::🎯 Analyzing results from all validation groups for actionable insights"
-          
-          # Calculate overall pipeline status and generate simple summary
-          total_jobs=$(echo '${{ toJSON(needs) }}' | jq 'length')
-          failed_jobs=$(echo '${{ toJSON(needs) }}' | jq '[.[] | select(.result == "failure")] | length')
-          
-          # Generate concise GitHub Step Summary
-          echo "## 🧪 Terraform Testing Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🎯 Validation Results" >> $GITHUB_STEP_SUMMARY
-          echo "| Group | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Format Check | ${{ needs.terraform-format-check.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Syntax Validation | ${{ needs.terraform-syntax-validation.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Configuration Validation | ${{ needs.terraform-configuration-validation.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Security Scan | ${{ needs.security-vulnerability-scan.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Integration Test | ${{ needs.integration-terraform-test.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          # Overall status determination
-          if [ "$failed_jobs" -eq 0 ]; then
-            echo "### ✅ Overall Status: SUCCESS" >> $GITHUB_STEP_SUMMARY
-            echo "All validations completed successfully." >> $GITHUB_STEP_SUMMARY
-            echo "::notice title=Pipeline Success::✅ All validation groups passed"
-          else
-            echo "### ❌ Overall Status: FAILED" >> $GITHUB_STEP_SUMMARY
-            echo "Review failed jobs and check detailed logs." >> $GITHUB_STEP_SUMMARY
-            echo "::error title=Pipeline Failure::❌ One or more validation groups failed"
-            exit 1
-          fi
-          
-          # === HEADER AND OVERVIEW SECTION ===
-          # Create comprehensive header with execution context and overview information
-          echo "## 🧪 Comprehensive Terraform Testing Pipeline Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "> **Multi-Stage Validation Pipeline**: This comprehensive testing workflow validates Terraform configurations through local validation, security scanning, and live integration testing to ensure quality, security, and compatibility." >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          # === EXECUTION OVERVIEW TABLE ===
-          # Provide detailed execution context for audit trails and debugging
-          echo "### 📊 Pipeline Execution Overview" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Execution Parameter | Value | Description |" >> $GITHUB_STEP_SUMMARY
-          echo "|-------------------|-------|-------------|" >> $GITHUB_STEP_SUMMARY
-          echo "| **Trigger Event** | \`${{ github.event_name }}\` | Workflow initiation method |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Repository Branch** | \`${{ github.ref_name }}\` | Target branch for validation |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Commit SHA** | \`${{ github.sha }}\` | Specific commit under validation |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Changed Configurations** | ${{ needs.detect-changes.outputs.changed-paths != '' && '✅ Detected' || '🔍 None detected' }} | Smart change detection results |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Pipeline Optimization** | ⚡ Enabled | Intelligent path-based execution |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Execution Timestamp** | \`$(date -u +"%Y-%m-%d %H:%M:%S UTC")\` | Pipeline completion time |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Initiated by** | @${{ github.actor }} | User or system triggering validation |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Workflow Run** | [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) | Direct link to execution details |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Repository** | [${{ github.repository }}](${{ github.server_url }}/${{ github.repository }}) | Source repository context |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          # === VALIDATION GROUPS RESULTS ANALYSIS ===
-          # Provide comprehensive breakdown of all validation group results
-          echo "### 🎯 Detailed Validation Results by Testing Group" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Test Category | Execution Status | Validation Result | Technical Details | Impact Assessment |" >> $GITHUB_STEP_SUMMARY
-          echo "|--------------|------------------|-------------------|-------------------|-------------------|" >> $GITHUB_STEP_SUMMARY
-          
-          # === LOCAL VALIDATION GROUP ANALYSIS ===
-          # Detailed analysis of local validation group results
-          echo "| **🎨 Format Check** | ${{ needs.terraform-format-check.result }} | $( \
-            [ "${{ needs.terraform-format-check.result }}" == "success" ] && \
-            [ "$format_issues" != "true" ] && \
-            echo '✅ PASSED' || echo '❌ FAILED' \
-          ) | Terraform code formatting validation | $( \
-            [ "$format_issues" == "true" ] && \
-            echo '⚠️ Requires \`terraform fmt\` execution' || \
-            echo '✅ Code follows standard formatting' \
-          ) |" >> $GITHUB_STEP_SUMMARY
-          
-          echo "| **✅ Syntax Validation** | ${{ needs.terraform-syntax-validation.result }} | $( \
-            [ "${{ needs.terraform-syntax-validation.result }}" == "success" ] && \
-            [ "$validation_successful" == "true" ] && \
-            echo '✅ PASSED' || echo '❌ FAILED' \
-          ) | HCL syntax and structure validation | $( \
-            [ "$validation_successful" == "true" ] && \
-            echo '✅ Valid Terraform syntax across all configurations' || \
-            echo '🚨 Critical: Syntax errors block deployment' \
-          ) |" >> $GITHUB_STEP_SUMMARY
-          
-          echo "| **🔧 Configuration Validation** | ${{ needs.terraform-configuration-validation.result }} | $( \
-            [ "${{ needs.terraform-configuration-validation.result }}" == "success" ] && \
-            echo '✅ PASSED' || \
-            [ "${{ needs.terraform-configuration-validation.result }}" == "skipped" ] && \
-            echo '⏭️ SKIPPED' || \
-            echo '❌ FAILED' \
-          ) | Enhanced configuration and dependency analysis | $( \
-            [ "$config_validated" != "0" ] && \
-            echo "✅ Validated $config_validated configuration(s)" || \
-            echo '📋 Configuration structure assessment' \
-          ) |" >> $GITHUB_STEP_SUMMARY
-          
-          # === SECURITY VALIDATION GROUP ANALYSIS ===
-          # Comprehensive security validation results
-          echo "| **🛡️ Security Vulnerability Scan** | ${{ needs.security-vulnerability-scan.result }} | $( \
-            [ "${{ needs.security-vulnerability-scan.result }}" == "success" ] && \
-            [ "$security_completed" == "true" ] && \
-            echo '✅ PASSED' || echo '❌ FAILED' \
-          ) | Infrastructure security and compliance analysis | $( \
-            [ "$security_issues" == "true" ] && \
-            echo '⚠️ Security findings require review' || \
-            echo '🔒 No critical security issues detected' \
-          ) |" >> $GITHUB_STEP_SUMMARY
-          
-          # === INTEGRATION VALIDATION GROUP ANALYSIS ===
-          # Live infrastructure testing results
-          echo "| **🧪 Integration Testing** | ${{ needs.integration-terraform-test.result }} | $( \
-            [ "${{ needs.integration-terraform-test.result }}" == "success" ] && \
-            [ "$integration_successful" == "true" ] && \
-            echo '✅ PASSED' || \
-            [ "${{ needs.integration-terraform-test.result }}" == "skipped" ] && \
-            echo '⏭️ SKIPPED' || \
-            echo '❌ FAILED' \
-          ) | Live Azure infrastructure validation with OIDC | $( \
-            [ "$integration_tests" != "0" ] && \
-            echo "🧪 Executed $integration_tests integration test(s)" || \
-            [ "${{ needs.integration-terraform-test.result }}" == "skipped" ] && \
-            echo '🔒 Restricted to main branch/manual dispatch' || \
-            echo '📋 Live infrastructure compatibility testing' \
-          ) |" >> $GITHUB_STEP_SUMMARY
-          
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          # === COMPREHENSIVE STATUS ANALYSIS AND DETERMINATION ===
-          # Advanced analysis to determine overall pipeline status with detailed insights
-          echo "::notice title=Status Analysis::🔍 Analyzing overall pipeline status with comprehensive failure and warning categorization"
-          
-          overall_success=true
-          critical_failures=()
-          warnings=()
-          recommendations=()
-          
-          # === CRITICAL FAILURE DETECTION ===
-          # Identify failures that absolutely block deployment and require immediate attention
-          if [ "${{ needs.terraform-syntax-validation.result }}" != "success" ] && [ "${{ needs.terraform-syntax-validation.result }}" != "skipped" ]; then
-            overall_success=false
-            critical_failures+=("🚨 Terraform syntax validation failed - blocks deployment")
-            recommendations+=("Run \`terraform validate\` locally to identify and fix syntax errors")
-          fi
-          
-          if [ "$validation_successful" == "false" ]; then
-            overall_success=false
-            critical_failures+=("🚨 Terraform validation failures detected - requires immediate attention")
-            recommendations+=("Review validation output and fix configuration errors before proceeding")
-          fi
-          
-          if [ "${{ needs.terraform-configuration-validation.result }}" != "success" ] && [ "${{ needs.terraform-configuration-validation.result }}" != "skipped" ]; then
-            overall_success=false
-            critical_failures+=("🚨 Enhanced configuration validation failed - structure issues detected")
-            recommendations+=("Review configuration structure and dependencies for compliance with best practices")
-          fi
-          
-          # === WARNING DETECTION ===
-          # Identify issues that should be addressed but don't necessarily block deployment
-          if [ "$format_issues" == "true" ]; then
-            warnings+=("⚠️ Code formatting inconsistencies detected")
-            recommendations+=("Run \`terraform fmt -recursive\` to fix formatting issues")
-          fi
-          
-          if [ "${{ needs.integration-terraform-test.result }}" == "failure" ]; then
-            warnings+=("⚠️ Integration tests failed - live infrastructure validation issues")
-            recommendations+=("Review integration test failures and check Azure connectivity and permissions")
-          fi
-          
-          if [ "$security_issues" == "true" ]; then
-            warnings+=("⚠️ Security vulnerabilities or compliance issues found")
-            recommendations+=("Review security scan results and address identified vulnerabilities")
-          fi
-          
-          if [ "${{ needs.security-vulnerability-scan.result }}" == "failure" ]; then
-            warnings+=("⚠️ Security scanning encountered issues")
-            recommendations+=("Check security scan logs and ensure proper tool configuration")
-          fi
-          
-          # === OVERALL STATUS DETERMINATION WITH COMPREHENSIVE FEEDBACK ===
-          # Generate detailed status analysis with actionable insights and next steps
-          if [ "$overall_success" == "true" ] && [ ${#warnings[@]} -eq 0 ]; then
-            echo "### ✅ Overall Pipeline Status: FULLY SUCCESSFUL" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "🎉 **Excellent! All validation groups passed successfully.** Your Terraform configurations meet all quality, security, and compatibility standards." >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**✅ Ready for Deployment:**" >> $GITHUB_STEP_SUMMARY
-            echo "- All syntax and configuration validations passed" >> $GITHUB_STEP_SUMMARY
-            echo "- Security scans completed without critical issues" >> $GITHUB_STEP_SUMMARY
-            echo "- Integration tests validated against live Azure infrastructure" >> $GITHUB_STEP_SUMMARY
-            echo "- Code follows formatting and structural best practices" >> $GITHUB_STEP_SUMMARY
-            
-          elif [ "$overall_success" == "true" ] && [ ${#warnings[@]} -gt 0 ]; then
-            echo "### ⚠️ Overall Pipeline Status: SUCCESSFUL WITH RECOMMENDATIONS" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "✅ **Core validation successful**, but some areas for improvement were identified:" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**🔍 Detected Issues (Non-blocking):**" >> $GITHUB_STEP_SUMMARY
-            for warning in "${warnings[@]}"; do
-              echo "- $warning" >> $GITHUB_STEP_SUMMARY
-            done
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**💡 Recommended Actions:**" >> $GITHUB_STEP_SUMMARY
-            for recommendation in "${recommendations[@]}"; do
-              echo "- $recommendation" >> $GITHUB_STEP_SUMMARY
-            done
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "*These issues should be addressed to maintain code quality and security standards, but don't block immediate deployment.*" >> $GITHUB_STEP_SUMMARY
-            
-          else
-            echo "### ❌ Overall Pipeline Status: FAILED - ACTION REQUIRED" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "🚨 **Critical failures detected that must be resolved before deployment:**" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**❌ Critical Failures (Deployment Blocking):**" >> $GITHUB_STEP_SUMMARY
-            for failure in "${critical_failures[@]}"; do
-              echo "- $failure" >> $GITHUB_STEP_SUMMARY
-            done
-            
-            if [ ${#warnings[@]} -gt 0 ]; then
-              echo "" >> $GITHUB_STEP_SUMMARY
-              echo "**⚠️ Additional Issues for Review:**" >> $GITHUB_STEP_SUMMARY
-              for warning in "${warnings[@]}"; do
-                echo "- $warning" >> $GITHUB_STEP_SUMMARY
-              done
-            fi
-            
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**🔧 Required Actions for Resolution:**" >> $GITHUB_STEP_SUMMARY
-            for recommendation in "${recommendations[@]}"; do
-              echo "- $recommendation" >> $GITHUB_STEP_SUMMARY
-            done
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "*❗ Deployment is blocked until all critical failures are resolved. Please address the issues above and re-run the validation pipeline.*" >> $GITHUB_STEP_SUMMARY
-          fi
-          
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          # === HELPFUL RESOURCES AND NEXT STEPS SECTION ===
-          # Provide comprehensive guidance for developers and operators
-          echo "### 📚 Resources and Next Steps" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**🔗 Useful Links:**" >> $GITHUB_STEP_SUMMARY
-          echo "- [📊 Detailed workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) - Complete execution details" >> $GITHUB_STEP_SUMMARY
-          echo "- [📁 Test artifacts](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) - Downloadable test results and metadata" >> $GITHUB_STEP_SUMMARY
-          echo "- [🛡️ Security findings](${{ github.server_url }}/${{ github.repository }}/security) - GitHub Security tab for vulnerability details" >> $GITHUB_STEP_SUMMARY
-          echo "- [📋 Repository documentation](${{ github.server_url }}/${{ github.repository }}) - Project guidelines and best practices" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**🚀 Development Workflow:**" >> $GITHUB_STEP_SUMMARY
-          echo "1. Address any critical failures identified above" >> $GITHUB_STEP_SUMMARY
-          echo "2. Run local validation: \`terraform fmt && terraform validate\`" >> $GITHUB_STEP_SUMMARY
-          echo "3. Review security findings and implement fixes" >> $GITHUB_STEP_SUMMARY
-          echo "4. Test integration changes against development environment" >> $GITHUB_STEP_SUMMARY
-          echo "5. Commit fixes and re-run this validation pipeline" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**📞 Support and Assistance:**" >> $GITHUB_STEP_SUMMARY
-          echo "- For validation failures: Review the detailed logs in each job section above" >> $GITHUB_STEP_SUMMARY
-          echo "- For security issues: Consult the security scan artifacts and GitHub Security tab" >> $GITHUB_STEP_SUMMARY
-          echo "- For integration test failures: Verify Azure connectivity and permissions" >> $GITHUB_STEP_SUMMARY
-          echo "- For general questions: Refer to repository documentation and team guidelines" >> $GITHUB_STEP_SUMMARY
-          
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "---" >> $GITHUB_STEP_SUMMARY
-          echo "*This comprehensive validation pipeline ensures infrastructure-as-code quality, security, and compatibility. Generated by [Terraform Testing Workflow](${{ github.server_url }}/${{ github.repository }}/blob/${{ github.ref_name }}/.github/workflows/terraform-test.yml) at $(date -u +"%Y-%m-%d %H:%M:%S UTC").*" >> $GITHUB_STEP_SUMMARY
-          
-          # Add paths analyzed section
-          changed_paths="${{ needs.detect-changes.outputs.changed-paths }}"
-          if [ -n "$changed_paths" ]; then
-            echo "### 📁 Paths Analyzed" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            echo "$changed_paths" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-          fi
-          
-          # Add next steps section
-          echo "### 📋 Next Steps" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          if [ "$overall_success" == "true" ]; then
-            echo "1. **✅ Ready for Deployment**: All critical tests passed" >> $GITHUB_STEP_SUMMARY
-            echo "2. **📝 Address Warnings**: Review and resolve any warnings if present" >> $GITHUB_STEP_SUMMARY
-            echo "3. **🚀 Deploy Changes**: Proceed with your deployment pipeline" >> $GITHUB_STEP_SUMMARY
-            echo "4. **📋 Review Results**: Check individual job outputs for detailed information" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "1. **❌ Fix Critical Issues**: Address all critical failures before deployment" >> $GITHUB_STEP_SUMMARY
-            echo "2. **🔄 Re-run Tests**: Push fixes and re-run the validation workflow" >> $GITHUB_STEP_SUMMARY
-            echo "3. **🔍 Debug**: Check individual job logs for specific error details" >> $GITHUB_STEP_SUMMARY
-            echo "4. **📚 Documentation**: Consult troubleshooting guides for common issues" >> $GITHUB_STEP_SUMMARY
-          fi
-          
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          # Add performance and efficiency metrics
-          echo "### ⚡ Performance Metrics" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| **Parallel Execution** | ✅ Three validation groups ran in parallel |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Smart Processing** | ✅ Only tested changed paths |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Test Optimization** | ⚡ Reduced CI/CD execution time |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Resource Efficiency** | ♻️ Minimized resource usage |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Carbon Footprint** | 🌱 Reduced through smart change detection |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          # Add important notes
-          echo "### 📌 Important Notes" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **🔄 Parallel Architecture**: Local, Security, and Integration validations run independently" >> $GITHUB_STEP_SUMMARY
-          echo "- **🎯 Change Detection**: Only modified configurations/modules were tested" >> $GITHUB_STEP_SUMMARY
-          echo "- **🔒 Security**: All authentication uses OIDC for secure access" >> $GITHUB_STEP_SUMMARY
-          echo "- **📊 Comprehensive**: Tests cover syntax, configuration, integration, and security" >> $GITHUB_STEP_SUMMARY
-          echo "- **🚀 AVM Compliant**: Testing follows Azure Verified Module standards" >> $GITHUB_STEP_SUMMARY
-          echo "- **📈 Continuous**: Tests run automatically on every relevant change" >> $GITHUB_STEP_SUMMARY
-          echo "- **🔄 Reproducible**: All test results are captured in artifacts for audit" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          # Set exit code based on overall status for CI/CD integration
-          if [ "$overall_success" == "false" ]; then
-            echo "::error title=Test Suite Failed::❌ Critical test failures detected - see summary above"
-            exit 1
-          else
-            echo "::notice title=Test Suite Passed::✅ All critical tests passed successfully"
-            if [ ${#warnings[@]} -gt 0 ]; then
-              echo "::warning title=Warnings Detected::⚠️ Some warnings were found - consider addressing them"
-            fi
-          fi
+  # === REUSABLE EXECUTION SUMMARY GENERATION ===
+  execution-summary:
+    if: always()                                     # Always execute for comprehensive reporting
+    needs: [detect-changes, terraform-format-check, terraform-syntax-validation, terraform-configuration-validation, security-vulnerability-scan, integration-terraform-test]
+    uses: ./.github/workflows/reusable-execution-summary.yml
+    with:
+      # === CORE WORKFLOW IDENTIFICATION ===
+      workflow-name: "terraform-test"
+      operation-type: "test"
+      configuration: ${{ needs.detect-changes.outputs.changed-paths != '' && 'multiple-configs' || 'no-changes' }}
+      
+      # === COMPREHENSIVE JOB RESULTS ===
+      # Pass detailed job execution results for comprehensive analysis
+      job-results: |
+        {
+          "detect-changes": {
+            "result": "${{ needs.detect-changes.result }}",
+            "outputs": {
+              "has-changes": "${{ needs.detect-changes.outputs.has-changes }}",
+              "changed-paths": "${{ needs.detect-changes.outputs.changed-paths }}",
+              "changed-configs": "${{ needs.detect-changes.outputs.changed-configs }}",
+              "changed-modules": "${{ needs.detect-changes.outputs.changed-modules }}"
+            }
+          },
+          "terraform-format-check": {
+            "result": "${{ needs.terraform-format-check.result }}",
+            "outputs": {
+              "format-issues": "${{ needs.terraform-format-check.outputs.format-issues }}",
+              "metadata": "${{ needs.terraform-format-check.outputs.format-metadata }}"
+            }
+          },
+          "terraform-syntax-validation": {
+            "result": "${{ needs.terraform-syntax-validation.result }}",
+            "outputs": {
+              "validation-successful": "${{ needs.terraform-syntax-validation.outputs.validation-successful }}",
+              "metadata": "${{ needs.terraform-syntax-validation.outputs.validation-metadata }}"
+            }
+          },
+          "terraform-configuration-validation": {
+            "result": "${{ needs.terraform-configuration-validation.result }}",
+            "outputs": {
+              "configurations-validated": "${{ needs.terraform-configuration-validation.outputs.configurations-validated }}",
+              "metadata": "${{ needs.terraform-configuration-validation.outputs.config-metadata }}"
+            }
+          },
+          "security-vulnerability-scan": {
+            "result": "${{ needs.security-vulnerability-scan.result }}",
+            "outputs": {
+              "scan-completed": "${{ needs.security-vulnerability-scan.outputs.scan-completed }}",
+              "vulnerabilities-found": "${{ needs.security-vulnerability-scan.outputs.vulnerabilities-found }}",
+              "metadata": "${{ needs.security-vulnerability-scan.outputs.security-metadata }}"
+            }
+          },
+          "integration-terraform-test": {
+            "result": "${{ needs.integration-terraform-test.result }}",
+            "outputs": {
+              "integration-successful": "${{ needs.integration-terraform-test.outputs.integration-successful }}",
+              "tests-executed": "${{ needs.integration-terraform-test.outputs.tests-executed }}",
+              "metadata": "${{ needs.integration-terraform-test.outputs.integration-metadata }}"
+            }
+          }
+        }
+      
+      # === WORKFLOW INPUT CONTEXT ===
+      # Pass original workflow inputs for context-aware troubleshooting
+      workflow-inputs: |
+        {
+          "target_path": "${{ github.event.inputs.target_path || 'auto-detected' }}",
+          "force_all": "${{ github.event.inputs.force_all || 'false' }}",
+          "skip_integration": "${{ github.event.inputs.skip_integration || 'false' }}",
+          "trigger_event": "${{ github.event_name }}",
+          "branch": "${{ github.ref_name }}",
+          "actor": "${{ github.actor }}",
+          "commit_sha": "${{ github.sha }}"
+        }
+      
+      # === ENHANCED SUMMARY CONFIGURATION ===
+      include-troubleshooting: true
+      include-technical-details: true
+      summary-level: "detailed"
+      artifact-retention-days: 14
