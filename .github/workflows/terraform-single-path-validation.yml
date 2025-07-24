@@ -22,6 +22,7 @@
 # - Requires Azure OIDC identity federation and GitHub environment protection
 # - Generates AVM-compliant artifacts for audit and compliance
 # ═══════════════════════════════════════════════════════════════════════════════════════════════════════
+---
 name: "Terraform Single Path Validation"
 
 concurrency:
@@ -276,13 +277,92 @@ jobs:
           cd "configurations/${{ inputs.target_configuration }}"
           echo "::notice title=Test Start::$(date)"
           
-          if find . -name "*.tftest.hcl" -type f | grep -q .; then
-            time terraform test
+          export TEST_RESULT_FILE="/tmp/terraform_test_output.log"
+          export TEST_SUMMARY_FILE="/tmp/terraform_test_summary.txt"
+          export TEST_STATUS_FILE="/tmp/terraform_test_status.txt"
+          export TEST_FILES_FILE="/tmp/terraform_test_files.txt"
+          
+          if find . -name "*.tftest.hcl" -type f | tee "$TEST_FILES_FILE" | grep -q .; then
+            echo "::notice title=Test Files Found::$(cat $TEST_FILES_FILE | wc -l) test file(s) discovered"
+            if terraform test -verbose -no-color 2>&1 | tee "$TEST_RESULT_FILE"; then
+              echo "success" > "$TEST_STATUS_FILE"
+            else
+              echo "failure" > "$TEST_STATUS_FILE"
+            fi
+            grep -c "^run " *.tftest.hcl 2>/dev/null || echo "0" > /tmp/test_count.txt
+            grep -c "PASS" "$TEST_RESULT_FILE" 2>/dev/null || echo "0" > /tmp/passed_count.txt
+            grep -c "FAIL" "$TEST_RESULT_FILE" 2>/dev/null || echo "0" > /tmp/failed_count.txt
           else
             echo "::notice title=No Tests Found::No .tftest.hcl files found, skipping."
+            echo "skipped" > "$TEST_STATUS_FILE"
+            echo "0" > /tmp/test_count.txt
+            echo "0" > /tmp/passed_count.txt
+            echo "0" > /tmp/failed_count.txt
           fi
-          
           echo "::notice title=Test End::$(date)"
+
+      # === INTEGRATION TEST RESULTS SUMMARY ===
+      # WHY: Summarizes the integration test results for visibility
+      - name: Post Terraform Test Job Summary
+        if: always()
+        run: |
+          TEST_RESULT_FILE="/tmp/terraform_test_output.log"
+          TEST_STATUS_FILE="/tmp/terraform_test_status.txt"
+          TEST_FILES_FILE="/tmp/terraform_test_files.txt"
+          TEST_COUNT=$(cat /tmp/test_count.txt 2>/dev/null || echo "0")
+          PASSED_COUNT=$(cat /tmp/passed_count.txt 2>/dev/null || echo "0")
+          FAILED_COUNT=$(cat /tmp/failed_count.txt 2>/dev/null || echo "0")
+          TEST_STATUS=$(cat "$TEST_STATUS_FILE" 2>/dev/null || echo "skipped")
+          CONFIG="${{ inputs.target_configuration }}"
+          echo "# 🧪 Terraform Integration Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Configuration:** \`$CONFIG\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Test Execution Time:** $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📊 Test Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Count |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Total Tests | $TEST_COUNT |" >> $GITHUB_STEP_SUMMARY
+          echo "| Passed | $PASSED_COUNT |" >> $GITHUB_STEP_SUMMARY
+          echo "| Failed | $FAILED_COUNT |" >> $GITHUB_STEP_SUMMARY
+          if [ "$TEST_STATUS" = "success" ]; then
+            echo "| **Status** | ✅ **SUCCESS** |" >> $GITHUB_STEP_SUMMARY
+          elif [ "$TEST_STATUS" = "failure" ]; then
+            echo "| **Status** | ❌ **FAILURE** |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| **Status** | ⏭️ **SKIPPED** |" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📁 Test Files Discovered" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -s "$TEST_FILES_FILE" ]; then
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            cat "$TEST_FILES_FILE" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No .tftest.hcl files were found in the configuration directory." >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📋 Test Execution Details" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f "$TEST_RESULT_FILE" ]; then
+            echo "<details>" >> $GITHUB_STEP_SUMMARY
+            echo "<summary>Click to expand detailed test output</summary>" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            tail -50 "$TEST_RESULT_FILE" >> $GITHUB_STEP_SUMMARY 2>/dev/null || echo "No detailed output available"
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "</details>" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No test output available." >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## ⏱️ Performance Metrics" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Execution completed at:** $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Configuration:** \`configurations/$CONFIG\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Test framework:** Terraform native testing" >> $GITHUB_STEP_SUMMARY
 
       # === JIT NETWORK ACCESS CLEANUP ===
       # WHY: Removes temporary network access to maintain security posture
