@@ -870,7 +870,7 @@ jobs:
 
   # Specialized test artifacts and AVM-compliant metadata generation
   # WHY: Provides test-specific artifacts while reusable execution summary handles comprehensive reporting
-  final-test-summary:
+  test-artifacts-generation:
     name: 📋 Test Artifacts Generation
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -1014,7 +1014,7 @@ jobs:
   # === REUSABLE EXECUTION SUMMARY GENERATION ===
   execution-summary:
     if: always()                                     # Always execute for comprehensive reporting
-    needs: [detect-changes, terraform-format-check, terraform-syntax-validation, terraform-configuration-validation, security-vulnerability-scan, integration-terraform-test]
+    needs: [detect-changes, terraform-format-check, terraform-syntax-validation, terraform-configuration-validation, security-vulnerability-scan, integration-terraform-test, test-artifacts-generation]
     uses: ./.github/workflows/reusable-execution-summary.yml
     with:
       # === CORE WORKFLOW IDENTIFICATION ===
