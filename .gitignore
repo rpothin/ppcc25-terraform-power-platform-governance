@@ -36,3 +36,5 @@ crash.*.log
 reports/*-failed-*
 reports/*-interrupted-*
 reports/baseline-*.txt
+## Ignore implementation plan files
+plan/
