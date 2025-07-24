@@ -19,8 +19,7 @@ The repository provides practical examples and reusable patterns to help organiz
 
 ## 🚀 What's Included
 
-- **Terraform modules** for Power Platform governance components
-- **Configuration examples** demonstrated in the PPCC25 session
+- **Terraform Configurations** presented in the PPCC25 session
 - **Migration patterns** from ClickOps to Infrastructure as Code
 - **Best practices** for enterprise Power Platform governance
 - **Integration scenarios** with Azure
@@ -114,7 +113,6 @@ After setup, go to your GitHub repository and run the **Terraform Plan and Apply
 │   │   └── README.md                   # Configuration documentation
 │   └── ...                             # Additional configurations
 ├── docs/                               # Documentation and guides
-├── modules/                            # Reusable Terraform modules
 ├── scripts/                            # Helper scripts for setup and deployments
 ├── .gitignore                          # Git ignore file
 ├── CHANGELOG.md                        # Version history and changes
