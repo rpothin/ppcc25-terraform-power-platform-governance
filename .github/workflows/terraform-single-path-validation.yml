@@ -276,19 +276,34 @@ jobs:
           cd "configurations/${{ inputs.target_configuration }}"
           echo "::notice title=Test Start::$(date)"
           
-          export TEST_RESULT_FILE="/tmp/terraform_test_output.log"
-          export JUNIT_XML_FILE="/tmp/terraform_test_results.xml"
-          export TEST_STATUS_FILE="/tmp/terraform_test_status.txt"
-          export TEST_FILES_FILE="/tmp/terraform_test_files.txt"
+          export TEST_RESULT_FILE="terraform_test_output.log"
+          export JUNIT_XML_FILE="terraform_test_results.xml"
+          export TEST_STATUS_FILE="terraform_test_status.txt"
+          export TEST_FILES_FILE="terraform_test_files.txt"
           
           if find . -name "*.tftest.hcl" -type f | tee "$TEST_FILES_FILE" | grep -q .; then
             echo "::notice title=Test Files Found::$(cat $TEST_FILES_FILE | wc -l) test file(s) discovered"
 
-            # Run tests with JUnit XML output
-            if terraform test -junit-xml="$JUNIT_XML_FILE" 2>&1 | tee "$TEST_RESULT_FILE"; then
+            # Run tests with JUnit XML output (relative path for GitHub Actions compatibility)
+            echo "::debug::Running terraform test with JUnit XML output to $JUNIT_XML_FILE"
+            if terraform test -junit-xml="$JUNIT_XML_FILE" -verbose -no-color 2>&1 | tee "$TEST_RESULT_FILE"; then
               echo "success" > "$TEST_STATUS_FILE"
             else
               echo "failure" > "$TEST_STATUS_FILE"
+            fi
+            
+            # Debug: Check if JUnit XML file was created
+            if [ -f "$JUNIT_XML_FILE" ]; then
+              echo "::notice title=JUnit XML Created::JUnit XML file created successfully at $(pwd)/$JUNIT_XML_FILE"
+              echo "::debug::JUnit XML file size: $(stat -c%s $JUNIT_XML_FILE) bytes"
+              # Show first few lines for debugging
+              echo "::group::JUnit XML Preview"
+              head -10 "$JUNIT_XML_FILE" || echo "Could not preview JUnit XML"
+              echo "::endgroup::"
+            else
+              echo "::warning title=No JUnit XML::JUnit XML file was not created at $(pwd)/$JUNIT_XML_FILE"
+              echo "::debug::Current directory contents:"
+              ls -la
             fi
           else
             echo "::notice title=No Tests Found::No .tftest.hcl files found, skipping."
@@ -300,11 +315,11 @@ jobs:
       # === PUBLISH TEST RESULTS ===
       # WHY: Publishes JUnit XML test results for GitHub UI integration
       - name: Publish Test Results
-        uses: dorny/test-reporter@v2.1.1
-        if: always() && hashFiles('/tmp/terraform_test_results.xml') != ''
+        uses: dorny/test-reporter@v1.9.1
+        if: always()
         with:
           name: 'Terraform Integration Test Results'
-          path: '/tmp/terraform_test_results.xml'
+          path: 'configurations/${{ inputs.target_configuration }}/terraform_test_results.xml'
           reporter: 'java-junit'
           fail-on-error: false
           max-annotations: 50
