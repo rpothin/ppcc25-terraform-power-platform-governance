@@ -94,6 +94,14 @@ env:
   TF_VERSION: ${{ vars.TERRAFORM_VERSION || '1.12.2' }}  # Consistent Terraform version
   TF_IN_AUTOMATION: true  # Enable automation-optimized Terraform behavior
 
+# === WORKFLOW PERMISSIONS ===
+# Required permissions for comprehensive testing and reusable workflow integration
+permissions:
+  contents: read          # Required: Repository content access for testing and reusable workflows
+  actions: read          # Required: Access to workflow metadata and job execution data
+  security-events: write # Required: Upload security findings to GitHub Security tab
+  id-token: write        # Required: OIDC authentication with Azure AD for integration tests
+
 jobs:
   # === REUSABLE CHANGE DETECTION ===
   # Leverages standardized change detection workflow for consistency and efficiency
