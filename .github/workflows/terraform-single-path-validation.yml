@@ -286,7 +286,7 @@ jobs:
 
             # Run tests with JUnit XML output (relative path for GitHub Actions compatibility)
             echo "::debug::Running terraform test with JUnit XML output to $JUNIT_XML_FILE"
-            if terraform test -junit-xml="$JUNIT_XML_FILE" -verbose -no-color 2>&1 | tee "$TEST_RESULT_FILE"; then
+            if terraform test -junit-xml="$JUNIT_XML_FILE" 2>&1 | tee "$TEST_RESULT_FILE"; then
               echo "success" > "$TEST_STATUS_FILE"
             else
               echo "failure" > "$TEST_STATUS_FILE"
@@ -315,14 +315,11 @@ jobs:
       # === PUBLISH TEST RESULTS ===
       # WHY: Publishes JUnit XML test results for GitHub UI integration
       - name: Publish Test Results
-        uses: dorny/test-reporter@v1.9.1
+        uses: dorny/test-reporter@v2
         if: always()
         with:
           name: 'Terraform Integration Test Results'
           path: 'configurations/${{ inputs.target_configuration }}/terraform_test_results.xml'
-          reporter: 'java-junit'
-          fail-on-error: false
-          max-annotations: 50
 
       # === JIT NETWORK ACCESS CLEANUP ===
       # WHY: Removes temporary network access to maintain security posture
