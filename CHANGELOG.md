@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **GitHub Actions Workflows**
+  - Fixed reusable execution summary workflow to display output filenames for "docs" operation type (terraform-docs workflow)
   - Fixed missing `actions: read` permission in terraform-docs workflow required by reusable execution summary workflow
   - Fixed input parameter handling in terraform-docs workflow execution summary for non-manual triggers (push/pull_request events)
   - Fixed input parameter handling in terraform-docs workflow for non-manual triggers

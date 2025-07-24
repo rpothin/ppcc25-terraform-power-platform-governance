@@ -370,12 +370,22 @@ jobs:
           echo "- **Repository**: [${{ github.repository }}](${{ github.server_url }}/${{ github.repository }})" >> $GITHUB_STEP_SUMMARY
           echo "- **Workflow Run**: [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
           echo "- **Configuration Path**: \`configurations/$configuration/\`" >> $GITHUB_STEP_SUMMARY
+          
+          # === OUTPUT/GENERATED FILES SECTION ===
+          # Display relevant files based on operation type
           if [ "$operation_type" = "output" ]; then
             output_filename="${{ inputs.output-filename }}"
             if [ -n "$output_filename" ] && [ "$output_filename" != "" ]; then
               echo "- **Output File**: \`configurations/$configuration/$output_filename\`" >> $GITHUB_STEP_SUMMARY
             else
               echo "- **Output Directory**: \`configurations/$configuration/outputs/\`" >> $GITHUB_STEP_SUMMARY
+            fi
+          elif [ "$operation_type" = "docs" ]; then
+            output_filename="${{ inputs.output-filename }}"
+            if [ -n "$output_filename" ] && [ "$output_filename" != "" ]; then
+              echo "- **Generated Files**: \`$output_filename\`" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "- **Documentation**: Generated terraform-docs for configuration" >> $GITHUB_STEP_SUMMARY
             fi
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
