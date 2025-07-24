@@ -283,9 +283,9 @@ jobs:
           
           if find . -name "*.tftest.hcl" -type f | tee "$TEST_FILES_FILE" | grep -q .; then
             echo "::notice title=Test Files Found::$(cat $TEST_FILES_FILE | wc -l) test file(s) discovered"
-            
-            # Run tests with JUnit XML output and verbose logging
-            if terraform test -verbose -no-color -junit-xml="$JUNIT_XML_FILE" 2>&1 | tee "$TEST_RESULT_FILE"; then
+
+            # Run tests with JUnit XML output
+            if terraform test -junit-xml="$JUNIT_XML_FILE" 2>&1 | tee "$TEST_RESULT_FILE"; then
               echo "success" > "$TEST_STATUS_FILE"
             else
               echo "failure" > "$TEST_STATUS_FILE"
