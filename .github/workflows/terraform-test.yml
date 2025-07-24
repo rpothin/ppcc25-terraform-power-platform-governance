@@ -1022,73 +1022,14 @@ jobs:
       operation-type: "test"
       configuration: ${{ needs.detect-changes.outputs.changed-paths != '' && 'multiple-configs' || 'no-changes' }}
       
-      # === COMPREHENSIVE JOB RESULTS ===
-      # Pass detailed job execution results for comprehensive analysis
-      job-results: |
-        {
-          "detect-changes": {
-            "result": "${{ needs.detect-changes.result }}",
-            "outputs": {
-              "has-changes": "${{ needs.detect-changes.outputs.has-changes }}",
-              "changed-paths": "${{ needs.detect-changes.outputs.changed-paths }}",
-              "changed-configs": "${{ needs.detect-changes.outputs.changed-configs }}",
-              "changed-modules": "${{ needs.detect-changes.outputs.changed-modules }}"
-            }
-          },
-          "terraform-format-check": {
-            "result": "${{ needs.terraform-format-check.result }}",
-            "outputs": {
-              "format-issues": "${{ needs.terraform-format-check.outputs.format-issues }}",
-              "metadata": "${{ needs.terraform-format-check.outputs.format-metadata }}"
-            }
-          },
-          "terraform-syntax-validation": {
-            "result": "${{ needs.terraform-syntax-validation.result }}",
-            "outputs": {
-              "validation-successful": "${{ needs.terraform-syntax-validation.outputs.validation-successful }}",
-              "metadata": "${{ needs.terraform-syntax-validation.outputs.validation-metadata }}"
-            }
-          },
-          "terraform-configuration-validation": {
-            "result": "${{ needs.terraform-configuration-validation.result }}",
-            "outputs": {
-              "configurations-validated": "${{ needs.terraform-configuration-validation.outputs.configurations-validated }}",
-              "metadata": "${{ needs.terraform-configuration-validation.outputs.config-metadata }}"
-            }
-          },
-          "security-vulnerability-scan": {
-            "result": "${{ needs.security-vulnerability-scan.result }}",
-            "outputs": {
-              "scan-completed": "${{ needs.security-vulnerability-scan.outputs.scan-completed }}",
-              "vulnerabilities-found": "${{ needs.security-vulnerability-scan.outputs.vulnerabilities-found }}",
-              "metadata": "${{ needs.security-vulnerability-scan.outputs.security-metadata }}"
-            }
-          },
-          "integration-terraform-test": {
-            "result": "${{ needs.integration-terraform-test.result }}",
-            "outputs": {
-              "integration-successful": "${{ needs.integration-terraform-test.outputs.integration-successful }}",
-              "tests-executed": "${{ needs.integration-terraform-test.outputs.tests-executed }}",
-              "metadata": "${{ needs.integration-terraform-test.outputs.integration-metadata }}"
-            }
-          }
-        }
-      
-      # === WORKFLOW INPUT CONTEXT ===
-      # Pass original workflow inputs for context-aware troubleshooting
-      workflow-inputs: |
-        {
-          "target_path": "${{ github.event.inputs.target_path || 'auto-detected' }}",
-          "force_all": "${{ github.event.inputs.force_all || 'false' }}",
-          "skip_integration": "${{ github.event.inputs.skip_integration || 'false' }}",
-          "trigger_event": "${{ github.event_name }}",
-          "branch": "${{ github.ref_name }}",
-          "actor": "${{ github.actor }}",
-          "commit_sha": "${{ github.sha }}"
-        }
-      
-      # === ENHANCED SUMMARY CONFIGURATION ===
+      # === EXECUTION CONTEXT ===
+      job-results: ${{ toJSON(needs) }}
+      workflow-inputs: ${{ github.event_name == 'workflow_dispatch' && toJSON(inputs) || '{}' }}
+
+      # === SUMMARY CUSTOMIZATION ===
       include-troubleshooting: true
       include-technical-details: true
       summary-level: "detailed"
+
+      # === ARTIFACT CONFIGURATION ===
       artifact-retention-days: 14

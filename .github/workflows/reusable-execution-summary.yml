@@ -343,6 +343,22 @@ jobs:
                     echo "- **Configuration mismatch**: Ensure Terraform configuration matches existing resource" >> $GITHUB_STEP_SUMMARY
                     echo "- **Provider permissions**: Check Power Platform provider authentication" >> $GITHUB_STEP_SUMMARY
                     ;;
+                  "test")
+                    echo "### Terraform Test Issues" >> $GITHUB_STEP_SUMMARY
+                    echo "- **Test file validation**: Ensure test files have correct syntax and structure" >> $GITHUB_STEP_SUMMARY
+                    echo "- **Resource dependencies**: Check that required resources exist for testing" >> $GITHUB_STEP_SUMMARY
+                    echo "- **Authentication failures**: Verify test environment access and permissions" >> $GITHUB_STEP_SUMMARY
+                    echo "- **Configuration validation**: Ensure configurations pass format and syntax checks" >> $GITHUB_STEP_SUMMARY
+                    echo "- **Security scan failures**: Review and address security vulnerabilities found" >> $GITHUB_STEP_SUMMARY
+                    ;;
+                  "docs")
+                    echo "### Documentation Generation Issues" >> $GITHUB_STEP_SUMMARY
+                    echo "- **terraform-docs installation**: Ensure terraform-docs tool is properly installed and accessible" >> $GITHUB_STEP_SUMMARY
+                    echo "- **Configuration parsing**: Check that Terraform files have valid syntax for documentation parsing" >> $GITHUB_STEP_SUMMARY
+                    echo "- **Template issues**: Verify documentation templates are correctly formatted" >> $GITHUB_STEP_SUMMARY
+                    echo "- **Output file permissions**: Ensure write permissions for documentation output files" >> $GITHUB_STEP_SUMMARY
+                    echo "- **Missing descriptions**: Add descriptions to variables and outputs for complete documentation" >> $GITHUB_STEP_SUMMARY
+                    ;;
                   *)
                     echo "### General Troubleshooting" >> $GITHUB_STEP_SUMMARY
                     echo "- **Check workflow logs**: Review detailed logs in the Actions tab" >> $GITHUB_STEP_SUMMARY
