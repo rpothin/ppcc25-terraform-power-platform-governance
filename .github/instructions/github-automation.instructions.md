@@ -229,6 +229,63 @@ Provide troubleshooting context and available options:
     fi
 ```
 
+### Jobs Documentation Pattern
+
+Document jobs simply and clearly, focusing on **what** and **why** without overwhelming detail:
+
+```yaml
+jobs:
+  # Validates Terraform configuration before planning
+  # WHY: Prevents wasted time on invalid configurations
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # ... job steps
+
+  # Creates Terraform execution plan  
+  # WHY: Shows what changes will be made before applying
+  terraform-plan:
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: production  # Required for state access
+    timeout-minutes: 15
+    outputs:
+      has-changes: ${{ steps.plan.outputs.changes }}
+    steps:
+      # ... job steps
+
+  # Applies the Terraform plan to deploy resources
+  # WHY: Only runs if plan succeeds and changes exist
+  terraform-apply:
+    needs: terraform-plan
+    if: needs.terraform-plan.outputs.has-changes == 'true'
+    runs-on: ubuntu-latest
+    environment: production  # Required for deployment secrets
+    timeout-minutes: 25
+    steps:
+      # ... job steps
+```
+
+**Job Documentation Principles:**
+
+1. **One-line purpose** - Clear, simple description of what the job does
+2. **WHY comment** - Brief explanation of why this job exists or runs conditionally
+3. **Environment context** - Short inline comment for non-obvious environment/timeout choices
+4. **Dependency clarity** - Use descriptive job names and simple conditional logic
+5. **Avoid over-documentation** - Don't explain obvious things like `runs-on: ubuntu-latest`
+
+**Good examples:**
+```yaml
+# Deploy DLP policies to Power Platform
+# WHY: Automates governance that was previously manual
+terraform-apply:
+
+# Only run if configuration changes detected  
+# WHY: Saves time and avoids unnecessary operations
+if: needs.terraform-plan.outputs.has-changes == 'true'
+```
+
 ### What NOT to Document
 
 ❌ **Avoid explaining obvious operations:**
@@ -334,6 +391,84 @@ All YAML validation uses the project's `.yamllint` configuration, which enforces
 - **Style consistency**: Follows project yamllint rules
 - **GitHub Actions compliance**: Valid workflow and action structure
 - **Documentation completeness**: Required fields and descriptions
+
+### YAML Formatting Standards
+
+**📋 Authoritative Reference:** The `.yamllint` file is the single source of truth for all YAML formatting rules. When in doubt, always consult `.yamllint` for the complete and current configuration.
+
+**Immediate Formatting Rules** (from project `.yamllint` configuration):
+Write all YAML following these standards to avoid validation failures:
+
+```yaml
+---  # REQUIRED: Document start marker on first line
+
+# INDENTATION: Always use 2 spaces (never tabs)
+name: "Terraform Infrastructure Deployment"
+
+# COMMENTS: Minimum 2 spaces from content
+concurrency:  # Prevent concurrent runs
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+# LINE LENGTH: Maximum 100 characters, use folding for long content
+on:
+  workflow_dispatch:
+    inputs:
+      description: >-
+        This is a long description that exceeds 100 characters
+        so we use YAML folding to maintain readability and compliance
+        
+# GITHUB ACTIONS VALUES: Use standard values, 'on' key is allowed
+permissions:  # Not permissions: true/false
+  contents: read
+  id-token: write
+
+# EMPTY LINES: Maximum 2 consecutive, none at start, max 1 at end
+jobs:
+  terraform-plan:
+    runs-on: ubuntu-latest
+    
+    steps:
+      # Two spaces minimum between content and comments
+      - name: Checkout Repository  # Required for workflow access
+        uses: actions/checkout@v4
+```
+
+**Key Rules Summary** (extracted from `.yamllint`):
+- **Document start**: Always begin with `---`
+- **Indentation**: 2 spaces consistently, never tabs
+- **Line length**: 100 characters maximum
+- **Comments**: Minimum 2 spaces from content
+- **Empty lines**: Max 2 consecutive, none at file start
+- **Truthy values**: Use `true`/`false`, `on`/`off`, `yes`/`no`
+- **GitHub Actions**: `on:` key allowed despite being truthy value
+
+**Long Content Handling:**
+```yaml
+# Use YAML folding (>-) for descriptions exceeding 100 characters
+description: >-
+  This workflow deploys Power Platform governance policies using Terraform.
+  It includes DLP policy management, environment configuration, and compliance
+  monitoring to ensure consistent governance across all Power Platform tenants.
+
+# Break long arrays and objects for readability
+env:
+  POWER_PLATFORM_USE_OIDC: true
+  POWER_PLATFORM_CLIENT_ID: ${{ secrets.POWER_PLATFORM_CLIENT_ID }}
+  POWER_PLATFORM_TENANT_ID: ${{ secrets.POWER_PLATFORM_TENANT_ID }}
+```
+
+**⚠️ Important:** These examples show the most common rules, but `.yamllint` contains the complete configuration including edge cases, specific rule exceptions, and detailed validation settings. Always reference `.yamllint` for:
+- **Complete rule definitions** and their specific parameters
+- **Rule exceptions** and special case handling
+- **Updates** to formatting standards over time
+- **Troubleshooting** complex validation errors
+
+**Validation Integration:**
+These rules are automatically enforced by:
+- **Development environment**: Pre-configured yamllint in devcontainer
+- **CI/CD validation**: `yaml-validation.yml` workflow on all changes  
+- **Manual validation**: `./scripts/utils/validate-yaml.sh --all-github`
 
 ### Validation Enforcement
 
