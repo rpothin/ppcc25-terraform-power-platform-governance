@@ -16,61 +16,43 @@ variables {
   test_timeout_minutes      = 5
 }
 
-# Test: Simple validation to ensure test framework is working
-run "test_framework_validation" {
+# Optimized: All assertions consolidated into a single plan run for performance
+run "dlp_policies_comprehensive_validation" {
   command = plan
 
+  # Framework and data source validation
   assert {
     condition     = can(data.powerplatform_data_loss_prevention_policies.current)
     error_message = "This basic assertion validates that the data source can be referenced - framework test"
   }
-}
-
-# Test: Basic data source functionality
-run "data_source_basic_functionality" {
-  command = plan
-
   assert {
     condition     = can(data.powerplatform_data_loss_prevention_policies.current.policies)
     error_message = "DLP policies data source should be accessible and return a policies attribute"
   }
-
   assert {
     condition     = data.powerplatform_data_loss_prevention_policies.current != null
     error_message = "DLP policies data source should not be null"
   }
-}
 
-# Test: Output structure validation
-run "output_structure_validation" {
-  command = plan
-
+  # Output structure validation
   assert {
     condition     = can(output.dlp_policies.policy_count)
     error_message = "dlp_policies output should contain policy_count attribute"
   }
-
   assert {
     condition     = can(output.dlp_policies.policies)
     error_message = "dlp_policies output should contain policies array"
   }
-
   assert {
     condition     = output.dlp_policies.policy_count >= 0
     error_message = "Policy count should be a non-negative integer"
   }
-
   assert {
     condition     = length(output.dlp_policies.policies) == output.dlp_policies.policy_count
     error_message = "Policy count should match the length of policies array"
   }
-}
 
-# Test: Policy structure validation
-run "policy_structure_validation" {
-  command = plan
-
-  # Skip this test if no policies exist
+  # Policy structure validation
   assert {
     condition = output.dlp_policies.policy_count == 0 || (
       output.dlp_policies.policy_count > 0 &&
@@ -84,8 +66,6 @@ run "policy_structure_validation" {
     )
     error_message = "Each policy should have required attributes: id, display_name, environment_type, environments"
   }
-
-  # Validate environment_type values
   assert {
     condition = output.dlp_policies.policy_count == 0 || alltrue([
       for policy in output.dlp_policies.policies :
@@ -93,8 +73,6 @@ run "policy_structure_validation" {
     ])
     error_message = "Policy environment_type must be one of: AllEnvironments, ExceptEnvironments, OnlyEnvironments"
   }
-
-  # Validate connector classifications exist
   assert {
     condition = output.dlp_policies.policy_count == 0 || alltrue([
       for policy in output.dlp_policies.policies :
@@ -104,13 +82,8 @@ run "policy_structure_validation" {
     ])
     error_message = "Each policy should have business_connectors, non_business_connectors, and blocked_connectors arrays"
   }
-}
 
-# Test: Connector structure validation
-run "connector_structure_validation" {
-  command = plan
-
-  # Validate business connectors structure
+  # Connector structure validation
   assert {
     condition = output.dlp_policies.policy_count == 0 || alltrue(flatten([
       for policy in output.dlp_policies.policies : [
@@ -123,8 +96,6 @@ run "connector_structure_validation" {
     ]))
     error_message = "Business connectors should have required structure: id, default_action_rule_behavior, action_rules_count, endpoint_rules_count"
   }
-
-  # Validate non-business connectors structure
   assert {
     condition = output.dlp_policies.policy_count == 0 || alltrue(flatten([
       for policy in output.dlp_policies.policies : [
@@ -137,8 +108,6 @@ run "connector_structure_validation" {
     ]))
     error_message = "Non-business connectors should have required structure: id, default_action_rule_behavior, action_rules_count, endpoint_rules_count"
   }
-
-  # Validate blocked connectors structure
   assert {
     condition = output.dlp_policies.policy_count == 0 || alltrue(flatten([
       for policy in output.dlp_policies.policies : [
@@ -151,13 +120,8 @@ run "connector_structure_validation" {
     ]))
     error_message = "Blocked connectors should have required structure: id, default_action_rule_behavior, action_rules_count, endpoint_rules_count"
   }
-}
 
-# Test: Summary counts validation
-run "summary_counts_validation" {
-  command = plan
-
-  # Validate connector summary structure and calculations
+  # Summary counts validation
   assert {
     condition = output.dlp_policies.policy_count == 0 || alltrue([
       for policy in output.dlp_policies.policies :
@@ -169,8 +133,6 @@ run "summary_counts_validation" {
     ])
     error_message = "Connector summary should have all required count fields"
   }
-
-  # Validate summary calculations are correct
   assert {
     condition = output.dlp_policies.policy_count == 0 || alltrue([
       for policy in output.dlp_policies.policies :
@@ -186,13 +148,8 @@ run "summary_counts_validation" {
     ])
     error_message = "Summary counts should match actual connector array lengths"
   }
-}
 
-# Test: Audit information validation
-run "audit_information_validation" {
-  command = plan
-
-  # Validate audit fields exist
+  # Audit information validation
   assert {
     condition = output.dlp_policies.policy_count == 0 || alltrue([
       for policy in output.dlp_policies.policies :
@@ -203,8 +160,6 @@ run "audit_information_validation" {
     ])
     error_message = "Each policy should have audit information: created_by, created_time, last_modified_by, last_modified_time"
   }
-
-  # Validate timestamps are not empty when policies exist
   assert {
     condition = output.dlp_policies.policy_count == 0 || alltrue([
       for policy in output.dlp_policies.policies :
@@ -212,13 +167,8 @@ run "audit_information_validation" {
     ])
     error_message = "Created and modified timestamps should not be empty"
   }
-}
 
-# Test: Custom connectors patterns validation
-run "custom_connectors_patterns_validation" {
-  command = plan
-
-  # Validate custom connector patterns structure when they exist
+  # Custom connectors patterns validation
   assert {
     condition = output.dlp_policies.policy_count == 0 || alltrue(flatten([
       for policy in output.dlp_policies.policies : [
@@ -231,36 +181,24 @@ run "custom_connectors_patterns_validation" {
     ]))
     error_message = "Custom connector patterns should have valid structure and data_group values"
   }
-}
 
-# Test: Sensitive output validation
-run "sensitive_output_validation" {
-  command = plan
-
+  # Sensitive output validation
   assert {
     condition     = can(output.dlp_policies_detailed_rules)
     error_message = "dlp_policies_detailed_rules output should be available"
   }
-
   assert {
     condition     = can(output.dlp_policies_detailed_rules.policies_with_detailed_rules)
     error_message = "dlp_policies_detailed_rules should contain policies_with_detailed_rules array"
   }
-
-  # Validate detailed rules structure when policies exist
   assert {
     condition = output.dlp_policies.policy_count == 0 || (
       length(output.dlp_policies_detailed_rules.policies_with_detailed_rules) == output.dlp_policies.policy_count
     )
     error_message = "Detailed rules should match the number of policies"
   }
-}
 
-# Test: Data consistency between outputs
-run "data_consistency_validation" {
-  command = plan
-
-  # Validate consistency between main output and detailed rules
+  # Data consistency between outputs
   assert {
     condition = output.dlp_policies.policy_count == 0 || alltrue([
       for i, policy in output.dlp_policies.policies :
@@ -269,24 +207,14 @@ run "data_consistency_validation" {
     ])
     error_message = "Policy IDs and names should be consistent between outputs"
   }
-}
 
-# Test: Provider configuration validation
-run "provider_configuration_validation" {
-  command = plan
-
+  # Provider configuration validation
   assert {
     condition     = data.powerplatform_data_loss_prevention_policies.current != null
     error_message = "Power Platform provider should be properly configured and authenticated"
   }
-}
 
-# Test: Basic plan execution validation
-run "plan_execution_validation" {
-  command = plan
-
-  # Just validate that we can execute the plan successfully
-  # If the plan fails, the run block itself will fail
+  # Basic plan execution validation
   assert {
     condition     = data.powerplatform_data_loss_prevention_policies.current != null
     error_message = "Power Platform provider should be properly configured and data source accessible"

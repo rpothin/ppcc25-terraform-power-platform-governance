@@ -274,12 +274,15 @@ jobs:
         id: integration-tests
         run: |
           cd "configurations/${{ inputs.target_configuration }}"
-          terraform init -input=false
-          if [ -f "tests/integration.tftest.hcl" ]; then
-            terraform test
+          echo "::notice title=Test Start::$(date)"
+          
+          if find . -name "*.tftest.hcl" -type f | grep -q .; then
+            time terraform test
           else
-            echo "::notice title=No Integration Test::No integration test file found, skipping."
+            echo "::notice title=No Tests Found::No .tftest.hcl files found, skipping."
           fi
+          
+          echo "::notice title=Test End::$(date)"
 
       # === JIT NETWORK ACCESS CLEANUP ===
       # WHY: Removes temporary network access to maintain security posture
