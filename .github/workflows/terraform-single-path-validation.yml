@@ -320,7 +320,7 @@ jobs:
         with:
           name: 'Terraform Integration Test Results'
           path: 'configurations/${{ inputs.target_configuration }}/terraform_test_results.xml'
-          reporter: 'junit'
+          reporter: 'java-junit'
 
       # === JIT NETWORK ACCESS CLEANUP ===
       # WHY: Removes temporary network access to maintain security posture
