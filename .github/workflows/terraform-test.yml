@@ -1013,6 +1013,7 @@ jobs:
 
   # === REUSABLE EXECUTION SUMMARY GENERATION ===
   execution-summary:
+    name: 📊 Execution Summary Generation
     if: always()                                     # Always execute for comprehensive reporting
     needs: [detect-changes, terraform-format-check, terraform-syntax-validation, terraform-configuration-validation, security-vulnerability-scan, integration-terraform-test, test-artifacts-generation]
     uses: ./.github/workflows/reusable-execution-summary.yml
