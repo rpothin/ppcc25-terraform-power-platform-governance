@@ -164,10 +164,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: format-check
-    permissions:
-      contents: read
-      security-events: write
-      actions: read
     steps:
       # === REPOSITORY ACCESS ===
       # WHY: Required to access the repository code for security scanning
@@ -203,9 +199,6 @@ jobs:
     environment: production
     needs: format-check
     if: always()
-    permissions:
-      id-token: write # Required for OIDC authentication with Azure AD
-      contents: read # Required to access the repository code for integration testing
     
     # === ENVIRONMENT VARIABLES ===
     # These environment variables configure authentication for both Azure and Power Platform
