@@ -343,7 +343,7 @@ jobs:
                     echo "- **Configuration mismatch**: Ensure Terraform configuration matches existing resource" >> $GITHUB_STEP_SUMMARY
                     echo "- **Provider permissions**: Check Power Platform provider authentication" >> $GITHUB_STEP_SUMMARY
                     ;;
-                  "test")
+                  "test"|"validation")
                     echo "### Terraform Test Issues" >> $GITHUB_STEP_SUMMARY
                     echo "- **Test file validation**: Ensure test files have correct syntax and structure" >> $GITHUB_STEP_SUMMARY
                     echo "- **Resource dependencies**: Check that required resources exist for testing" >> $GITHUB_STEP_SUMMARY

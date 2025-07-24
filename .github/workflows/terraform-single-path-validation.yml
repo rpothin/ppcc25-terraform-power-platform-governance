@@ -1,0 +1,314 @@
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
+# TERRAFORM SINGLE PATH VALIDATION WORKFLOW FOR POWER PLATFORM GOVERNANCE
+# Validates a single Terraform configuration or module directory for Power Platform governance.
+#
+# 🎯 WHY THIS EXISTS:
+# - Enables robust, isolated validation of individual configurations or modules
+# - Supports parallel, per-path validation for rapid feedback and scalability
+# - Automates all quality checks (format, syntax, structure, security, integration) for a given path
+#
+# 🔒 SECURITY DECISIONS:
+# - OIDC authentication required for all cloud and Power Platform connections
+# - All jobs requiring secrets run in the 'production' environment for protection
+# - Principle of least privilege applied to all permissions
+#
+# ⚙️ OPERATIONAL CONTEXT:
+# - Concurrency group ensures only one validation per path/ref at a time
+# - Timeout values sized for comprehensive validation without resource waste
+# - Manual dispatch only: designed for use by change-detection/dispatch workflows
+#
+# 📋 INTEGRATION REQUIREMENTS:
+# - Relies on composite actions for backend init, metadata, and JIT network access
+# - Requires Azure OIDC identity federation and GitHub environment protection
+# - Generates AVM-compliant artifacts for audit and compliance
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
+name: "Terraform Single Path Validation"
+
+concurrency:
+  group: terraform-single-path-validation-${{ inputs.target_path }}-${{ github.ref }}
+  cancel-in-progress: false
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_path:
+        description: >-
+          Directory to validate (e.g., configurations/01-dlp-policies or modules/my-module).
+          Must exist and contain Terraform files.
+        required: true
+        type: string
+        # WHY: Enables per-path validation for robust, parallelized quality checks
+        # VALIDATION: Must be a valid configuration/module directory
+
+run-name: "Validate ${{ inputs.target_path }} by @${{ github.actor }}"
+
+permissions:
+  contents: read          # Required: Repository content access for validation
+  actions: read           # Required: Access to workflow metadata and job execution data
+  security-events: write  # Required: Upload security findings to GitHub Security tab
+  id-token: write         # Required: OIDC authentication with Azure AD for integration
+
+jobs:
+  # === FORMAT CHECK ===
+  # Ensures consistent code formatting for the target path
+  format-check:
+    name: 🎨 Format Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # === REPOSITORY ACCESS ===
+      # WHY: Required to access the repository code for validation
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # === TERRAFORM ENVIRONMENT SETUP ===
+      # WHY: Ensures consistent Terraform version for formatting and validation
+      - name: Setup Terraform CLI
+        uses: hashicorp/setup-terraform@v3.1.2
+        with:
+          terraform_version: ${{ vars.TERRAFORM_VERSION || '1.12.2' }}
+
+      # === FORMAT CHECK EXECUTION ===
+      # WHY: Enforces standardized code style and improves maintainability
+      - name: Format Check
+        id: format
+        run: |
+          cd "${{ inputs.target_path }}"
+          format_output=$(terraform fmt -recursive -check -diff 2>&1) || format_exit_code=$?
+          if [ "${format_exit_code:-0}" -eq 0 ]; then
+            echo "::notice title=Format Success::All Terraform files are properly formatted"
+            echo "format-issues=false" >> $GITHUB_OUTPUT
+          else
+            echo "::error title=Format Issues::Terraform formatting issues found"
+            echo "format-issues=true" >> $GITHUB_OUTPUT
+            echo "$format_output"
+            exit 1
+          fi
+
+  # === SYNTAX VALIDATION ===
+  # Validates Terraform HCL syntax and basic configuration structure for the target path
+  syntax-validation:
+    name: ✅ Syntax Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: format-check
+    steps:
+      # === REPOSITORY ACCESS ===
+      # WHY: Required to access the repository code for validation
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # === TERRAFORM ENVIRONMENT SETUP ===
+      # WHY: Ensures consistent Terraform version for syntax validation
+      - name: Setup Terraform CLI
+        uses: hashicorp/setup-terraform@v3.1.2
+        with:
+          terraform_version: ${{ vars.TERRAFORM_VERSION || '1.12.2' }}
+
+      # === SYNTAX VALIDATION EXECUTION ===
+      # WHY: Validates HCL syntax and configuration structure for the target path
+      - name: Syntax Validation
+        id: validate
+        run: |
+          cd "${{ inputs.target_path }}"
+          if ! find . -maxdepth 1 -name "*.tf" -type f | grep -q .; then
+            echo "::warning title=No TF Files::No Terraform files found, skipping validation"
+            exit 0
+          fi
+          terraform init -backend=false -input=false
+          terraform validate
+
+  # === STRUCTURE VALIDATION ===
+  # Advanced validation of configuration structure and tfvars for the target path
+  structure-validation:
+    name: 🔧 Structure Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: format-check
+    steps:
+      # === REPOSITORY ACCESS ===
+      # WHY: Required to access the repository code for validation
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # === TERRAFORM ENVIRONMENT SETUP ===
+      # WHY: Ensures consistent Terraform version for structure validation
+      - name: Setup Terraform CLI
+        uses: hashicorp/setup-terraform@v3.1.2
+        with:
+          terraform_version: ${{ vars.TERRAFORM_VERSION || '1.12.2' }}
+
+      # === STRUCTURE VALIDATION EXECUTION ===
+      # WHY: Checks for tfvars and standard file structure to ensure best practices
+      - name: Structure Validation
+        id: structure
+        run: |
+          cd "${{ inputs.target_path }}"
+          if [ -d "tfvars" ]; then
+            find tfvars -name "*.tfvars" -type f | while read -r tfvars_file; do
+              if [ ! -s "$tfvars_file" ]; then
+                echo "::warning title=Empty tfvars::Empty tfvars file detected: $tfvars_file"
+              fi
+            done
+          fi
+          for f in main.tf variables.tf outputs.tf; do
+            if [ -f "$f" ]; then
+              echo "::notice title=Structure::Found $f"
+            fi
+          done
+
+  # === SECURITY SCAN ===
+  # Multi-layer security analysis using Trivy for the target path
+  security-scan:
+    name: 🛡️ Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: format-check
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    steps:
+      # === REPOSITORY ACCESS ===
+      # WHY: Required to access the repository code for security scanning
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # === SECURITY SCAN EXECUTION ===
+      # WHY: Scans Terraform configuration for security vulnerabilities
+      - name: Run Trivy Vulnerability Scanner
+        uses: aquasecurity/trivy-action@0.32.0
+        with:
+          scan-type: 'config'
+          scan-ref: '${{ inputs.target_path }}'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          exit-code: '0'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+
+      # === SECURITY RESULTS UPLOAD ===
+      # WHY: Publishes security scan results to GitHub Security tab
+      - name: Upload Security Results to GitHub
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
+        continue-on-error: true
+
+  # === INTEGRATION TEST ===
+  # Real-world integration testing using OIDC and isolated backend for the target path
+  integration-test:
+    name: 🧪 Integration Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: production
+    needs: format-check
+    if: always()
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      # === REPOSITORY ACCESS ===
+      # WHY: Required to access the repository code for integration testing
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # === AZURE OIDC AUTHENTICATION ===
+      # WHY: Secure Azure authentication using OIDC identity federation
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2.3.0
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # === JIT NETWORK ACCESS ENABLE ===
+      # WHY: Enables temporary network access for secure backend operations
+      - name: Add JIT Network Access
+        id: jit-add
+        uses: ./.github/actions/jit-network-access
+        with:
+          action: 'add'
+          storage-account-name: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
+          resource-group-name: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
+
+      # === TERRAFORM ENVIRONMENT SETUP ===
+      # WHY: Ensures consistent Terraform version for integration testing
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3.1.2
+        with:
+          terraform_version: ${{ vars.TERRAFORM_VERSION || '1.12.2' }}
+          terraform_wrapper: false
+
+      # === BACKEND INITIALIZATION ===
+      # WHY: Initializes isolated backend state for the integration test
+      - name: Initialize Terraform Backend
+        id: terraform-init
+        uses: ./.github/actions/terraform-init-with-backend
+        with:
+          configuration: '${{ inputs.target_path }}'
+          state-key-override: 'integration-test-${{ inputs.target_path }}.tfstate'
+          max-retries: '3'
+          wait-for-propagation: '15'
+
+      # === INTEGRATION TEST EXECUTION ===
+      # WHY: Runs integration tests for the configuration/module if present
+      - name: Integration Test
+        id: integration-tests
+        env:
+          POWER_PLATFORM_USE_OIDC: true
+          POWER_PLATFORM_CLIENT_ID: ${{ secrets.POWER_PLATFORM_CLIENT_ID }}
+          POWER_PLATFORM_TENANT_ID: ${{ secrets.POWER_PLATFORM_TENANT_ID }}
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          ARM_USE_OIDC: true
+          TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          TF_VAR_test_mode: "true"
+        run: |
+          cd "${{ inputs.target_path }}"
+          terraform init -input=false
+          if [ -f "tests/integration.tftest.hcl" ]; then
+            terraform test
+          else
+            echo "::notice title=No Integration Test::No integration test file found, skipping."
+          fi
+
+      # === JIT NETWORK ACCESS CLEANUP ===
+      # WHY: Removes temporary network access to maintain security posture
+      - name: Remove JIT Network Access
+        if: always()
+        uses: ./.github/actions/jit-network-access
+        with:
+          action: 'remove'
+          storage-account-name: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
+          resource-group-name: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
+
+  # === REUSABLE EXECUTION SUMMARY GENERATION ===
+  # Generates a comprehensive summary of all validation steps and results for this path
+  execution-summary:
+    name: 📊 Execution Summary Generation
+    if: always()  # Always execute for comprehensive reporting
+    needs:
+      - format-check
+      - syntax-validation
+      - structure-validation
+      - security-scan
+      - integration-test
+    uses: ./.github/workflows/reusable-execution-summary.yml
+    with:
+      # === CORE WORKFLOW IDENTIFICATION ===
+      workflow-name: "terraform-single-path-validation"
+      operation-type: "validation"
+      configuration: ${{ inputs.target_path }}
+
+      # === EXECUTION CONTEXT ===
+      job-results: ${{ toJSON(needs) }}
+      workflow-inputs: ${{ github.event_name == 'workflow_dispatch' && toJSON(inputs) || '{}' }}
+
+      # === SUMMARY CUSTOMIZATION ===
+      include-troubleshooting: true
+      include-technical-details: true
+      summary-level: "detailed"
+
+      # === ARTIFACT CONFIGURATION ===
+      artifact-retention-days: 14
