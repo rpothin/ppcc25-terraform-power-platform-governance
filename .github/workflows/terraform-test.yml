@@ -22,7 +22,7 @@
 # - Timeout values sized for comprehensive validation without unnecessary resource consumption
 # - Parallel groups reduce total pipeline time while maintaining thorough validation
 #
-# � INTEGRATION REQUIREMENTS:
+# 📋 INTEGRATION REQUIREMENTS:
 # - Depends on composite actions for change detection and metadata generation
 # - Requires Azure OIDC identity federation and GitHub environment protection
 # - Integrates with GitHub Security tab through SARIF upload for vulnerability tracking
@@ -95,39 +95,28 @@ env:
   TF_IN_AUTOMATION: true  # Enable automation-optimized Terraform behavior
 
 jobs:
-  # Analyzes git changes to identify which configurations require testing
-  # WHY: Optimizes testing scope to reduce execution time and resource consumption
+  # === REUSABLE CHANGE DETECTION ===
+  # Leverages standardized change detection workflow for consistency and efficiency
+  # Replaces inline change detection logic with proven, centralized implementation
   detect-changes:
-    name: 🔍 Detect Changes
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    
-    # === JOB OUTPUT CONFIGURATION ===
-    # Provide structured outputs for downstream job dependency management
-    outputs:
-      configurations: ${{ steps.detect.outputs.has-changes }}      # Boolean: Configuration changes detected
-      modules: ${{ steps.detect.outputs.has-changes }}             # Boolean: Module changes detected  
-      any-config-changed: ${{ steps.detect.outputs.has-changes }}  # Boolean: Any Terraform changes detected
-      changed-paths: ${{ steps.detect.outputs.changed-paths }}     # String: List of changed paths for processing
-    
-    steps:
-      # === REPOSITORY ACCESS PREPARATION ===
-      # Checkout repository with full history for accurate change detection
-      - name: Checkout Repository with Full History
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Complete git history for comprehensive change analysis
+    name: 🔍 Detect Terraform Changes
+    uses: ./.github/workflows/reusable-change-detection.yml
+    with:
+      # === PASS-THROUGH WORKFLOW INPUTS ===
+      # Maintains seamless user experience by forwarding all manual dispatch inputs
+      # Provides defaults for non-manual triggers (push, pull_request)
+      target-path: ${{ github.event.inputs.target_path || '' }}
+      force-all: ${{ github.event.inputs.force_all == 'true' || false }}
 
-      # === INTELLIGENT CHANGE ANALYSIS ===
-      # Use proven composite action for standardized change detection
-      - name: Analyze Configuration and Module Changes
-        id: detect
-        uses: ./.github/actions/detect-terraform-changes
-        with:
-          target-path: ${{ github.event.inputs.target_path }}      # Manual path override if specified
-          force-all: ${{ github.event.inputs.force_all }}          # Bypass change detection for comprehensive testing
-          include-configs: 'true'                                  # Include configuration directory changes
-          include-modules: 'true'                                  # Include module directory changes
+      # === TERRAFORM TESTING SPECIFIC CONFIGURATION ===
+      # Include both configurations and modules for comprehensive testing coverage
+      include-configs: true
+      include-modules: true
+
+      # === TERRAFORM-SPECIFIC PATH FILTERING ===
+      # Filter for files that affect Terraform testing and validation
+      # Includes: .tf files, .tfvars files, and terraform configuration files
+      path-filter: '\.(tf|tfvars)$'
 
   # Ensures consistent code formatting across all Terraform files
   # WHY: Enforces standardized code style and improves maintainability
@@ -136,7 +125,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     needs: detect-changes
-    if: needs.detect-changes.outputs.any-config-changed == 'true'
+    if: needs.detect-changes.outputs.has-changes == 'true'
     
     # === JOB OUTPUT CONFIGURATION ===
     # Provide structured outputs for result aggregation and reporting
@@ -202,7 +191,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: detect-changes
-    if: needs.detect-changes.outputs.any-config-changed == 'true'
+    if: needs.detect-changes.outputs.has-changes == 'true'
     
     # === JOB OUTPUT CONFIGURATION ===
     # Provide validation results and metadata for downstream processing
@@ -334,7 +323,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: detect-changes
-    if: needs.detect-changes.outputs.any-config-changed == 'true'
+    if: needs.detect-changes.outputs.has-changes == 'true'
     
     # === JOB OUTPUT CONFIGURATION ===
     # Provide validation results and metadata for comprehensive reporting
@@ -524,7 +513,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: detect-changes
-    if: needs.detect-changes.outputs.any-config-changed == 'true'
+    if: needs.detect-changes.outputs.has-changes == 'true'
     
     # === ENHANCED SECURITY PERMISSIONS ===
     # Comprehensive permissions for security scanning and artifact management
@@ -615,7 +604,7 @@ jobs:
     # === INTEGRATION TESTING EXECUTION CONDITIONS ===
     # Comprehensive conditions to ensure safe and appropriate integration testing execution
     if: |
-      needs.detect-changes.outputs.any-config-changed == 'true' && 
+      needs.detect-changes.outputs.has-changes == 'true' && 
       needs.detect-changes.outputs.changed-paths != '' &&
       github.event.inputs.skip_integration != 'true' &&
       (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
@@ -891,7 +880,7 @@ jobs:
     
     # === EXECUTION CONDITIONS ===
     # Execute summary regardless of individual job outcomes when changes are detected
-    if: always() && needs.detect-changes.outputs.any-config-changed == 'true'
+    if: always() && needs.detect-changes.outputs.has-changes == 'true'
     
     steps:
       # === REPOSITORY ACCESS ===
@@ -976,7 +965,7 @@ jobs:
             },
             "change_detection": {
               "status": "${{ needs.detect-changes.result }}",
-              "changes_detected": "${{ needs.detect-changes.outputs.any-config-changed }}",
+              "changes_detected": "${{ needs.detect-changes.outputs.has-changes }}",
               "changed_paths": "${{ needs.detect-changes.outputs.changed-paths }}"
             },
             "validation_groups": {
