@@ -250,37 +250,16 @@ runs:
           echo "METADATA_EOF"
         } >> $GITHUB_OUTPUT
 
-        # === PREPARE DISPLAY VARIABLES ===
-        # Format optional fields for clean display
-        CONFIGURATION_DISPLAY="${{ inputs.configuration }}"
-        if [ -z "$CONFIGURATION_DISPLAY" ]; then
-          CONFIGURATION_DISPLAY="(none specified)"
-        fi
-        
-        TFVARS_DISPLAY="${{ inputs.tfvars-file }}"
-        if [ -z "$TFVARS_DISPLAY" ]; then
-          TFVARS_DISPLAY="(default variables)"
-        fi
-        
-        # Format additional data for display
-        ADDITIONAL_DISPLAY=""
-        if [ '${{ inputs.additional-data }}' != '{}' ]; then
-          additional_summary=$(echo '${{ inputs.additional-data }}' | jq -r 'to_entries | map("   • \(.key): \(.value)") | join("\n")' 2>/dev/null || echo "   • Custom metadata provided")
-          ADDITIONAL_DISPLAY="
-        
-        ➕ Additional Context:
-        $additional_summary"
-        fi
-        
         # === SUCCESS CONFIRMATION WITH COMPREHENSIVE METADATA SUMMARY ===
         # Consolidate all metadata details into a single notice for cleaner workflow logs
-        echo "::notice title=AVM Metadata Generated::✅ Comprehensive metadata created successfully
+        # GitHub will automatically truncate long notices with a "Show more" link
+        echo "::notice title=Metadata Generated::✅ AVM-compliant metadata successfully created
         
         📋 Operation Details:
            • Operation: ${{ inputs.operation }}
            • Phase: ${{ inputs.phase }}
-           • Configuration: $CONFIGURATION_DISPLAY
-           • Environment: $TFVARS_DISPLAY
+           • Configuration: ${CONFIGURATION_DISPLAY}
+           • Environment: ${TFVARS_DISPLAY}
         
         🔧 System Information:
            • Terraform Version: $terraform_version
@@ -297,8 +276,6 @@ runs:
            • Run Number: #${{ github.run_number }}
            • Run ID: ${{ github.run_id }}
            • Timestamp: $timestamp
-           • Commit SHA: ${{ github.sha }}$ADDITIONAL_DISPLAY"
-        
-        echo "::debug::Metadata generation completed successfully"
+           • Commit SHA: ${{ github.sha }}"
 
         echo "::debug::Metadata generation completed successfully"
