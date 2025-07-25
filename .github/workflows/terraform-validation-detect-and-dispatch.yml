@@ -98,6 +98,13 @@ jobs:
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const ref = context.ref.replace('refs/heads/', '');
+            const runNumber = process.env.GITHUB_RUN_NUMBER;
+            const runId = process.env.GITHUB_RUN_ID;
+            const sha = process.env.GITHUB_SHA;
+            const repository = process.env.GITHUB_REPOSITORY;
+            const eventName = process.env.GITHUB_EVENT_NAME;
+            const actor = process.env.GITHUB_ACTOR;
+            const timestamp = new Date().toISOString();
             
             if (!changedPaths || changedPaths.trim() === '') {
               core.info('No paths to process');
@@ -109,14 +116,14 @@ jobs:
             
             core.info(`Processing ${paths.length} changed path(s)`);
             
-            // Dispatch validation for each path
+            // Track dispatched configs for summary
+            const dispatched = [];
+            let failed = false;
+            
             for (const path of paths) {
               const trimmedPath = path.trim();
               if (!trimmedPath) continue;
-              
-              // Extract configuration name from path
               const configName = trimmedPath.replace(/^configurations\//, '').replace(/^modules\//, '');
-              
               try {
                 await github.rest.actions.createWorkflowDispatch({
                   owner,
@@ -125,12 +132,36 @@ jobs:
                   ref,
                   inputs: { target_configuration: configName }
                 });
-                core.info(`✅ Dispatched validation for: ${trimmedPath} (config: ${configName})`);
+                dispatched.push(`• ${trimmedPath} (config: ${configName})`);
               } catch (error) {
                 core.error(`❌ Failed to dispatch validation for ${trimmedPath}: ${error.message}`);
-                throw error;
+                failed = true;
               }
             }
+            
+            // Build consolidated notice message
+            let notice = '::notice title=Terraform Validation Dispatch Summary::';
+            notice += `✅ Dispatched validation for ${dispatched.length} path(s)%0A`;
+            if (dispatched.length > 0) {
+              notice += `%0A📋 Paths Dispatched:%0A` + dispatched.join('%0A');
+            }
+            notice += `%0A%0A📂 Repository Context:%0A`;
+            notice += `• Repository: ${repository}%0A`;
+            notice += `• Reference: ${ref}%0A`;
+            notice += `• Event: ${eventName}%0A`;
+            notice += `• Triggered by: ${actor}%0A`;
+            notice += `%0A🔄 Execution Context:%0A`;
+            notice += `• Run Number: #${runNumber}%0A`;
+            notice += `• Run ID: ${runId}%0A`;
+            notice += `• Timestamp: ${timestamp}%0A`;
+            notice += `• Commit SHA: ${sha}`;
+            
+            if (failed) {
+              notice += `%0A%0A⚠️ Some dispatches failed. See logs for details.`;
+            }
+            
+            // Emit the notice
+            console.log(notice);
             
             core.info(`🎉 Successfully dispatched validation for all ${paths.length} path(s)`);
 
