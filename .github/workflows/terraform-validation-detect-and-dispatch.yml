@@ -78,7 +78,7 @@ jobs:
       # Includes: .tf files, .tfvars files, and terraform configuration files
       path-filter: '\.(tf|tfvars)$|\.tftest\.hcl$'
 
-    # === VALIDATION DISPATCH ===
+  # === VALIDATION DISPATCH ===
   # Runs single-path validation for each changed directory in parallel
   # WHY: Provides isolated, parallel validation for each changed configuration/module, improving speed and reliability while ensuring that only affected paths are validated
   validate-paths:
