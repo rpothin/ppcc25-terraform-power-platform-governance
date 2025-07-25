@@ -149,6 +149,7 @@ jobs:
             core.setOutput('dispatched-paths', dispatched.join('%0A'));
             core.setOutput('has-failures', failed ? 'true' : 'false');
             core.setOutput('timestamp', timestamp);
+            core.setOutput('workflow-id', workflow_id);
             const workflowUrl = `https://github.com/${owner}/${repo}/actions/workflows/${workflow_id}`;
             core.setOutput('workflow-url', workflowUrl);
 
@@ -162,7 +163,7 @@ jobs:
           if [ "${{ steps.dispatch.outputs.dispatched-count }}" -eq 0 ]; then
             echo "::notice title=Terraform Validation Dispatch Summary::No validations were dispatched."
           else
-            echo "::notice title=Terraform Validation Dispatch Summary::✅ Dispatched validation for ${{ steps.dispatch.outputs.dispatched-count }} path(s)%0A%0A📋 Paths Dispatched:%0A${{ steps.dispatch.outputs.dispatched-paths }}%0A%0A🔗 View Workflow Runs:%0A[${{ steps.dispatch.outputs.workflow-url }}](${{ steps.dispatch.outputs.workflow-url }})${{ steps.dispatch.outputs.has-failures == 'true' && '%0A%0A⚠️ Some dispatches failed. See logs for details.' || '' }}${{ steps.dispatch.outputs.has-failures == 'true' && '%0A%0A⚠️ Some dispatches failed. See logs for details.' || '' }}"
+            echo "::notice title=Terraform Validation Dispatch Summary::✅ Dispatched validation for ${{ steps.dispatch.outputs.dispatched-count }} path(s)%0A%0A📋 Paths Dispatched:%0A${{ steps.dispatch.outputs.dispatched-paths }}%0A%0A🔗 View ${{ steps.dispatch.outputs.workflow-id }} Workflow Runs: (${{ steps.dispatch.outputs.workflow-url }})${{ steps.dispatch.outputs.has-failures == 'true' && '%0A%0A⚠️ Some dispatches failed. See logs for details.' || '' }}"
           fi
 
   # === AGGREGATE & SUMMARY ===
