@@ -32,7 +32,7 @@ This configuration is designed for organizations that need to:
 ```yaml
 # GitHub Actions workflow input
 inputs:
-  configuration: '01-dlp-policies'
+  configuration: 'utl-export-dlp-policies'
 ```
 
 <!-- markdownlint-disable MD033 -->
