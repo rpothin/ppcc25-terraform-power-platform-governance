@@ -50,7 +50,7 @@ run-name: "🧪 Detect & Validate Terraform Changes by @${{ github.actor }}"
 
 permissions:
   contents: read          # Required: Repository content access for validation
-  actions: read           # Required: Access to workflow metadata and job execution data
+  actions: write          # Required: Dispatch other workflows and access workflow metadata
   security-events: write  # Required: Upload security findings to GitHub Security tab
   id-token: write         # Required: OIDC authentication with Azure AD for integration
 
