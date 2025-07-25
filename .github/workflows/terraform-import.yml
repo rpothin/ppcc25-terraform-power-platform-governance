@@ -179,6 +179,17 @@ jobs:
           configuration: ${{ github.event.inputs.configuration }}
           tfvars-file: ${{ github.event.inputs.tfvars_file }}
 
+      # === GENERATE WORKFLOW METADATA ===
+      # Generate comprehensive metadata for audit trails and compliance tracking
+      - name: Generate Workflow Metadata
+        uses: ./.github/actions/generate-workflow-metadata
+        id: validation-metadata
+        with:
+          operation: 'import'
+          configuration: ${{ github.event.inputs.configuration }}
+          tfvars-file: ${{ github.event.inputs.tfvars_file }}
+          phase: 'validation'
+
       # === VALIDATE IMPORT SUCCESS ===
       # Checks if the import operation succeeded and validates state integrity
       - name: Validate Import Results
@@ -290,59 +301,21 @@ jobs:
           storage-account-name: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
           resource-group-name: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
 
-      # === GENERATE WORKFLOW SUMMARY ===
-      # Provides a governance-focused summary for audit and next steps
-      - name: Generate Import Summary
-        run: |
-          config="${{ github.event.inputs.configuration }}"
-          tfvars_file="${{ github.event.inputs.tfvars_file }}"
-          resource_type="${{ github.event.inputs.resource_type }}"
-          resource_name="${{ github.event.inputs.resource_name }}"
-          resource_id="${{ github.event.inputs.resource_id }}"
-          
-          echo "## 📥 Terraform Import Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Import Details" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Parameter | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "|-----------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Configuration | \`$config\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Tfvars File | \`$tfvars_file.tfvars\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Resource Type | \`$resource_type\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Resource Name | \`$resource_name\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Resource ID | \`$resource_id\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| State Backup | \`${{ github.event.inputs.backup_state }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          if [ "${{ steps.validate-import.outputs.import-successful }}" = "true" ]; then
-            echo "### ✅ Import Successful" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "The resource has been successfully imported into Terraform state:" >> $GITHUB_STEP_SUMMARY
-            echo "- **Resource Address**: \`${{ steps.validate-import.outputs.resource-imported }}\`" >> $GITHUB_STEP_SUMMARY
-            echo "- **State Key**: \`${{ needs.terraform-import.outputs.state-key-used }}\`" >> $GITHUB_STEP_SUMMARY
-            echo "- **Configuration Path**: \`configurations/$config\`" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "### 📋 Next Steps" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "1. **Plan Review**: Run \`terraform plan\` to verify no changes are needed" >> $GITHUB_STEP_SUMMARY
-            echo "2. **Configuration Update**: Ensure Terraform configuration matches imported resource" >> $GITHUB_STEP_SUMMARY
-            echo "3. **Documentation**: Update documentation to reflect the imported resource" >> $GITHUB_STEP_SUMMARY
-            echo "4. **Validation**: Test the configuration with plan/apply cycle" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "### ❌ Import Failed" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "The import operation was not successful. Please review the logs and:" >> $GITHUB_STEP_SUMMARY
-            echo "1. **Verify Resource ID**: Ensure the resource ID \`$resource_id\` is correct" >> $GITHUB_STEP_SUMMARY
-            echo "2. **Check Configuration**: Verify the Terraform configuration exists for \`$resource_type.$resource_name\`" >> $GITHUB_STEP_SUMMARY
-            echo "3. **Review Permissions**: Ensure proper permissions to access the resource" >> $GITHUB_STEP_SUMMARY
-            echo "4. **Check State**: Verify the Terraform state is accessible and not corrupted" >> $GITHUB_STEP_SUMMARY
-          fi
-          
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🔧 Migration Benefits" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "This workflow has been migrated to use the reusable-terraform-base workflow, providing:" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ **96% code reduction** (670+ lines → ~30 lines)" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ **Standardized import process with proven patterns**" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ **Consistent error handling and state backup procedures**" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ **Enhanced validation through reusable workflow outputs**" >> $GITHUB_STEP_SUMMARY
+  # === Generates a comprehensive execution summary for governance, troubleshooting, and audit trail ===
+  # WHY: Provides a clear, actionable summary of the workflow run, including troubleshooting and technical details
+  execution-summary:
+      name: "🎯 Execution Summary"
+      needs: [terraform-import, post-import-validation]
+      uses: ./.github/workflows/reusable-execution-summary.yml
+      if: always()
+      with:
+        workflow-name: "terraform-import"
+        operation-type: "import"
+        configuration: ${{ github.event.inputs.configuration }}
+        output-filename: ""
+        job-results: ${{ toJSON(needs) }}
+        workflow-inputs: ${{ toJSON(github.event.inputs) }}
+        include-troubleshooting: true
+        include-technical-details: true
+        summary-level: "detailed"
+        artifact-retention-days: 30
