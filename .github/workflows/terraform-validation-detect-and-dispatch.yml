@@ -155,13 +155,11 @@ jobs:
             notice += `• Run ID: ${runId}%0A`;
             notice += `• Timestamp: ${timestamp}%0A`;
             notice += `• Commit SHA: ${sha}`;
-            
             if (failed) {
               notice += `%0A%0A⚠️ Some dispatches failed. See logs for details.`;
             }
-            
-            // Emit the notice
-            console.log(notice);
+            // Emit the notice using echo so GitHub interprets it as a workflow command
+            require('child_process').execSync(`echo "${notice.replace(/"/g, '\"')}"`, { stdio: 'inherit' });
             
             core.info(`🎉 Successfully dispatched validation for all ${paths.length} path(s)`);
 
