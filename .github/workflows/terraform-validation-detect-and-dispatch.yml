@@ -158,8 +158,8 @@ jobs:
             if (failed) {
               notice += `%0A%0A⚠️ Some dispatches failed. See logs for details.`;
             }
-            // Emit the notice using echo so GitHub interprets it as a workflow command
-            require('child_process').execSync(`echo "${notice.replace(/"/g, '\"')}"`, { stdio: 'inherit' });
+            // Emit the notice
+            echo "::notice title=Terraform Validation Dispatch Summary::${notice.replace(/"/g, '\"')}"
             
             core.info(`🎉 Successfully dispatched validation for all ${paths.length} path(s)`);
 
