@@ -41,13 +41,11 @@ on:
         type: choice
         options:
           - 'utl-export-dlp-policies'
-          - '02-dlp-policy'
-          - '03-environment'
         default: 'utl-export-dlp-policies'
         # WHY: Scopes permissions and isolates blast radius for governance
         # VALIDATION: Must exist in configurations/ and contain .tf files
         # SECURITY: Used in state key generation to prevent cross-configuration access
-        # EXAMPLES: 'utl-export-dlp-policies', '02-dlp-policy', '03-environment'
+        # EXAMPLES: 'utl-export-dlp-policies', 'utl-export-connectors'
       export_format:
         description: 'Export format for output data'
         required: true

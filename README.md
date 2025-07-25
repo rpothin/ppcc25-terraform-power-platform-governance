@@ -85,7 +85,7 @@ After setup, go to your GitHub repository and run the **Terraform Plan and Apply
 
 1. Navigate to **Actions** tab
 2. Select **Terraform Plan and Apply** workflow
-3. Choose your configuration (e.g., `02-dlp-policy`)
+3. Choose your configuration (e.g., `res-dlp-policy`)
 4. Select your tfvars file (e.g., `dlp-finance`)
 5. Click **Run workflow**
 
@@ -97,14 +97,14 @@ After setup, go to your GitHub repository and run the **Terraform Plan and Apply
 ├── .devcontainer/                      # Development container configuration
 ├── .github/                            # GitHub workflows and actions
 ├── configurations/                     # Ready-to-use Terraform configurations
-│   ├── 02-dlp-policy/                  # DLP policy configuration
+│   ├── res-dlp-policy/                  # DLP policy configuration
 │   │   ├── tfvars/                     # Multiple DLP policy tfvars
 │   │   │   ├── dlp-finance.tfvars      # Finance-specific DLP policy
 │   │   │   ├── dlp-hr.tfvars           # HR-specific DLP policy
 │   │   │   └── dlp-general.tfvars      # General business DLP policy
 │   │   ├── main.tf                     # Main Terraform configuration
 │   │   └── README.md                   # Configuration documentation
-│   ├── 03-environment/                 # Environment configuration
+│   ├── ptn-environment/                 # Environment configuration
 │   │   ├── tfvars/                     # Multiple environment tfvars
 │   │   │   ├── env-production.tfvars   # Production environment
 │   │   │   ├── env-development.tfvars  # Development environment

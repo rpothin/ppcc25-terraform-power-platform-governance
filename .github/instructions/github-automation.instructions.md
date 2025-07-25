@@ -160,7 +160,7 @@ inputs:
     # WHY: Scopes permissions and isolates blast radius for governance
     # VALIDATION: Must exist in configurations/ and contain .tf files
     # SECURITY: Used in state key generation to prevent cross-configuration access
-    # EXAMPLES: '02-dlp-policy', '03-environment'
+    # EXAMPLES: 'res-dlp-policy', 'ptn-environment'
     
   auto-approve:
     description: 'Bypass manual approval for apply operations'

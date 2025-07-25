@@ -341,12 +341,12 @@ After successful setup:
    - Go to your GitHub repository
    - Navigate to Actions tab
    - Run "Terraform Plan and Apply" workflow
-   - Choose a configuration (e.g., `02-dlp-policy`)
+   - Choose a configuration (e.g., `res-dlp-policy`)
    - Select an environment (e.g., `dlp-finance`)
 
 2. **Explore available configurations:**
-   - DLP policies: `configurations/02-dlp-policy/`
-   - Environment management: `configurations/03-environment/`
+   - DLP policies: `configurations/res-dlp-policy/`
+   - Environment management: `configurations/ptn-environment/`
 
 3. **Create custom configurations:**
    - Follow the pattern in existing configurations

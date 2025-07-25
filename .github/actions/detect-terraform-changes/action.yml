@@ -109,7 +109,7 @@ outputs:
     # Format: Multi-line string with one directory path per line
     # Example output:
     #   configurations/utl-export-dlp-policies
-    #   configurations/03-environment
+    #   configurations/ptn-environment
     #   modules/power-platform-dlp-export
     # Empty string when no changes detected
     # Usage: Ideal for matrix job generation and iteration in subsequent steps

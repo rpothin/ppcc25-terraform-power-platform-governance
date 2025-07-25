@@ -48,10 +48,10 @@ inputs:
   configuration:
     description: 'Target configuration directory name for operation context'
     required: false
-    # Format: Directory name without path (e.g., '01-dlp-policies', '03-environment')
+    # Format: Directory name without path (e.g., 'utl-export-dlp-policies', 'ptn-environment')
     # Used for: Resource grouping, cost allocation, permission scoping
     # When omitted: Indicates operation doesn't target specific configuration (e.g., global operations)
-    # Examples: '01-dlp-policies' for DLP policy configurations, '02-dlp-policy' for specific policies
+    # Examples: 'utl-export-dlp-policies' for DLP policy configurations, 'res-dlp-policy' for specific policies
     # Impact: Enables configuration-level reporting and access control
 
   tfvars-file:
@@ -106,7 +106,7 @@ outputs:
     #   "terraform_version": "1.6.4",                     # Terraform CLI version
     #   "operation": "plan",                              # Terraform operation type
     #   "phase": "execution",                             # Workflow execution phase
-    #   "configuration": "01-dlp-policies",               # Target configuration (optional)
+    #   "configuration": "utl-export-dlp-policies",               # Target configuration (optional)
     #   "tfvars_file": "dev",                            # Variables file name (optional)
     #   "repository": {                                   # Source control context
     #     "name": "owner/repo",                           # Full repository name

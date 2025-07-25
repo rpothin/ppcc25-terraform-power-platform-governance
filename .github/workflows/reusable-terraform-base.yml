@@ -48,7 +48,7 @@ on:
         required: true
         type: string
         # Must match a directory name under configurations/
-        # Examples: '01-dlp-policies', '02-dlp-policy', '03-environment'
+        # Examples: 'utl-export-dlp-policies', 'res-dlp-policy', 'ptn-environment'
         # The directory must contain at least one .tf file
         # Used for state key generation and working directory
       
@@ -179,7 +179,7 @@ jobs:
   terraform-operation:
     # Dynamic job name that includes operation type and configuration for easy identification
     # Format: 🔧 {operation} - {configuration}
-    # Examples: "🔧 plan - 02-dlp-policy", "🔧 apply - 03-environment"
+    # Examples: "🔧 plan - res-dlp-policy", "🔧 apply - ptn-environment"
     name: 🔧 ${{ inputs.operation }} - ${{ inputs.configuration }}
     
     # Use Ubuntu latest for consistency with existing workflows

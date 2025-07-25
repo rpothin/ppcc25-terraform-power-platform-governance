@@ -8,7 +8,7 @@ This configuration manages Power Platform environments for governance and organi
 To deploy a specific Power Platform environment:
 ```bash
 # In GitHub Actions workflow:
-# - Configuration: 03-environment  
+# - Configuration: ptn-environment  
 # - tfvars file: env-production
 ```
 

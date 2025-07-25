@@ -39,10 +39,10 @@ inputs:
   configuration:
     description: 'Target configuration directory name for state file identification'
     required: true
-    # Format: Directory name under configurations/ (e.g., 'utl-export-dlp-policies', '03-environment')
+    # Format: Directory name under configurations/ (e.g., 'utl-export-dlp-policies', 'ptn-environment')
     # Purpose: Primary component of state file naming convention
     # Usage: Must match the actual directory name containing Terraform configuration files
-    # Examples: 'utl-export-dlp-policies', '02-dlp-policy', '03-environment'
+    # Examples: 'utl-export-dlp-policies', 'res-dlp-policy', 'ptn-environment'
     #
     # State Key Impact: Forms the base of state file naming
     # - With tfvars: configuration-tfvars.tfstate
@@ -60,7 +60,7 @@ inputs:
     # When omitted: Falls back to {configuration}.tfstate pattern
     #
     # Examples:
-    # - 'dlp-finance' → '02-dlp-policy-dlp-finance.tfstate'
+    # - 'dlp-finance' → 'res-dlp-policy-dlp-finance.tfstate'
     #
     # Best Practices:
     # - Use consistent naming across environments (dev, staging, prod)
@@ -241,7 +241,7 @@ runs:
           # === TIER 2: STANDARD MULTI-ENVIRONMENT PATTERN ===
           # Primary pattern for production multi-environment deployments
           # Format: {configuration}-{tfvars-file}.tfstate
-          # Example: "utl-export-dlp-policies-dev.tfstate", "02-dlp-policy-prod.tfstate"
+          # Example: "utl-export-dlp-policies-dev.tfstate", "res-dlp-policy-prod.tfstate"
           state_key="${config}-${tfvars_file}.tfstate"
           echo "::notice title=Standard Pattern::⚙️ Generated multi-environment state key: $state_key"
           echo "::notice::Pattern: {configuration}-{environment}.tfstate"

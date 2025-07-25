@@ -39,8 +39,8 @@ on:
         required: true
         type: choice
         options:
-          - '02-dlp-policy'
-          - '03-environment'
+          - 'res-dlp-policy'
+          - 'ptn-environment'
       tfvars_file:
         description: >-
           tfvars file name without extension for environment-specific deployments.

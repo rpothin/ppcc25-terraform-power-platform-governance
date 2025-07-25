@@ -44,8 +44,8 @@ on:
         required: true
         type: choice
         options:
-          - '02-dlp-policy'
-          - '03-environment'
+          - 'res-dlp-policy'
+          - 'ptn-environment'
         # WHY: Only allows safe, non-foundational configs to be destroyed
         # SECURITY: Prevents destruction of critical infrastructure components
         # VALIDATION: Must exist in configurations/ and contain .tf files

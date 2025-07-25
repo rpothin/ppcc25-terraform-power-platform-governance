@@ -8,7 +8,7 @@ This configuration manages Data Loss Prevention (DLP) policies for Power Platfor
 To deploy a specific DLP policy for a department:
 ```bash
 # In GitHub Actions workflow:
-# - Configuration: 02-dlp-policy  
+# - Configuration: res-dlp-policy  
 # - tfvars file: dlp-finance
 ```
 
