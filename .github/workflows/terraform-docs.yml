@@ -38,23 +38,15 @@ concurrency:
 
 # === TRIGGER CONFIGURATION ===
 # Simplified trigger pattern leverages reusable workflow's intelligent filtering
-# Manual dispatch supports ad-hoc generation for specific paths or full repository
+# Manual dispatch supports ad-hoc generation for specific paths
 on:
   pull_request:
     paths:
-      - 'modules/**'
       - 'configurations/**'
-      - '.github/workflows/terraform-docs.yml'
-      - '.github/workflows/reusable-change-detection.yml'
-      - '.github/actions/detect-terraform-changes/**'
   push:
     branches: [main]
     paths:
-      - 'modules/**'
       - 'configurations/**'
-      - '.github/workflows/terraform-docs.yml'
-      - '.github/workflows/reusable-change-detection.yml'
-      - '.github/actions/detect-terraform-changes/**'
   workflow_dispatch:
     inputs:
       target_path:
