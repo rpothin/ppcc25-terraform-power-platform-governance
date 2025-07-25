@@ -384,6 +384,16 @@ jobs:
           storage-account-name: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
           resource-group-name: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
 
+      # === AVM COMPLIANCE CHECK ===
+      # Ensures configurations meet AVM testing requirements
+      - name: AVM Testing Compliance Check
+        if: always() && steps.integration-tests.outputs.has-test-files == 'false'
+        run: |
+          echo "::error title=AVM Compliance Violation::No .tftest.hcl files found. AVM principles require comprehensive testing coverage for all configurations."
+          echo "::notice title=Required Action::Add at least one .tftest.hcl file to validate this configuration meets AVM quality standards."
+          echo "::notice title=Reference::See terraform-iac.instructions.md for AVM testing requirements"
+          exit 1
+
   # === REUSABLE EXECUTION SUMMARY GENERATION ===
   # Generates a comprehensive summary of all validation steps and results for this path
   execution-summary:
