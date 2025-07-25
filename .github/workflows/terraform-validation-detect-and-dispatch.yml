@@ -78,7 +78,7 @@ jobs:
       # Includes: .tf files, .tfvars files, and terraform configuration files
       path-filter: '\.(tf|tfvars)$|\.tftest\.hcl$'
 
-  # === VALIDATION DISPATCH ===
+    # === VALIDATION DISPATCH ===
   # Runs single-path validation for each changed directory in parallel
   # WHY: Provides isolated, parallel validation for each changed configuration/module, improving speed and reliability while ensuring that only affected paths are validated
   validate-paths:
@@ -86,30 +86,53 @@ jobs:
     needs: detect-changes
     if: needs.detect-changes.outputs.has-changes == 'true'
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        target_path: ${{ fromJson(format('["{0}"]', join(split(needs.detect-changes.outputs.changed-paths, '\n'), '","'))) }}
     steps:
-      # Dispatches the single-path validation workflow for each changed path
-      # WHY: Dispatches the single-path validation workflow for each changed path, enabling robust, per-path quality checks and audit trails
-      - name: Dispatch Single Path Validation
+      # Dispatches validation workflows for all changed paths
+      # WHY: Dispatches validation workflows for all changed paths, handling newline-separated format from reusable workflow
+      - name: Dispatch Validation for All Changed Paths
         uses: actions/github-script@v7
         with:
           script: |
-            const path = '${{ matrix.target_path }}';
-            const configName = path.replace(/^configurations\//, '').replace(/^modules\//, '');
+            const changedPaths = `${{ needs.detect-changes.outputs.changed-paths }}`;
             const workflow_id = 'terraform-single-path-validation.yml';
-            const owner = process.env.GITHUB_REPOSITORY.split('/')[0];
-            const repo = process.env.GITHUB_REPOSITORY.split('/')[1];
-            const dispatch = await github.rest.actions.createWorkflowDispatch({
-              owner,
-              repo,
-              workflow_id,
-              ref: process.env.GITHUB_REF_NAME,
-              inputs: { target_configuration: configName }
-            });
-            core.info(`Dispatched validation for: ${path}`);
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const ref = context.ref.replace('refs/heads/', '');
+            
+            if (!changedPaths || changedPaths.trim() === '') {
+              core.info('No paths to process');
+              return;
+            }
+            
+            // Split paths by newline and filter out empty lines
+            const paths = changedPaths.split('\n').filter(path => path.trim() !== '');
+            
+            core.info(`Processing ${paths.length} changed path(s)`);
+            
+            // Dispatch validation for each path
+            for (const path of paths) {
+              const trimmedPath = path.trim();
+              if (!trimmedPath) continue;
+              
+              // Extract configuration name from path
+              const configName = trimmedPath.replace(/^configurations\//, '').replace(/^modules\//, '');
+              
+              try {
+                await github.rest.actions.createWorkflowDispatch({
+                  owner,
+                  repo,
+                  workflow_id,
+                  ref,
+                  inputs: { target_configuration: configName }
+                });
+                core.info(`✅ Dispatched validation for: ${trimmedPath} (config: ${configName})`);
+              } catch (error) {
+                core.error(`❌ Failed to dispatch validation for ${trimmedPath}: ${error.message}`);
+                throw error;
+              }
+            }
+            
+            core.info(`🎉 Successfully dispatched validation for all ${paths.length} path(s)`);
 
   # === AGGREGATE & SUMMARY ===
   # Aggregates results and generates a summary for governance and audit
