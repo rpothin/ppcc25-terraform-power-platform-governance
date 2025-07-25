@@ -95,9 +95,8 @@ jobs:
       matrix:
         target_path: ${{ fromJson('['''${{ needs.detect-changes.outputs.changed-paths }}''']') }}
     steps:
-      # Triggers the single-path validation workflow for each changed path
+      # Dispatches the single-path validation workflow for each changed path
       # WHY: Dispatches the single-path validation workflow for each changed path, enabling robust, per-path quality checks and audit trails
-      - name: Checkout Repository
       - name: Dispatch Single Path Validation
         uses: actions/github-script@v7
         with:
