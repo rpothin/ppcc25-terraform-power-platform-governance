@@ -1,4 +1,3 @@
-
 # ═══════════════════════════════════════════════════════════════════════════════════════════════════════
 # TERRAFORM DESTROY WORKFLOW FOR POWER PLATFORM GOVERNANCE
 # ═══════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -13,11 +12,13 @@
 # - OIDC authentication eliminates stored credentials for destroy operations
 # - Environment protection ensures all destroys are auditable and require production-level secrets
 # - State backup prevents data loss before destructive actions
+# - Explicit confirmation required to prevent accidental destruction
 #
 # ⚙️ OPERATIONAL CONTEXT:
 # - Concurrency control prevents conflicting destroy operations and state corruption
 # - Timeout values account for complex resource destruction
 # - Never cancel destroys to avoid incomplete state changes
+# - Pre-destroy validation ensures resources exist and inputs are valid
 #
 # 📋 INTEGRATION REQUIREMENTS:
 # - Depends on reusable-terraform-base for standardized destroy process
@@ -27,12 +28,14 @@
 
 name: Terraform Destroy
 
-# Concurrency: Prevents conflicting destroy operations and state corruption
+# === CONCURRENCY PROTECTION ===
+# Prevents conflicting destroy operations and state corruption
 concurrency:
-  group: terraform-${{ github.event.inputs.configuration || 'default' }}-${{ github.event.inputs.tfvars_file || 'default' }}-${{ github.ref }}
-  cancel-in-progress: false
+  group: terraform-${{ github.event.inputs.configuration || 'default' }}-${{ github.event.inputs.tfvars_file || 'default' }}-destroy-${{ github.ref }}
+  cancel-in-progress: false  # Never cancel running Terraform operations to avoid incomplete state changes
 
-# Manual trigger with explicit confirmation and input validation
+# === WORKFLOW TRIGGER AND INPUTS ===
+# Manual workflow dispatch with explicit confirmation for destructive operations
 on:
   workflow_dispatch:
     inputs:
@@ -41,1524 +44,250 @@ on:
         required: true
         type: choice
         options:
-          - '02-dlp-policy'    # Data Loss Prevention Policy Management
-          - '03-environment'   # Power Platform Environment Management
-      # WHY: Only allows safe, non-foundational configs to be destroyed
-
+          - '02-dlp-policy'
+          - '03-environment'
+        # WHY: Only allows safe, non-foundational configs to be destroyed
+        # SECURITY: Prevents destruction of critical infrastructure components
+        # VALIDATION: Must exist in configurations/ and contain .tf files
+      
       tfvars_file:
         description: 'tfvars file name without extension (e.g., dlp-finance, env-production)'
         required: true
         type: string
-      # WHY: Targets specific resource instance for precise, auditable destruction
-
+        # WHY: Targets specific resource instance for precise, auditable destruction
+        # GOVERNANCE: Ensures correct context for resource identification
+        # VALIDATION: Must match a file in tfvars/ subdirectory
+      
       confirmation:
         description: 'Type "DESTROY" to confirm resource destruction (case sensitive)'
         required: true
         type: string
-       # WHY: Explicit, case-sensitive confirmation required for destructive operations
-
+        # WHY: Explicit, case-sensitive confirmation required for destructive operations
+        # SECURITY: Prevents accidental destruction through UI misclicks
+        # GOVERNANCE: Creates explicit audit trail of user intent
+      
       backup_state:
         description: 'Create state backup before destroy (recommended for production)'
         required: true
         type: boolean
         default: true
-      # WHY: Ensures disaster recovery and auditability before destructive actions
-
+        # WHY: Ensures disaster recovery and auditability before destructive actions
+        # GOVERNANCE: Provides rollback capability for audit compliance
+        # SECURITY: Protects against accidental state loss
+      
       force_destroy:
         description: 'Force destroy even if plan shows no resources (use with caution)'
         required: false
         type: boolean
         default: false
-      # WHY: Allows emergency cleanup of orphaned state or resources
+        # WHY: Allows emergency cleanup of orphaned state or resources
+        # SECURITY: Disabled by default to prevent misuse
+        # GOVERNANCE: Emergency override with explicit user consent
 
 # Dynamic run name for auditability and traceability
 run-name: 🚨 Terraform DESTROY ${{ github.event.inputs.configuration }} (${{ github.event.inputs.tfvars_file }}) by @${{ github.actor }}
-# Pattern: Clear destruction indicator + configuration + tfvars + actor identification
-# Benefits: Immediate visual recognition, audit trail, accountability tracking
 
-# Permissions: OIDC for Azure/Power Platform, repo write for backup/artifacts
+# === PERMISSIONS AND SECURITY ===
+# Principle of least privilege with backup capability
 permissions:
-  id-token: write   # Required: GitHub OIDC token generation for Azure and Power Platform authentication
-  contents: write   # Required: Repository operations for backup commits and artifact management
-# Note: No workflow-level environment variables for enhanced security
-# Secrets are only accessible within jobs that explicitly specify the production environment
+  id-token: write   # Required for GitHub OIDC token generation
+  contents: write   # Required for state backup commits and artifact management
 
 jobs:
-  # Validates all inputs, state, and safety before destruction
-  # WHY: Prevents accidental or unsafe destruction; ensures audit and backup
-  terraform-validate:
+  # === PRE-DESTROY VALIDATION AND CONFIRMATION ===
+  # Critical safety checks before allowing destruction to proceed
+  pre-destroy-validation:
     name: 🔍 Validation and Safety Checks
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    environment: production                           # Production environment protection for sensitive operations
+    timeout-minutes: 10
+    environment: production  # Production environment protection for sensitive operations
     
-    # === COMPREHENSIVE AUTHENTICATION CONFIGURATION ===
-    # Secure OIDC-based authentication for Azure and Power Platform services
-    env:
-      # === POWER PLATFORM AUTHENTICATION ===
-      # Configure Power Platform provider for secure OIDC authentication
-      POWER_PLATFORM_USE_OIDC: true                  # Enable OIDC authentication for Power Platform provider
-      POWER_PLATFORM_CLIENT_ID: ${{ secrets.POWER_PLATFORM_CLIENT_ID }}      # Power Platform client identity
-      POWER_PLATFORM_TENANT_ID: ${{ secrets.POWER_PLATFORM_TENANT_ID }}      # Power Platform tenant context
-      
-      # === AZURE RESOURCE MANAGER AUTHENTICATION ===
-      # Configure ARM provider for secure backend state management
-      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}              # Target Azure subscription
-      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}                          # Azure AD tenant context
-      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}                          # Azure client identity
-      ARM_USE_OIDC: true                              # Enable OIDC authentication for ARM provider
-    
-    # === COMPREHENSIVE OUTPUT CONFIGURATION ===
-    # Generate outputs for conditional execution control and downstream job coordination
+    # Output values for conditional execution control
     outputs:
-      resources-exist: ${{ steps.analyze-state.outputs.resources-exist }}    # Boolean: Resource presence flag
-      resource-count: ${{ steps.analyze-state.outputs.resource-count }}      # Number: Count of resources to destroy
-      configuration: ${{ github.event.inputs.configuration }}                # String: Configuration identifier
-      backup-created: ${{ steps.backup.outputs.backup-created }}             # Boolean: Backup creation status
-      validation-metadata: ${{ steps.analyze-state.outputs.validation-metadata }}  # JSON: Comprehensive execution metadata
+      validation-passed: ${{ steps.validate-confirmation.outputs.validation-passed }}
+      resources-exist: ${{ steps.check-resources.outputs.resources-exist }}
+      resource-count: ${{ steps.check-resources.outputs.resource-count }}
+      validation-metadata: ${{ steps.generate-metadata.outputs.validation-metadata }}
     
     steps:
-      # ═══════════════════════════════════════════════════════════════════════════════════════════════════
-      # STEP 1: CRITICAL INPUT VALIDATION AND CONFIRMATION VERIFICATION
-      # ═══════════════════════════════════════════════════════════════════════════════════════════════════
-      # Rigorous validation of user input to prevent accidental destruction and ensure proper authorization
+      # === CHECKOUT REPOSITORY ===
+      - name: Checkout Repository
+        uses: actions/checkout@v4
       
-      - name: Validate Destroy Confirmation Input
+      # === CRITICAL CONFIRMATION VALIDATION ===
+      # Rigorous validation of user input to prevent accidental destruction
+      - name: Validate Destroy Confirmation
+        id: validate-confirmation
         run: |
-          echo "::notice title=Input Validation::🔍 Starting comprehensive input validation and confirmation verification"
+          echo "::notice title=Confirmation Validation::🔍 Validating destruction confirmation..."
           
-          # === CONFIRMATION STRING VALIDATION ===
-          # Critical security check: Verify exact case-sensitive confirmation
           confirmation="${{ github.event.inputs.confirmation }}"
-          
-          echo "::notice title=Confirmation Check::Validating destruction confirmation input..."
-          echo "::notice title=Security Measure::Confirmation must be exactly 'DESTROY' (case sensitive)"
           
           if [ "$confirmation" != "DESTROY" ]; then
             echo "::error title=Invalid Confirmation::❌ Confirmation validation failed"
             echo "::error title=Required Input::You must type 'DESTROY' (case sensitive) to confirm resource destruction"
             echo "::error title=Provided Input::Received: '$confirmation'"
             echo "::error title=Security Notice::This safety measure prevents accidental resource destruction"
-            echo "::notice title=Correction::Please re-run the workflow with the exact confirmation string 'DESTROY'"
             exit 1
           fi
           
           echo "::warning title=Destruction Confirmed::⚠️ User has provided valid destruction confirmation"
           echo "::notice title=Authorization::✅ Confirmation validation passed - proceeding with safety checks"
-          echo "::notice title=Actor::🧑‍💼 Destruction authorized by: @${{ github.actor }}"
-          echo "::notice title=Timestamp::⏰ Confirmation validated at: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
-          echo "::notice title=Actor::🧑‍💼 Destruction authorized by: @${{ github.actor }}"
-          echo "::notice title=Timestamp::⏰ Confirmation validated at: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
-    
-      # ═══════════════════════════════════════════════════════════════════════════════════════════════════
-      # STEP 2: REPOSITORY ACCESS AND ENVIRONMENT PREPARATION
-      # ═══════════════════════════════════════════════════════════════════════════════════════════════════
-      # Standard repository checkout for comprehensive validation operations
+          echo "validation-passed=true" >> $GITHUB_OUTPUT
       
-      - name: Checkout Repository for Validation
-        uses: actions/checkout@v4
-        # Purpose: Access configuration files, tfvars, and validation scripts
-        # Required for: File existence checks, configuration validation, backup operations
-    
-      # ═══════════════════════════════════════════════════════════════════════════════════════════════════
-      # STEP 3: AZURE OIDC AUTHENTICATION FOR BACKEND ACCESS
-      # ═══════════════════════════════════════════════════════════════════════════════════════════════════
-      # Secure Azure authentication using OIDC identity federation for backend state management
+      # === INPUT VALIDATION ===
+      # Validate configuration and tfvars file existence
+      - name: Validate Inputs
+        run: |
+          config="${{ github.event.inputs.configuration }}"
+          tfvars_file="${{ github.event.inputs.tfvars_file }}"
+          
+          echo "::notice title=Input Validation::📋 Validating destroy inputs..."
+          
+          # Validate configuration directory
+          config_path="configurations/$config"
+          if [ ! -d "$config_path" ]; then
+            echo "::error title=Configuration Not Found::❌ Configuration directory '$config_path' does not exist"
+            exit 1
+          fi
+          
+          # Validate tfvars file
+          tfvars_path="$config_path/tfvars/$tfvars_file.tfvars"
+          if [ ! -f "$tfvars_path" ]; then
+            echo "::error title=tfvars File Not Found::❌ Specified tfvars file '$tfvars_path' does not exist"
+            exit 1
+          fi
+          
+          echo "::notice title=Input Validation Complete::✅ All input validation checks passed"
       
+      # === AZURE OIDC AUTHENTICATION ===
       - name: Azure Login with OIDC
         uses: azure/login@v2.3.0
         with:
-          # === OIDC AUTHENTICATION CONFIGURATION ===
-          # Secure authentication using GitHub OIDC identity federation (no stored credentials)
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}                   # Azure AD application client ID
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}                   # Azure AD tenant identifier
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}       # Target Azure subscription
-        # Purpose: Authenticate with Azure for Terraform backend state access
-        # Security: Uses OIDC federation to eliminate credential storage
-    
-      # ═══════════════════════════════════════════════════════════════════════════════════════════════════
-      # STEP 4: JUST-IN-TIME NETWORK ACCESS CONFIGURATION
-      # ═══════════════════════════════════════════════════════════════════════════════════════════════════
-      # Enable secure network access for Azure Storage backend operations with minimal exposure
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       
+      # === JIT NETWORK ACCESS ===
       - name: Add JIT Network Access
-        id: jit-add
         uses: ./.github/actions/jit-network-access
         with:
-          action: 'add'                                               # Enable network access
-          storage-account-name: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}    # Backend storage account
-          resource-group-name: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}      # Storage resource group
-        # Purpose: Enable just-in-time network access for secure Terraform backend connectivity
-        # Security: Minimal exposure window with automatic cleanup
-    
-      # ═══════════════════════════════════════════════════════════════════════════════════════════════════
-      # STEP 5: TERRAFORM ENVIRONMENT SETUP AND CONFIGURATION
-      # ═══════════════════════════════════════════════════════════════════════════════════════════════════
-      # Install and configure Terraform CLI for consistent validation and planning operations
+          action: 'add'
+          storage-account-name: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
+          resource-group-name: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
       
-      - name: Setup Terraform CLI for Validation
+      # === TERRAFORM SETUP ===
+      - name: Setup Terraform CLI
         uses: hashicorp/setup-terraform@v3.1.2
         with:
-          # === TERRAFORM VERSION CONFIGURATION ===
-          # Use consistent Terraform version for reliable validation behavior
-          terraform_version: ${{ vars.TERRAFORM_VERSION || '1.12.2' }}       # Version with intelligent fallback
-          terraform_wrapper: false                       # Disable wrapper for enhanced output handling and parsing
-        # Purpose: Install consistent Terraform version for reliable validation operations
-        # Configuration: Wrapper disabled for better output parsing and error handling
-    
-      # ═══════════════════════════════════════════════════════════════════════════════════════════════════
-      # STEP 6: COMPREHENSIVE INPUT VALIDATION AND FILE VERIFICATION
-      # ═══════════════════════════════════════════════════════════════════════════════════════════════════
-      # Thorough validation of configuration and tfvars file existence and accessibility
+          terraform_version: ${{ vars.TERRAFORM_VERSION || '1.12.2' }}
+          terraform_wrapper: false
       
-      - name: Validate Destroy Inputs
-        run: |
-          echo "::notice title=File Validation::📋 Starting comprehensive file and configuration validation"
-          
-          # === INPUT PARAMETER EXTRACTION ===
-          # Extract and validate input parameters for comprehensive checking
-          config="${{ github.event.inputs.configuration }}"
-          tfvars_file="${{ github.event.inputs.tfvars_file }}"
-          
-          echo "::notice title=Validation Starting::🔍 Validating inputs for destroy operation..."
-          echo "::notice title=Target Configuration::📁 Configuration: $config"
-          echo "::notice title=Target tfvars::📄 tfvars file: $tfvars_file"
-          
-          # === CONFIGURATION DIRECTORY VALIDATION ===
-          # Verify that the specified configuration directory exists and is accessible
-          config_path="configurations/$config"
-          echo "::notice title=Directory Check::Validating configuration directory: $config_path"
-          
-          if [ ! -d "$config_path" ]; then
-            echo "::error title=Configuration Not Found::❌ Configuration directory '$config_path' does not exist"
-            echo "::error title=Available Configurations::📁 Available configurations:"
-            ls -la configurations/ 2>/dev/null || echo "No configurations directory found"
-            echo "::notice title=Resolution::🔧 Please check the configuration name and ensure it exists in the repository"
-            exit 1
-          fi
-          
-          echo "::notice title=Directory Found::✅ Configuration directory exists and is accessible"
-          
-          # === TFVARS FILE VALIDATION ===
-          # Verify that the specified tfvars file exists within the configuration
-          tfvars_filename="$tfvars_file.tfvars"
-          tfvars_path="$config_path/tfvars/$tfvars_filename"
-          
-          echo "::notice title=tfvars Check::Validating tfvars file: $tfvars_path"
-          
-          if [ ! -f "$tfvars_path" ]; then
-            echo "::error title=tfvars File Not Found::❌ Specified tfvars file '$tfvars_path' does not exist"
-            echo "::error title=Available tfvars::📄 Available tfvars files in $config:"
-            ls -la "$config_path/tfvars/" 2>/dev/null || echo "No tfvars directory found"
-            echo "::notice title=Resolution::🔧 Please check the tfvars filename and ensure it exists in the configuration"
-            exit 1
-          fi
-          
-          echo "::notice title=tfvars Found::✅ tfvars file exists and is accessible"
-          
-          # === VALIDATION SUMMARY ===
-          # Provide comprehensive summary of validation results
-          echo "::notice title=Input Validation Complete::✅ All input validation checks passed successfully"
-          echo "::warning title=Destroy Target Confirmed::🎯 Validated destruction target:"
-          echo "::warning title=Configuration::📁 $config"
-          echo "::warning title=tfvars File::📄 $tfvars_filename"
-          echo "::warning title=Full Path::📂 $tfvars_path"
-          echo "::notice title=Proceeding::🚀 Moving to state analysis and backup operations"
-    
-      # ═══════════════════════════════════════════════════════════════════════════════════════════════════
-      # STEP 7: TERRAFORM INITIALIZATION AND STATE PREPARATION
-      # ═══════════════════════════════════════════════════════════════════════════════════════════════════
-      # Initialize Terraform with backend configuration for state analysis and validation
-      
-      - name: Initialize and Check State
-        id: state-check
-        run: |
-          echo "::notice title=Terraform Initialization::🔧 Preparing Terraform environment for state analysis"
-          
-          # === CONFIGURATION CONTEXT SETUP ===
-          # Set up working directory and context for Terraform operations
-          config="${{ github.event.inputs.configuration }}"
-          echo "::notice title=Initializing Terraform::Initializing Terraform for configuration: $config"
-          echo "::notice title=Working Directory::📁 Changing to configuration directory: configurations/$config"
-          cd "configurations/$config"
-          
-          echo "::notice title=Initialization Complete::✅ Ready for backend initialization and state analysis"
-
-      # === STEP 7A: TERRAFORM BACKEND INITIALIZATION ===
-      # Use reusable action for consistent and reliable backend initialization
-      - name: Initialize Terraform for State Check
+      # === TERRAFORM INITIALIZATION ===
+      - name: Initialize Terraform
         uses: ./.github/actions/terraform-init-with-backend
         env:
-          # === BACKEND CONFIGURATION ENVIRONMENT ===
-          # Comprehensive backend configuration for secure state management
-          ARM_STORAGE_ACCOUNT_NAME: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}  # Backend storage account
-          ARM_CONTAINER_NAME: ${{ secrets.TERRAFORM_CONTAINER }}              # Backend container name
-          ARM_RESOURCE_GROUP_NAME: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}    # Backend resource group
-          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}           # Azure subscription context
-          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}                       # Azure tenant context
+          ARM_STORAGE_ACCOUNT_NAME: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
+          ARM_CONTAINER_NAME: ${{ secrets.TERRAFORM_CONTAINER }}
+          ARM_RESOURCE_GROUP_NAME: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          ARM_USE_OIDC: true
+          POWER_PLATFORM_USE_OIDC: true
+          POWER_PLATFORM_CLIENT_ID: ${{ secrets.POWER_PLATFORM_CLIENT_ID }}
+          POWER_PLATFORM_TENANT_ID: ${{ secrets.POWER_PLATFORM_TENANT_ID }}
         with:
-          # === INITIALIZATION PARAMETERS ===
-          # Specific configuration and tfvars targeting for precise state access
-          configuration: ${{ github.event.inputs.configuration }}             # Target configuration
-          tfvars-file: ${{ github.event.inputs.tfvars_file }}                 # Target tfvars file
-        # Purpose: Initialize Terraform with proper backend configuration for state analysis
-        # Benefits: Consistent initialization, error handling, retry logic
-
-      # === STEP 7B: WORKFLOW METADATA GENERATION ===
-      # Generate comprehensive metadata for audit trails and compliance tracking
-      - name: Generate Metadata and Check State
+          configuration: ${{ github.event.inputs.configuration }}
+          tfvars-file: ${{ github.event.inputs.tfvars_file }}
+      
+      # === GENERATE WORKFLOW METADATA ===
+      - name: Generate Workflow Metadata
         uses: ./.github/actions/generate-workflow-metadata
-        id: validation-metadata
+        id: generate-metadata
         with:
-          # === METADATA CONFIGURATION ===
-          # Comprehensive metadata generation for destroy operation tracking
-          operation: 'destroy'                         # Operation type for metadata categorization
-          configuration: ${{ github.event.inputs.configuration }}    # Configuration context
-          tfvars-file: ${{ github.event.inputs.tfvars_file }}        # tfvars context
-          phase: 'validation'                          # Current execution phase
-        # Purpose: Generate AVM-compliant metadata for audit trails and compliance
-        # Output: Structured metadata for downstream consumption and archival
-
-      # === STEP 7C: COMPREHENSIVE STATE ANALYSIS ===
-      # Analyze current Terraform state for resource inventory and impact assessment
-      - name: Analyze Current State
-        id: analyze-state
+          operation: 'destroy'
+          configuration: ${{ github.event.inputs.configuration }}
+          tfvars-file: ${{ github.event.inputs.tfvars_file }}
+          phase: 'validation'
+      
+      # === RESOURCE EXISTENCE CHECK ===
+      # Check if resources exist in state before proceeding
+      - name: Check Resource Existence
+        id: check-resources
         run: |
-          echo "::notice title=State Analysis::📊 Analyzing current Terraform state for resource impact assessment"
-          
-          # === CONFIGURATION CONTEXT SETUP ===
-          # Establish working directory and operational context
           config="${{ github.event.inputs.configuration }}"
-          tfvars_file="${{ github.event.inputs.tfvars_file }}"
-          
-          echo "::notice title=State Analysis Starting::🔍 Beginning comprehensive state analysis..."
-          echo "::notice title=Target Configuration::📁 Configuration: $config"
-          echo "::notice title=Target tfvars::📄 tfvars file: $tfvars_file.tfvars"
-          
-          # === WORKING DIRECTORY SETUP ===
-          # Navigate to configuration directory for state operations
           cd "configurations/$config"
-          echo "::notice title=Working Directory::📂 Operating in: $(pwd)"
           
-          # === STATE EXISTENCE CHECK ===
-          # Determine if Terraform state exists and contains resources
-          echo "::notice title=State Check::Checking for existing Terraform state..."
+          echo "::notice title=Resource Check::📊 Checking for resources in Terraform state..."
           
-          # Check if state contains any resources using terraform show
-          if terraform show -json > /dev/null 2>&1; then
-            # State file exists and is accessible
-            echo "::notice title=State Found::✅ Terraform state file found and accessible"
-            
-            # === RESOURCE INVENTORY AND ANALYSIS ===
-            # Perform comprehensive resource analysis for impact assessment
-            echo "::notice title=Resource Analysis::📋 Performing comprehensive resource inventory..."
-            
-            # Get detailed resource information using terraform show
-            terraform show -json > state_output.json 2>/dev/null || {
-              echo "::warning title=State Access Issue::⚠️ Could not generate JSON state output"
-              echo "resources-exist=false" >> $GITHUB_OUTPUT
-              echo "resource-count=0" >> $GITHUB_OUTPUT
-              exit 0
-            }
-            
-            # === RESOURCE COUNT CALCULATION ===
-            # Calculate total number of managed resources for impact assessment
-            echo "::notice title=Resource Counting::🔢 Calculating resource count for impact assessment..."
-            
-            # Count resources in the state (filter for managed resources only)
+          # Check if state contains any resources
+          if terraform show -json > state_output.json 2>/dev/null; then
+            # Count managed resources
             resource_count=0
-            if [ -f "state_output.json" ]; then
-              # Use jq to count resources, fallback to alternative methods if jq unavailable
-              if command -v jq >/dev/null 2>&1; then
-                resource_count=$(jq -r '.values.root_module.resources[]? | select(.mode == "managed") | .address' state_output.json 2>/dev/null | wc -l || echo "0")
-              else
-                # Fallback: Use terraform state list as alternative counting method
-                echo "::notice title=Counting Method::Using terraform state list for resource counting..."
-                resource_count=$(terraform state list 2>/dev/null | wc -l || echo "0")
-              fi
+            if command -v jq >/dev/null 2>&1; then
+              resource_count=$(jq -r '.values.root_module.resources[]? | select(.mode == "managed") | .address' state_output.json 2>/dev/null | wc -l || echo "0")
+            else
+              resource_count=$(terraform state list 2>/dev/null | wc -l || echo "0")
             fi
             
-            # Ensure resource count is a valid number
-            if ! [[ "$resource_count" =~ ^[0-9]+$ ]]; then
-              echo "::warning title=Count Issue::Could not determine exact resource count, setting to 0"
-              resource_count=0
-            fi
-            
-            echo "::notice title=Resource Count::📊 Found $resource_count managed resources in current state"
-            
-            # === RESOURCE EXISTENCE DETERMINATION ===
-            # Set existence flag based on resource count analysis
             if [ "$resource_count" -gt 0 ]; then
-              # Resources exist - destruction is needed and possible
-              echo "::warning title=Resources Found::⚠️ $resource_count resources found in state - destruction will be performed"
-              echo "::warning title=Impact Assessment::📈 This operation will attempt to destroy $resource_count resources"
+              echo "::warning title=Resources Found::⚠️ $resource_count resources found in state"
               echo "resources-exist=true" >> $GITHUB_OUTPUT
               echo "resource-count=$resource_count" >> $GITHUB_OUTPUT
-              
-              # === RESOURCE LISTING FOR TRANSPARENCY ===
-              # Provide detailed resource listing for user awareness
-              echo "::notice title=Resource Listing::📋 Listing resources that will be destroyed:"
-              terraform state list 2>/dev/null || echo "::warning title=Listing Issue::Could not list individual resources"
-              
             else
-              # No resources exist - nothing to destroy
               echo "::notice title=No Resources::✅ No managed resources found in state"
-              echo "::notice title=No Action Needed::📝 State is empty - no destruction operations required"
               echo "resources-exist=false" >> $GITHUB_OUTPUT
               echo "resource-count=0" >> $GITHUB_OUTPUT
             fi
-            
-            # === METADATA GENERATION ===
-            # Generate comprehensive metadata for downstream consumption
-            echo "::notice title=Metadata Generation::📋 Generating validation metadata for audit trails..."
-            
-            # Create metadata JSON for workflow tracking and compliance
-            metadata=$(cat <<EOF
-          {
-            "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
-            "actor": "${{ github.actor }}",
-            "configuration": "$config",
-            "tfvars_file": "$tfvars_file",
-            "resources_exist": $([ "$resource_count" -gt 0 ] && echo "true" || echo "false"),
-            "resource_count": $resource_count,
-            "state_analysis": {
-              "state_accessible": true,
-              "analysis_method": "terraform_show_json",
-              "validation_phase": "pre_destroy"
-            },
-            "workflow_context": {
-              "run_id": "${{ github.run_id }}",
-              "run_number": "${{ github.run_number }}",
-              "ref": "${{ github.ref }}",
-              "sha": "${{ github.sha }}"
-            }
-          }
-          EOF
-            )
-            
-            echo "validation-metadata=$metadata" >> $GITHUB_OUTPUT
-            echo "::notice title=Metadata Complete::✅ Validation metadata generated successfully"
-            
           else
-            # === NO STATE SCENARIO ===
-            # Handle case where no state file exists or is inaccessible
-            echo "::notice title=No State::📝 No Terraform state found or state is empty"
-            echo "::notice title=No Resources::✅ No resources to destroy - state file does not exist or contains no resources"
-            echo "::notice title=Operation Result::🚀 No destruction operations will be performed"
-            
-            # Set outputs for no-state scenario
+            echo "::notice title=No State::📝 No Terraform state found"
             echo "resources-exist=false" >> $GITHUB_OUTPUT
             echo "resource-count=0" >> $GITHUB_OUTPUT
-            
-            # Generate metadata for no-state scenario
-            metadata=$(cat <<EOF
-          {
-            "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
-            "actor": "${{ github.actor }}",
-            "configuration": "$config",
-            "tfvars_file": "$tfvars_file",
-            "resources_exist": false,
-            "resource_count": 0,
-            "state_analysis": {
-              "state_accessible": false,
-              "analysis_method": "terraform_show",
-              "validation_phase": "pre_destroy",
-              "no_state_reason": "State file not found or empty"
-            },
-            "workflow_context": {
-              "run_id": "${{ github.run_id }}",
-              "run_number": "${{ github.run_number }}",
-              "ref": "${{ github.ref }}",
-              "sha": "${{ github.sha }}"
-            }
-          }
-          EOF
-            )
-            
-            echo "validation-metadata=$metadata" >> $GITHUB_OUTPUT
-            echo "::notice title=No State Metadata::✅ No-state scenario metadata generated successfully"
           fi
-          
-          # === ANALYSIS SUMMARY ===
-          # Provide comprehensive summary of state analysis results
-          echo "::notice title=Analysis Complete::✅ State analysis completed successfully"
-          echo "::notice title=Summary::📊 Analysis Summary:"
-          echo "::notice title=Resources Exist::$([ "$resource_count" -gt 0 ] && echo "Yes" || echo "No")"
-          echo "::notice title=Resource Count::$resource_count"
-          echo "::notice title=Next Phase::🚀 Proceeding to backup and destroy plan generation"
-    
-      # ═══════════════════════════════════════════════════════════════════════════════════════════════════
-      # STEP 8: AUTOMATED STATE BACKUP WITH VERSION CONTROL INTEGRATION
-      # ═══════════════════════════════════════════════════════════════════════════════════════════════════
-      # Create comprehensive backup of current state for disaster recovery and rollback capabilities
       
-      - name: Create State Backup
-        id: backup
-        run: |
-          echo "::notice title=Backup Creation::💾 Creating comprehensive state backup for disaster recovery"
-          
-          # === BACKUP CONTEXT SETUP ===
-          # Establish backup parameters and directory structure
-          config="${{ github.event.inputs.configuration }}"
-          tfvars_file="${{ github.event.inputs.tfvars_file }}"
-          timestamp=$(date +"%Y%m%d_%H%M%S")
-          backup_dir="backups/destroy_$config_$tfvars_file_$timestamp"
-          
-          echo "::notice title=Backup Planning::📋 Planning backup operation..."
-          echo "::notice title=Configuration::📁 $config"
-          echo "::notice title=tfvars File::📄 $tfvars_file"
-          echo "::notice title=Timestamp::⏰ $timestamp"
-          echo "::notice title=Backup Directory::📂 $backup_dir"
-          
-          # === BACKUP DIRECTORY CREATION ===
-          # Create structured backup directory for organized storage
-          echo "::notice title=Directory Setup::Creating backup directory structure..."
-          mkdir -p "$backup_dir"
-          
-          # === WORKING DIRECTORY SETUP ===
-          # Navigate to configuration directory for backup operations
-          cd "configurations/$config"
-          
-          # === STATE BACKUP EXECUTION ===
-          # Create comprehensive backup only if resources exist
-          resources_exist="${{ steps.analyze-state.outputs.resources-exist }}"
-          
-          if [ "$resources_exist" = "true" ]; then
-            echo "::notice title=State Backup::💾 Creating state backup - resources exist and require protection"
-            
-            # === TERRAFORM STATE BACKUP ===
-            # Export current state in multiple formats for comprehensive backup
-            echo "::notice title=State Export::Exporting Terraform state in multiple formats..."
-            
-            # Export state as JSON for detailed backup
-            if terraform show -json > "../../$backup_dir/terraform_state.json" 2>/dev/null; then
-              echo "::notice title=JSON Backup::✅ JSON state backup created successfully"
-            else
-              echo "::warning title=JSON Backup Issue::⚠️ Could not create JSON state backup"
-            fi
-            
-            # Export state in human-readable format
-            if terraform show > "../../$backup_dir/terraform_state.txt" 2>/dev/null; then
-              echo "::notice title=Text Backup::✅ Human-readable state backup created successfully"
-            else
-              echo "::warning title=Text Backup Issue::⚠️ Could not create text state backup"
-            fi
-            
-            # === CONFIGURATION BACKUP ===
-            # Backup configuration files and tfvars for complete restoration capability
-            echo "::notice title=Configuration Backup::📋 Backing up configuration files..."
-            
-            # Copy main Terraform configuration
-            cp -r . "../../$backup_dir/configuration/" 2>/dev/null || {
-              echo "::warning title=Config Backup Issue::⚠️ Could not backup configuration files"
-            }
-            
-            # === BACKUP METADATA CREATION ===
-            # Generate comprehensive metadata for backup management
-            echo "::notice title=Metadata Creation::📝 Creating backup metadata..."
-            
-            cat > "../../$backup_dir/backup_metadata.json" <<EOF
-          {
-            "backup_timestamp": "$timestamp",
-            "configuration": "$config",
-            "tfvars_file": "$tfvars_file",
-            "resource_count": "${{ steps.analyze-state.outputs.resource-count }}",
-            "backup_trigger": "pre_destroy_safety",
-            "github_context": {
-              "actor": "${{ github.actor }}",
-              "run_id": "${{ github.run_id }}",
-              "run_number": "${{ github.run_number }}",
-              "ref": "${{ github.ref }}",
-              "sha": "${{ github.sha }}"
-            },
-            "backup_contents": {
-              "terraform_state_json": true,
-              "terraform_state_text": true,
-              "configuration_files": true,
-              "tfvars_files": true
-            }
-          }
-          EOF
-            
-            echo "::notice title=Metadata Complete::✅ Backup metadata created successfully"
-            
-            # === GIT INTEGRATION FOR BACKUP PERSISTENCE ===
-            # Commit backup to repository for persistent storage and version control
-            echo "::notice title=Git Integration::🔄 Integrating backup with version control..."
-            
-            cd ../.. # Return to repository root
-            
-            # Configure git for automated commits
-            git config --global user.name "GitHub Actions"
-            git config --global user.email "actions@github.com"
-            
-            # Add backup files to git
-            git add "$backup_dir/"
-            
-            # Commit backup with descriptive message
-            if git commit -m "🔒 Pre-destroy backup: $config ($tfvars_file) - $(date -u +"%Y-%m-%d %H:%M:%S UTC")" 2>/dev/null; then
-              echo "::notice title=Git Commit::✅ Backup committed to version control successfully"
-              echo "backup-created=true" >> $GITHUB_OUTPUT
-            else
-              echo "::warning title=Git Commit Issue::⚠️ Could not commit backup to version control"
-              echo "backup-created=false" >> $GITHUB_OUTPUT
-            fi
-            
-            # === BACKUP SUCCESS NOTIFICATION ===
-            # Provide comprehensive backup completion notification
-            echo "::notice title=Backup Complete::✅ State backup created successfully"
-            echo "::notice title=Backup Location::📂 Backup stored in: $backup_dir"
-            echo "::notice title=Recovery::🔄 Backup can be used for state recovery if needed"
-            echo "::warning title=Backup Protection::🔒 Backup includes state and configuration for complete restoration"
-            
-          else
-            # === NO BACKUP NEEDED SCENARIO ===
-            # Handle case where no resources exist and backup is unnecessary
-            echo "::notice title=No Backup Needed::📝 No resources exist - backup not required"
-            echo "::notice title=Empty State::✅ State is empty or non-existent - no backup necessary"
-            echo "backup-created=false" >> $GITHUB_OUTPUT
-          fi
-          
-          echo "::notice title=Backup Phase Complete::✅ Backup phase completed successfully"
-    
-      # ═══════════════════════════════════════════════════════════════════════════════════════════════════
-      # STEP 9: COMPREHENSIVE DESTROY PLAN GENERATION
-      # ═══════════════════════════════════════════════════════════════════════════════════════════════════
-      # Generate detailed destruction plan for review, audit, and execution preparation
-      
-      - name: Generate Destroy Plan
-        id: destroy-plan
-        run: |
-          echo "::notice title=Destroy Plan::📋 Generating comprehensive destroy plan for review and execution"
-          
-          # === PLAN CONTEXT SETUP ===
-          # Establish planning parameters and working directory
-          config="${{ github.event.inputs.configuration }}"
-          tfvars_file="${{ github.event.inputs.tfvars_file }}"
-          resources_exist="${{ steps.analyze-state.outputs.resources-exist }}"
-          
-          echo "::notice title=Plan Generation::📊 Starting destroy plan generation..."
-          echo "::notice title=Configuration::📁 $config"
-          echo "::notice title=tfvars File::📄 $tfvars_file.tfvars"
-          echo "::notice title=Resources Exist::$([ "$resources_exist" = "true" ] && echo "Yes" || echo "No")"
-          
-          # === WORKING DIRECTORY SETUP ===
-          # Navigate to configuration directory for planning operations
-          cd "configurations/$config"
-          
-          # === CONDITIONAL PLAN GENERATION ===
-          # Generate destroy plan only if resources exist for destruction
-          if [ "$resources_exist" = "true" ]; then
-            echo "::notice title=Plan Creation::🔨 Creating destroy plan - resources require destruction"
-            
-            # === TERRAFORM DESTROY PLAN GENERATION ===
-            # Generate comprehensive destroy plan with detailed output
-            echo "::notice title=Planning Phase::Executing terraform plan -destroy..."
-            
-            # Create destroy plan with detailed output and error handling
-            if terraform plan -destroy \
-              -var-file="tfvars/$tfvars_file.tfvars" \
-              -out=destroy.tfplan \
-              -detailed-exitcode 2>&1 | tee destroy_plan_output.txt; then
-              
-              # === PLAN SUCCESS HANDLING ===
-              # Process successful plan generation
-              plan_exit_code=${PIPESTATUS[0]}
-              
-              echo "::notice title=Plan Generated::✅ Destroy plan generated successfully"
-              echo "::notice title=Exit Code::📊 Terraform plan exit code: $plan_exit_code"
-              
-              # === PLAN ANALYSIS AND SUMMARY ===
-              # Analyze plan output for impact assessment
-              echo "::notice title=Plan Analysis::📊 Analyzing destroy plan for impact assessment..."
-              
-              # Count resources to be destroyed from plan output
-              destroy_count=$(grep -c "will be destroyed" destroy_plan_output.txt 2>/dev/null || echo "0")
-              
-              echo "::warning title=Destruction Impact::⚠️ Plan Summary:"
-              echo "::warning title=Resources to Destroy::🗑️ $destroy_count resources will be destroyed"
-              echo "::warning title=Plan File::📄 Destroy plan saved as: destroy.tfplan"
-              
-              # === PLAN OUTPUT DISPLAY ===
-              # Display plan output for user review and confirmation
-              echo "::notice title=Plan Output::📋 Destroy Plan Details:"
-              echo "::group::Terraform Destroy Plan Output"
-              cat destroy_plan_output.txt 2>/dev/null || echo "Could not display plan output"
-              echo "::endgroup::"
-              
-              # === PLAN ARTIFACT PRESERVATION ===
-              # Save plan artifacts for downstream job consumption
-              echo "::notice title=Artifact Preparation::📦 Preparing plan artifacts for downstream consumption..."
-              
-              # Ensure plan file exists and is accessible
-              if [ -f "destroy.tfplan" ]; then
-                echo "::notice title=Plan File::✅ Destroy plan file created and ready for execution"
-              else
-                echo "::warning title=Plan File Issue::⚠️ Destroy plan file not found - may cause execution issues"
-              fi
-              
-            else
-              # === PLAN FAILURE HANDLING ===
-              # Handle plan generation failures with detailed error information
-              echo "::error title=Plan Generation Failed::❌ Failed to generate destroy plan"
-              echo "::error title=Planning Issue::Terraform plan -destroy command failed"
-              echo "::error title=Resolution::🔧 Check configuration and state for issues"
-              
-              # Display error output for troubleshooting
-              echo "::group::Terraform Plan Error Output"
-              cat destroy_plan_output.txt 2>/dev/null || echo "No error output available"
-              echo "::endgroup::"
-              
-              exit 1
-            fi
-            
-          else
-            # === NO PLAN NEEDED SCENARIO ===
-            # Handle case where no resources exist and planning is unnecessary
-            echo "::notice title=No Plan Needed::📝 No resources exist - destroy plan not required"
-            echo "::notice title=Empty State::✅ State is empty - no planning necessary"
-            echo "::notice title=No Action::🚀 No destroy operations will be performed"
-          fi
-          
-          echo "::notice title=Planning Complete::✅ Destroy plan generation phase completed successfully"
-    
-      # ═══════════════════════════════════════════════════════════════════════════════════════════════════
-      # STEP 10: CLEANUP AND SECURITY FINALIZATION
-      # ═══════════════════════════════════════════════════════════════════════════════════════════════════
-      # Remove just-in-time network access and finalize validation phase
-      
+      # === CLEANUP JIT ACCESS ===
       - name: Remove JIT Network Access
-        if: always()                                  # Always execute cleanup regardless of previous step status
+        if: always()
         uses: ./.github/actions/jit-network-access
         with:
-          action: 'remove'                            # Remove network access for security
-          storage-account-name: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}    # Target storage account
-          resource-group-name: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}      # Target resource group
-        # Purpose: Remove just-in-time network access for security compliance
-        # Execution: Always runs to ensure cleanup even if previous steps fail
-    
-      # === VALIDATION SUMMARY AND STATUS REPORTING ===
-      # Provide comprehensive summary of validation phase results
-      - name: Validation Summary
-        if: always()                                  # Always provide summary regardless of status
-        run: |
-          echo "::notice title=Validation Summary::📊 Comprehensive validation phase summary"
-          
-          # === VALIDATION RESULTS SUMMARY ===
-          # Compile and display comprehensive validation results
-          resources_exist="${{ steps.analyze-state.outputs.resources-exist }}"
-          resource_count="${{ steps.analyze-state.outputs.resource-count }}"
-          backup_created="${{ steps.backup.outputs.backup-created }}"
-          config="${{ github.event.inputs.configuration }}"
-          tfvars_file="${{ github.event.inputs.tfvars_file }}"
-          
-          echo "::notice title=Validation Complete::✅ All validation checks completed"
-          echo "::notice title=Results Summary::📋 Validation Results:"
-          echo "::notice title=Configuration::📁 $config"
-          echo "::notice title=tfvars File::📄 $tfvars_file.tfvars"
-          echo "::notice title=Resources Found::$([ "$resources_exist" = "true" ] && echo "Yes ($resource_count resources)" || echo "No (empty state)")"
-          echo "::notice title=Backup Created::$([ "$backup_created" = "true" ] && echo "Yes (state protected)" || echo "No (not needed)")"
-          
-          # === NEXT PHASE PREPARATION ===
-          # Prepare information for destroy execution phase
-          if [ "$resources_exist" = "true" ]; then
-            echo "::warning title=Destroy Ready::⚠️ Validation passed - destroy job will execute"
-            echo "::warning title=Impact::🎯 $resource_count resources are queued for destruction"
-            echo "::warning title=Safety::🔒 State backup created for recovery if needed"
-          else
-            echo "::notice title=No Action Needed::✅ No resources to destroy - destroy job will skip execution"
-            echo "::notice title=Status::📝 Configuration state is empty or non-existent"
-          fi
-          
-          echo "::notice title=Validation Phase::✅ Validation phase completed successfully"
-          echo "::notice title=Next Phase::🚀 Proceeding to destroy execution phase (if resources exist)"
+          action: 'remove'
+          storage-account-name: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
+          resource-group-name: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
 
-  # Executes actual resource destruction after validation
-  # WHY: Only runs if validation passes and resources exist or force is enabled
+  # === TERRAFORM DESTROY EXECUTION ===
+  # Uses reusable workflow for consistent destroy operation
   terraform-destroy:
-    name: 🚨 Terraform Destroy Execution
-    runs-on: ubuntu-latest
-    timeout-minutes: 25                              # Extended timeout for complex destroy operations
-    environment: production                           # Production environment protection with additional approvals
-    needs: terraform-validate                         # Strict dependency on successful validation completion
-    
-    # === COMPREHENSIVE AUTHENTICATION CONFIGURATION ===
-    # Secure OIDC-based authentication for Power Platform and Azure service integration
-    env:
-      # === POWER PLATFORM AUTHENTICATION ===
-      # Configure Power Platform provider for secure OIDC-based resource destruction
-      POWER_PLATFORM_USE_OIDC: true                  # Enable OIDC authentication for Power Platform provider
-      POWER_PLATFORM_CLIENT_ID: ${{ secrets.POWER_PLATFORM_CLIENT_ID }}      # Power Platform client identity
-      POWER_PLATFORM_TENANT_ID: ${{ secrets.POWER_PLATFORM_TENANT_ID }}      # Power Platform tenant context
-      
-      # === AZURE RESOURCE MANAGER AUTHENTICATION ===
-      # Configure ARM provider for secure backend state management during destruction
-      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}              # Target Azure subscription
-      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}                          # Azure AD tenant context
-      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}                          # Azure client identity (same app registration)
-      ARM_USE_OIDC: true                              # Enable OIDC authentication for ARM provider
-    
-    # === INTELLIGENT CONDITIONAL EXECUTION ===
-    # Advanced conditional logic ensuring destruction only occurs when appropriate
+    name: 🚨 Execute Terraform Destroy
+    needs: pre-destroy-validation
+    # Only run if validation passed and (resources exist OR force destroy is enabled)
     if: |
-      always() && 
-      needs.terraform-validate.result == 'success' && 
-      (needs.terraform-validate.outputs.resources-exist == 'true' || github.event.inputs.force_destroy == 'true')
-    # Execution Logic:
-    # • always() - Run regardless of other job statuses to handle cleanup scenarios
-    # • Validation Success - Only proceed if validation job completed successfully
-    # • Resource Existence - Execute only if resources exist for destruction
-    # • Force Override - Allow execution in emergency scenarios with force_destroy flag
-    # • This prevents unnecessary execution on empty states while enabling emergency cleanup
+      needs.pre-destroy-validation.outputs.validation-passed == 'true' && 
+      (needs.pre-destroy-validation.outputs.resources-exist == 'true' || github.event.inputs.force_destroy == 'true')
+    uses: ./.github/workflows/reusable-terraform-base.yml
+    with:
+      operation: 'destroy'
+      configuration: ${{ github.event.inputs.configuration }}
+      tfvars-file: ${{ github.event.inputs.tfvars_file }}
+      create-state-backup: ${{ github.event.inputs.backup_state }}
+      timeout-minutes: 25
+      environment-name: 'production'
+    secrets: inherit
 
-    steps:
-      # ═══════════════════════════════════════════════════════════════════════════════════════════════════
-      # STEP 1: FINAL USER CONFIRMATION AND IMPACT WARNING
-      # ═══════════════════════════════════════════════════════════════════════════════════════════════════
-      # Provide final warning with mandatory delay to ensure user awareness of irreversible action
-      
-      - name: Final Destruction Confirmation Warning
-        run: |
-          echo "::warning title=FINAL WARNING::🚨 CRITICAL OPERATION - FINAL CONFIRMATION REQUIRED"
-          
-          # === IMPACT ASSESSMENT DISPLAY ===
-          # Extract and display comprehensive impact information from validation
-          resource_count="${{ needs.terraform-validate.outputs.resource-count }}"
-          config="${{ needs.terraform-validate.outputs.configuration }}"
-          backup_created="${{ needs.terraform-validate.outputs.backup-created }}"
-          force_mode="${{ github.event.inputs.force_destroy }}"
-          
-          echo "::error title=IRREVERSIBLE ACTION::⚠️ ABOUT TO PERMANENTLY DESTROY RESOURCES"
-          echo "::error title=Target Configuration::📁 Configuration: $config"
-          echo "::error title=Resource Count::🗑️ Resources to destroy: $resource_count"
-          echo "::error title=Backup Status::💾 State backup created: $([ "$backup_created" = "true" ] && echo "✅ Yes" || echo "❌ No")"
-          echo "::error title=Force Mode::⚡ Force destroy enabled: $([ "$force_mode" = "true" ] && echo "⚠️ YES" || echo "No")"
-          
-          # === MANDATORY CONFIRMATION DELAY ===
-          # Implement mandatory 5-second delay for user awareness and reflection
-          echo "::warning title=Mandatory Delay::⏳ Implementing mandatory 5-second confirmation delay..."
-          echo "::notice title=Purpose::🛡️ This delay ensures awareness of the irreversible nature of this operation"
-          echo "::notice title=Consider::🤔 Use this time to verify this is the intended action"
-          
-          # Countdown with progress indication
-          for i in 5 4 3 2 1; do
-            echo "::warning title=Countdown::⏰ Proceeding in $i seconds... (operation cannot be undone)"
-            sleep 1
-          done
-          
-          echo "::error title=DESTRUCTION STARTING::🚨 BEGINNING IRREVERSIBLE RESOURCE DESTRUCTION"
-          echo "::notice title=Execution Context::👤 Authorized by: @${{ github.actor }}"
-          echo "::notice title=Timestamp::📅 Destruction initiated: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
-          
-          # === FORCE MODE ADDITIONAL WARNING ===
-          # Provide additional warnings if force mode is enabled
-          if [ "$force_mode" = "true" ]; then
-            echo "::error title=FORCE MODE ACTIVE::⚡ FORCE DESTROY MODE IS ENABLED"
-            echo "::error title=Emergency Operation::🚨 This operation may bypass normal safety checks"
-            echo "::error title=Use Case::🆘 Force mode should only be used for emergency cleanup scenarios"
-          fi
-    
-      # ═══════════════════════════════════════════════════════════════════════════════════════════════════
-      # STEP 2: REPOSITORY ACCESS AND EXECUTION ENVIRONMENT PREPARATION
-      # ═══════════════════════════════════════════════════════════════════════════════════════════════════
-      # Standard repository checkout for destroy execution operations
-      
-      - name: Checkout Repository for Destroy Execution
-        uses: actions/checkout@v4
-        # Purpose: Access configuration files, tfvars, and execution scripts for destroy operations
-        # Required for: Configuration access, tfvars loading, and metadata operations
-    
-      # ═══════════════════════════════════════════════════════════════════════════════════════════════════
-      # STEP 3: AZURE OIDC AUTHENTICATION FOR SECURE BACKEND ACCESS
-      # ═══════════════════════════════════════════════════════════════════════════════════════════════════
-      # Secure Azure authentication using OIDC identity federation for backend state management
-      
-      - name: Azure Login with OIDC for Destroy
-        uses: azure/login@v2.3.0
-        with:
-          # === OIDC AUTHENTICATION CONFIGURATION ===
-          # Secure authentication using GitHub OIDC identity federation (no stored credentials)
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}                   # Azure AD application client ID
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}                   # Azure AD tenant identifier
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}       # Target Azure subscription
-        # Purpose: Authenticate with Azure for Terraform backend state access during destruction
-        # Security: Uses OIDC federation to eliminate credential storage and enhance security
-    
-      # ═══════════════════════════════════════════════════════════════════════════════════════════════════
-      # STEP 4: JUST-IN-TIME NETWORK ACCESS FOR SECURE BACKEND CONNECTIVITY
-      # ═══════════════════════════════════════════════════════════════════════════════════════════════════
-      # Enable secure network access for Azure Storage backend operations during destroy execution
-      
-      - name: Add JIT Network Access for Destroy
-        id: jit-add
-        uses: ./.github/actions/jit-network-access
-        with:
-          action: 'add'                                               # Enable network access for destroy operations
-          storage-account-name: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}    # Backend storage account
-          resource-group-name: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}      # Storage resource group
-        # Purpose: Enable just-in-time network access for secure Terraform backend connectivity
-        # Security: Minimal exposure window with automatic cleanup ensuring network security
-    
-      # ═══════════════════════════════════════════════════════════════════════════════════════════════════
-      # STEP 5: TERRAFORM ENVIRONMENT SETUP FOR DESTRUCTION OPERATIONS
-      # ═══════════════════════════════════════════════════════════════════════════════════════════════════
-      # Install and configure Terraform CLI for consistent destroy execution operations
-      
-      - name: Setup Terraform CLI for Destruction
-        uses: hashicorp/setup-terraform@v3.1.2
-        with:
-          # === TERRAFORM VERSION CONFIGURATION ===
-          # Use consistent Terraform version for reliable destroy behavior
-          terraform_version: ${{ vars.TERRAFORM_VERSION || '1.12.2' }}       # Version with intelligent fallback
-          terraform_wrapper: false                       # Disable wrapper for enhanced output handling during destruction
-        # Purpose: Install consistent Terraform version for reliable destroy operations
-        # Configuration: Wrapper disabled for better output parsing and error handling during destruction
-    
-      # ═══════════════════════════════════════════════════════════════════════════════════════════════════
-      # STEP 6: TERRAFORM INITIALIZATION WITH INTELLIGENT RETRY LOGIC
-      # ═══════════════════════════════════════════════════════════════════════════════════════════════════
-      # Initialize Terraform with robust retry mechanisms for reliable backend connectivity
-      
-      - name: Initialize Terraform for Destroy Execution
-        run: |
-          echo "::notice title=Terraform Initialization::🔧 Initializing Terraform environment for destroy execution"
-          
-          # === EXECUTION CONTEXT SETUP ===
-          # Extract execution parameters from validation job outputs
-          config="${{ needs.terraform-validate.outputs.configuration }}"
-          tfvars_file="${{ github.event.inputs.tfvars_file }}"
-          
-          echo "::notice title=Execution Context::📋 Destroy execution parameters:"
-          echo "::notice title=Configuration::📁 $config"
-          echo "::notice title=tfvars File::📄 $tfvars_file.tfvars"
-          echo "::notice title=Working Directory::📂 Changing to: configurations/$config"
-          
-          # === WORKING DIRECTORY SETUP ===
-          # Navigate to configuration directory for destroy operations
-          cd "configurations/$config"
-          
-          # === NETWORK PROPAGATION DELAY ===
-          # Allow time for JIT network access rules to fully propagate across Azure infrastructure
-          echo "::notice title=Network Propagation::⏳ Waiting for network access rules to propagate..."
-          echo "::notice title=Timing::🕐 Implementing 10-second delay for network rule propagation"
-          sleep 10
-          echo "::notice title=Network Ready::✅ Network propagation delay completed"
-          
-          # === INTELLIGENT RETRY LOGIC FOR INITIALIZATION ===
-          # Implement robust retry mechanisms for network-dependent terraform init operations
-          echo "::notice title=Retry Logic::🔄 Initializing Terraform with intelligent retry mechanisms..."
-          
-          # Retry configuration parameters
-          max_retries=3
-          retry_count=0
-          init_success=false
-          
-          # Retry loop with exponential backoff for resilient initialization
-          while [ $retry_count -lt $max_retries ] && [ "$init_success" = false ]; do
-            retry_count=$((retry_count + 1))
-            echo "::notice title=Init Attempt::🔄 Terraform initialization attempt $retry_count of $max_retries"
-            
-            # Execute terraform init with comprehensive backend configuration
-            if terraform init \
-              -backend-config="storage_account_name=${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}" \
-              -backend-config="container_name=${{ secrets.TERRAFORM_CONTAINER }}" \
-              -backend-config="key=$config-${{ github.event.inputs.tfvars_file }}.tfstate" \
-              -backend-config="resource_group_name=${{ secrets.TERRAFORM_RESOURCE_GROUP }}" \
-              -backend-config="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
-              -backend-config="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
-              -backend-config="use_oidc=true" 2>&1; then
-              
-              # === INITIALIZATION SUCCESS ===
-              # Handle successful terraform initialization
-              init_success=true
-              echo "::notice title=Init Success::✅ Terraform initialization completed successfully on attempt $retry_count"
-              echo "::notice title=Backend::🔗 Successfully connected to remote state backend"
-              echo "::notice title=Ready::🚀 Terraform environment ready for destroy execution"
-              
-            else
-              # === INITIALIZATION FAILURE HANDLING ===
-              # Handle failed initialization attempts with intelligent retry logic
-              echo "::warning title=Init Failed::⚠️ Terraform initialization attempt $retry_count failed"
-              echo "::warning title=Retry Context::🔄 Network-dependent operation - implementing retry logic"
-              
-              if [ $retry_count -lt $max_retries ]; then
-                # Calculate exponential backoff delay
-                wait_time=$((retry_count * 10))
-                echo "::notice title=Retry Delay::⏱️ Waiting ${wait_time} seconds before next attempt..."
-                echo "::notice title=Backoff Strategy::📈 Using exponential backoff for network resilience"
-                sleep $wait_time
-              fi
-            fi
-          done
-          
-          # === FINAL INITIALIZATION STATUS CHECK ===
-          # Verify initialization success or fail with comprehensive error information
-          if [ "$init_success" = false ]; then
-            echo "::error title=Init Failed::❌ Terraform initialization failed after $max_retries attempts"
-            echo "::error title=Context::📋 Initialization failure occurred before destroy execution"
-            echo "::error title=Common Causes::🔍 Common initialization failure causes:"
-            echo "::error title=Cause 1::🌐 Network connectivity issues to Azure Storage backend"
-            echo "::error title=Cause 2::🔐 Authentication problems with OIDC or storage access"
-            echo "::error title=Cause 3::🏗️ Backend configuration mismatch or state corruption"
-            echo "::error title=Cause 4::🔒 Storage account access policies or firewall restrictions"
-            echo "::error title=Resolution::🔧 Verify network connectivity, authentication, and backend configuration"
-            exit 1
-          fi
-    
-      # ═══════════════════════════════════════════════════════════════════════════════════════════════════
-      # STEP 7: TERRAFORM DESTROY EXECUTION WITH COMPREHENSIVE MONITORING
-      # ═══════════════════════════════════════════════════════════════════════════════════════════════════
-      # Execute the actual resource destruction with detailed progress monitoring and error handling
-      
-      - name: Execute Terraform Destroy Operation
-        run: |
-          echo "::warning title=Destroy Execution::🚨 EXECUTING TERRAFORM DESTROY OPERATION"
-          
-          # === EXECUTION CONTEXT SETUP ===
-          # Extract execution parameters and context information
-          config="${{ needs.terraform-validate.outputs.configuration }}"
-          tfvars_file="${{ github.event.inputs.tfvars_file }}"
-          resource_count="${{ needs.terraform-validate.outputs.resource-count }}"
-          
-          echo "::error title=DESTRUCTION IN PROGRESS::⚠️ BEGINNING IRREVERSIBLE RESOURCE DESTRUCTION"
-          echo "::warning title=Target Configuration::📁 Configuration: $config"
-          echo "::warning title=Target tfvars::📄 tfvars file: $tfvars_file.tfvars"
-          echo "::warning title=Resource Count::🗑️ Destroying $resource_count resources"
-          echo "::warning title=Timestamp::📅 Destruction started: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
-          
-          # === WORKING DIRECTORY CONFIRMATION ===
-          # Ensure proper working directory for destroy execution
-          cd "configurations/$config"
-          echo "::notice title=Working Directory::📂 Operating in: $(pwd)"
-          
-          # === TERRAFORM DESTROY EXECUTION ===
-          # Execute terraform destroy with comprehensive monitoring and error handling
-          echo "::warning title=Terraform Destroy::🔨 Executing terraform destroy with comprehensive monitoring..."
-          
-          # Start destroy operation with detailed output capture
-          if terraform destroy \
-            -var-file="tfvars/$tfvars_file.tfvars" \
-            -auto-approve \
-            -detailed-exitcode 2>&1 | tee destroy_execution_output.txt; then
-            
-            # === DESTROY SUCCESS HANDLING ===
-            # Process successful destroy operation
-            destroy_exit_code=${PIPESTATUS[0]}
-            
-            echo "::notice title=Destroy Success::✅ Terraform destroy operation completed successfully"
-            echo "::notice title=Exit Code::📊 Terraform destroy exit code: $destroy_exit_code"
-            echo "::notice title=Completion::🏁 Resource destruction completed at: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
-            
-            # === DESTROY OUTPUT ANALYSIS ===
-            # Analyze destroy output for comprehensive reporting
-            echo "::notice title=Destroy Analysis::📊 Analyzing destroy operation results..."
-            
-            # Count destroyed resources from output
-            destroyed_count=$(grep -c "destroyed" destroy_execution_output.txt 2>/dev/null || echo "0")
-            
-            echo "::notice title=Destruction Summary::📋 Destroy Operation Summary:"
-            echo "::notice title=Resources Destroyed::🗑️ $destroyed_count resources successfully destroyed"
-            echo "::notice title=Operation Status::✅ All targeted resources removed from infrastructure"
-            
-            # === DESTROY OUTPUT DISPLAY ===
-            # Display comprehensive destroy output for audit and verification
-            echo "::notice title=Destroy Output::📋 Complete Destroy Operation Output:"
-            echo "::group::Terraform Destroy Execution Output"
-            cat destroy_execution_output.txt 2>/dev/null || echo "Could not display destroy output"
-            echo "::endgroup::"
-            
-          else
-            # === DESTROY FAILURE HANDLING ===
-            # Handle destroy operation failures with comprehensive error analysis and guidance
-            destroy_exit_code=$?
-            
-            echo "::error title=Destroy Failed::❌ TERRAFORM DESTROY OPERATION FAILED"
-            echo "::error title=Operation Failure::🚨 Resource destruction did not complete successfully"
-            echo "::error title=Exit Code::🔢 Terraform destroy exited with code: $destroy_exit_code"
-            echo "::error title=Failure Timestamp::📅 Destruction failed at: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
-            
-            # === COMPREHENSIVE ERROR DIAGNOSTICS ===
-            # Provide detailed troubleshooting guidance for destroy failures
-            echo "::error title=Error Analysis::🔍 COMPREHENSIVE DESTROY FAILURE DIAGNOSTICS"
-            echo "::error title=Common Causes::📋 Common terraform destroy failure causes:"
-            
-            echo "::error title=Cause 1::🔒 Resource Protection Policies"
-            echo "::error title=Details 1::Power Platform admin policies preventing resource deletion"
-            echo "::error title=Solution 1::Check Power Platform admin center for deletion policies"
-            
-            echo "::error title=Cause 2::🔗 Resource Dependencies"
-            echo "::error title=Details 2::Complex resource dependencies blocking destruction order"
-            echo "::error title=Solution 2::Review resource relationships and dependency chains"
-            
-            echo "::error title=Cause 3::🌐 Network Connectivity"
-            echo "::error title=Details 3::Network connectivity issues during resource deletion"
-            echo "::error title=Solution 3::Verify network connectivity and retry operation"
-            
-            echo "::error title=Cause 4::💾 State File Conflicts"
-            echo "::error title=Details 4::State file corruption or concurrent access conflicts"
-            echo "::error title=Solution 4::Check state file integrity and clear any locks"
-            
-            echo "::error title=Cause 5::🏗️ Service Limits"
-            echo "::error title=Details 5::Power Platform service limits during bulk deletion"
-            echo "::error title=Solution 5::Consider destroying resources in smaller batches"
-            
-            echo "::error title=Cause 6::⏱️ Timeout Issues"
-            echo "::error title=Details 6::Long-running deletions exceeding timeout limits"
-            echo "::error title=Solution 6::Increase timeout or destroy in phases"
-            
-            # === RECOVERY GUIDANCE ===
-            # Provide comprehensive recovery and troubleshooting guidance
-            echo "::error title=Recovery Actions::🔧 RECOMMENDED RECOVERY ACTIONS"
-            echo "::error title=Action 1::🔍 Review Power Platform Admin Center for resource status"
-            echo "::error title=Admin Center::📚 https://admin.powerplatform.microsoft.com/"
-            echo "::error title=Action 2::🔄 Re-run workflow after addressing identified issues"
-            echo "::error title=Action 3::💾 Check state backup created during validation for recovery"
-            echo "::error title=Action 4::🔒 Verify resource protection policies and permissions"
-            echo "::error title=Action 5::📞 Contact Power Platform support for persistent issues"
-            
-            # === ERROR OUTPUT DISPLAY ===
-            # Display detailed error output for troubleshooting
-            echo "::group::Terraform Destroy Error Output"
-            cat destroy_execution_output.txt 2>/dev/null || echo "No error output available"
-            echo "::endgroup::"
-            
-            exit 1
-          fi
-    
-      # ═══════════════════════════════════════════════════════════════════════════════════════════════════
-      # STEP 8: POST-DESTROY STATE VERIFICATION AND CLEANUP VALIDATION
-      # ═══════════════════════════════════════════════════════════════════════════════════════════════════
-      # Comprehensive verification of destroy operation completeness and state cleanup
-      
-      - name: Verify Complete State Cleanup
-        run: |
-          echo "::notice title=State Verification::🔍 Verifying complete state cleanup after destroy operation"
-          
-          # === VERIFICATION CONTEXT SETUP ===
-          # Extract verification parameters and context
-          config="${{ needs.terraform-validate.outputs.configuration }}"
-          original_count="${{ needs.terraform-validate.outputs.resource-count }}"
-          
-          echo "::notice title=Verification Starting::📊 Beginning post-destroy state verification..."
-          echo "::notice title=Configuration::📁 $config"
-          echo "::notice title=Original Resources::📊 Resources before destroy: $original_count"
-          
-          # === WORKING DIRECTORY SETUP ===
-          # Navigate to configuration directory for verification
-          cd "configurations/$config"
-          
-          # === COMPREHENSIVE STATE ANALYSIS ===
-          # Perform detailed analysis of post-destroy state
-          echo "::notice title=State Analysis::📋 Analyzing post-destroy Terraform state..."
-          
-          # Check final state for any remaining resources
-          remaining_resources=$(terraform state list 2>/dev/null || echo "")
-          remaining_count=$(echo "$remaining_resources" | grep -v '^$' | wc -l || echo "0")
-          
-          # === VERIFICATION RESULTS DISPLAY ===
-          # Display comprehensive verification results
-          echo "::notice title=Verification Results::📊 Post-Destroy State Verification Results:"
-          
-          echo "::group::Complete State Verification Report"
-          echo "Configuration: $config"
-          echo "Resources before destroy: $original_count"
-          echo "Resources after destroy: $remaining_count"
-          echo "State cleanup status: $([ $remaining_count -eq 0 ] && echo "✅ Complete" || echo "⚠️ Incomplete")"
-          
-          if [ $remaining_count -gt 0 ]; then
-            echo ""
-            echo "Remaining resources in state:"
-            echo "$remaining_resources"
-            echo ""
-            echo "⚠️ Manual cleanup may be required for remaining resources"
-          else
-            echo ""
-            echo "✅ State is completely clean - no resources remaining"
-            echo "✅ All targeted resources successfully destroyed"
-          fi
-          echo "::endgroup::"
-          
-          # === CONDITIONAL RESULT REPORTING ===
-          # Report results based on cleanup completeness
-          if [ $remaining_count -gt 0 ]; then
-            # === INCOMPLETE CLEANUP HANDLING ===
-            # Handle scenarios where some resources remain in state
-            echo "::warning title=Incomplete Cleanup::⚠️ INCOMPLETE STATE CLEANUP DETECTED"
-            echo "::warning title=Remaining Resources::🗑️ $remaining_count resource(s) still remain in state"
-            echo "::warning title=Manual Action::👤 Manual cleanup may be required for complete removal"
-            
-            # === GUIDANCE FOR REMAINING RESOURCES ===
-            # Provide guidance for handling remaining resources
-            echo "::warning title=Common Causes::📋 Common causes for remaining resources:"
-            echo "::warning title=Cause 1::🔒 Protected resources requiring manual removal"
-            echo "::warning title=Cause 2::🔗 Dependency constraints preventing automatic deletion"
-            echo "::warning title=Cause 3::🏗️ Power Platform service-managed resources"
-            echo "::warning title=Cause 4::⚠️ Partial failure during bulk destruction"
-            
-            echo "::warning title=Recommended Actions::🔧 Recommended cleanup actions:"
-            echo "::warning title=Action 1::🔍 Review remaining resources in Power Platform admin center"
-            echo "::warning title=Action 2::👤 Manually remove protected or dependent resources"
-            echo "::warning title=Action 3::🔄 Re-run destroy operation for remaining resources"
-            echo "::warning title=Action 4::💾 Update state file if resources were manually removed"
-            
-          else
-            # === COMPLETE CLEANUP SUCCESS ===
-            # Celebrate successful complete cleanup
-            echo "::notice title=Complete Success::✅ COMPLETE STATE CLEANUP ACHIEVED"
-            echo "::notice title=Clean State::🧹 All resources successfully destroyed and removed from state"
-            echo "::notice title=Perfect Cleanup::🎯 State is completely clean with zero remaining resources"
-            echo "::notice title=Success Summary::📊 Destroyed $original_count resources successfully"
-          fi
-          
-          # === VERIFICATION COMPLETION ===
-          # Mark verification phase as complete
-          echo "::notice title=Verification Complete::✅ Post-destroy state verification completed"
-          echo "::notice title=Cleanup Status::$([ $remaining_count -eq 0 ] && echo "🧹 Complete" || echo "⚠️ Partial ($remaining_count remaining)")"
-    
-      # ═══════════════════════════════════════════════════════════════════════════════════════════════════
-      # STEP 9: POST-DESTROY AUDIT TRAIL AND METADATA GENERATION
-      # ═══════════════════════════════════════════════════════════════════════════════════════════════════
-      # Create comprehensive audit trail and compliance metadata for destroy operation
-      
-      - name: Create Post-Destroy Audit Trail
-        run: |
-          echo "::notice title=Audit Trail::📋 Creating comprehensive post-destroy audit trail and compliance metadata"
-          
-          # === AUDIT CONTEXT SETUP ===
-          # Establish audit parameters and metadata context
-          config="${{ needs.terraform-validate.outputs.configuration }}"
-          tfvars_file="${{ github.event.inputs.tfvars_file }}"
-          timestamp=$(date +"%Y%m%d_%H%M%S")
-          original_count="${{ needs.terraform-validate.outputs.resource-count }}"
-          backup_created="${{ needs.terraform-validate.outputs.backup-created }}"
-          
-          echo "::notice title=Audit Generation::📊 Generating comprehensive audit trail..."
-          echo "::notice title=Configuration::📁 $config"
-          echo "::notice title=tfvars File::📄 $tfvars_file"
-          echo "::notice title=Timestamp::⏰ $timestamp"
-          
-          # === WORKING DIRECTORY SETUP ===
-          # Navigate to configuration directory for audit operations
-          cd "configurations/$config"
-          
-          # === POST-DESTROY STATE ANALYSIS ===
-          # Analyze final state for audit trail generation
-          remaining_resources=$(terraform state list 2>/dev/null || echo "")
-          remaining_count=$(echo "$remaining_resources" | grep -v '^$' | wc -l || echo "0")
-          cleanup_complete=$([ $remaining_count -eq 0 ] && echo "true" || echo "false")
-          
-          # === AUDIT DIRECTORY CREATION ===
-          # Create structured audit directory for organized documentation
-          audit_dir="../../audit/destroy_$config_$tfvars_file_$timestamp"
-          echo "::notice title=Audit Directory::📂 Creating audit directory: $audit_dir"
-          mkdir -p "$audit_dir"
-          
-          # === POST-DESTROY STATE SNAPSHOT ===
-          # Create final state snapshot for audit and compliance
-          echo "::notice title=State Snapshot::💾 Creating post-destroy state snapshot..."
-          
-          # Capture final state information
-          terraform show -json > "$audit_dir/post_destroy_state.json" 2>/dev/null || echo '{"values": null}' > "$audit_dir/post_destroy_state.json"
-          terraform show > "$audit_dir/post_destroy_state.txt" 2>/dev/null || echo "No state" > "$audit_dir/post_destroy_state.txt"
-          
-          # === COMPREHENSIVE AUDIT METADATA GENERATION ===
-          # Generate detailed audit metadata for compliance and tracking
-          echo "::notice title=Metadata Generation::📋 Creating comprehensive audit metadata..."
-          
-          cat > "$audit_dir/destroy_audit_metadata.json" <<EOF
-          {
-            "operation": {
-              "type": "terraform_destroy",
-              "timestamp": "$timestamp",
-              "completion_time": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
-              "configuration": "$config",
-              "tfvars_file": "$tfvars_file",
-              "status": "completed"
-            },
-            "execution_context": {
-              "actor": "${{ github.actor }}",
-              "run_id": "${{ github.run_id }}",
-              "run_number": "${{ github.run_number }}",
-              "workflow_ref": "${{ github.ref }}",
-              "commit_sha": "${{ github.sha }}",
-              "repository": "${{ github.repository }}"
-            },
-            "resource_impact": {
-              "resources_before_destroy": $original_count,
-              "resources_after_destroy": $remaining_count,
-              "resources_successfully_destroyed": $((original_count - remaining_count)),
-              "cleanup_complete": $cleanup_complete,
-              "remaining_resources": $([ $remaining_count -gt 0 ] && echo "true" || echo "false")
-            },
-            "safety_measures": {
-              "validation_performed": true,
-              "backup_created": $backup_created,
-              "final_confirmation_given": true,
-              "mandatory_delay_observed": true,
-              "force_destroy_used": ${{ github.event.inputs.force_destroy == 'true' }}
-            },
-            "compliance": {
-              "audit_trail_created": true,
-              "metadata_generated": true,
-              "state_snapshots_captured": true,
-              "execution_logs_preserved": true
-            }
-          }
-          EOF
-          
-          echo "::notice title=Audit Metadata::✅ Comprehensive audit metadata generated successfully"
-          
-          # === EXECUTION LOG PRESERVATION ===
-          # Preserve execution logs for audit and troubleshooting
-          echo "::notice title=Log Preservation::📝 Preserving execution logs for audit trail..."
-          
-          # Copy destroy execution output if available
-          if [ -f "destroy_execution_output.txt" ]; then
-            cp "destroy_execution_output.txt" "$audit_dir/destroy_execution_log.txt"
-            echo "::notice title=Execution Log::✅ Destroy execution log preserved"
-          fi
-          
-          # === REMAINING RESOURCES DOCUMENTATION ===
-          # Document any remaining resources for follow-up actions
-          if [ $remaining_count -gt 0 ]; then
-            echo "::notice title=Remaining Resources::📋 Documenting remaining resources for follow-up..."
-            echo "$remaining_resources" > "$audit_dir/remaining_resources.txt"
-            echo "::warning title=Follow-up Required::⚠️ Remaining resources documented for manual cleanup"
-          fi
-          
-          # === GIT INTEGRATION FOR AUDIT PERSISTENCE ===
-          # Commit audit trail to repository for persistent compliance documentation
-          echo "::notice title=Git Integration::🔄 Integrating audit trail with version control..."
-          
-          cd ../.. # Return to repository root
-          
-          # Configure git for audit commits
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
-          
-          # Add audit files to git
-          git add "$audit_dir/"
-          
-          # Commit audit trail with comprehensive message
-          audit_commit_message="🔍 Post-destroy audit trail: $config ($tfvars_file) - $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
-          if [ $cleanup_complete = "true" ]; then
-            audit_commit_message="$audit_commit_message - Complete cleanup ✅"
-          else
-            audit_commit_message="$audit_commit_message - Partial cleanup ($remaining_count remaining) ⚠️"
-          fi
-          
-          if git commit -m "$audit_commit_message" 2>/dev/null; then
-            echo "::notice title=Audit Committed::✅ Audit trail committed to version control successfully"
-            echo "::notice title=Compliance::📊 Comprehensive audit documentation available for compliance"
-          else
-            echo "::warning title=Audit Commit Issue::⚠️ Could not commit audit trail to version control"
-          fi
-          
-          # === AUDIT COMPLETION SUMMARY ===
-          # Provide comprehensive summary of audit trail creation
-          echo "::notice title=Audit Complete::✅ Post-destroy audit trail generation completed"
-          echo "::notice title=Audit Location::📂 Audit trail stored in: $audit_dir"
-          echo "::notice title=Compliance Ready::📊 Comprehensive compliance documentation generated"
-          echo "::notice title=Audit Contents::📋 Audit trail includes:"
-          echo "::notice title=Content 1::📄 Post-destroy state snapshots (JSON and text)"
-          echo "::notice title=Content 2::📊 Comprehensive operation metadata"
-          echo "::notice title=Content 3::📝 Execution logs and output preservation"
-          echo "::notice title=Content 4::🔍 Remaining resources documentation (if applicable)"
-          echo "::notice title=Content 5::⚡ Safety measures and compliance verification"
-
-      # ═══════════════════════════════════════════════════════════════════════════════════════════════════
-      # STEP 10: COMPREHENSIVE WORKFLOW SUMMARY AND STATUS REPORTING
-      # ═══════════════════════════════════════════════════════════════════════════════════════════════════
-      # Generate comprehensive summary for user awareness and audit documentation
-      
-      - name: Generate Comprehensive Workflow Summary
-        if: always()                                  # Always generate summary regardless of previous step outcomes
-        run: |
-          echo "::notice title=Summary Generation::📊 Generating comprehensive workflow execution summary"
-          
-          # === SUMMARY CONTEXT SETUP ===
-          # Extract comprehensive context for summary generation
-          config="${{ needs.terraform-validate.outputs.configuration }}"
-          tfvars_file="${{ github.event.inputs.tfvars_file }}"
-          original_count="${{ needs.terraform-validate.outputs.resource-count }}"
-          backup_created="${{ needs.terraform-validate.outputs.backup-created }}"
-          force_mode="${{ github.event.inputs.force_destroy }}"
-          
-          echo "::notice title=Summary Context::📋 Workflow execution context:"
-          echo "::notice title=Configuration::📁 $config"
-          echo "::notice title=tfvars File::📄 $tfvars_file"
-          echo "::notice title=Original Resources::📊 $original_count"
-          echo "::notice title=Backup Created::💾 $backup_created"
-          echo "::notice title=Force Mode::⚡ $force_mode"
-          
-          # === GITHUB STEP SUMMARY GENERATION ===
-          # Create comprehensive summary for GitHub Actions UI
-          echo "::notice title=GitHub Summary::📋 Creating comprehensive GitHub step summary..."
-          
-          # === SUMMARY HEADER ===
-          # Create professional summary header with operation details
-          echo "# 🚨 Terraform Destroy Operation Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## 📋 Operation Overview" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| **Parameter** | **Value** |" >> $GITHUB_STEP_SUMMARY
-          echo "|---------------|-----------|" >> $GITHUB_STEP_SUMMARY
-          echo "| **Configuration** | \`$config\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **tfvars File** | \`$tfvars_file.tfvars\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Original Resource Count** | $original_count |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Execution Timestamp** | $(date -u +"%Y-%m-%d %H:%M:%S UTC") |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Executed By** | @${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Workflow Run** | #${{ github.run_number }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Force Mode** | $([ "$force_mode" = "true" ] && echo "⚡ **ENABLED**" || echo "Disabled") |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          # === SAFETY MEASURES SUMMARY ===
-          # Document comprehensive safety measures implemented
-          echo "## 🛡️ Safety Measures Implemented" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ **Input Validation**: Rigorous confirmation and parameter verification" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ **State Analysis**: Comprehensive resource inventory and impact assessment" >> $GITHUB_STEP_SUMMARY
-          echo "- $([ "$backup_created" = "true" ] && echo "✅" || echo "⚠️") **State Backup**: $([ "$backup_created" = "true" ] && echo "Automated backup created for recovery" || echo "No backup needed (empty state)")" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ **Final Confirmation**: Mandatory 5-second delay with impact warning" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ **Secure Authentication**: OIDC-based authentication with production environment protection" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ **Network Security**: Just-in-time network access with automatic cleanup" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ **Audit Trail**: Comprehensive execution logging and compliance documentation" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          # === CONDITIONAL RESULT REPORTING ===
-          # Report results based on execution outcome (check if we're in destroy job context)
-          cd "configurations/$config" 2>/dev/null || {
-            echo "## ⚠️ Execution Status" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**Status**: Configuration directory not accessible for final verification" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            return 0
-          }
-          
-          # Check final state if accessible
-          remaining_resources=$(terraform state list 2>/dev/null || echo "")
-          remaining_count=$(echo "$remaining_resources" | grep -v '^$' | wc -l || echo "0")
-          destroyed_count=$((original_count - remaining_count))
-          
-          # === EXECUTION RESULTS SUMMARY ===
-          # Display comprehensive execution results
-          echo "## 📊 Execution Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| **Metric** | **Value** |" >> $GITHUB_STEP_SUMMARY
-          echo "|------------|-----------|" >> $GITHUB_STEP_SUMMARY
-          echo "| **Resources Before Destroy** | $original_count |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Resources After Destroy** | $remaining_count |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Resources Successfully Destroyed** | $destroyed_count |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Cleanup Status** | $([ $remaining_count -eq 0 ] && echo "✅ **Complete**" || echo "⚠️ **Partial** ($remaining_count remaining)") |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          # === CONDITIONAL GUIDANCE ===
-          # Provide guidance based on cleanup completeness
-          if [ $remaining_count -gt 0 ]; then
-            echo "## ⚠️ Manual Cleanup Required" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**$remaining_count resource(s) still remain in Terraform state after destroy operation.**" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "### Recommended Actions:" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "1. **Review Resources**: Check remaining resources in Power Platform admin center" >> $GITHUB_STEP_SUMMARY
-            echo "2. **Manual Removal**: Remove protected or dependent resources manually if needed" >> $GITHUB_STEP_SUMMARY
-            echo "3. **State Cleanup**: Run \`terraform state rm\` to clean up orphaned state entries" >> $GITHUB_STEP_SUMMARY
-            echo "4. **Re-run Destroy**: Consider re-running destroy after manual cleanup" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "## ✅ Complete Success" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**All $original_count resources were successfully destroyed and removed from state.**" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "The infrastructure has been completely cleaned up with zero remaining resources." >> $GITHUB_STEP_SUMMARY
-          fi
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          # === IMPORTANT NOTES SECTION ===
-          # Provide comprehensive operational notes and guidance
-          echo "## ⚠️ Important Notes" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Irreversible Action**: Resources have been permanently deleted from Power Platform" >> $GITHUB_STEP_SUMMARY
-          echo "- **State Management**: Terraform state updated to reflect destroyed resources" >> $GITHUB_STEP_SUMMARY
-          echo "- **Network Security**: JIT network access was used for secure backend connectivity" >> $GITHUB_STEP_SUMMARY
-          echo "- **Resource Recreation**: Use terraform plan/apply with same configuration to recreate" >> $GITHUB_STEP_SUMMARY
-          echo "- **Audit Trail**: This destruction operation is logged in workflow history" >> $GITHUB_STEP_SUMMARY
-          echo "- **Configuration Preserved**: Configuration files remain unchanged for future use" >> $GITHUB_STEP_SUMMARY
-          if [ "$backup_created" = "true" ]; then
-            echo "- **Backup Available**: State backup available for emergency recovery within retention period" >> $GITHUB_STEP_SUMMARY
-          fi
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          # === ADDITIONAL RESOURCES SECTION ===
-          # Provide helpful resources and references
-          echo "## 📚 Additional Resources" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- 🔗 [Power Platform Admin Center](https://admin.powerplatform.microsoft.com/)" >> $GITHUB_STEP_SUMMARY
-          echo "- 📖 [Terraform Destroy Documentation](https://www.terraform.io/docs/commands/destroy.html)" >> $GITHUB_STEP_SUMMARY
-          echo "- 🔧 [Power Platform Governance Best Practices](https://docs.microsoft.com/en-us/power-platform/guidance/)" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          cd - > /dev/null
-          echo "::notice title=Summary Complete::✅ Comprehensive workflow summary generated successfully"
-    
-      # ═══════════════════════════════════════════════════════════════════════════════════════════════════
-      # STEP 11: METADATA ARTIFACT PRESERVATION FOR COMPLIANCE
-      # ═══════════════════════════════════════════════════════════════════════════════════════════════════
-      # Upload comprehensive metadata artifacts for audit trails and compliance documentation
-      
-      - name: Upload Destroy Metadata Artifacts
-        if: always()                                  # Always upload artifacts for audit trail preservation
-        uses: actions/upload-artifact@v4
-        with:
-          # === ARTIFACT CONFIGURATION ===
-          # Comprehensive artifact naming and retention for compliance
-          name: terraform-destroy-metadata-${{ github.event.inputs.configuration }}-${{ github.run_number }}
-          path: |
-            audit/destroy_*/*.json
-            audit/destroy_*/*.txt
-            configurations/*/destroy_*.txt
-            configurations/*/post_destroy_*.json
-            backups/destroy_*/backup_metadata.json
-          retention-days: 30                          # Extended retention for audit and compliance requirements
-          description: 'Comprehensive Terraform destroy execution metadata for ${{ github.event.inputs.configuration }} configuration - includes audit trails, state snapshots, and compliance documentation'
-        # Purpose: Preserve comprehensive execution metadata for audit trails and compliance
-        # Contents: Audit trails, state snapshots, execution logs, and compliance documentation
-    
-      # ═══════════════════════════════════════════════════════════════════════════════════════════════════
-      # STEP 12: SECURITY CLEANUP AND FINALIZATION
-      # ═══════════════════════════════════════════════════════════════════════════════════════════════════
-      # Remove just-in-time network access and ensure secure completion
-      
-      - name: Remove JIT Network Access and Security Cleanup
-        if: always()                                  # Always execute security cleanup regardless of previous outcomes
-        uses: ./.github/actions/jit-network-access
-        with:
-          action: 'remove'                            # Remove network access for security compliance
-          storage-account-name: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}    # Target storage account
-          resource-group-name: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}      # Target resource group
-        # Purpose: Remove just-in-time network access for security compliance and cleanup
-        # Execution: Always runs to ensure network security even if destroy operations fail
-        # Security: Ensures minimal network exposure and proper cleanup procedures
-    
-      # === FINAL SECURITY AND COMPLIANCE VERIFICATION ===
-      # Provide final security status and compliance confirmation
-      - name: Final Security and Compliance Status
-        if: always()                                  # Always provide final status regardless of execution outcome
-        run: |
-          echo "::notice title=Security Cleanup::🔒 Final security cleanup and compliance verification"
-          
-          # === SECURITY STATUS SUMMARY ===
-          # Comprehensive security status reporting
-          echo "::notice title=Security Status::✅ Security cleanup completed successfully"
-          echo "::notice title=Network Access::🔐 Just-in-time network access removed"
-          echo "::notice title=Authentication::🔑 OIDC authentication sessions closed"
-          echo "::notice title=Compliance::📊 Audit trails and metadata preserved"
-          
-          # === WORKFLOW COMPLETION CONFIRMATION ===
-          # Final workflow status and completion confirmation
-          echo "::notice title=Workflow Complete::✅ TERRAFORM DESTROY WORKFLOW COMPLETED"
-          echo "::notice title=Operation::🚨 Infrastructure destruction operation finalized"
-          echo "::notice title=Timestamp::📅 Workflow completed: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
-          echo "::notice title=Security::🔒 All security measures implemented and cleanup completed"
-          echo "::notice title=Audit Trail::📋 Comprehensive audit documentation preserved"
-          echo "::notice title=Compliance::✅ Operation completed with full compliance documentation"
+  # === EXECUTION SUMMARY ===
+  # Generate comprehensive execution summary for governance and audit
+  execution-summary:
+    name: "🎯 Execution Summary"
+    needs: [pre-destroy-validation, terraform-destroy]
+    uses: ./.github/workflows/reusable-execution-summary.yml
+    if: always()
+    with:
+      workflow-name: "terraform-destroy"
+      operation-type: "destroy"
+      configuration: ${{ github.event.inputs.configuration }}
+      output-filename: ""
+      job-results: ${{ toJSON(needs) }}
+      workflow-inputs: ${{ toJSON(github.event.inputs) }}
+      include-troubleshooting: true
+      include-technical-details: true
+      summary-level: "detailed"
+      artifact-retention-days: 30
