@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Terraform Configurations**
+  - **BREAKING**: Renamed `configurations/01-dlp-policies/` to `configurations/utl-export-dlp-policies/` for AVM utility module compliance and clarity. Updated all references in workflows, documentation, and state file logic. No resource state migration required (data-only configuration).
+  - All workflow, automation, and documentation references updated to use the new name.
+  - State files validated and correctly named for the new configuration.
+
+### Changed
  - **GitHub Actions Workflows**
    - **Added**: New `terraform-validation-detect-and-dispatch.yml` workflow for Detect-Then-Dispatch pattern, enabling robust, parallel, and isolated validation of changed Terraform configurations and modules. Integrates with composite change detection action and per-path validation workflow. See `docs/guides/terraform-validation-detect-and-dispatch.md` for usage and migration guidance.
 
