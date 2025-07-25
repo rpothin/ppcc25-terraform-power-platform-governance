@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+ - **GitHub Actions Workflows**
+   - **Added**: New `terraform-validation-detect-and-dispatch.yml` workflow for Detect-Then-Dispatch pattern, enabling robust, parallel, and isolated validation of changed Terraform configurations and modules. Integrates with composite change detection action and per-path validation workflow. See `docs/guides/terraform-validation-detect-and-dispatch.md` for usage and migration guidance.
+
+ - **Documentation**
+   - **Added**: Guide for the new validation detect-and-dispatch workflow at `docs/guides/terraform-validation-detect-and-dispatch.md`.
 - **GitHub Actions Workflows**
   - **BREAKING**: Integrated terraform-init-with-backend composite action patterns into terraform-test workflow integration testing for standardized backend initialization within test execution
   - Simplified integration testing workflow to use proven enterprise-grade initialization patterns from terraform-init-with-backend composite action directly within test execution step

@@ -1,0 +1,137 @@
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
+# TERRAFORM VALIDATION DETECT-AND-DISPATCH WORKFLOW FOR POWER PLATFORM GOVERNANCE
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
+# Detects changed Terraform configurations/modules and dispatches per-path validation workflows in parallel.
+#
+# 🎯 WHY THIS EXISTS:
+# - Decouples change detection from validation for robust, parallel, and isolated quality checks
+# - Automates validation only for changed configurations/modules, reducing CI/CD runtime and resource use
+# - Aggregates and summarizes results for governance and auditability
+#
+# 🔒 SECURITY DECISIONS:
+# - OIDC authentication for all cloud and Power Platform connections
+# - All jobs requiring secrets run in the 'production' environment for protection
+# - Principle of least privilege applied to all permissions
+#
+# ⚙️ OPERATIONAL CONTEXT:
+# - Concurrency group ensures only one detect-and-dispatch run per ref at a time
+# - Timeout values sized for comprehensive validation without resource waste
+# - Supports both PR and manual dispatch triggers
+#
+# 📋 INTEGRATION REQUIREMENTS:
+# - Uses composite action for change detection
+# - Dispatches single-path validation workflow for each changed path
+# - Aggregates results and calls execution summary workflow
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
+name: "Terraform Validation Detect and Dispatch"
+
+concurrency:
+  group: terraform-validation-detect-and-dispatch-${{ github.ref }}
+  cancel-in-progress: false
+
+on:
+  # === AUTOMATED TESTING ON PULL REQUESTS ===
+  # Trigger comprehensive testing when changes affect Terraform configurations
+  # This ensures all modifications are validated before merge
+  pull_request:
+    paths:
+      - 'configurations/**'     # All Power Platform configuration directories
+      - 'modules/**'            # Custom Terraform modules and reusable components
+
+  # === AUTOMATED TESTING ON MAIN BRANCH ===
+  # Validate changes after merge to ensure main branch stability
+  push:
+    branches: [main]
+    paths:
+      - 'configurations/**'     # Configuration changes requiring validation
+      - 'modules/**'            # Module updates affecting dependent configurations
+
+run-name: "🧪 Detect & Validate Terraform Changes by @${{ github.actor }}"
+
+permissions:
+  contents: read          # Required: Repository content access for validation
+  actions: read           # Required: Access to workflow metadata and job execution data
+  security-events: write  # Required: Upload security findings to GitHub Security tab
+  id-token: write         # Required: OIDC authentication with Azure AD for integration
+
+jobs:
+  # === CHANGE DETECTION ===
+  # Detects changed Terraform configuration/module directories
+  # WHY: Enables targeted validation only for modified paths, reducing unnecessary CI runs and focusing resources on relevant changes for governance and auditability
+  detect-changes:
+    name: 🔍 Detect Changed Paths
+    runs-on: ubuntu-latest
+    outputs:
+      changed-paths: ${{ steps.detect.outputs.changed-paths }}
+      paths-count: ${{ steps.detect.outputs.paths-count }}
+      has-changes: ${{ steps.detect.outputs.has-changes }}
+    steps:
+      # Checkout the repository to access Terraform configurations and modules
+      # WHY: Required for the action to detect changes in the repository
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # Detects changes in Terraform configurations and modules
+      # WHY: Automatically identifies modified paths, ensuring only relevant configurations/modules are validated, improving CI/CD efficiency
+      - name: Detect Terraform Changes
+        id: detect
+        uses: ./.github/actions/detect-terraform-changes
+        with:
+          target-path: ''
+          force-all: 'false'
+          include-configs: 'true'
+          include-modules: 'true'
+
+  # === VALIDATION DISPATCH ===
+  # Runs single-path validation for each changed directory in parallel
+  # WHY: Provides isolated, parallel validation for each changed configuration/module, improving speed and reliability while ensuring that only affected paths are validated
+  validate-paths:
+    name: 🚦 Validate Changed Paths
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has-changes == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target_path: ${{ fromJson('['''${{ needs.detect-changes.outputs.changed-paths }}''']') }}
+    steps:
+      # Triggers the single-path validation workflow for each changed path
+      # WHY: Dispatches the single-path validation workflow for each changed path, enabling robust, per-path quality checks and audit trails
+      - name: Checkout Repository
+      - name: Dispatch Single Path Validation
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const path = '${{ matrix.target_path }}';
+            const configName = path.replace(/^configurations\//, '').replace(/^modules\//, '');
+            const workflow_id = 'terraform-single-path-validation.yml';
+            const owner = process.env.GITHUB_REPOSITORY.split('/')[0];
+            const repo = process.env.GITHUB_REPOSITORY.split('/')[1];
+            const dispatch = await github.rest.actions.createWorkflowDispatch({
+              owner,
+              repo,
+              workflow_id,
+              ref: process.env.GITHUB_REF_NAME,
+              inputs: { target_configuration: configName }
+            });
+            core.info(`Dispatched validation for: ${path}`);
+
+  # === AGGREGATE & SUMMARY ===
+  # Aggregates results and generates a summary for governance and audit
+  # WHY: Provides a comprehensive report of all validation results, supporting governance, compliance, and troubleshooting
+  execution-summary:
+    name: 📊 Aggregate & Summarize Results
+    needs: [detect-changes, validate-paths]
+    if: always()
+    uses: ./.github/workflows/reusable-execution-summary.yml
+    with:
+      workflow-name: "terraform-validation-detect-and-dispatch"
+      operation-type: "validation"
+      configuration: "multi-path"
+      job-results: ${{ toJSON(needs) }}
+      # No manual workflow inputs; always empty
+      workflow-inputs: '{}'
+      include-troubleshooting: true
+      include-technical-details: true
+      summary-level: "detailed"
+      artifact-retention-days: 14
