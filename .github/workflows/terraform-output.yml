@@ -20,7 +20,7 @@
 # - Short timeout optimized for output operations which are typically fast
 #
 # 📋 INTEGRATION REQUIREMENTS:
-# - Depends on reusable-terraform-base.yml for standardized Terraform operations
+# - Depends on ♻️ reusable-terraform-base.yml for standardized Terraform operations
 # - Uses GitHub environments for secret management and OIDC authentication
 # - Leverages operation-metadata output from reusable workflow for consistent metadata
 # - Generates workflow artifacts for downstream consumption and integration
@@ -28,25 +28,16 @@
 
 name: Terraform Output
 
-# === CONCURRENCY PROTECTION ===
-# Prevents state corruption when multiple deployments target same configuration
-# Never cancel running Terraform operations to avoid incomplete state changes
+concurrency:
+  group: terraform-output-${{ github.event.inputs.configuration }}
+  cancel-in-progress: false  # Never cancel running Terraform operations to avoid incomplete state changes
 concurrency:
   group: terraform-output-${{ github.event.inputs.configuration }}
   cancel-in-progress: false
 
-# === WORKFLOW TRIGGER CONFIGURATION ===
-# Support both manual triggers and automated calls from other workflows
-# Manual triggers enable on-demand infrastructure discovery and analysis
 on:
-  # === MANUAL TRIGGER WITH COMPREHENSIVE PARAMETERS ===
-  # Provides flexible configuration options for different use cases
-  # Parameters support various output formats and processing modes
   workflow_dispatch:
     inputs:
-      # === CONFIGURATION SELECTION ===
-      # Specifies which Terraform configuration to process for output extraction
-      # Maps to directory structure under configurations/ for organized processing
       configuration:
         description: 'Terraform configuration to process (e.g., 01-dlp-policies)'
         required: true
@@ -60,10 +51,6 @@ on:
         # VALIDATION: Must exist in configurations/ and contain .tf files
         # SECURITY: Used in state key generation to prevent cross-configuration access
         # EXAMPLES: '01-dlp-policies', '02-dlp-policy', '03-environment'
-      
-      # === OUTPUT FORMAT CONFIGURATION ===
-      # Determines the format of the generated output files
-      # JSON is optimal for programmatic access, YAML for human readability
       export_format:
         description: 'Export format for output data'
         required: true
@@ -75,10 +62,6 @@ on:
         # WHY: Different formats serve different consumption patterns
         # GOVERNANCE: JSON enables automated processing, YAML for human review
         # SECURITY: Both formats sanitize sensitive data through Terraform output controls
-      
-      # === METADATA INCLUSION TOGGLE ===
-      # Controls whether execution metadata is included in output files
-      # Metadata provides audit trail and execution context for compliance
       include_metadata:
         description: 'Include workflow metadata in output'
         required: false
@@ -88,84 +71,60 @@ on:
         # CONTEXT: Includes workflow run details, timestamps, and processing context
         # SECURITY: No sensitive data exposed through metadata inclusion
 
-# === DYNAMIC RUN IDENTIFICATION ===
-# Provides clear identification of workflow execution with configuration and format context
-# This naming pattern helps with monitoring, logging, and troubleshooting across multiple runs
 run-name: 🔍 Terraform Output for ${{ github.event.inputs.configuration }} (${{ github.event.inputs.export_format }}) by @${{ github.actor }}
 
-# === SECURITY AND PERMISSIONS ===
-# Define minimal required permissions following security best practices
-# Each permission is explicitly scoped to workflow requirements
 permissions:
   contents: write          # Required for committing generated output files to repository
   actions: read           # Required for accessing workflow artifacts and metadata
   id-token: write         # Required for Azure authentication via OIDC
 
 jobs:
-  # ╔══════════════════════════════════════════════════════════════════════════╗
-  # ║                        TERRAFORM OUTPUT EXTRACTION                      ║
-  # ║                   Leverage reusable workflow for processing             ║
-  # ╚══════════════════════════════════════════════════════════════════════════╝
-  
+  # === Extracts outputs from Terraform state for compliance, discovery, and integration ===
+  # WHY: Provides a standardized, auditable way to extract and process outputs from Power Platform configurations
   terraform-output:
     name: 🔧 Extract Terraform Output
     # === REUSABLE WORKFLOW INTEGRATION ===
-    # Delegate core Terraform operations to battle-tested reusable workflow
-    # This ensures consistency, reliability, and maintainability across all Terraform workflows
+    # WHY: Ensures consistency, reliability, and maintainability across all Terraform workflows
     # METADATA: The reusable workflow generates comprehensive operation metadata via generate-workflow-metadata composite action
     uses: ./.github/workflows/reusable-terraform-base.yml
     with:
-      # === TERRAFORM OPERATION CONFIGURATION ===
-      operation: 'output'                     # Extract outputs from current state
+      operation: 'output'                     # WHY: Extract outputs from current state
       configuration: '${{ github.event.inputs.configuration }}'
-      additional-options: '-json -no-color'   # JSON format with clean output
-      timeout-minutes: 10                     # Output operations are typically fast
-    
+      additional-options: '-json -no-color'   # WHY: JSON format with clean output for downstream processing
+      timeout-minutes: 10                     # WHY: Output operations are typically fast
     # === AUTHENTICATION INHERITANCE ===
-    # The reusable workflow will use secrets from the calling environment
-    # Secrets are managed through GitHub environments for security
+    # WHY: The reusable workflow will use secrets from the calling environment for OIDC auth
+    # SECURITY: Secrets are managed through GitHub environments for security
     secrets: inherit
 
-  # ╔══════════════════════════════════════════════════════════════════════════╗
-  # ║                   OUTPUT PROCESSING AND REPOSITORY INTEGRATION          ║
-  # ║              Transform outputs into requested formats with metadata     ║
-  # ╚══════════════════════════════════════════════════════════════════════════╝
-  
+  # === Processes extracted outputs and commits them to the repository for audit and downstream use ===
+  # WHY: Ensures outputs are available for documentation, compliance, and integration with external systems
   process-and-commit:
     name: 📄 Process and Commit Output Files
     # === JOB DEPENDENCIES ===
-    # Ensure Terraform output extraction completes successfully before processing
-    # This dependency chain ensures data availability and proper error handling
+    # WHY: Ensure Terraform output extraction completes successfully before processing
     needs: terraform-output
     runs-on: ubuntu-latest
-    
     # === JOB OUTPUT DECLARATIONS ===
-    # Export key processing results for use by subsequent jobs
-    # These outputs enable proper data flow to the execution summary workflow
+    # WHY: Export key processing results for use by subsequent jobs
     outputs:
       output-filename: ${{ steps.process-output.outputs.output-filename }}
-    
     # === JOB-LEVEL PERMISSIONS ===
-    # Inherit workflow permissions with explicit declaration for clarity
+    # WHY: Inherit workflow permissions with explicit declaration for clarity
     permissions:
       contents: write       # Required for Git operations (commit, push)
       actions: read        # Required for downloading artifacts from previous job
-    
     steps:
-      # === WORKSPACE PREPARATION ===
-      # Set up the execution environment with repository access
-      # Standard checkout provides access to configuration files and directory structure
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
           # === CHECKOUT CONFIGURATION ===
-          # Ensure we have full repository history and can make commits
+          # WHY: Ensure we have full repository history and can make commits
           fetch-depth: 0              # Full history for proper Git operations
           token: ${{ secrets.GITHUB_TOKEN }}  # Use default token for repository access
       
       # === DEPENDENCY INSTALLATION ===
-      # Install required tools for output processing and format conversion
-      # These tools are essential for JSON/YAML processing and data transformation
+      # WHY: Install required tools for output processing and format conversion
       - name: Install Processing Dependencies
         run: |
           # === TOOL INSTALLATION WITH COMPREHENSIVE LOGGING ===
@@ -191,8 +150,7 @@ jobs:
           echo "::notice title=Dependencies Ready::📦 All processing dependencies installed and verified"
       
       # === ARTIFACT RETRIEVAL ===
-      # Download Terraform output artifacts from the previous job
-      # Artifacts contain the raw output data that needs format conversion and processing
+      # WHY: Download Terraform output artifacts from the previous job for processing
       - name: Download Terraform Output Artifacts
         uses: actions/download-artifact@v4
         with:
@@ -203,8 +161,7 @@ jobs:
           path: terraform-artifacts/         # Organized directory for artifact storage
       
       # === TERRAFORM OUTPUT VALIDATION AND PREPARATION ===
-      # Validate downloaded artifacts and prepare processing environment
-      # This step ensures data integrity and sets up variables for subsequent processing
+      # WHY: Validate downloaded artifacts and prepare processing environment for data integrity
       - name: Validate and Prepare Terraform Output
         id: validate-output
         shell: bash
@@ -307,9 +264,8 @@ jobs:
           echo "::notice title=Validation Complete::✅ Artifact validation completed successfully"
       
       # === OUTPUT PROCESSING AND FORMAT CONVERSION ===
-      # Process the validated output into the requested format with optional metadata
-      # METADATA APPROACH: Leverage operation-metadata output from reusable-terraform-base workflow
-      # This eliminates duplication and ensures consistency across all Terraform workflows
+      # WHY: Process the validated output into the requested format with optional metadata
+      # METADATA: Leverage operation-metadata output from reusable-terraform-base workflow for consistency
       - name: Process and Format Terraform Output
         id: process-output
         shell: bash
@@ -410,8 +366,7 @@ jobs:
           echo "::notice title=Processing Complete::✅ Output processing completed successfully"
       
       # === REPOSITORY INTEGRATION AND VERSION CONTROL ===
-      # Commit generated output files to repository for version control and persistence
-      # This ensures processed outputs are available for future workflows and manual access
+      # WHY: Commit generated output files to repository for version control and persistence
       - name: Commit Generated Output Files
         run: |
           # === INPUT PARAMETER EXTRACTION ===
@@ -522,29 +477,21 @@ jobs:
             echo "::notice title=Status::📊 Repository state unchanged - no action required"
           fi
 
-  # === EXECUTION SUMMARY GENERATION ===
-  # Leverage standardized reusable workflow for consistent execution reporting
-  # Provides comprehensive summary with troubleshooting guidance and artifact information
+  # === Generates a comprehensive execution summary for governance, troubleshooting, and audit trail ===
+  # WHY: Provides a clear, actionable summary of the workflow run, including troubleshooting and technical details
   execution-summary:
     name: "🎯 Execution Summary"
     needs: [terraform-output, process-and-commit]
     uses: ./.github/workflows/reusable-execution-summary.yml
     if: always()
     with:
-      # === CORE WORKFLOW IDENTIFICATION ===
       workflow-name: "terraform-output"
       operation-type: "output"
       configuration: ${{ github.event.inputs.configuration }}
       output-filename: ${{ needs.process-and-commit.outputs.output-filename }}
-      
-      # === EXECUTION CONTEXT ===
       job-results: ${{ toJSON(needs) }}
       workflow-inputs: ${{ toJSON(inputs) }}
-      
-      # === SUMMARY CUSTOMIZATION ===
       include-troubleshooting: true
       include-technical-details: true
       summary-level: "detailed"
-      
-      # === ARTIFACT CONFIGURATION ===
       artifact-retention-days: 30
