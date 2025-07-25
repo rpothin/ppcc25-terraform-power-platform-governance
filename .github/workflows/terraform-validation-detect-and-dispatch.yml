@@ -55,32 +55,28 @@ permissions:
   id-token: write         # Required: OIDC authentication with Azure AD for integration
 
 jobs:
-  # === CHANGE DETECTION ===
-  # Detects changed Terraform configuration/module directories
-  # WHY: Enables targeted validation only for modified paths, reducing unnecessary CI runs and focusing resources on relevant changes for governance and auditability
+  # === REUSABLE CHANGE DETECTION ===
+  # Leverages standardized change detection workflow for consistency and efficiency
+  # Replaces inline change detection logic with proven, centralized implementation
   detect-changes:
-    name: 🔍 Detect Changed Paths
-    runs-on: ubuntu-latest
-    outputs:
-      changed-paths: ${{ steps.detect.outputs.changed-paths }}
-      paths-count: ${{ steps.detect.outputs.paths-count }}
-      has-changes: ${{ steps.detect.outputs.has-changes }}
-    steps:
-      # Checkout the repository to access Terraform configurations and modules
-      # WHY: Required for the action to detect changes in the repository
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+    name: 🔍 Detect Terraform Changes
+    uses: ./.github/workflows/reusable-change-detection.yml
+    with:
+      # === PASS-THROUGH WORKFLOW INPUTS ===
+      # Maintains seamless user experience by forwarding all manual dispatch inputs
+      # Provides defaults for non-manual triggers (push, pull_request)
+      target-path: ''
+      force-all: false
 
-      # Detects changes in Terraform configurations and modules
-      # WHY: Automatically identifies modified paths, ensuring only relevant configurations/modules are validated, improving CI/CD efficiency
-      - name: Detect Terraform Changes
-        id: detect
-        uses: ./.github/actions/detect-terraform-changes
-        with:
-          target-path: ''
-          force-all: 'false'
-          include-configs: 'true'
-          include-modules: 'true'
+      # === TERRAFORM TESTING SPECIFIC CONFIGURATION ===
+      # Include both configurations and modules for comprehensive testing coverage
+      include-configs: true
+      include-modules: true
+
+      # === TERRAFORM-SPECIFIC PATH FILTERING ===
+      # Filter for files that affect Terraform testing and validation
+      # Includes: .tf files, .tfvars files, and terraform configuration files
+      path-filter: '\.(tf|tfvars)$|\.tftest\.hcl$'
 
   # === VALIDATION DISPATCH ===
   # Runs single-path validation for each changed directory in parallel
