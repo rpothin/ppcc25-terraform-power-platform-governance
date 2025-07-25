@@ -59,7 +59,7 @@ on:
     inputs:
       target_path:
         description: >-
-          Specific path to generate docs for (e.g., configurations/01-dlp-policies).
+          Specific path to generate docs for (e.g., configurations/utl-export-dlp-policies).
           Leave empty to process all changed or all paths.
         required: false
         type: string
@@ -67,7 +67,7 @@ on:
         # GOVERNANCE: Enables focused updates without processing entire repository
         # EFFICIENCY: Reduces processing time for large repositories with many configurations
         # VALIDATION: Must exist in configurations/ or modules/ directory structure
-        # EXAMPLES: 'configurations/01-dlp-policies', 'modules/power-platform-dlp'
+        # EXAMPLES: 'configurations/utl-export-dlp-policies', 'modules/power-platform-dlp'
 
       force_all:
         description: >-

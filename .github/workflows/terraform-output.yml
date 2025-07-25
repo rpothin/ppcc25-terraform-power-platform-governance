@@ -36,18 +36,18 @@ on:
   workflow_dispatch:
     inputs:
       configuration:
-        description: 'Terraform configuration to process (e.g., 01-dlp-policies)'
+        description: 'Terraform configuration to process (e.g., utl-export-dlp-policies)'
         required: true
         type: choice
         options:
-          - '01-dlp-policies'
+          - 'utl-export-dlp-policies'
           - '02-dlp-policy'
           - '03-environment'
-        default: '01-dlp-policies'
+        default: 'utl-export-dlp-policies'
         # WHY: Scopes permissions and isolates blast radius for governance
         # VALIDATION: Must exist in configurations/ and contain .tf files
         # SECURITY: Used in state key generation to prevent cross-configuration access
-        # EXAMPLES: '01-dlp-policies', '02-dlp-policy', '03-environment'
+        # EXAMPLES: 'utl-export-dlp-policies', '02-dlp-policy', '03-environment'
       export_format:
         description: 'Export format for output data'
         required: true

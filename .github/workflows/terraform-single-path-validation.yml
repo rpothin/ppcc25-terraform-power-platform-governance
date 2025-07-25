@@ -34,7 +34,7 @@ on:
     inputs:
       target_configuration:
         description: >-
-          Configuration to validate under the configurations directory (e.g., 01-dlp-policies).
+          Configuration to validate under the configurations directory (e.g., utl-export-dlp-policies).
           Must exist and contain Terraform files.
         required: true
         type: string

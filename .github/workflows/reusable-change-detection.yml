@@ -44,7 +44,7 @@ on:
         # Must be a valid directory path: configurations/dirname or modules/dirname
         # Bypasses all automatic change detection when specified
         # Validation: Path must exist and contain at least one .tf file
-        # Examples: 'configurations/01-dlp-policies', 'modules/power-platform-dlp-export'
+        # Examples: 'configurations/utl-export-dlp-policies', 'modules/power-platform-dlp-export'
         
       force-all:
         description: 'Force processing all paths'
@@ -96,7 +96,7 @@ on:
         value: ${{ jobs.detect-changes.outputs.changed-paths }}
         # Format: Multi-line string with one directory path per line
         # Usage: Ideal for matrix job generation and iteration
-        # Example: "configurations/01-dlp-policies\nmodules/power-platform-dlp-export"
+        # Example: "configurations/utl-export-dlp-policies\nmodules/power-platform-dlp-export"
         # Empty string when no changes detected
         
       paths-count:

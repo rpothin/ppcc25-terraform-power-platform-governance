@@ -58,7 +58,7 @@ inputs:
     required: false
     # Manual override that bypasses all automatic change detection
     # Must be a valid directory path relative to repository root
-    # Examples: 'configurations/01-dlp-policies',
+    # Examples: 'configurations/utl-export-dlp-policies',
     #           'modules/power-platform-dlp-export'
     # Use cases: Testing specific configurations, debugging, manual
     #            deployments
@@ -108,7 +108,7 @@ outputs:
     value: ${{ steps.detect.outputs.changed-paths }}
     # Format: Multi-line string with one directory path per line
     # Example output:
-    #   configurations/01-dlp-policies
+    #   configurations/utl-export-dlp-policies
     #   configurations/03-environment
     #   modules/power-platform-dlp-export
     # Empty string when no changes detected

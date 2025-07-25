@@ -39,10 +39,10 @@ inputs:
   configuration:
     description: 'Target configuration directory name for state file identification'
     required: true
-    # Format: Directory name under configurations/ (e.g., '01-dlp-policies', '03-environment')
+    # Format: Directory name under configurations/ (e.g., 'utl-export-dlp-policies', '03-environment')
     # Purpose: Primary component of state file naming convention
     # Usage: Must match the actual directory name containing Terraform configuration files
-    # Examples: '01-dlp-policies', '02-dlp-policy', '03-environment'
+    # Examples: 'utl-export-dlp-policies', '02-dlp-policy', '03-environment'
     #
     # State Key Impact: Forms the base of state file naming
     # - With tfvars: configuration-tfvars.tfstate
@@ -60,8 +60,6 @@ inputs:
     # When omitted: Falls back to {configuration}.tfstate pattern
     #
     # Examples:
-    # - 'dev' → '01-dlp-policies-dev.tfstate'
-    # - 'prod' → '01-dlp-policies-prod.tfstate'
     # - 'dlp-finance' → '02-dlp-policy-dlp-finance.tfstate'
     #
     # Best Practices:
@@ -84,7 +82,7 @@ inputs:
     # - Shared state operations: Cross-configuration dependencies
     #
     # Examples:
-    # - 'output-01-dlp-policies.tfstate' (for terraform output operations)
+    # - 'output-utl-export-dlp-policies.tfstate' (for terraform output operations)
     # - 'test-integration-20250115.tfstate' (for testing)
     # - 'shared-data-layer.tfstate' (for shared resources)
     #
@@ -158,7 +156,7 @@ outputs:
   state-key:
     description: 'Actual state key used for backend initialization'
     value: ${{ steps.init.outputs.state-key }}
-    # Format: String representing the state file name (e.g., '01-dlp-policies-dev.tfstate')
+    # Format: String representing the state file name (e.g., 'utl-export-dlp-policies-dev.tfstate')
     # Purpose: Provides visibility into state management for debugging and audit trails
     #
     # State Key Patterns:
@@ -243,7 +241,7 @@ runs:
           # === TIER 2: STANDARD MULTI-ENVIRONMENT PATTERN ===
           # Primary pattern for production multi-environment deployments
           # Format: {configuration}-{tfvars-file}.tfstate
-          # Example: "01-dlp-policies-dev.tfstate", "02-dlp-policy-prod.tfstate"
+          # Example: "utl-export-dlp-policies-dev.tfstate", "02-dlp-policy-prod.tfstate"
           state_key="${config}-${tfvars_file}.tfstate"
           echo "::notice title=Standard Pattern::⚙️ Generated multi-environment state key: $state_key"
           echo "::notice::Pattern: {configuration}-{environment}.tfstate"
@@ -252,7 +250,7 @@ runs:
           # === TIER 3: SINGLE ENVIRONMENT FALLBACK ===
           # Legacy compatibility pattern when no environment differentiation is needed
           # Format: {configuration}.tfstate
-          # Example: "01-dlp-policies.tfstate"
+          # Example: "utl-export-dlp-policies.tfstate"
           state_key="${config}.tfstate"
           echo "::warning title=Fallback Pattern::⚠️ Using single-environment state key: $state_key"
           echo "::warning::Consider using tfvars-file parameter for environment differentiation"
