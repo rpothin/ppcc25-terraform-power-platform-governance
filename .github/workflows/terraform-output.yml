@@ -31,9 +31,6 @@ name: Terraform Output
 concurrency:
   group: terraform-output-${{ github.event.inputs.configuration }}
   cancel-in-progress: false  # Never cancel running Terraform operations to avoid incomplete state changes
-concurrency:
-  group: terraform-output-${{ github.event.inputs.configuration }}
-  cancel-in-progress: false
 
 on:
   workflow_dispatch:
