@@ -1,69 +1,41 @@
-# ╔══════════════════════════════════════════════════════════════════════════════════════════════════════╗
-# ║                      TERRAFORM DESTROY WORKFLOW FOR POWER PLATFORM GOVERNANCE                       ║
-# ║                          Secure Infrastructure Destruction Pipeline                                  ║
-# ╠══════════════════════════════════════════════════════════════════════════════════════════════════════╣
-# ║ This workflow provides a secure, auditable, and reversible mechanism for destroying                 ║
-# ║ Terraform-managed Power Platform resources with comprehensive safety measures and audit trails.     ║
-# ║                                                                                                      ║
-# ║ SECURITY AND SAFETY ARCHITECTURE:                                                                   ║
-# ║ 🔒 Multi-Layer Confirmation - Explicit user confirmation with case-sensitive validation            ║
-# ║ 💾 Automated State Backup - Comprehensive backup system with commit-based persistence              ║
-# ║ 🛡️ OIDC Authentication - Secure identity federation eliminating stored credentials                 ║
-# ║ 🔍 Pre-Destroy Validation - Comprehensive resource analysis and safety checks                      ║
-# ║ 📊 Comprehensive Audit Trail - Detailed execution metadata and artifact retention                  ║
-# ║                                                                                                      ║
-# ║ EXECUTION WORKFLOW:                                                                                  ║
-# ║ 1. INPUT VALIDATION: Rigorous validation of configuration, tfvars, and confirmation                ║
-# ║ 2. SAFETY CHECKS: State analysis, resource counting, and backup creation                           ║
-# ║ 3. DESTROY PLANNING: Comprehensive destroy plan generation with detailed review                     ║
-# ║ 4. SECURE EXECUTION: OIDC-authenticated destruction with real-time monitoring                      ║
-# ║ 5. VERIFICATION: Post-destroy validation and clean state confirmation                              ║
-# ║ 6. AUDIT DOCUMENTATION: Complete metadata generation and artifact preservation                     ║
-# ║                                                                                                      ║
-# ║ SAFETY FEATURES:                                                                                     ║
-# ║ • Manual-only trigger with explicit confirmation requirement                                        ║
-# ║ • Automatic state backup with version control integration                                           ║
-# ║ • Comprehensive validation before any destructive operations                                        ║
-# ║ • Force-destroy option for edge cases with additional safety warnings                              ║
-# ║ • Post-operation verification and cleanup validation                                                ║
-# ║ • Complete audit trail with metadata preservation for compliance                                    ║
-# ║                                                                                                      ║
-# ║ RECOVERY CAPABILITIES:                                                                               ║
-# ║ • State backup restoration with terraform state push commands                                       ║
-# ║ • Configuration preservation for rapid resource recreation                                          ║
-# ║ • Comprehensive metadata for detailed impact analysis and recovery planning                        ║
-# ║ • Artifact retention with configurable retention policies                                          ║
-# ╚══════════════════════════════════════════════════════════════════════════════════════════════════════╝
+
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
+# TERRAFORM DESTROY WORKFLOW FOR POWER PLATFORM GOVERNANCE
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
+# Enables secure, auditable destruction of Terraform-managed Power Platform resources.
+#
+# 🎯 WHY THIS EXISTS:
+# - Governance requirement: Enforces policy for safe, auditable resource destruction
+# - Business problem: Prevents accidental/untracked deletion, ensures audit and recovery
+# - Operational benefit: Manual-only trigger, explicit confirmation, backup, and audit trail
+#
+# 🔒 SECURITY DECISIONS:
+# - OIDC authentication eliminates stored credentials for destroy operations
+# - Environment protection ensures all destroys are auditable and require production-level secrets
+# - State backup prevents data loss before destructive actions
+#
+# ⚙️ OPERATIONAL CONTEXT:
+# - Concurrency control prevents conflicting destroy operations and state corruption
+# - Timeout values account for complex resource destruction
+# - Never cancel destroys to avoid incomplete state changes
+#
+# 📋 INTEGRATION REQUIREMENTS:
+# - Depends on reusable-terraform-base for standardized destroy process
+# - Requires Power Platform OIDC configuration for resource access
+# - Uses validated composite actions for network access and initialization
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
 
 name: Terraform Destroy
 
-# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
-# CONCURRENCY CONTROL CONFIGURATION
-# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
-# Sophisticated concurrency management to prevent conflicting Terraform operations and ensure safe execution
-
+# Concurrency: Prevents conflicting destroy operations and state corruption
 concurrency:
-  # === GRANULAR CONCURRENCY GROUPING ===
-  # Create unique concurrency groups based on configuration and tfvars combination to prevent conflicts
-  # while allowing parallel operations on different configurations
   group: terraform-${{ github.event.inputs.configuration || 'default' }}-${{ github.event.inputs.tfvars_file || 'default' }}-${{ github.ref }}
-  
-  # === CONSERVATIVE CANCELLATION POLICY ===
-  # Never cancel running Terraform operations to prevent state corruption and partial resource destruction
   cancel-in-progress: false
-  # Rationale: Terraform destroy operations are critical and potentially destructive
-  # Canceling mid-operation could leave resources in an inconsistent state
 
-# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
-# WORKFLOW TRIGGER CONFIGURATION
-# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
-# Manual-only trigger with comprehensive input validation and explicit confirmation requirements
-
+# Manual trigger with explicit confirmation and input validation
 on:
   workflow_dispatch:
     inputs:
-      # === PRIMARY CONFIGURATION SELECTION ===
-      # Restrict to resource management configurations that support safe destruction
       configuration:
         description: 'Configuration to destroy (resource management configurations only)'
         required: true
@@ -71,61 +43,40 @@ on:
         options:
           - '02-dlp-policy'    # Data Loss Prevention Policy Management
           - '03-environment'   # Power Platform Environment Management
-        # Note: Core configurations like '01-dlp-policies' excluded for safety
-        # These contain foundational policies that should not be destroyed
+      # WHY: Only allows safe, non-foundational configs to be destroyed
 
-      # === TFVARS FILE SPECIFICATION ===
-      # Specific tfvars file selection for targeted resource destruction
       tfvars_file:
         description: 'tfvars file name without extension (e.g., dlp-finance, env-production)'
         required: true
         type: string
-        # Examples: dlp-finance, dlp-hr, env-development, env-production
-        # This targets specific resource instances within configurations
+      # WHY: Targets specific resource instance for precise, auditable destruction
 
-      # === EXPLICIT DESTRUCTION CONFIRMATION ===
-      # Case-sensitive confirmation to prevent accidental resource destruction
       confirmation:
         description: 'Type "DESTROY" to confirm resource destruction (case sensitive)'
         required: true
         type: string
-        # Security measure: Requires exact case-sensitive match to "DESTROY"
-        # Prevents accidental destruction through typos or automation
+       # WHY: Explicit, case-sensitive confirmation required for destructive operations
 
-      # === STATE BACKUP CONFIGURATION ===
-      # Comprehensive backup system for disaster recovery and audit compliance
       backup_state:
         description: 'Create state backup before destroy (recommended for production)'
         required: true
         type: boolean
         default: true
-        # Default: true for safety - creates versioned backups before destruction
-        # Backups are committed to version control for persistence
+      # WHY: Ensures disaster recovery and auditability before destructive actions
 
-      # === FORCE DESTRUCTION OPTION ===
-      # Edge case handling for empty states or special circumstances
       force_destroy:
         description: 'Force destroy even if plan shows no resources (use with caution)'
         required: false
         type: boolean
         default: false
-        # Use case: Clean up state entries for manually removed resources
-        # Requires additional safety warnings and explicit user intent
+      # WHY: Allows emergency cleanup of orphaned state or resources
 
-# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
-# DYNAMIC RUN NAMING CONFIGURATION
-# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
-# Comprehensive run identification for audit trails and immediate visual recognition
-
+# Dynamic run name for auditability and traceability
 run-name: 🚨 Terraform DESTROY ${{ github.event.inputs.configuration }} (${{ github.event.inputs.tfvars_file }}) by @${{ github.actor }}
 # Pattern: Clear destruction indicator + configuration + tfvars + actor identification
 # Benefits: Immediate visual recognition, audit trail, accountability tracking
 
-# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
-# WORKFLOW PERMISSIONS CONFIGURATION
-# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
-# Minimal but comprehensive permissions for secure operations with OIDC authentication
-
+# Permissions: OIDC for Azure/Power Platform, repo write for backup/artifacts
 permissions:
   id-token: write   # Required: GitHub OIDC token generation for Azure and Power Platform authentication
   contents: write   # Required: Repository operations for backup commits and artifact management
@@ -133,35 +84,8 @@ permissions:
 # Secrets are only accessible within jobs that explicitly specify the production environment
 
 jobs:
-  # ╔══════════════════════════════════════════════════════════════════════════════════════════════════════╗
-  # ║                             VALIDATION AND SAFETY CHECKS JOB                                        ║
-  # ║                         Comprehensive Pre-Destruction Validation Pipeline                           ║
-  # ╠══════════════════════════════════════════════════════════════════════════════════════════════════════╣
-  # ║ This job acts as a comprehensive safety gate before any destructive operations are performed.       ║
-  # ║ It validates inputs, analyzes current state, creates backups, and generates destruction plans.      ║
-  # ║                                                                                                      ║
-  # ║ VALIDATION ARCHITECTURE:                                                                             ║
-  # ║ 🔍 Input Validation - Rigorous confirmation and parameter verification                              ║
-  # ║ 📊 State Analysis - Comprehensive resource inventory and dependency checking                        ║
-  # ║ 💾 Backup Creation - Automated state backup with version control integration                        ║
-  # ║ 📋 Destroy Planning - Detailed destruction plan generation for review and approval                 ║
-  # ║ 🔒 Security Integration - OIDC authentication with JIT network access                              ║
-  # ║                                                                                                      ║
-  # ║ SAFETY MEASURES:                                                                                     ║
-  # ║ • Case-sensitive confirmation validation to prevent typos                                           ║
-  # ║ • Configuration and tfvars file existence verification                                              ║
-  # ║ • Current state analysis with resource counting and impact assessment                              ║
-  # ║ • Automated backup creation with persistent storage                                                 ║
-  # ║ • Comprehensive destroy plan generation for audit and review                                        ║
-  # ║ • Artifact preservation for compliance and rollback capabilities                                    ║
-  # ║                                                                                                      ║
-  # ║ OUTPUT GENERATION:                                                                                   ║
-  # ║ • Resource existence flags for conditional execution control                                        ║
-  # ║ • Resource count for impact assessment and user notification                                        ║
-  # ║ • Backup status confirmation for recovery planning                                                  ║
-  # ║ • Comprehensive metadata for audit trails and compliance documentation                             ║
-  # ╚══════════════════════════════════════════════════════════════════════════════════════════════════════╝
-
+  # Validates all inputs, state, and safety before destruction
+  # WHY: Prevents accidental or unsafe destruction; ensures audit and backup
   terraform-validate:
     name: 🔍 Validation and Safety Checks
     runs-on: ubuntu-latest
@@ -849,35 +773,8 @@ jobs:
           echo "::notice title=Validation Phase::✅ Validation phase completed successfully"
           echo "::notice title=Next Phase::🚀 Proceeding to destroy execution phase (if resources exist)"
 
-  # ╔══════════════════════════════════════════════════════════════════════════════════════════════════════╗
-  # ║                           TERRAFORM DESTROY EXECUTION JOB                                           ║
-  # ║                      Secure Infrastructure Destruction with Safety Controls                         ║
-  # ╠══════════════════════════════════════════════════════════════════════════════════════════════════════╣
-  # ║ This job executes the actual resource destruction after comprehensive validation and safety checks. ║
-  # ║ It operates with multiple layers of security and implements robust recovery mechanisms.             ║
-  # ║                                                                                                      ║
-  # ║ EXECUTION ARCHITECTURE:                                                                              ║
-  # ║ 🔐 Multi-Layer Security - OIDC authentication with production environment protection                ║
-  # ║ ⚡ Conditional Execution - Runs only after successful validation with resource existence checks     ║
-  # ║ 🔄 Retry Logic - Intelligent retry mechanisms for network-dependent operations                      ║
-  # ║ 📊 Progress Tracking - Comprehensive progress reporting and status monitoring                       ║
-  # ║ 🛡️ Recovery Preparation - Post-execution verification and cleanup state analysis                   ║
-  # ║                                                                                                      ║
-  # ║ SAFETY MECHANISMS:                                                                                   ║
-  # ║ • Final confirmation warnings with mandatory delay for user awareness                              ║
-  # ║ • Conditional execution preventing unnecessary runs on empty states                                ║
-  # ║ • Force-destroy capability for emergency scenarios with additional safeguards                      ║
-  # ║ • Network retry logic for resilient backend connectivity during destruction                        ║
-  # ║ • Post-destroy verification ensuring complete resource removal                                      ║
-  # ║ • Comprehensive error handling with troubleshooting guidance                                        ║
-  # ║                                                                                                      ║
-  # ║ EMERGENCY FEATURES:                                                                                  ║
-  # ║ • Force destroy option bypasses resource existence checks for emergency cleanup                     ║
-  # ║ • Detailed error diagnostics with Power Platform specific troubleshooting                          ║
-  # ║ • State snapshot creation for audit trails and compliance verification                             ║
-  # ║ • Automatic cleanup procedures ensuring secure completion regardless of outcome                     ║
-  # ╚══════════════════════════════════════════════════════════════════════════════════════════════════════╝
-
+  # Executes actual resource destruction after validation
+  # WHY: Only runs if validation passes and resources exist or force is enabled
   terraform-destroy:
     name: 🚨 Terraform Destroy Execution
     runs-on: ubuntu-latest
