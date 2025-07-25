@@ -40,7 +40,7 @@ on:
         # WHY: Enables per-path validation for robust, parallelized quality checks
         # VALIDATION: Must be a valid configuration/module directory
 
-run-name: "Validate ${{ inputs.target_configuration }} by @${{ github.actor }}"
+run-name: "🧪 Validate ${{ inputs.target_configuration }} by @${{ github.actor }}"
 
 permissions:
   contents: read          # Required: Repository content access for validation
@@ -67,6 +67,16 @@ jobs:
         uses: hashicorp/setup-terraform@v3.1.2
         with:
           terraform_version: ${{ vars.TERRAFORM_VERSION || '1.12.2' }}
+
+      # === EXECUTION METADATA GENERATION ===
+      # Generate comprehensive metadata for audit trails and workflow tracking
+      - name: Generate Format Check Metadata
+        id: format-metadata
+        uses: ./.github/actions/generate-workflow-metadata
+        with:
+          operation: 'validation'
+          phase: 'format-check'
+          additional-data: '{"target_configuration": "${{ inputs.target_configuration }}"}'
 
       # === FORMAT CHECK EXECUTION ===
       # WHY: Enforces standardized code style and improves maintainability
@@ -105,6 +115,16 @@ jobs:
         with:
           terraform_version: ${{ vars.TERRAFORM_VERSION || '1.12.2' }}
 
+      # === EXECUTION METADATA GENERATION ===
+      # Generate comprehensive metadata for audit trails and workflow tracking
+      - name: Generate Syntax Validation Metadata
+        id: validation-metadata
+        uses: ./.github/actions/generate-workflow-metadata
+        with:
+          operation: 'validation'
+          phase: 'syntax-validation'
+          additional-data: '{"target_configuration": "${{ inputs.target_configuration }}"}'
+
       # === SYNTAX VALIDATION EXECUTION ===
       # WHY: Validates HCL syntax and configuration structure for the target path
       - name: Syntax Validation
@@ -138,6 +158,16 @@ jobs:
         with:
           terraform_version: ${{ vars.TERRAFORM_VERSION || '1.12.2' }}
 
+      # === EXECUTION METADATA GENERATION ===
+      # Generate comprehensive metadata for audit trails and workflow tracking
+      - name: Generate Structure Validation Metadata
+        id: structure-metadata
+        uses: ./.github/actions/generate-workflow-metadata
+        with:
+          operation: 'validation'
+          phase: 'structure-validation'
+          additional-data: '{"target_configuration": "${{ inputs.target_configuration }}"}'
+
       # === STRUCTURE VALIDATION EXECUTION ===
       # WHY: Checks for tfvars and standard file structure to ensure best practices
       - name: Structure Validation
@@ -169,6 +199,16 @@ jobs:
       # WHY: Required to access the repository code for security scanning
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      # === EXECUTION METADATA GENERATION ===
+      # Generate comprehensive metadata for security audit trails and compliance tracking
+      - name: Generate Security Scan Metadata
+        id: security-metadata
+        uses: ./.github/actions/generate-workflow-metadata
+        with:
+          operation: 'validation'
+          phase: 'security-scan'
+          additional-data: '{"scan_type": "vulnerability", "tools": "trivy", "upload_sarif": true, "target_configuration": "${{ inputs.target_configuration }}"}'
 
       # === SECURITY SCAN EXECUTION ===
       # WHY: Scans Terraform configuration for security vulnerabilities
@@ -267,6 +307,16 @@ jobs:
           state-key-override: 'integration-test-${{ inputs.target_configuration }}.tfstate'
           max-retries: '3'
           wait-for-propagation: '15'
+
+      # === EXECUTION METADATA GENERATION ===
+      # Generate comprehensive metadata for integration test audit trails
+      - name: Generate Integration Test Metadata
+        id: integration-metadata
+        uses: ./.github/actions/generate-workflow-metadata
+        with:
+          operation: 'validation'
+          phase: 'integration'
+          additional-data: '{"test_type": "integration", "authentication": "oidc", "backend": "azure", "target_configuration": "${{ inputs.target_configuration }}"}'
 
       # === INTEGRATION TEST EXECUTION ===
       # WHY: Runs integration tests for the configuration/module if present
