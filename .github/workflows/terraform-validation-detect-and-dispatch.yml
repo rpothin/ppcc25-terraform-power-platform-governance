@@ -89,7 +89,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target_path: ${{ fromJson(needs.detect-changes.outputs.changed-paths) }}
+        target_path: ${{ fromJson(format('["{0}"]', join(split(needs.detect-changes.outputs.changed-paths, '\n'), '","'))) }}
     steps:
       # Dispatches the single-path validation workflow for each changed path
       # WHY: Dispatches the single-path validation workflow for each changed path, enabling robust, per-path quality checks and audit trails
