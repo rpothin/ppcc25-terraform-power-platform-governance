@@ -1,16 +1,39 @@
-# Terraform Import Workflow for Power Platform Governance
-# This workflow allows importing existing Power Platform resources into Terraform state
-# It supports importing resources to make them manageable via Infrastructure as Code
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
+# TERRAFORM IMPORT WORKFLOW FOR POWER PLATFORM GOVERNANCE
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
+# Enables importing existing Power Platform resources into Terraform state for governance and automation.
+#
+# 🎯 WHY THIS EXISTS:
+# - Governance requirement: Transition ClickOps/manual resources to Infrastructure as Code (IaC)
+# - Business problem: Existing resources created outside Terraform need to be governed and managed
+# - Operational benefit: Enables consistent policy enforcement, auditability, and automation
+#
+# 🔒 SECURITY DECISIONS:
+# - OIDC authentication eliminates stored credentials for import operations
+# - Environment protection ensures all imports are auditable and require production-level secrets
+# - State backup prevents data loss during risky import operations
+#
+# ⚙️ OPERATIONAL CONTEXT:
+# - Concurrency control prevents state corruption during imports
+# - Timeout values account for complex resource import operations
+# - Never cancel imports to avoid incomplete state changes
+#
+# 📋 INTEGRATION REQUIREMENTS:
+# - Depends on reusable-terraform-base for standardized import process
+# - Requires Power Platform OIDC configuration for resource access
+# - Uses validated composite actions for network access and initialization
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
 
 name: Terraform Import
 
-# Prevent concurrent Terraform operations on same configuration/tfvars combination
+# === CONCURRENCY PROTECTION ===
+# Prevents state corruption when multiple imports target the same configuration/tfvars
 concurrency:
   group: terraform-${{ github.event.inputs.configuration || 'default' }}-${{ github.event.inputs.tfvars_file || 'default' }}-import-${{ github.ref }}
-  cancel-in-progress: false  # Don't cancel running Terraform operations
+  cancel-in-progress: false  # Never cancel running Terraform operations to avoid incomplete state changes
 
-# Trigger: Manual workflow dispatch only
-# Users can specify which resource to import into which configuration
+# === WORKFLOW TRIGGER AND INPUTS ===
+# Manual workflow dispatch for explicit governance control over imports
 on:
   workflow_dispatch:
     inputs:
@@ -21,39 +44,60 @@ on:
         options:
           - '02-dlp-policy'
           - '03-environment'
+        # WHY: Scopes permissions and isolates blast radius for governance
+        # VALIDATION: Must exist in configurations/ and contain .tf files
+        # SECURITY: Used in state key generation to prevent cross-configuration access
+        # EXAMPLES: '02-dlp-policy', '03-environment'
       tfvars_file:
         description: 'tfvars file name without extension (e.g., dlp-finance, env-production)'
         required: true
         type: string
+        # WHY: Enables environment-specific variable values for import
+        # GOVERNANCE: Ensures correct context for imported resource
+        # VALIDATION: Must match a file in tfvars/ subdirectory
       resource_type:
         description: 'Terraform resource type (e.g., powerplatform_data_loss_prevention_policy)'
         required: true
         type: string
+        # WHY: Specifies the Terraform resource type for import
+        # GOVERNANCE: Ensures correct mapping to configuration
+        # VALIDATION: Must match a valid Terraform resource type
       resource_name:
         description: 'Terraform resource name in the configuration (e.g., main)'
         required: true
         type: string
+        # WHY: Specifies the resource name in the configuration for import
+        # GOVERNANCE: Ensures correct mapping to configuration
+        # VALIDATION: Must match a resource defined in the configuration
       resource_id:
         description: 'Power Platform resource ID to import (UUID format)'
         required: true
         type: string
+        # WHY: Uniquely identifies existing resource for state integration
+        # GOVERNANCE: Enables transition from manual to automated management
+        # SECURITY: Must match exact resource to prevent incorrect imports
+        # VALIDATION: UUID format ensures proper Power Platform resource reference
       backup_state:
         description: 'Create state backup before import'
         required: true
         type: boolean
         default: true
+        # WHY: Protects against accidental state loss during import
+        # GOVERNANCE: Provides audit trail and rollback capability
+        # SECURITY: Ensures state can be restored if import fails
 
-# Dynamic run name that shows the import operation details
+# Dynamic run name for auditability and traceability
 run-name: 📥 Terraform Import ${{ github.event.inputs.resource_type }}.${{ github.event.inputs.resource_name }} to ${{ github.event.inputs.configuration }} by @${{ github.actor }}
 
-# Required permissions for OIDC authentication with Azure and Power Platform
+# === PERMISSIONS AND SECURITY ===
+# Principle of least privilege for OIDC authentication and repository access
 permissions:
   id-token: write   # Required for GitHub OIDC token generation
   contents: read    # Required for repository checkout
 
 jobs:
-  # Job 1: Execute Terraform Import using Reusable Workflow
-  # Uses the standardized reusable-terraform-base workflow for consistent operation
+  # === IMPORT EXECUTION JOB ===
+  # Uses the standardized reusable-terraform-base workflow for consistent import operation
   terraform-import:
     name: 📥 Execute Terraform Import
     uses: ./.github/workflows/reusable-terraform-base.yml
@@ -67,9 +111,9 @@ jobs:
       timeout-minutes: 15
       environment-name: 'production'
     secrets: inherit
-  
-  # Job 2: Post-Import Validation and Reporting
-  # Validates the import was successful and generates comprehensive reports
+
+  # === POST-IMPORT VALIDATION AND REPORTING JOB ===
+  # Validates the import was successful and generates comprehensive reports for governance
   post-import-validation:
     name: ✅ Validate Import Success
     runs-on: ubuntu-latest
@@ -77,35 +121,38 @@ jobs:
     needs: terraform-import
     if: always()  # Run even if import partially failed to provide diagnostics
     environment: production
-    
+
     # Output values that can be used by dependent workflows
     outputs:
       import-successful: ${{ steps.validate-import.outputs.import-successful }}
       resource-imported: ${{ steps.validate-import.outputs.resource-imported }}
       configuration: ${{ github.event.inputs.configuration }}
       import-metadata: ${{ steps.validate-import.outputs.import-metadata }}
-    
+
     steps:
-      # Step 1: Checkout repository for validation
+      # === CHECKOUT REPOSITORY FOR VALIDATION ===
       - name: Checkout Repository for Validation
         uses: actions/checkout@v4
-      
-      # Step 2: Setup Terraform for validation
+
+      # === SETUP TERRAFORM CLI ===
       - name: Setup Terraform CLI
         uses: hashicorp/setup-terraform@v3.1.2
         with:
           terraform_version: ${{ vars.TERRAFORM_VERSION || '1.12.2' }}
           terraform_wrapper: false
-      
-      # Step 3: Authenticate with Azure for state access
+
+      # === AZURE OIDC AUTHENTICATION ===
+      # Required for backend state access and resource management
       - name: Azure Login with OIDC
         uses: azure/login@v2.3.0
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      
-      # Step 4: Add JIT Network Access for validation
+
+      # === JIT NETWORK ACCESS FOR VALIDATION ===
+      # Storage accounts use firewall restrictions for defense-in-depth security
+      # Temporary access prevents permanent security holes while enabling automation
       - name: Add JIT Network Access for Validation
         id: jit-add
         uses: ./.github/actions/jit-network-access
@@ -113,8 +160,9 @@ jobs:
           action: 'add'
           storage-account-name: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
           resource-group-name: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
-      
-      # Step 5: Initialize Terraform for validation
+
+      # === INITIALIZE TERRAFORM FOR VALIDATION ===
+      # Ensures correct backend and OIDC configuration for state access
       - name: Initialize Terraform for Validation
         uses: ./.github/actions/terraform-init-with-backend
         env:
@@ -130,8 +178,9 @@ jobs:
         with:
           configuration: ${{ github.event.inputs.configuration }}
           tfvars-file: ${{ github.event.inputs.tfvars_file }}
-      
-      # Step 6: Validate Import Success
+
+      # === VALIDATE IMPORT SUCCESS ===
+      # Checks if the import operation succeeded and validates state integrity
       - name: Validate Import Results
         id: validate-import
         run: |
@@ -184,7 +233,7 @@ jobs:
             resource_imported=""
           fi
           
-          # Generate comprehensive metadata
+          # Generate comprehensive metadata for audit and governance
           timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           
           metadata=$(jq -n \
@@ -220,7 +269,7 @@ jobs:
             }'
           )
           
-          # Set outputs
+          # Set outputs for downstream jobs and reporting
           echo "import-successful=$import_successful" >> $GITHUB_OUTPUT
           echo "resource-imported=$resource_imported" >> $GITHUB_OUTPUT
           {
@@ -230,8 +279,9 @@ jobs:
           } >> $GITHUB_OUTPUT
           
           cd - > /dev/null
-      
-      # Step 7: Remove JIT Network Access
+
+      # === REMOVE JIT NETWORK ACCESS ===
+      # Always remove temporary access regardless of workflow outcome
       - name: Remove JIT Network Access
         if: always()
         uses: ./.github/actions/jit-network-access
@@ -239,8 +289,9 @@ jobs:
           action: 'remove'
           storage-account-name: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
           resource-group-name: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
-      
-      # Step 8: Generate Workflow Summary
+
+      # === GENERATE WORKFLOW SUMMARY ===
+      # Provides a governance-focused summary for audit and next steps
       - name: Generate Import Summary
         run: |
           config="${{ github.event.inputs.configuration }}"
