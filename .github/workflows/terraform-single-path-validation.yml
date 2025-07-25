@@ -332,6 +332,7 @@ jobs:
           export TEST_FILES_FILE="terraform_test_files.txt"
           
           if find . -name "*.tftest.hcl" -type f | tee "$TEST_FILES_FILE" | grep -q .; then
+            echo "has-test-files=true" >> $GITHUB_OUTPUT
             echo "::notice title=Test Files Found::$(cat $TEST_FILES_FILE | wc -l) test file(s) discovered"
 
             # Run tests with JUnit XML output (relative path for GitHub Actions compatibility)
@@ -356,6 +357,7 @@ jobs:
               ls -la
             fi
           else
+            echo "has-test-files=false" >> $GITHUB_OUTPUT
             echo "::notice title=No Tests Found::No .tftest.hcl files found, skipping."
             echo "skipped" > "$TEST_STATUS_FILE"
           fi
@@ -366,7 +368,7 @@ jobs:
       # WHY: Publishes JUnit XML test results for GitHub UI integration
       - name: Publish Test Results
         uses: dorny/test-reporter@v2
-        if: always()
+        if: always() && needs.pre-check.outputs.integration-tests == 'true'
         with:
           name: 'Terraform Integration Test Results'
           path: 'configurations/${{ inputs.target_configuration }}/terraform_test_results.xml'
