@@ -1,9 +1,9 @@
 {
   "metadata": {
-    "generated_at": "2025-07-25T00:44:49Z",
+    "generated_at": "2025-07-25T01:01:39Z",
     "workflow": {
-      "run_number": 79,
-      "run_id": "16510989274",
+      "run_number": 80,
+      "run_id": "16511212415",
       "generated_by": "rpothin",
       "version": "2.0.0"
     },
@@ -15,7 +15,7 @@
     "repository": {
       "name": "rpothin/ppcc25-terraform-power-platform-governance",
       "ref": "refs/heads/main",
-      "sha": "8af9052b0a29cb71cbe3de69f6cb5d0b0bc6cc13",
+      "sha": "ba9b985ab233c33f493fcc1823ef2c9334190ade",
       "event": "workflow_dispatch"
     },
     "runner": {
