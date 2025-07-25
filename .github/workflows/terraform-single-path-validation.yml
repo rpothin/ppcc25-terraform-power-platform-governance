@@ -1,3 +1,4 @@
+---
 # ═══════════════════════════════════════════════════════════════════════════════════════════════════════
 # TERRAFORM SINGLE PATH VALIDATION WORKFLOW FOR POWER PLATFORM GOVERNANCE
 # Validates a single Terraform configuration or module directory for Power Platform governance.
@@ -49,12 +50,83 @@ permissions:
   id-token: write         # Required: OIDC authentication with Azure AD for integration
 
 jobs:
+  # === PRE-FLIGHT AVM COMPLIANCE CHECK ===
+  # Validates AVM compliance and required file structure before backend initialization
+  pre-flight-check:
+    name: 🚀 Pre-flight AVM Compliance & Structure Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      has-test-files: ${{ steps.test-check.outputs.has-test-files }}
+      has-main-tf: ${{ steps.test-check.outputs.has-main-tf }}
+      has-variables-tf: ${{ steps.test-check.outputs.has-variables-tf }}
+      has-outputs-tf: ${{ steps.test-check.outputs.has-outputs-tf }}
+      has-docs-yml: ${{ steps.test-check.outputs.has-docs-yml }}
+      should-run-integration: ${{ steps.test-check.outputs.should-run-integration }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # === AVM COMPLIANCE & STRUCTURE CHECK EXECUTION ===
+      # WHY: Ensures all required files and structure are present before integration testing
+      - name: AVM Compliance & Structure Detection
+        id: test-check
+        run: |
+          cd "configurations/${{ inputs.target_configuration }}"
+          missing_files=""
+          # Check for .tftest.hcl files
+          if find . -name "*.tftest.hcl" -type f | grep -q .; then
+            echo "has-test-files=true" >> $GITHUB_OUTPUT
+          else
+            echo "has-test-files=false" >> $GITHUB_OUTPUT
+            missing_files="${missing_files}.tftest.hcl "
+          fi
+          # Check for main.tf
+          if [ -f "main.tf" ]; then
+            echo "has-main-tf=true" >> $GITHUB_OUTPUT
+          else
+            echo "has-main-tf=false" >> $GITHUB_OUTPUT
+            missing_files="${missing_files}main.tf "
+          fi
+          # Check for variables.tf
+          if [ -f "variables.tf" ]; then
+            echo "has-variables-tf=true" >> $GITHUB_OUTPUT
+          else
+            echo "has-variables-tf=false" >> $GITHUB_OUTPUT
+            missing_files="${missing_files}variables.tf "
+          fi
+          # Check for outputs.tf
+          if [ -f "outputs.tf" ]; then
+            echo "has-outputs-tf=true" >> $GITHUB_OUTPUT
+          else
+            echo "has-outputs-tf=false" >> $GITHUB_OUTPUT
+            missing_files="${missing_files}outputs.tf "
+          fi
+          # Check for .terraform-docs.yml
+          if [ -f ".terraform-docs.yml" ]; then
+            echo "has-docs-yml=true" >> $GITHUB_OUTPUT
+          else
+            echo "has-docs-yml=false" >> $GITHUB_OUTPUT
+            missing_files="${missing_files}.terraform-docs.yml "
+          fi
+          # Fail fast if any required files are missing
+          if [ "$missing_files" != "" ]; then
+            echo "should-run-integration=false" >> $GITHUB_OUTPUT
+            echo "::error title=AVM Compliance Violation::Missing required files: $missing_files"
+            echo "::notice title=Required Action::Add missing files to meet AVM quality standards. See terraform-iac.instructions.md for requirements."
+            exit 1
+          fi
+          # If all required files are present, allow integration test
+          echo "should-run-integration=true" >> $GITHUB_OUTPUT
+          echo "::notice title=AVM Compliance::All required files present. Integration test will proceed."
+  
   # === FORMAT CHECK ===
   # Ensures consistent code formatting for the target path
   format-check:
     name: 🎨 Format Check
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    needs: pre-flight-check
     steps:
       # === REPOSITORY ACCESS ===
       # WHY: Required to access the repository code for validation
@@ -95,13 +167,12 @@ jobs:
             exit 1
           fi
 
-  # === SYNTAX VALIDATION ===
   # Validates Terraform HCL syntax and basic configuration structure for the target path
   syntax-validation:
     name: ✅ Syntax Validation
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: format-check
+    needs: pre-flight-check
     steps:
       # === REPOSITORY ACCESS ===
       # WHY: Required to access the repository code for validation
@@ -144,7 +215,7 @@ jobs:
     name: 🔧 Structure Validation
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: format-check
+    needs: pre-flight-check
     steps:
       # === REPOSITORY ACCESS ===
       # WHY: Required to access the repository code for validation
@@ -193,7 +264,7 @@ jobs:
     name: 🛡️ Security Scan
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: format-check
+    needs: pre-flight-check
     steps:
       # === REPOSITORY ACCESS ===
       # WHY: Required to access the repository code for security scanning
@@ -237,12 +308,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     environment: production
-    needs: format-check
-    if: always()
-    
-    # === ENVIRONMENT VARIABLES ===
-    # These environment variables configure authentication for both Azure and Power Platform
-    # All use OIDC (OpenID Connect) for secure, passwordless authentication
+    needs: pre-flight-check
+    if: needs.pre-flight-check.outputs.should-run-integration == 'true'
     env:
       # Power Platform OIDC Configuration
       # Required for Power Platform Terraform provider authentication
@@ -319,56 +386,20 @@ jobs:
           additional-data: '{"test_type": "integration", "authentication": "oidc", "backend": "azure", "target_configuration": "${{ inputs.target_configuration }}"}'
 
       # === INTEGRATION TEST EXECUTION ===
-      # WHY: Runs integration tests for the configuration/module if present
+      # WHY: Runs integration tests for the configuration/module (all AVM requirements validated)
       - name: Integration Test
         id: integration-tests
         run: |
           cd "configurations/${{ inputs.target_configuration }}"
           echo "::notice title=Test Start::$(date)"
-          
-          export TEST_RESULT_FILE="terraform_test_output.log"
-          export JUNIT_XML_FILE="terraform_test_results.xml"
-          export TEST_STATUS_FILE="terraform_test_status.txt"
-          export TEST_FILES_FILE="terraform_test_files.txt"
-          
-          if find . -name "*.tftest.hcl" -type f | tee "$TEST_FILES_FILE" | grep -q .; then
-            echo "has-test-files=true" >> $GITHUB_OUTPUT
-            echo "::notice title=Test Files Found::$(cat $TEST_FILES_FILE | wc -l) test file(s) discovered"
-
-            # Run tests with JUnit XML output (relative path for GitHub Actions compatibility)
-            echo "::debug::Running terraform test with JUnit XML output to $JUNIT_XML_FILE"
-            if terraform test -junit-xml="$JUNIT_XML_FILE" 2>&1 | tee "$TEST_RESULT_FILE"; then
-              echo "success" > "$TEST_STATUS_FILE"
-            else
-              echo "failure" > "$TEST_STATUS_FILE"
-            fi
-            
-            # Debug: Check if JUnit XML file was created
-            if [ -f "$JUNIT_XML_FILE" ]; then
-              echo "::notice title=JUnit XML Created::JUnit XML file created successfully at $(pwd)/$JUNIT_XML_FILE"
-              echo "::debug::JUnit XML file size: $(stat -c%s $JUNIT_XML_FILE) bytes"
-              # Show first few lines for debugging
-              echo "::group::JUnit XML Preview"
-              head -10 "$JUNIT_XML_FILE" || echo "Could not preview JUnit XML"
-              echo "::endgroup::"
-            else
-              echo "::warning title=No JUnit XML::JUnit XML file was not created at $(pwd)/$JUNIT_XML_FILE"
-              echo "::debug::Current directory contents:"
-              ls -la
-            fi
-          else
-            echo "has-test-files=false" >> $GITHUB_OUTPUT
-            echo "::notice title=No Tests Found::No .tftest.hcl files found, skipping."
-            echo "skipped" > "$TEST_STATUS_FILE"
-          fi
-          
+          terraform test -junit-xml="terraform_test_results.xml" 2>&1 | tee "terraform_test_output.log"
           echo "::notice title=Test End::$(date)"
 
       # === PUBLISH TEST RESULTS ===
       # WHY: Publishes JUnit XML test results for GitHub UI integration
       - name: Publish Test Results
         uses: dorny/test-reporter@v2
-        if: always() && needs.pre-check.outputs.integration-tests == 'true'
+        if: always() && needs.pre-flight-check.outputs.has-test-files == 'true'
         with:
           name: 'Terraform Integration Test Results'
           path: 'configurations/${{ inputs.target_configuration }}/terraform_test_results.xml'
@@ -384,15 +415,9 @@ jobs:
           storage-account-name: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
           resource-group-name: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
 
-      # === AVM COMPLIANCE CHECK ===
-      # Ensures configurations meet AVM testing requirements
-      - name: AVM Testing Compliance Check
-        if: always() && steps.integration-tests.outputs.has-test-files == 'false'
-        run: |
-          echo "::error title=AVM Compliance Violation::No .tftest.hcl files found. AVM principles require comprehensive testing coverage for all configurations."
-          echo "::notice title=Required Action::Add at least one .tftest.hcl file to validate this configuration meets AVM quality standards."
-          echo "::notice title=Reference::See terraform-iac.instructions.md for AVM testing requirements"
-          exit 1
+  # === AVM COMPLIANCE CHECK ===
+  # Ensures configurations meet AVM testing requirements (already validated in pre-flight-check)
+  # No-op: AVM compliance is enforced by pre-flight-check job
 
   # === REUSABLE EXECUTION SUMMARY GENERATION ===
   # Generates a comprehensive summary of all validation steps and results for this path
@@ -400,6 +425,7 @@ jobs:
     name: 📊 Execution Summary Generation
     if: always()  # Always execute for comprehensive reporting
     needs:
+      - pre-flight-check
       - format-check
       - syntax-validation
       - structure-validation
@@ -407,19 +433,12 @@ jobs:
       - integration-test
     uses: ./.github/workflows/reusable-execution-summary.yml
     with:
-      # === CORE WORKFLOW IDENTIFICATION ===
       workflow-name: "terraform-single-path-validation"
       operation-type: "validation"
       configuration: ${{ inputs.target_configuration }}
-
-      # === EXECUTION CONTEXT ===
       job-results: ${{ toJSON(needs) }}
       workflow-inputs: ${{ github.event_name == 'workflow_dispatch' && toJSON(inputs) || '{}' }}
-
-      # === SUMMARY CUSTOMIZATION ===
       include-troubleshooting: true
       include-technical-details: true
       summary-level: "detailed"
-
-      # === ARTIFACT CONFIGURATION ===
       artifact-retention-days: 14
