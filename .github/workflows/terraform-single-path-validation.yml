@@ -66,6 +66,16 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        
+      # === EXECUTION METADATA GENERATION ===
+      # Generate comprehensive metadata for audit trails and workflow tracking
+      - name: Generate Structure Validation Metadata
+        id: structure-metadata
+        uses: ./.github/actions/generate-workflow-metadata
+        with:
+          operation: 'validation'
+          phase: 'structure-validation'
+          additional-data: '{"target_configuration": "${{ inputs.target_configuration }}"}'
 
       # === AVM COMPLIANCE & STRUCTURE CHECK EXECUTION ===
       # WHY: Ensures all required files and structure are present before integration testing
@@ -88,12 +98,16 @@ jobs:
             echo "has-main-tf=false" >> $GITHUB_OUTPUT
             missing_files="${missing_files}main.tf "
           fi
-          # Check for variables.tf
+          # Check for variables.tf OR .tfvars files (optional)
           if [ -f "variables.tf" ]; then
             echo "has-variables-tf=true" >> $GITHUB_OUTPUT
+            echo "::notice title=Variables Found::Using variables.tf for input parameters"
+          elif find . -name "*.tfvars" -type f | grep -q .; then
+            echo "has-variables-tf=true" >> $GITHUB_OUTPUT
+            echo "::notice title=Variables Found::Using .tfvars files for variable inputs"
           else
             echo "has-variables-tf=false" >> $GITHUB_OUTPUT
-            missing_files="${missing_files}variables.tf "
+            echo "::notice title=No Variables::No variables.tf or .tfvars files found. Consider adding if configuration needs input parameters."
           fi
           # Check for outputs.tf
           if [ -f "outputs.tf" ]; then
@@ -208,55 +222,6 @@ jobs:
           fi
           terraform init -backend=false -input=false
           terraform validate
-
-  # === STRUCTURE VALIDATION ===
-  # Advanced validation of configuration structure and tfvars for the target path
-  structure-validation:
-    name: 🔧 Structure Validation
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    needs: pre-flight-check
-    steps:
-      # === REPOSITORY ACCESS ===
-      # WHY: Required to access the repository code for validation
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      # === TERRAFORM ENVIRONMENT SETUP ===
-      # WHY: Ensures consistent Terraform version for structure validation
-      - name: Setup Terraform CLI
-        uses: hashicorp/setup-terraform@v3.1.2
-        with:
-          terraform_version: ${{ vars.TERRAFORM_VERSION || '1.12.2' }}
-
-      # === EXECUTION METADATA GENERATION ===
-      # Generate comprehensive metadata for audit trails and workflow tracking
-      - name: Generate Structure Validation Metadata
-        id: structure-metadata
-        uses: ./.github/actions/generate-workflow-metadata
-        with:
-          operation: 'validation'
-          phase: 'structure-validation'
-          additional-data: '{"target_configuration": "${{ inputs.target_configuration }}"}'
-
-      # === STRUCTURE VALIDATION EXECUTION ===
-      # WHY: Checks for tfvars and standard file structure to ensure best practices
-      - name: Structure Validation
-        id: structure
-        run: |
-          cd "configurations/${{ inputs.target_configuration }}"
-          if [ -d "tfvars" ]; then
-            find tfvars -name "*.tfvars" -type f | while read -r tfvars_file; do
-              if [ ! -s "$tfvars_file" ]; then
-                echo "::warning title=Empty tfvars::Empty tfvars file detected: $tfvars_file"
-              fi
-            done
-          fi
-          for f in main.tf variables.tf outputs.tf; do
-            if [ -f "$f" ]; then
-              echo "::notice title=Structure::Found $f"
-            fi
-          done
 
   # === SECURITY SCAN ===
   # Multi-layer security analysis using Trivy for the target path
@@ -428,7 +393,6 @@ jobs:
       - pre-flight-check
       - format-check
       - syntax-validation
-      - structure-validation
       - security-scan
       - integration-test
     uses: ./.github/workflows/reusable-execution-summary.yml
