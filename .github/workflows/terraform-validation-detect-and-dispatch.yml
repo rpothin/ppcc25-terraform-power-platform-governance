@@ -139,27 +139,8 @@ jobs:
               }
             }
             
-            // Build consolidated notice message
-            let notice = '::notice title=Terraform Validation Dispatch Summary::';
-            notice += `✅ Dispatched validation for ${dispatched.length} path(s)%0A`;
-            if (dispatched.length > 0) {
-              notice += `%0A📋 Paths Dispatched:%0A` + dispatched.join('%0A');
-            }
-            notice += `%0A%0A📂 Repository Context:%0A`;
-            notice += `• Repository: ${repository}%0A`;
-            notice += `• Reference: ${ref}%0A`;
-            notice += `• Event: ${eventName}%0A`;
-            notice += `• Triggered by: ${actor}%0A`;
-            notice += `%0A🔄 Execution Context:%0A`;
-            notice += `• Run Number: #${runNumber}%0A`;
-            notice += `• Run ID: ${runId}%0A`;
-            notice += `• Timestamp: ${timestamp}%0A`;
-            notice += `• Commit SHA: ${sha}`;
-            if (failed) {
-              notice += `%0A%0A⚠️ Some dispatches failed. See logs for details.`;
-            }
-            // Emit the notice
-            echo "::notice title=Terraform Validation Dispatch Summary::${notice.replace(/"/g, '\"')}"
+            // Emit consolidated notice message
+            echo "::notice title=Terraform Validation Dispatch Summary::✅ Dispatched validation for ${dispatched.length} path(s)%0A${dispatched.length > 0 ? '%0A📋 Paths Dispatched:%0A' + dispatched.join('%0A') : ''}%0A%0A📂 Repository Context:%0A• Repository: ${repository}%0A• Reference: ${ref}%0A• Event: ${eventName}%0A• Triggered by: ${actor}%0A%0A🔄 Execution Context:%0A• Run Number: #${runNumber}%0A• Run ID: ${runId}%0A• Timestamp: ${timestamp}%0A• Commit SHA: ${sha}${failed ? '%0A%0A⚠️ Some dispatches failed. See logs for details.' : ''}"
             
             core.info(`🎉 Successfully dispatched validation for all ${paths.length} path(s)`);
 
