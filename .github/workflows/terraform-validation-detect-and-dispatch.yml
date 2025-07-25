@@ -149,6 +149,9 @@ jobs:
             core.setOutput('dispatched-paths', dispatched.join('%0A'));
             core.setOutput('has-failures', failed ? 'true' : 'false');
             core.setOutput('timestamp', timestamp);
+            const workflowUrl = `https://github.com/${owner}/${repo}/actions/workflows/${workflow_id}`;
+            core.setOutput('workflow-url', workflowUrl);
+
             core.info(`🎉 Successfully dispatched validation for all ${paths.length} path(s)`);
 
       # Emit a notice summarizing the dispatch results
@@ -159,7 +162,7 @@ jobs:
           if [ "${{ steps.dispatch.outputs.dispatched-count }}" -eq 0 ]; then
             echo "::notice title=Terraform Validation Dispatch Summary::No validations were dispatched."
           else
-            echo "::notice title=Terraform Validation Dispatch Summary::✅ Dispatched validation for ${{ steps.dispatch.outputs.dispatched-count }} path(s)%0A%0A📋 Paths Dispatched:%0A${{ steps.dispatch.outputs.dispatched-paths }}%0A%0A📂 Repository Context:%0A• Repository: ${{ github.repository }}%0A• Reference: ${{ github.ref }}%0A• Event: ${{ github.event_name }}%0A• Triggered by: ${{ github.actor }}%0A%0A🔄 Execution Context:%0A• Run Number: #${{ github.run_number }}%0A• Run ID: ${{ github.run_id }}%0A• Timestamp: ${{ steps.dispatch.outputs.timestamp }}%0A• Commit SHA: ${{ github.sha }}${{ steps.dispatch.outputs.has-failures == 'true' && '%0A%0A⚠️ Some dispatches failed. See logs for details.' || '' }}"
+            echo "::notice title=Terraform Validation Dispatch Summary::✅ Dispatched validation for ${{ steps.dispatch.outputs.dispatched-count }} path(s)%0A%0A📋 Paths Dispatched:%0A${{ steps.dispatch.outputs.dispatched-paths }}%0A%0A🔗 View Workflow Runs:%0A[${{ steps.dispatch.outputs.workflow-url }}](${{ steps.dispatch.outputs.workflow-url }})${{ steps.dispatch.outputs.has-failures == 'true' && '%0A%0A⚠️ Some dispatches failed. See logs for details.' || '' }}${{ steps.dispatch.outputs.has-failures == 'true' && '%0A%0A⚠️ Some dispatches failed. See logs for details.' || '' }}"
           fi
 
   # === AGGREGATE & SUMMARY ===
