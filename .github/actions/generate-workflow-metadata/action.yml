@@ -250,15 +250,55 @@ runs:
           echo "METADATA_EOF"
         } >> $GITHUB_OUTPUT
 
-        # === SUCCESS CONFIRMATION ===
-        # Provide confirmation and summary of generated metadata
-        echo "::notice title=Metadata Generated::✅ AVM-compliant metadata successfully created"
-        echo "::notice title=Operation Context::Operation: ${{ inputs.operation }}, Phase: ${{ inputs.phase }}"
-        if [ -n "${{ inputs.configuration }}" ]; then
-          echo "::notice title=Configuration::Processing configuration: ${{ inputs.configuration }}"
+        # === PREPARE DISPLAY VARIABLES ===
+        # Format optional fields for clean display
+        CONFIGURATION_DISPLAY="${{ inputs.configuration }}"
+        if [ -z "$CONFIGURATION_DISPLAY" ]; then
+          CONFIGURATION_DISPLAY="(none specified)"
         fi
-        if [ -n "${{ inputs.tfvars-file }}" ]; then
-          echo "::notice title=Variables::Using tfvars file: ${{ inputs.tfvars-file }}"
+        
+        TFVARS_DISPLAY="${{ inputs.tfvars-file }}"
+        if [ -z "$TFVARS_DISPLAY" ]; then
+          TFVARS_DISPLAY="(default variables)"
         fi
+        
+        # Format additional data for display
+        ADDITIONAL_DISPLAY=""
+        if [ '${{ inputs.additional-data }}' != '{}' ]; then
+          additional_summary=$(echo '${{ inputs.additional-data }}' | jq -r 'to_entries | map("   • \(.key): \(.value)") | join("\n")' 2>/dev/null || echo "   • Custom metadata provided")
+          ADDITIONAL_DISPLAY="
+        
+        ➕ Additional Context:
+        $additional_summary"
+        fi
+        
+        # === SUCCESS CONFIRMATION WITH COMPREHENSIVE METADATA SUMMARY ===
+        # Consolidate all metadata details into a single notice for cleaner workflow logs
+        echo "::notice title=AVM Metadata Generated::✅ Comprehensive metadata created successfully
+        
+        📋 Operation Details:
+           • Operation: ${{ inputs.operation }}
+           • Phase: ${{ inputs.phase }}
+           • Configuration: $CONFIGURATION_DISPLAY
+           • Environment: $TFVARS_DISPLAY
+        
+        🔧 System Information:
+           • Terraform Version: $terraform_version
+           • Runner: ${{ runner.os }}-${{ runner.arch }}
+           • Schema Version: 2.0.0
+        
+        📂 Repository Context:
+           • Repository: ${{ github.repository }}
+           • Reference: ${{ github.ref }}
+           • Event: ${{ github.event_name }}
+           • Triggered by: ${{ github.actor }}
+        
+        🔄 Execution Context:
+           • Run Number: #${{ github.run_number }}
+           • Run ID: ${{ github.run_id }}
+           • Timestamp: $timestamp
+           • Commit SHA: ${{ github.sha }}$ADDITIONAL_DISPLAY"
+        
+        echo "::debug::Metadata generation completed successfully"
 
         echo "::debug::Metadata generation completed successfully"
