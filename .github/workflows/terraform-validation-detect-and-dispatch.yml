@@ -87,7 +87,22 @@ jobs:
     if: needs.detect-changes.outputs.has-changes == 'true'
     runs-on: ubuntu-latest
     steps:
-      # Dispatches validation workflows for all changed paths
+      # === REPOSITORY ACCESS ===
+      # WHY: Required to access composite actions for metadata generation
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # === EXECUTION METADATA GENERATION ===
+      # Generate comprehensive metadata for dispatch audit trails and workflow tracking
+      - name: Generate Dispatch Metadata
+        id: dispatch-metadata
+        uses: ./.github/actions/generate-workflow-metadata
+        with:
+          operation: 'validation'
+          phase: 'dispatch'
+          additional-data: '{"dispatch_type": "multi-path", "changed_paths_count": "${{ needs.detect-changes.outputs.changed-paths-count }}", "target_workflow": "terraform-single-path-validation.yml"}'
+
+    # Dispatches validation workflows for all changed paths
       # WHY: Dispatches validation workflows for all changed paths, handling newline-separated format from reusable workflow
       - name: Dispatch Validation for All Changed Paths
         uses: actions/github-script@v7
