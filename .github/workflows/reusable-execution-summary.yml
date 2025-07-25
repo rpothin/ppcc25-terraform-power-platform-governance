@@ -137,7 +137,6 @@ jobs:
       summary-generated: ${{ steps.generate-summary.outputs.summary-generated }}
       overall-result: ${{ steps.analyze-results.outputs.overall-result }}
       failure-count: ${{ steps.analyze-results.outputs.failure-count }}
-      summary-artifact-name: ${{ steps.upload-summary.outputs.artifact-name }}
     
     steps:
       # === EXECUTION CONTEXT ANALYSIS ===
