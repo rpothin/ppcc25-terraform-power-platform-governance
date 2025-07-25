@@ -253,29 +253,6 @@ runs:
         # === SUCCESS CONFIRMATION WITH COMPREHENSIVE METADATA SUMMARY ===
         # Consolidate all metadata details into a single notice for cleaner workflow logs
         # GitHub will automatically truncate long notices with a "Show more" link
-        echo "::notice title=Metadata Generated::✅ AVM-compliant metadata successfully created
-        
-        📋 Operation Details:
-           • Operation: ${{ inputs.operation }}
-           • Phase: ${{ inputs.phase }}
-           • Configuration: ${CONFIGURATION_DISPLAY}
-           • Environment: ${TFVARS_DISPLAY}
-        
-        🔧 System Information:
-           • Terraform Version: $terraform_version
-           • Runner: ${{ runner.os }}-${{ runner.arch }}
-           • Schema Version: 2.0.0
-        
-        📂 Repository Context:
-           • Repository: ${{ github.repository }}
-           • Reference: ${{ github.ref }}
-           • Event: ${{ github.event_name }}
-           • Triggered by: ${{ github.actor }}
-        
-        🔄 Execution Context:
-           • Run Number: #${{ github.run_number }}
-           • Run ID: ${{ github.run_id }}
-           • Timestamp: $timestamp
-           • Commit SHA: ${{ github.sha }}"
+        echo "::notice title=AVM Metadata Generated::✅ Comprehensive metadata created successfully%0A%0A📋 Operation Details:%0A• Operation: ${{ inputs.operation }}%0A• Phase: ${{ inputs.phase }}%0A• Configuration: $CONFIGURATION_DISPLAY%0A• Environment: $TFVARS_DISPLAY%0A%0A🔧 System Information:%0A• Terraform Version: $terraform_version%0A• Runner: ${{ runner.os }}-${{ runner.arch }}%0A• Schema Version: 2.0.0%0A%0A📂 Repository Context:%0A• Repository: ${{ github.repository }}%0A• Reference: ${{ github.ref }}%0A• Event: ${{ github.event_name }}%0A• Triggered by: ${{ github.actor }}%0A%0A🔄 Execution Context:%0A• Run Number: #${{ github.run_number }}%0A• Run ID: ${{ github.run_id }}%0A• Timestamp: $timestamp%0A• Commit SHA: ${{ github.sha }}"
 
         echo "::debug::Metadata generation completed successfully"
