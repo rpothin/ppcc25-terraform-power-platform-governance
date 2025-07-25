@@ -1,5 +1,6 @@
 ---
 mode: agent
+description: "Conduct a comprehensive assessment of the attached repository folder(s) against established guidelines and standards, ensuring thoroughness, consistency, and actionable recommendations."
 ---
 
 # 🔍 Repository Component Assessment Tool

@@ -1,5 +1,6 @@
 ---
 mode: agent
+description: "Automatically update Dependabot configuration groups patterns by analyzing the codebase to identify all current and potential dependencies, ensuring comprehensive coverage while maintaining logical groupings."
 ---
 
 # Dependabot Groups Patterns Update Task
