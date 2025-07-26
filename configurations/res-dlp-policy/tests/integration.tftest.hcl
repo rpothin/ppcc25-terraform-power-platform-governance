@@ -1,6 +1,6 @@
 # Integration Tests for res-dlp-policy
 #
-# These integration tests validate the Power Platform DLP policy deployment against a real Power Platform tenant.
+# These integration tests validate the DLP policy deployment against a real Power Platform tenant.
 # Tests require authentication via OIDC and are designed for CI/CD environments like GitHub Actions.
 #
 # Test Philosophy:

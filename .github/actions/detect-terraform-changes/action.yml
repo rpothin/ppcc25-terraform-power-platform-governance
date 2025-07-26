@@ -155,14 +155,10 @@ runs:
           configurations:
             - 'configurations/**/*.tf'           # Main Terraform configuration files
             - 'configurations/**/*.tfvars'       # Variable definition files
+            - 'configurations/**/*.tftest.hcl'   # Test files in any subdirectory
             - 'configurations/**/.terraform-docs.yml'   # Documentation configuration
             - 'configurations/**/_header.md'     # Custom header content for docs
             - 'configurations/**/_footer.md'     # Custom footer content for docs
-          modules:
-            - 'modules/**/*.tf'                  # Module Terraform files
-            - 'modules/**/.terraform-docs.yml'  # Module documentation configuration
-            - 'modules/**/_header.md'            # Module header content
-            - 'modules/**/_footer.md'            # Module footer content
         # Note: Patterns are optimized to avoid false positives while ensuring comprehensive coverage
         # Documentation files are included because they affect the final infrastructure documentation
 
