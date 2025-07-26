@@ -20,6 +20,17 @@ applyTo: "configurations/**,modules/**"
 
 ## Terraform Code Structure and Standards
 - Use consistent formatting with `terraform fmt` for all configuration files
+- **MANDATORY:** Run `terraform fmt -check` and `terraform validate` before finalizing any configuration or module changes. All files must pass both checks before merge or release.
+## Format and Syntax Validation (MANDATORY)
+
+**All Terraform code must pass format and syntax validation before completion or merge:**
+
+- Run `terraform fmt -check` in the configuration or module directory to ensure all files are properly formatted.
+- If issues are found, run `terraform fmt` to auto-correct, then re-run `terraform fmt -check`.
+- Run `terraform validate` to ensure all files are syntactically correct and provider requirements are met.
+- Do not consider a configuration or module complete until both checks pass with no errors.
+
+**This process is required for AVM compliance, CI/CD reliability, and consistent code quality.**
 - Implement proper resource naming conventions with descriptive names
 - Group related resources logically and use meaningful comments
 - Follow HCL best practices for readability and maintainability

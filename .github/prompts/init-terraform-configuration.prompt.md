@@ -306,9 +306,15 @@ feature_flags = {
 
 ### Phase 3: Finalization
 
-10. **Validate Structure**
+10. **MANDATORY: Format Validation and Correction**
+  - Navigate to configuration directory: `cd configurations/{configuration-name}`
+  - Run format check: `terraform fmt -check`
+  - If formatting issues found, auto-correct: `terraform fmt`
+  - Re-verify formatting: `terraform fmt -check` (must pass with no output)
+  - **STOP** if formatting cannot be resolved - investigate and fix manually
+11. **Validate Structure**
   - Ensure AVM compliance and repository standards
-11. **Update Changelog**
+12. **Update Changelog**
   - Add entry for new configuration
 
 ---
@@ -323,7 +329,10 @@ feature_flags = {
 4. **Verify Copy Success**: Confirm all template files were copied before proceeding
 5. **Replace Placeholders Only**: Only modify placeholder values, never alter template structure
 6. **Customize for Classification**: Add/modify files as needed for resource, pattern, or utility module
-7. **Test and Document**: Validate syntax and update changelog
+7. **Test, Format, and Document**: 
+  - Validate syntax with `terraform validate`
+  - **MANDATORY**: Apply formatting with `terraform fmt` and verify with `terraform fmt -check`
+  - Update changelog
 
 ---
 
@@ -409,11 +418,37 @@ configurations/{configuration-name}/
 
 ## 🔍 Final Validation Checklist
 
+
 Before considering the task complete, verify:
 - [ ] Template directory was copied using `cp -r` command (not manually created)
 - [ ] All placeholder variables have been replaced with actual values
 - [ ] No template structure was altered (only placeholders replaced)
 - [ ] `.terraform-docs.yml` points to the correct header/footer files
 - [ ] All required files exist in the new configuration directory
+- [ ] **MANDATORY: `terraform fmt -check` passes with no output (all files properly formatted)**
+- [ ] **MANDATORY: `terraform validate` passes (syntax validation)**
+## 🎯 Format Standards Integration
+
+**Terraform formatting is mandatory for AVM compliance and CI/CD success:**
+
+### Automatic Format Correction Process
+1. **Check**: Run `terraform fmt -check` to identify formatting issues
+2. **Fix**: Run `terraform fmt` to auto-correct alignment and spacing
+3. **Verify**: Re-run `terraform fmt -check` to confirm no issues remain
+4. **Commit**: Only proceed with initialization completion after format validation passes
+
+### Common Format Issues Prevented
+- **Variable Alignment**: Ensures consistent spacing in `type`, `default`, and `description` blocks
+- **Output Alignment**: Standardizes `value` and `description` spacing  
+- **Comment Spacing**: Normalizes inline comment positioning
+- **Resource Indentation**: Maintains consistent HCL block structure
+
+### Integration with CI/CD
+- Format validation prevents GitHub Actions workflow failures
+- Ensures consistent code quality across all configurations
+- Reduces manual remediation steps in development workflow
+- Maintains AVM compliance standards automatically
+
+**This process eliminates the format issues we've encountered and ensures every new configuration meets quality standards from creation.**
 
 **Ready to proceed? Please provide the module classification, configuration name, and primary purpose.**

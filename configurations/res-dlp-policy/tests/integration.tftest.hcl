@@ -16,8 +16,8 @@
 # - Security Validation: Sensitive data handling and access controls
 
 variables {
-  expected_minimum_count = 0  # Allow empty tenants in test environments
-  test_timeout_minutes   = 5  # Reasonable timeout for CI/CD
+  expected_minimum_count = 0 # Allow empty tenants in test environments
+  test_timeout_minutes   = 5 # Reasonable timeout for CI/CD
 }
 
 run "comprehensive_validation" {

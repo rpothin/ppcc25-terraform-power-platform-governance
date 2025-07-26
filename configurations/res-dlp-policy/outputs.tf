@@ -15,7 +15,7 @@ output "dlp_policy_id" {
 The unique identifier of the DLP policy.
 This output provides the primary key for referencing this resource in other Terraform configurations or external systems. The ID format follows Power Platform standards.
 DESCRIPTION
-  value = powerplatform_data_loss_prevention_policy.this.id
+  value       = powerplatform_data_loss_prevention_policy.this.id
 }
 
 output "dlp_policy_display_name" {
