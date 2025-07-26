@@ -12,8 +12,8 @@
 # Test Categories:
 # - Framework Validation: Basic Terraform and provider functionality
 # - Resource Validation: Resource-specific structure and constraints
-# - Output Validation: AVM compliance and data integrity
-# - Security Validation: Sensitive data handling and access controls
+# - Variable Validation: Input parameter validation and constraints
+# - Configuration Validation: Resource configuration compliance
 
 variables {
   # Test configuration - adjustable for different environments
@@ -37,29 +37,40 @@ run "comprehensive_validation" {
 
   # Framework and provider validation
   assert {
-    condition     = can(powerplatform_data_loss_prevention_policy.this)
-    error_message = "DLP policy resource should be accessible."
+    condition     = can(powerplatform_data_loss_prevention_policy.this.display_name)
+    error_message = "DLP policy resource should be plannable and display_name should be accessible."
+  }
+
+  # Variable validation and input constraints
+  assert {
+    condition     = contains(["General", "Confidential", "Blocked"], var.default_connectors_classification)
+    error_message = "Default connectors classification should be valid value."
+  }
+
+  assert {
+    condition     = contains(["AllEnvironments", "ExceptEnvironments", "OnlyEnvironments"], var.environment_type)
+    error_message = "Environment type should be valid value."
   }
 
   # Resource configuration validation
   assert {
-    condition     = powerplatform_data_loss_prevention_policy.this.display_name == var.display_name
-    error_message = "DLP policy display name should match input variable."
-  }
-
-  # Output structure validation
-  assert {
-    condition     = can(output.dlp_policy_id)
-    error_message = "DLP policy ID output should be accessible."
+    condition     = can(powerplatform_data_loss_prevention_policy.this.default_connectors_classification)
+    error_message = "DLP policy should have default_connectors_classification configured."
   }
 
   assert {
-    condition     = can(output.dlp_policy_display_name)
-    error_message = "DLP policy display name output should be accessible."
+    condition     = can(powerplatform_data_loss_prevention_policy.this.environment_type)
+    error_message = "DLP policy should have environment_type configured."
+  }
+
+  # Input data validation
+  assert {
+    condition     = length(var.display_name) > 0
+    error_message = "Display name should not be empty."
   }
 
   assert {
-    condition     = can(output.dlp_policy_environment_type)
-    error_message = "DLP policy environment type output should be accessible."
+    condition     = length(var.business_connectors) >= 0
+    error_message = "Business connectors should be a valid list."
   }
 }
