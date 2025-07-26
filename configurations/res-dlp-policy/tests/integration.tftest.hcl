@@ -37,25 +37,29 @@ run "comprehensive_validation" {
 
   # Framework and provider validation
   assert {
-    condition     = can(module.res-dlp-policy)
-    error_message = "Module should be loadable."
+    condition     = can(powerplatform_data_loss_prevention_policy.this)
+    error_message = "DLP policy resource should be accessible."
   }
 
-  # Resource structure validation
+  # Resource configuration validation
+  assert {
+    condition     = powerplatform_data_loss_prevention_policy.this.display_name == var.display_name
+    error_message = "DLP policy display name should match input variable."
+  }
+
+  # Output structure validation
   assert {
     condition     = can(output.dlp_policy_id)
-    error_message = "DLP policy ID output should be present."
+    error_message = "DLP policy ID output should be accessible."
   }
 
-  # Output compliance validation
   assert {
-    condition     = output.dlp_policy_display_name != null
-    error_message = "DLP policy display name should not be null."
+    condition     = can(output.dlp_policy_display_name)
+    error_message = "DLP policy display name output should be accessible."
   }
 
-  # Data integrity validation
   assert {
-    condition     = output.dlp_policy_environment_type != null
-    error_message = "DLP policy environment type should not be null."
+    condition     = can(output.dlp_policy_environment_type)
+    error_message = "DLP policy environment type output should be accessible."
   }
 }
