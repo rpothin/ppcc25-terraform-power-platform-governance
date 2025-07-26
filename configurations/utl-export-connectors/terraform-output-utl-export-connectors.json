@@ -1,0 +1,39 @@
+{
+  "metadata": {
+    "generated_at": "2025-07-26T02:33:02Z",
+    "workflow": {
+      "run_number": 86,
+      "run_id": "16535134372",
+      "generated_by": "rpothin",
+      "version": "2.0.0"
+    },
+    "terraform_version": "1.12.2",
+    "operation": "output",
+    "phase": "execution",
+    "configuration": "utl-export-connectors",
+    "tfvars_file": "",
+    "repository": {
+      "name": "rpothin/ppcc25-terraform-power-platform-governance",
+      "ref": "refs/heads/main",
+      "sha": "d5d606e5b4844a0d5c45eab3635f9bef796b280d",
+      "event": "workflow_dispatch"
+    },
+    "runner": {
+      "os": "Linux",
+      "architecture": "X64"
+    },
+    "additional": {
+      "state_key": "utl-export-connectors.tfstate",
+      "additional_options": "-json -no-color",
+      "auto_approve": "false",
+      "timeout_minutes": 10
+    },
+    "output_processing": {
+      "export_format": "json",
+      "processing_workflow": "terraform-output",
+      "output_filename": "terraform-output-utl-export-connectors.json",
+      "file_size_mb": 0
+    }
+  },
+  "terraform_output": {}
+}
