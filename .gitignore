@@ -1,8 +1,13 @@
 # Terraform files
 *.tfstate
 *.tfstate.*
+
+# Block sensitive tfvars files everywhere
 *.tfvars
 !terraform.tfvars.example
+# Allow tfvars files in configurations/ directory (these are templates/examples)
+!configurations/**/*.tfvars
+
 .terraform/
 .terraform.lock.hcl
 tfplan

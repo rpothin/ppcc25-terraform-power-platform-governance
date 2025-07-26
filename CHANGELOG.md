@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Terraform Configurations**
+  - **NEW**: Utility configuration `utl-export-connectors` for exporting a list of all available Power Platform connectors in the tenant. Includes AVM-compliant template, documentation, and integration test stub. Supports governance, analytics, and DLP policy design use cases.
 - **Development Prompts**
   - **NEW**: Comprehensive `init-terraform-configuration.prompt.md` for standardized creation of Terraform configurations following AVM (Azure Verified Modules) principles. Includes classification-specific templates for Resource Modules (`res-*`), Pattern Modules (`ptn-*`), and Utility Modules (`utl-*`) with Power Platform provider exception documentation, security best practices, and testing requirements.
 
