@@ -11,25 +11,5 @@
 # - Security-First: Sensitive data properly marked and segregated
 # - Migration Ready: Structured output for analysis and migration planning
 
-# Test 1
-
-terraform {
-  required_version = ">= 1.5.0"
-  required_providers {
-    powerplatform = {
-      source  = "microsoft/power-platform"
-      version = "~> 3.8"
-    }
-  }
-
-  backend "azurerm" {
-    use_oidc = true
-  }
-}
-
-provider "powerplatform" {
-  use_oidc = true
-}
-
 # Data Loss Prevention Policies - Main focus of this configuration
 data "powerplatform_data_loss_prevention_policies" "current" {}
