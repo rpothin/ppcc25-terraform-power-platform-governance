@@ -27,13 +27,13 @@ The following requirements are needed by this module:
 
 - <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) (>= 1.5.0)
 
-- <a name="requirement_powerplatform"></a> [powerplatform](#requirement\_powerplatform) (~> 3.8)
+- <a name="requirement_powerplatform"></a> [powerplatform](#requirement\_powerplatform) (~> 3.0)
 
 ## Providers
 
 The following providers are used by this module:
 
-- <a name="provider_powerplatform"></a> [powerplatform](#provider\_powerplatform) (~> 3.8)
+- <a name="provider_powerplatform"></a> [powerplatform](#provider\_powerplatform) (~> 3.0)
 
 ## Resources
 
