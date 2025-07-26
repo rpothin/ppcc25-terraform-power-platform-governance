@@ -76,7 +76,7 @@ jobs:
       # === TERRAFORM-SPECIFIC PATH FILTERING ===
       # Filter for files that affect Terraform testing and validation
       # Includes: .tf files, .tfvars files, and terraform configuration files
-      path-filter: '\.(tf|tfvars)$|\.tftest\.hcl$'
+      path-filter: '\.(tf|tfvars)$|.*\.tftest\.hcl$'
 
   # === VALIDATION DISPATCH ===
   # Runs single-path validation for each changed directory in parallel
