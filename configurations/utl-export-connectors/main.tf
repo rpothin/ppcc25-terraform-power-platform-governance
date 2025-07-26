@@ -1,6 +1,6 @@
 # Export Power Platform Connectors Utility Configuration
 #
-# This configuration exports a list of all connectors in the tenant using AVM best practices.
+# This configuration exports all connectors in the tenant using AVM best practices.
 #
 # Key Features:
 # - AVM-Inspired Structure: Modular, reusable, and secure
