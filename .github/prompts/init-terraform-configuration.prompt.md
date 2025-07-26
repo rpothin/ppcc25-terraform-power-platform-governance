@@ -3,7 +3,6 @@ mode: agent
 description: "Creates new Terraform configurations aligned with Azure Verified Modules (AVM) principles and repository standards using a template-based approach."
 ---
 
-
 # 🚀 Terraform Configuration Initialization (Strict Template-Based)
 
 You are tasked with creating a new Terraform configuration aligned with Azure Verified Modules (AVM) principles and repository standards. This process **MUST** use the provided template directory for maximum consistency and maintainability. **Never create or overwrite template files from scratch.**
@@ -36,29 +35,39 @@ Before proceeding, **MUST** collect the following information from the user:
 
 ## 🏗️ Initialization Workflow
 
-
 ### Phase 1: Template-Based Foundation (MANDATORY)
 
-1. **MANDATORY: Copy Template Directory**
-  - Execute: `cp -r .github/terraform-configuration-template configurations/{configuration-name}`
-  - **DO NOT** create files from scratch—ALWAYS start with the template
-  - Verify template files copied: `_header.md`, `_footer.md`, `.terraform-docs.yml`
+⚠️ **CRITICAL**: You must NEVER manually create template files. Always use the copy operation below.
 
-2. **MANDATORY: Inventory All Placeholders**
-  - Scan `_header.md` and `_footer.md` for ALL `{{PLACEHOLDER}}` variables
+1. **MANDATORY: Verify Template Exists**
+  - First use `list_dir` to confirm `.github/terraform-configuration-template/` exists
+  - Verify template contains: `_header.md`, `_footer.md`, `.terraform-docs.yml`
+  - **STOP** if template directory is missing or incomplete
+
+2. **MANDATORY: Copy Template Directory Using Terminal Command**
+  - Execute in terminal: `cp -r .github/terraform-configuration-template configurations/{configuration-name}`
+  - **NEVER** use create_file or other tools to recreate template content
+  - Use `list_dir` to confirm all template files were copied successfully
+
+3. **MANDATORY: Read Copied Template Files**
+  - Use `read_file` to read the copied `_header.md` and `_footer.md` from the new configuration directory
+  - **DO NOT** read from the template directory - only from the copied files
+  - Verify the copied files contain placeholder variables ({{PLACEHOLDER}})
+
+4. **MANDATORY: Inventory All Placeholders**
+  - Scan the copied `_header.md` and `_footer.md` for ALL `{{PLACEHOLDER}}` variables
   - List every placeholder found before proceeding
   - **DO NOT** rewrite template content—only replace placeholders
 
-3. **MANDATORY: Replace Placeholders Systematically**
+5. **MANDATORY: Replace Placeholders Systematically**
   - Create a mapping of placeholder-to-value using user input and classification logic
-  - Replace ALL placeholders in the copied files
+  - Replace ALL placeholders in the copied files using editing tools
   - **NEVER** alter the template structure or add/remove sections
 
-4. **Validate Template Copy**
+6. **Validate Template Copy Process**
   - Confirm `.terraform-docs.yml` contains `header-from: "_header.md"` and `footer-from: "_footer.md"`
-  - Verify `_header.md` and `_footer.md` contain all required placeholders
-  - **STOP** if template wasn't copied or placeholders weren't replaced correctly
-
+  - Verify `_header.md` and `_footer.md` no longer contain placeholder variables
+  - **STOP** if template wasn't copied properly or placeholders weren't replaced correctly
 
 ### Phase 2: Classification-Specific Customization
 
@@ -73,7 +82,6 @@ Before proceeding, **MUST** collect the following information from the user:
 9. **Create Tests**
   - Add `tests/integration.tftest.hcl` with basic validation
 
-
 ### Phase 3: Finalization
 
 10. **Validate Structure**
@@ -83,14 +91,17 @@ Before proceeding, **MUST** collect the following information from the user:
 
 ---
 
-
 ## ⚡ Execution Instructions (STRICT)
+
+🚨 **NEVER CREATE TEMPLATE FILES MANUALLY** 🚨
 
 1. **Confirm Understanding**: State the configuration to be created and its classification
 2. **Validate Inputs**: Ensure naming follows conventions and requirements are clear
-3. **MANDATORY: Copy and Prepare Template**: Copy template, list all placeholders, and replace them with user/classification values—**never rewrite template content**
-4. **Customize for Classification**: Add/modify files as needed for resource, pattern, or utility module
-5. **Test and Document**: Validate syntax and update changelog
+3. **MANDATORY: Copy Template First**: Use `cp -r` command to copy template directory - NEVER create files manually
+4. **Verify Copy Success**: Confirm all template files were copied before proceeding
+5. **Replace Placeholders Only**: Only modify placeholder values, never alter template structure
+6. **Customize for Classification**: Add/modify files as needed for resource, pattern, or utility module
+7. **Test and Document**: Validate syntax and update changelog
 
 ---
 
@@ -115,7 +126,6 @@ configurations/{configuration-name}/
 ```
 
 ---
-
 
 ## 📝 Notes
 
@@ -172,5 +182,16 @@ configurations/{configuration-name}/
 - `{{CLASSIFICATION_PURPOSE}}`: "Pattern Implementation"
 - `{{CLASSIFICATION_DESCRIPTION}}`: "Deploys multiple resources using composable patterns"
 - `{{TFFR2_IMPLEMENTATION}}`: "outputting key resource identifiers and computed values from the pattern"
+
+---
+
+## 🔍 Final Validation Checklist
+
+Before considering the task complete, verify:
+- [ ] Template directory was copied using `cp -r` command (not manually created)
+- [ ] All placeholder variables have been replaced with actual values
+- [ ] No template structure was altered (only placeholders replaced)
+- [ ] `.terraform-docs.yml` points to the correct header/footer files
+- [ ] All required files exist in the new configuration directory
 
 **Ready to proceed? Please provide the module classification, configuration name, and primary purpose.**
