@@ -41,6 +41,7 @@ on:
         type: choice
         options:
           - 'utl-export-dlp-policies'
+          - 'utl-export-connectors'
         default: 'utl-export-dlp-policies'
         # WHY: Scopes permissions and isolates blast radius for governance
         # VALIDATION: Must exist in configurations/ and contain .tf files
