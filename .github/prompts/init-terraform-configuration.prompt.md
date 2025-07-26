@@ -34,6 +34,228 @@ Before proceeding, **MUST** collect the following information from the user:
 ---
 
 ## 🏗️ Initialization Workflow
+## 📝 Comment Standards Integration (MANDATORY)
+
+**MANDATORY: All generated Terraform files MUST include comprehensive comments following baseline.instructions.md standards.**
+
+### Comment Patterns by File Type
+
+**main.tf Header Pattern**:
+```hcl
+# {Configuration Title} Configuration
+#
+# This configuration {primary purpose} following Azure Verified Module (AVM)
+# best practices with Power Platform provider adaptations.
+#
+# Key Features:
+# - AVM-Inspired Structure: {explanation of AVM compliance}
+# - Anti-Corruption Layer: {explanation of output strategy}
+# - Security-First: {security considerations}
+# - {Classification}-Specific: {classification-specific benefits}
+#
+# Architecture Decisions:
+# - Provider Choice: Using microsoft/power-platform due to {reasoning}
+# - Backend Strategy: Azure Storage with OIDC for {security reasoning}
+# - Resource Organization: {organization strategy and why}
+
+# Provider configuration with explicit versioning for reproducibility
+terraform {
+  # Version constraints ensure consistent behavior across environments
+  required_version = ">= 1.5.0"
+  required_providers {
+    powerplatform = {
+      source  = "microsoft/power-platform"
+      version = "~> 3.8"  # Pessimistic constraint for stability
+    }
+  }
+
+  # Azure backend with OIDC for secure, keyless authentication
+  backend "azurerm" {
+    use_oidc = true
+  }
+}
+
+# Provider configuration using OIDC for enhanced security
+provider "powerplatform" {
+  use_oidc = true
+}
+```
+
+**variables.tf Pattern**:
+```hcl
+# Input Variables for {Configuration Title}
+#
+# This file defines all input parameters for the configuration following
+# AVM variable standards with comprehensive validation and documentation.
+#
+# Variable Categories:
+# - Core Configuration: Primary resource settings
+# - Environment Settings: Environment-specific parameters
+# - Security Settings: Authentication and access controls
+# - Feature Flags: Optional functionality toggles
+
+variable "example_config" {
+  type = object({
+    property_name = string
+    # ... other properties
+  })
+  description = <<DESCRIPTION
+Comprehensive configuration object for {resource type}.
+
+This variable consolidates all core settings to reduce complexity and
+improve validation. The object structure follows Power Platform
+resource requirements while maintaining Terraform best practices.
+
+Properties:
+- property_name: {detailed explanation of purpose and constraints}
+
+Example:
+{
+  property_name = "example-value"
+}
+
+Validation Rules:
+- {specific validation reasoning}
+DESCRIPTION
+
+  validation {
+    condition     = can(regex("^[a-zA-Z0-9-]+$", var.example_config.property_name))
+    error_message = "Property name must contain only alphanumeric characters and hyphens."
+  }
+}
+```
+
+**outputs.tf Pattern**:
+```hcl
+# Output Values for {Configuration Title}
+#
+# This file implements the AVM anti-corruption layer pattern by outputting
+# discrete computed attributes instead of complete resource objects.
+# This approach enhances security and maintains interface stability.
+#
+# Output Categories:
+# - Resource Identifiers: Primary keys for downstream references
+# - Computed Values: Derived attributes useful for integration
+# - Summary Information: Aggregated data for reporting
+# - Security Attributes: Access-related information (marked sensitive)
+
+# Primary resource identifier for downstream Terraform configurations
+output "resource_id" {
+  description = <<DESCRIPTION
+The unique identifier of the {resource type}.
+
+This output provides the primary key for referencing this resource
+in other Terraform configurations or external systems. The ID format
+follows Power Platform standards: {id format explanation}.
+DESCRIPTION
+  value       = powerplatform_resource.example.id
+}
+
+# Computed configuration summary for validation and reporting
+output "configuration_summary" {
+  description = <<DESCRIPTION
+Summary of the deployed configuration for validation and reporting.
+
+This output aggregates key configuration details in a structured format
+suitable for automated testing and compliance reporting. The summary
+excludes sensitive data while providing comprehensive visibility.
+DESCRIPTION
+  value = {
+    # Group related attributes logically with explanatory comments
+    resource_name = powerplatform_resource.example.display_name
+    # ... other summary attributes
+  }
+}
+```
+
+**tests/integration.tftest.hcl Pattern**:
+```hcl
+# Integration Tests for {Configuration Title}
+#
+# These integration tests validate the {primary purpose} against
+# a real Power Platform tenant. Tests require authentication via OIDC
+# and are designed for CI/CD environments like GitHub Actions.
+#
+# Test Philosophy:
+# - Performance Optimized: Consolidated assertions minimize plan/apply cycles
+# - Comprehensive Coverage: Validates structure, data integrity, and security
+# - Environment Agnostic: Works across development, staging, and production
+# - Failure Isolation: Clear error messages for rapid troubleshooting
+#
+# Test Categories:
+# - Framework Validation: Basic Terraform and provider functionality
+# - Resource Validation: Resource-specific structure and constraints
+# - Output Validation: AVM compliance and data integrity
+# - Security Validation: Sensitive data handling and access controls
+
+variables {
+  # Test configuration - adjustable for different environments
+  expected_minimum_count = 0  # Allow empty tenants in test environments
+  test_timeout_minutes   = 5  # Reasonable timeout for CI/CD
+}
+
+# Comprehensive validation run - optimized for CI/CD performance
+run "comprehensive_validation" {
+  command = plan  # Using plan for performance - no actual resources created
+
+  # Framework and provider validation
+  assert {
+    condition     = can(data.powerplatform_resource.example)
+    error_message = "Basic framework test - validates provider connectivity and data source accessibility"
+  }
+
+  # Resource structure validation
+  assert {
+    condition     = data.powerplatform_resource.example != null
+    error_message = "Resource data source should return valid data structure"
+  }
+
+  # Output compliance validation
+  assert {
+    condition     = can(output.resource_id)
+    error_message = "Primary output should be accessible - validates AVM compliance"
+  }
+
+  # Data integrity validation
+  assert {
+    condition     = output.resource_id != ""
+    error_message = "Resource ID should not be empty - validates successful resource reference"
+  }
+
+  # Add more assertions as needed for specific resource types
+}
+```
+
+**tfvars Pattern**:
+```hcl
+# {Environment} Environment Configuration for {Configuration Title}
+#
+# This file contains environment-specific values for the {environment}
+# environment. Values are structured to match variable definitions
+# and include explanatory comments for operational teams.
+#
+# Configuration Philosophy:
+# - Environment Appropriate: Values suited for {environment} workloads
+# - Security Conscious: No sensitive data, references to secure storage
+# - Operationally Friendly: Clear naming and documentation for support teams
+# - Change Trackable: Version controlled for audit and rollback capability
+
+# Core resource configuration for {environment} environment
+example_config = {
+  # Environment-appropriate naming following organizational standards
+  property_name = "{environment}-example-name"  # Follows {org}-{env}-{purpose} pattern
+  
+  # {environment}-specific settings with operational reasoning
+  # Note: These values optimized for {environment} workload characteristics
+}
+
+# Environment-specific feature flags
+# These control optional functionality based on environment maturity
+feature_flags = {
+  enable_advanced_logging = true   # Full logging appropriate for {environment}
+  enable_monitoring      = true   # Comprehensive monitoring for {environment}
+}
+```
 
 ### Phase 1: Template-Based Foundation (MANDATORY)
 
