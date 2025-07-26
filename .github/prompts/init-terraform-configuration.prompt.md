@@ -3,9 +3,10 @@ mode: agent
 description: "Creates new Terraform configurations aligned with Azure Verified Modules (AVM) principles and repository standards using a template-based approach."
 ---
 
-# 🚀 Terraform Configuration Initialization (Template-Based)
 
-You are tasked with creating a new Terraform configuration aligned with Azure Verified Modules (AVM) principles and repository standards. This process uses a template-based approach for maximum consistency and simplicity.
+# 🚀 Terraform Configuration Initialization (Strict Template-Based)
+
+You are tasked with creating a new Terraform configuration aligned with Azure Verified Modules (AVM) principles and repository standards. This process **MUST** use the provided template directory for maximum consistency and maintainability. **Never create or overwrite template files from scratch.**
 
 ## 📋 Task Definition
 
@@ -35,42 +36,59 @@ Before proceeding, **MUST** collect the following information from the user:
 
 ## 🏗️ Initialization Workflow
 
-### Phase 1: Template-Based Foundation
 
-1. **Copy Template Directory**
-  - `cp -r .github/terraform-configuration-template configurations/{configuration-name}`
-2. **Replace Placeholders**
-  - Replace all `{{PLACEHOLDER}}` variables in `_header.md` and `_footer.md` with user-provided and classification-specific values
-3. **Validate Base Structure**
-  - Ensure template copied and placeholders replaced correctly
+### Phase 1: Template-Based Foundation (MANDATORY)
+
+1. **MANDATORY: Copy Template Directory**
+  - Execute: `cp -r .github/terraform-configuration-template configurations/{configuration-name}`
+  - **DO NOT** create files from scratch—ALWAYS start with the template
+  - Verify template files copied: `_header.md`, `_footer.md`, `.terraform-docs.yml`
+
+2. **MANDATORY: Inventory All Placeholders**
+  - Scan `_header.md` and `_footer.md` for ALL `{{PLACEHOLDER}}` variables
+  - List every placeholder found before proceeding
+  - **DO NOT** rewrite template content—only replace placeholders
+
+3. **MANDATORY: Replace Placeholders Systematically**
+  - Create a mapping of placeholder-to-value using user input and classification logic
+  - Replace ALL placeholders in the copied files
+  - **NEVER** alter the template structure or add/remove sections
+
+4. **Validate Template Copy**
+  - Confirm `.terraform-docs.yml` contains `header-from: "_header.md"` and `footer-from: "_footer.md"`
+  - Verify `_header.md` and `_footer.md` contain all required placeholders
+  - **STOP** if template wasn't copied or placeholders weren't replaced correctly
+
 
 ### Phase 2: Classification-Specific Customization
 
-4. **Generate Core Files**
+5. **Generate Core Files**
   - Create `versions.tf`, `main.tf` based on classification
-5. **Add Variables** (res-*, ptn-*, utl-*)
+6. **Add Variables** (res-*, ptn-*, utl-*)
   - Create `variables.tf` with input parameters if needed
-6. **Add Outputs** (utl-*, some res-* and ptn-*)
+7. **Add Outputs** (utl-*, some res-* and ptn-*)
   - Create `outputs.tf` for anti-corruption layer/data export if required
-7. **Create tfvars** (res-*, ptn-*)
+8. **Create tfvars** (res-*, ptn-*)
   - Generate `tfvars/` directory and environment files if multi-environment support is needed
-8. **Create Tests**
+9. **Create Tests**
   - Add `tests/integration.tftest.hcl` with basic validation
+
 
 ### Phase 3: Finalization
 
-9. **Validate Structure**
-   - Ensure AVM compliance and repository standards
-10. **Update Changelog**
-   - Add entry for new configuration
+10. **Validate Structure**
+  - Ensure AVM compliance and repository standards
+11. **Update Changelog**
+  - Add entry for new configuration
 
 ---
 
-## ⚡ Execution Instructions
+
+## ⚡ Execution Instructions (STRICT)
 
 1. **Confirm Understanding**: State the configuration to be created and its classification
 2. **Validate Inputs**: Ensure naming follows conventions and requirements are clear
-3. **Copy and Prepare Template**: Copy template, rename files, and replace placeholders
+3. **MANDATORY: Copy and Prepare Template**: Copy template, list all placeholders, and replace them with user/classification values—**never rewrite template content**
 4. **Customize for Classification**: Add/modify files as needed for resource, pattern, or utility module
 5. **Test and Document**: Validate syntax and update changelog
 
@@ -98,10 +116,61 @@ configurations/{configuration-name}/
 
 ---
 
+
 ## 📝 Notes
 
-- The template provides a consistent starting point for all configurations.
-- Placeholder replacement ensures documentation and metadata are always up to date.
+- The template provides a consistent starting point for all configurations. **Never rewrite or bypass it.**
+- Placeholder replacement ensures documentation and metadata are always up to date. **Always inventory and replace all placeholders.**
 - Classification-specific logic (resource, pattern, utility) is applied after the template is in place.
+
+---
+
+## 📋 Required Placeholder Inventory
+
+**Configuration Metadata:**
+- `{{CONFIGURATION_TITLE}}` - Human-readable title
+- `{{CONFIGURATION_NAME}}` - Technical name (e.g., utl-export-connectors)
+- `{{PRIMARY_PURPOSE}}` - Brief purpose description
+
+**Use Cases (4 required):**
+- `{{USE_CASE_1}}` through `{{USE_CASE_4}}`
+- `{{USE_CASE_1_DESCRIPTION}}` through `{{USE_CASE_4_DESCRIPTION}}`
+
+**Workflow Integration:**
+- `{{WORKFLOW_TYPE}}` - Type of workflow integration
+- `{{TFVARS_EXAMPLE}}` - Example tfvars if applicable
+
+**AVM Compliance:**
+- `{{TFFR2_IMPLEMENTATION}}` - Anti-corruption layer implementation
+- `{{CLASSIFICATION_PURPOSE}}` - Purpose based on classification
+- `{{CLASSIFICATION_DESCRIPTION}}` - Classification-specific description
+
+**Troubleshooting:**
+- `{{PERMISSION_CONTEXT}}` - Permission context for the resource type
+- `{{TROUBLESHOOTING_SPECIFIC}}` - Configuration-specific troubleshooting
+
+**Documentation:**
+- `{{RESOURCE_DOCUMENTATION_TITLE}}` - Official docs title
+- `{{RESOURCE_DOCUMENTATION_URL}}` - Official docs URL
+
+---
+
+## 📋 Classification-Specific Placeholder Values
+
+**For utl-* (Utility Modules):**
+- `{{CLASSIFICATION_PURPOSE}}`: "Data Export and Analysis"
+- `{{CLASSIFICATION_DESCRIPTION}}`: "Provides reusable data sources without deploying resources"
+- `{{TFFR2_IMPLEMENTATION}}`: "outputting discrete computed attributes instead of full resource objects"
+- `{{WORKFLOW_TYPE}}`: "Data Export Workflows"
+
+**For res-* (Resource Modules):**
+- `{{CLASSIFICATION_PURPOSE}}`: "Resource Deployment"
+- `{{CLASSIFICATION_DESCRIPTION}}`: "Deploys primary Power Platform resources following WAF best practices"
+- `{{TFFR2_IMPLEMENTATION}}`: "outputting resource IDs and computed attributes as discrete outputs"
+
+**For ptn-* (Pattern Modules):**
+- `{{CLASSIFICATION_PURPOSE}}`: "Pattern Implementation"
+- `{{CLASSIFICATION_DESCRIPTION}}`: "Deploys multiple resources using composable patterns"
+- `{{TFFR2_IMPLEMENTATION}}`: "outputting key resource identifiers and computed values from the pattern"
 
 **Ready to proceed? Please provide the module classification, configuration name, and primary purpose.**
