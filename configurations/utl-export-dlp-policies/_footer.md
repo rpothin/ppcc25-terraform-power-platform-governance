@@ -10,6 +10,21 @@ This configuration requires authentication to Microsoft Power Platform:
 
 This configuration does not collect telemetry data. All data queried remains within your Power Platform tenant and is only accessible through your authenticated Terraform execution environment.
 
+## ⚠️ AVM Compliance
+
+### Provider Exception
+
+This configuration uses the `microsoft/power-platform` provider, which creates an exception to AVM TFFR3 requirements since Power Platform resources are not available through approved Azure providers (`azurerm`/`azapi`). 
+
+**Exception Documentation**: [Power Platform Provider Exception](../../docs/explanations/power-platform-provider-exception.md)
+
+### Complementary Details
+
+- **Anti-Corruption Layer**: Implements TFFR2 compliance by exposing discrete attributes instead of complete resource objects
+- **Security-First**: Sensitive data properly marked and segregated in outputs 
+- **AVM-Inspired**: Follows AVM patterns and standards where technically feasible
+- **Single Purpose**: Focused data source configuration for DLP policy export
+
 ## Troubleshooting
 
 ### Common Issues
@@ -32,4 +47,4 @@ This configuration does not collect telemetry data. All data queried remains wit
 
 - [Power Platform DLP Documentation](https://learn.microsoft.com/power-platform/admin/prevent-data-loss)
 - [Power Platform Terraform Provider](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs)
-- [AVM Compliance Documentation](../../docs/explanations/power-platform-provider-exception.md)
+- [AVM Terraform Specifications](https://azure.github.io/Azure-Verified-Modules/specs/tf/)
