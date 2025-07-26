@@ -22,7 +22,7 @@ environments = []
 # Business connectors (set of objects, required)
 business_connectors = [
   {
-    id = "/providers/Microsoft.PowerApps/apis/shared_sql"
+    id                           = "/providers/Microsoft.PowerApps/apis/shared_sql"
     default_action_rule_behavior = "Allow"
     action_rules = [
       {
@@ -48,16 +48,16 @@ business_connectors = [
     ]
   },
   {
-    id = "/providers/Microsoft.PowerApps/apis/shared_approvals"
+    id                           = "/providers/Microsoft.PowerApps/apis/shared_approvals"
     default_action_rule_behavior = ""
-    action_rules = []
-    endpoint_rules = []
+    action_rules                 = []
+    endpoint_rules               = []
   },
   {
-    id = "/providers/Microsoft.PowerApps/apis/shared_cloudappsecurity"
+    id                           = "/providers/Microsoft.PowerApps/apis/shared_cloudappsecurity"
     default_action_rule_behavior = ""
-    action_rules = []
-    endpoint_rules = []
+    action_rules                 = []
+    endpoint_rules               = []
   }
 ]
 

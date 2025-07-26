@@ -12,14 +12,14 @@ variable "display_name" {
   description = <<DESCRIPTION
 The display name of the DLP policy.
 DESCRIPTION
-  type = string
+  type        = string
 }
 
 variable "default_connectors_classification" {
   description = <<DESCRIPTION
 Default classification for connectors ("General", "Confidential", "Blocked").
 DESCRIPTION
-  type = string
+  type        = string
   validation {
     condition     = contains(["General", "Confidential", "Blocked"], var.default_connectors_classification)
     error_message = "Must be one of: General, Confidential, Blocked."
@@ -30,7 +30,7 @@ variable "environment_type" {
   description = <<DESCRIPTION
 Default environment handling for the policy ("AllEnvironments", "ExceptEnvironments", "OnlyEnvironments").
 DESCRIPTION
-  type = string
+  type        = string
   validation {
     condition     = contains(["AllEnvironments", "ExceptEnvironments", "OnlyEnvironments"], var.environment_type)
     error_message = "Must be one of: AllEnvironments, ExceptEnvironments, OnlyEnvironments."
@@ -41,34 +41,34 @@ variable "environments" {
   description = <<DESCRIPTION
 List of environment IDs to which the policy is applied. Leave empty for all environments.
 DESCRIPTION
-  type    = list(string)
-  default = []
+  type        = list(string)
+  default     = []
 }
 
 variable "business_connectors" {
   description = <<DESCRIPTION
 Set of business connectors for sensitive data. See provider docs for structure.
 DESCRIPTION
-  type = any
+  type        = any
 }
 
 variable "non_business_connectors" {
   description = <<DESCRIPTION
 Set of non-business connectors for non-sensitive data. See provider docs for structure.
 DESCRIPTION
-  type = any
+  type        = any
 }
 
 variable "blocked_connectors" {
   description = <<DESCRIPTION
 Set of blocked connectors. See provider docs for structure.
 DESCRIPTION
-  type = any
+  type        = any
 }
 
 variable "custom_connectors_patterns" {
   description = <<DESCRIPTION
 Set of custom connector patterns for advanced DLP scenarios. See provider docs for structure.
 DESCRIPTION
-  type = any
+  type        = any
 }
