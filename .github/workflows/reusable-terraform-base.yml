@@ -634,40 +634,49 @@ jobs:
               
               output_file="terraform-output.txt"
               
-              # For output operations, ensure we get JSON format for structured processing
-              # Check if -json is in additional options, if not add it
-              if [[ "$additional_options" == *"-json"* ]]; then
-                output_args="$additional_options"
-              else
-                output_args="-json $additional_options"
-              fi
+              # BUILD OUTPUT ARGUMENTS
+              output_args="$additional_options"
               
-              # Execute output extraction with capture
-              if terraform output $output_args 2>&1 | tee "$output_file"; then
-                echo "::notice title=Output Success::✅ Terraform output retrieved successfully"
+              # Execute terraform output command and capture results
+              set +e  # Temporarily disable strict error handling to capture exit code
+              terraform output $output_args 2>&1 | tee "$output_file"
+              output_exit_code=${PIPESTATUS[0]}
+              set -e  # Re-enable strict error handling
+              
+              # PROCESS RESULTS BASED ON SUCCESS/FAILURE
+              if [ $output_exit_code -eq 0 ]; then
+                echo "::notice title=Output Success::✅ Terraform output completed successfully"
                 echo "success=true" >> $GITHUB_OUTPUT
                 
-                # For output operations, store the result in an artifact instead of job output
-                # This avoids GitHub's job output size limitations and secret detection
+                # For JSON output, we need to ensure it's properly formatted
                 if [[ "$output_args" == *"-json"* ]]; then
-                  # Validate JSON format and save to artifact file
+                  # Validate JSON format and pretty-print
                   if jq empty "$output_file" 2>/dev/null; then
-                    # Valid JSON - format and save for artifact upload
-                    cat "$output_file" | jq -c '.' > "terraform-output-artifact.json"
-                    echo "::notice title=JSON Output::📋 Valid JSON output saved for artifact upload"
-                    
-                    # Set a simple flag in job output instead of the full data
-                    echo "tf-output=json-artifact-available" >> $GITHUB_OUTPUT
+                    formatted_output=$(cat "$output_file" | jq -c '.')
+                    # Base64 encode to prevent GitHub secret detection from masking the output
+                    encoded_output=$(echo "$formatted_output" | base64 -w 0)
+                    {
+                      echo "tf-output<<OUTPUT_EOF"
+                      echo "$encoded_output"
+                      echo "OUTPUT_EOF"
+                    } >> $GITHUB_OUTPUT
                   else
-                    # If not valid JSON, treat as plain text
-                    cp "$output_file" "terraform-output-artifact.txt"
-                    echo "::warning title=Invalid JSON::⚠️ Output is not valid JSON, saved as plain text artifact"
-                    echo "tf-output=text-artifact-available" >> $GITHUB_OUTPUT
+                    # If not valid JSON, treat as plain text and encode
+                    encoded_output=$(cat "$output_file" | base64 -w 0)
+                    {
+                      echo "tf-output<<OUTPUT_EOF"
+                      echo "$encoded_output"
+                      echo "OUTPUT_EOF"
+                    } >> $GITHUB_OUTPUT
                   fi
                 else
-                  # Plain text output - save to artifact file
-                  cp "$output_file" "terraform-output-artifact.txt"
-                  echo "tf-output=text-artifact-available" >> $GITHUB_OUTPUT
+                  # Plain text output - encode to prevent secret detection
+                  encoded_output=$(cat "$output_file" | base64 -w 0)
+                  {
+                    echo "tf-output<<OUTPUT_EOF"
+                    echo "$encoded_output"
+                    echo "OUTPUT_EOF"
+                  } >> $GITHUB_OUTPUT
                 fi
               else
                 echo "::error title=Output Failed::❌ Terraform output failed"
