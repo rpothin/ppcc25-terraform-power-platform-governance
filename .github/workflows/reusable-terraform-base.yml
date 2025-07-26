@@ -628,40 +628,59 @@ jobs:
               
             "output")
               # === TERRAFORM OUTPUT OPERATION ===
-              # Extracts and displays output values from Terraform state
-              # Useful for retrieving information about deployed infrastructure
+              # For utility configurations: Apply data sources then extract outputs
+              # For resource configurations: Extract outputs from existing state
               echo "::group::📤 Terraform Output"
               
               output_file="terraform-output.txt"
-              
-              # BUILD OUTPUT ARGUMENTS
               output_args="$additional_options"
               
-              # Execute terraform output command and capture results
-              set +e  # Temporarily disable strict error handling to capture exit code
-              terraform output $output_args 2>&1 | tee "$output_file"
-              output_exit_code=${PIPESTATUS[0]}
+              # PHASE 1: Ensure state is populated (apply data sources)
+              echo "::notice title=Populating State::🔄 Applying configuration to populate state with data sources"
+              apply_output_file="output-apply.txt"
+              
+              set +e  # Temporarily disable strict error handling
+              terraform apply $tfvars_option -auto-approve $additional_options 2>&1 | tee "$apply_output_file"
+              apply_exit_code=${PIPESTATUS[0]}
               set -e  # Re-enable strict error handling
               
-              # PROCESS RESULTS BASED ON SUCCESS/FAILURE
-              if [ $output_exit_code -eq 0 ]; then
-                echo "::notice title=Output Success::✅ Terraform output completed successfully"
-                echo "success=true" >> $GITHUB_OUTPUT
+              if [ $apply_exit_code -eq 0 ]; then
+                echo "::notice title=Apply Success::✅ Configuration applied successfully"
                 
-                # For JSON output, we need to ensure it's properly formatted
-                if [[ "$output_args" == *"-json"* ]]; then
-                  # Validate JSON format and pretty-print
-                  if jq empty "$output_file" 2>/dev/null; then
-                    formatted_output=$(cat "$output_file" | jq -c '.')
-                    # Base64 encode to prevent GitHub secret detection from masking the output
-                    encoded_output=$(echo "$formatted_output" | base64 -w 0)
-                    {
-                      echo "tf-output<<OUTPUT_EOF"
-                      echo "$encoded_output"
-                      echo "OUTPUT_EOF"
-                    } >> $GITHUB_OUTPUT
+                # PHASE 2: Extract outputs from populated state
+                echo "::notice title=Extracting Outputs::📤 Extracting output values from state"
+                
+                set +e  # Temporarily disable strict error handling
+                terraform output $output_args 2>&1 | tee "$output_file"
+                output_exit_code=${PIPESTATUS[0]}
+                set -e  # Re-enable strict error handling
+                
+                if [ $output_exit_code -eq 0 ]; then
+                  echo "::notice title=Output Success::✅ Terraform output completed successfully"
+                  echo "success=true" >> $GITHUB_OUTPUT
+                  
+                  # Process output based on format (JSON vs plain text)
+                  if [[ "$output_args" == *"-json"* ]]; then
+                    # JSON output processing
+                    if jq empty "$output_file" 2>/dev/null; then
+                      formatted_output=$(cat "$output_file" | jq -c '.')
+                      encoded_output=$(echo "$formatted_output" | base64 -w 0)
+                      {
+                        echo "tf-output<<OUTPUT_EOF"
+                        echo "$encoded_output"
+                        echo "OUTPUT_EOF"
+                      } >> $GITHUB_OUTPUT
+                    else
+                      # Fallback for invalid JSON
+                      encoded_output=$(cat "$output_file" | base64 -w 0)
+                      {
+                        echo "tf-output<<OUTPUT_EOF"
+                        echo "$encoded_output"
+                        echo "OUTPUT_EOF"
+                      } >> $GITHUB_OUTPUT
+                    fi
                   else
-                    # If not valid JSON, treat as plain text and encode
+                    # Plain text output
                     encoded_output=$(cat "$output_file" | base64 -w 0)
                     {
                       echo "tf-output<<OUTPUT_EOF"
@@ -670,22 +689,20 @@ jobs:
                     } >> $GITHUB_OUTPUT
                   fi
                 else
-                  # Plain text output - encode to prevent secret detection
-                  encoded_output=$(cat "$output_file" | base64 -w 0)
+                  echo "::error title=Output Failed::❌ Terraform output failed after successful apply"
                   {
-                    echo "tf-output<<OUTPUT_EOF"
-                    echo "$encoded_output"
-                    echo "OUTPUT_EOF"
+                    echo "tf-output<<OUTPUT_ERROR_EOF"
+                    cat "$output_file"
+                    echo "OUTPUT_ERROR_EOF"
                   } >> $GITHUB_OUTPUT
+                  exit 1
                 fi
               else
-                echo "::error title=Output Failed::❌ Terraform output failed"
-                
-                # Capture error output (e.g., no outputs defined, state issues)
+                echo "::error title=Apply Failed::❌ Terraform apply failed, cannot extract outputs"
                 {
-                  echo "tf-output<<OUTPUT_ERROR_EOF"
-                  cat "$output_file"
-                  echo "OUTPUT_ERROR_EOF"
+                  echo "tf-output<<APPLY_ERROR_EOF"
+                  cat "$apply_output_file"
+                  echo "APPLY_ERROR_EOF"
                 } >> $GITHUB_OUTPUT
                 exit 1
               fi
