@@ -12,7 +12,7 @@ output "connector_ids" {
 List of all connector IDs in the tenant.
 Useful for downstream automation, reporting, and governance.
 DESCRIPTION
-  value = [for c in data.powerplatform_connectors.all.connectors : c.id]
+  value       = [for c in data.powerplatform_connectors.all.connectors : c.id]
 }
 
 output "connectors_summary" {
