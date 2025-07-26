@@ -628,82 +628,61 @@ jobs:
               
             "output")
               # === TERRAFORM OUTPUT OPERATION ===
-              # For utility configurations: Apply data sources then extract outputs
-              # For resource configurations: Extract outputs from existing state
+              # For large outputs: Apply data sources then save outputs to files only
               echo "::group::📤 Terraform Output"
               
               output_file="terraform-output.txt"
+              json_output_file="terraform-output-artifact.json"
               output_args="$additional_options"
               
               # PHASE 1: Ensure state is populated (apply data sources)
               echo "::notice title=Populating State::🔄 Applying configuration to populate state with data sources"
               apply_output_file="output-apply.txt"
               
-              set +e  # Temporarily disable strict error handling
+              set +e
               terraform apply $tfvars_option -auto-approve $additional_options 2>&1 | tee "$apply_output_file"
               apply_exit_code=${PIPESTATUS[0]}
-              set -e  # Re-enable strict error handling
+              set -e
               
               if [ $apply_exit_code -eq 0 ]; then
                 echo "::notice title=Apply Success::✅ Configuration applied successfully"
                 
-                # PHASE 2: Extract outputs from populated state
-                echo "::notice title=Extracting Outputs::📤 Extracting output values from state"
+                # PHASE 2: Extract outputs to files (not GitHub Actions outputs)
+                echo "::notice title=Extracting Outputs::📤 Extracting output values to artifact files"
                 
-                set +e  # Temporarily disable strict error handling
+                # Generate JSON output file for artifacts
+                set +e
+                terraform output -json > "$json_output_file" 2>&1
+                json_exit_code=${PIPESTATUS[0]}
+                set -e
+                
+                # Generate plain text output for logs
+                set +e
                 terraform output $output_args 2>&1 | tee "$output_file"
                 output_exit_code=${PIPESTATUS[0]}
-                set -e  # Re-enable strict error handling
+                set -e
                 
-                if [ $output_exit_code -eq 0 ]; then
-                  echo "::notice title=Output Success::✅ Terraform output completed successfully"
+                if [ $json_exit_code -eq 0 ] && [ $output_exit_code -eq 0 ]; then
+                  echo "::notice title=Output Success::✅ Terraform outputs saved to artifact files"
                   echo "success=true" >> $GITHUB_OUTPUT
                   
-                  # Process output based on format (JSON vs plain text)
-                  if [[ "$output_args" == *"-json"* ]]; then
-                    # JSON output processing
-                    if jq empty "$output_file" 2>/dev/null; then
-                      formatted_output=$(cat "$output_file" | jq -c '.')
-                      encoded_output=$(echo "$formatted_output" | base64 -w 0)
-                      {
-                        echo "tf-output<<OUTPUT_EOF"
-                        echo "$encoded_output"
-                        echo "OUTPUT_EOF"
-                      } >> $GITHUB_OUTPUT
-                    else
-                      # Fallback for invalid JSON
-                      encoded_output=$(cat "$output_file" | base64 -w 0)
-                      {
-                        echo "tf-output<<OUTPUT_EOF"
-                        echo "$encoded_output"
-                        echo "OUTPUT_EOF"
-                      } >> $GITHUB_OUTPUT
-                    fi
-                  else
-                    # Plain text output
-                    encoded_output=$(cat "$output_file" | base64 -w 0)
-                    {
-                      echo "tf-output<<OUTPUT_EOF"
-                      echo "$encoded_output"
-                      echo "OUTPUT_EOF"
-                    } >> $GITHUB_OUTPUT
+                  # Only capture a SUMMARY in GitHub Actions output (not full data)
+                  output_summary=$(terraform output --json | jq -r 'keys | "Outputs generated: " + (. | join(", "))')
+                  echo "tf-output=$output_summary" >> $GITHUB_OUTPUT
+                  
+                  # Display file sizes for monitoring
+                  if [ -f "$json_output_file" ]; then
+                    json_size=$(stat -f%z "$json_output_file" 2>/dev/null || stat -c%s "$json_output_file" 2>/dev/null || echo "unknown")
+                    echo "::notice title=Artifact Size::📊 JSON output file size: ${json_size} bytes"
                   fi
                 else
                   echo "::error title=Output Failed::❌ Terraform output failed after successful apply"
-                  {
-                    echo "tf-output<<OUTPUT_ERROR_EOF"
-                    cat "$output_file"
-                    echo "OUTPUT_ERROR_EOF"
-                  } >> $GITHUB_OUTPUT
+                  echo "tf-output=Output generation failed" >> $GITHUB_OUTPUT
                   exit 1
                 fi
               else
                 echo "::error title=Apply Failed::❌ Terraform apply failed, cannot extract outputs"
-                {
-                  echo "tf-output<<APPLY_ERROR_EOF"
-                  cat "$apply_output_file"
-                  echo "APPLY_ERROR_EOF"
-                } >> $GITHUB_OUTPUT
+                echo "tf-output=Apply failed, no outputs available" >> $GITHUB_OUTPUT
                 exit 1
               fi
               
