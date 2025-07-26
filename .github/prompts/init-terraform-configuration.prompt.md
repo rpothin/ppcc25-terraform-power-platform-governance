@@ -3,7 +3,377 @@ mode: agent
 description: "Creates new Terraform configurations aligned with Azure Verified Modules (AVM) principles and repository standards using a template-based approach."
 ---
 
-# 🚀 Terraform Configuration Initialization (Strict Template-Based)
+# 🚀 Terraform Configuration Initialization (Template-Based)
+
+You are tasked with creating a new Terraform configuration aligned with Azure Verified Modules (AVM) principles and repository standards. This process **MUST** use the provided template directory for maximum consistency and maintainability.
+
+## 📋 Task Overview & Information Collection
+
+**Primary Goal:** Create a new Terraform configuration using the standardized template, then apply classification-specific customization with AVM compliance.
+
+### Required Information from User
+
+Before proceeding, **MUST** collect the following information:
+
+1. **AVM Module Classification** (Required):
+   - `res-*` - **Resource Module**: Deploy primary Power Platform resources (DLP policies, environments)
+   - `ptn-*` - **Pattern Module**: Deploy multiple resources using composable patterns (governance suites)
+   - `utl-*` - **Utility Module**: Implement reusable data sources without deploying resources (connector exports)
+
+2. **Configuration Name** (Required):
+   - Must follow naming convention: `{classification}-{descriptive-name}`
+   - Examples: `res-dlp-policy`, `ptn-environment`, `utl-export-dlp-policies`
+
+3. **Primary Purpose** (Required):
+   - Brief description of what the configuration will accomplish
+
+4. **Environment Support** (Optional):
+   - Whether multi-environment support is needed (creates tfvars/ subdirectory)
+   - Default: Single environment unless specified
+
+---
+
+## 🏗️ Template-Based Workflow (3 Phases)
+
+### Phase 1: Template Foundation (Copy & Customize)
+
+**⚠️ CRITICAL: Never manually create template files. Always use the copy operation.**
+
+#### Step 1: Verify Template Exists
+```bash
+# Use list_dir to confirm template directory exists
+.github/terraform-configuration-template/
+├── _header.md
+├── _footer.md
+└── .terraform-docs.yml
+```
+**STOP** if template directory is missing or incomplete.
+
+#### Step 2: Copy Template Directory
+```bash
+# Execute in terminal - NEVER use create_file tools
+cp -r .github/terraform-configuration-template configurations/{configuration-name}
+```
+Use `list_dir` to confirm all template files were copied successfully.
+
+#### Step 3: Process Template Placeholders
+1. **Read copied template files** from new configuration directory (NOT from template source)
+2. **Inventory ALL placeholders** - scan `_header.md` and `_footer.md` for `{{PLACEHOLDER}}` variables
+3. **Replace placeholders systematically** using user input and classification logic
+4. **Validate replacement** - ensure no placeholders remain and `.terraform-docs.yml` references are correct
+
+*Why template-based: Ensures consistent documentation, metadata, and structure across all configurations while preventing manual errors.*
+
+### Phase 2: Classification-Specific File Generation
+
+#### Core Files (All Classifications)
+Create the following files based on module classification:
+
+**`versions.tf`** - Provider and version constraints
+```hcl
+terraform {
+  required_version = ">= 1.5.0"
+  required_providers {
+    powerplatform = {
+      source  = "microsoft/power-platform"
+      version = "~> 3.8"  # Centralized standard for all modules
+    }
+  }
+  backend "azurerm" {
+    use_oidc = true  # Keyless authentication
+  }
+}
+
+provider "powerplatform" {
+  use_oidc = true
+}
+```
+
+**`main.tf`** - Primary resource definitions with comprehensive comments
+```hcl
+# {Configuration Title} Configuration
+#
+# This configuration {primary purpose} following Azure Verified Module (AVM)
+# best practices with Power Platform provider adaptations.
+#
+# Key Features:
+# - AVM-Inspired Structure: {explanation of AVM compliance}
+# - Anti-Corruption Layer: {explanation of output strategy}
+# - Security-First: OIDC authentication, no hardcoded secrets
+# - {Classification}-Specific: {classification-specific benefits}
+# - Strong Typing: All variables use explicit types and validation (no `any`)
+# - Provider Version: Centralized `~> 3.8` for `microsoft/power-platform`
+# - Lifecycle Management: Resource modules include `prevent_destroy` (see below)
+#
+# Architecture Decisions:
+# - Provider Choice: Using microsoft/power-platform for native Power Platform integration
+# - Backend Strategy: Azure Storage with OIDC for secure, keyless state management
+# - Resource Organization: {organization strategy and reasoning}
+
+# Resource implementation with classification-specific requirements
+# (Content varies by res-*, ptn-*, utl-* classification)
+
+# Lifecycle management for res-* modules (Resource Modules Only)
+# All resource modules must include lifecycle protection:
+#
+# resource "powerplatform_resource" "example" {
+#   # ... resource arguments ...
+#   lifecycle {
+#     prevent_destroy = true                    # Protect critical governance resources
+#     ignore_changes  = [display_name, tags]    # Allow manual admin center changes
+#   }
+# }
+```
+
+#### Classification-Specific Files
+
+**Variables (`variables.tf`)** - Required for `res-*`, `ptn-*`, optional for `utl-*`
+```hcl
+# Input Variables for {Configuration Title}
+#
+# This file defines all input parameters following AVM variable standards
+# with comprehensive validation and documentation.
+#
+# CRITICAL: All complex variables use explicit object types with property-level validation.
+# The `any` type is forbidden in all production modules.
+
+variable "example_config" {
+  type = object({
+    property_name = string
+    # ... other properties, all with explicit types
+  })
+  description = <<DESCRIPTION
+Comprehensive configuration object for {resource type}.
+
+This variable consolidates core settings to reduce complexity while
+ensuring all requirements are validated at plan time.
+
+Properties:
+- property_name: {detailed explanation of purpose and constraints}
+
+Example:
+{
+  property_name = "example-value"
+}
+
+Validation Rules:
+- {specific validation reasoning and Power Platform requirements}
+DESCRIPTION
+
+  validation {
+    condition     = can(regex("^[a-zA-Z0-9-]+$", var.example_config.property_name))
+    error_message = "Property name must contain only alphanumeric characters and hyphens for Power Platform compatibility."
+  }
+}
+```
+
+**Outputs (`outputs.tf`)** - Required for `utl-*`, optional for `res-*` and `ptn-*`
+```hcl
+# Output Values for {Configuration Title}
+#
+# This file implements the AVM anti-corruption layer pattern by outputting
+# discrete computed attributes instead of complete resource objects.
+# This approach enhances security and maintains interface stability.
+
+# Primary resource identifier for downstream configurations
+output "resource_id" {
+  description = <<DESCRIPTION
+The unique identifier of the {resource type}.
+
+This output provides the primary key for referencing this resource
+in other Terraform configurations or external systems.
+DESCRIPTION
+  value       = powerplatform_resource.example.id
+}
+
+# Configuration summary for validation and reporting
+output "configuration_summary" {
+  description = "Summary of deployed configuration for validation and compliance reporting"
+  value = {
+    name            = powerplatform_resource.example.display_name
+    resource_type   = "{resource type}"
+    classification  = "{module classification}"
+  }
+}
+```
+
+**Environment Files (`tfvars/`)** - Created for `res-*` and `ptn-*` if multi-environment support requested
+```hcl
+# {Environment} Environment Configuration for {Configuration Title}
+#
+# Values optimized for {environment} workload characteristics and
+# organizational security requirements.
+
+example_config = {
+  property_name = "{environment}-example-name"  # Follows org-env-purpose pattern
+}
+
+# Environment-specific feature flags
+feature_flags = {
+  enable_advanced_logging = true   # Full logging for {environment}
+  enable_monitoring      = true   # Comprehensive monitoring
+}
+```
+
+#### Testing (`tests/integration.tftest.hcl`)
+
+**Minimum coverage requirements by classification:**
+- **`utl-*`**: 15+ assertions, `plan` tests only
+- **`res-*`**: 20+ assertions, both `plan` and `apply` tests
+- **`ptn-*`**: 25+ assertions, both `plan` and `apply` tests
+
+```hcl
+# Integration Tests for {Configuration Title}
+#
+# Performance-optimized tests with consolidated assertions to minimize
+# expensive plan/apply cycles while ensuring comprehensive validation.
+#
+# Minimum Coverage: {coverage requirement} assertions for {classification} modules
+
+variables {
+  expected_minimum_count = 0  # Allow empty tenants in test environments
+  test_timeout_minutes   = 5  # Reasonable timeout for CI/CD
+}
+
+# Consolidated validation for utl-* modules
+run "comprehensive_validation" {
+  command = plan
+  # ... 15+ assertions for structure, data integrity, and outputs ...
+}
+
+# Additional validation for res-* and ptn-* modules
+run "deployment_validation" {
+  command = apply
+  # ... 10+ additional assertions for actual resource deployment ...
+}
+```
+
+*Why different requirements: Utility modules export data without deploying resources, while resource and pattern modules deploy actual Power Platform resources requiring deployment validation.*
+
+### Phase 3: Quality Assurance & Finalization
+
+#### Mandatory Validation Steps
+1. **Format Validation**
+   ```bash
+   cd configurations/{configuration-name}
+   terraform fmt -check  # Must pass with no output
+   terraform fmt         # Auto-correct if issues found
+   terraform fmt -check  # Re-verify formatting
+   ```
+
+2. **Syntax Validation**
+   ```bash
+   terraform validate    # Must pass syntax check
+   ```
+
+3. **Structure Validation**
+   - Verify AVM compliance patterns
+   - Confirm all required files exist
+   - Validate placeholder replacement completion
+
+4. **Documentation Update**
+   - Add entry to CHANGELOG.md for new configuration
+   - Ensure README.md will be auto-generated by GitHub Actions
+
+*Why these validations: Ensures CI/CD compatibility, AVM compliance, and consistent code quality from creation.*
+
+---
+
+## 📋 Reference Information
+
+### Required Placeholder Inventory
+
+**Configuration Metadata:**
+- `{{CONFIGURATION_TITLE}}` - Human-readable title
+- `{{CONFIGURATION_NAME}}` - Technical name (e.g., res-dlp-policy)
+- `{{PRIMARY_PURPOSE}}` - Brief purpose description
+
+**Use Cases & Integration:**
+- `{{USE_CASE_1}}` through `{{USE_CASE_4}}` - Four primary use cases
+- `{{USE_CASE_1_DESCRIPTION}}` through `{{USE_CASE_4_DESCRIPTION}}` - Detailed descriptions
+- `{{WORKFLOW_TYPE}}` - Type of workflow integration
+- `{{TFVARS_EXAMPLE}}` - Example tfvars configuration
+
+**AVM Compliance:**
+- `{{TFFR2_IMPLEMENTATION}}` - Anti-corruption layer implementation
+- `{{CLASSIFICATION_PURPOSE}}` - Purpose based on classification
+- `{{CLASSIFICATION_DESCRIPTION}}` - Classification-specific description
+
+**Documentation & Troubleshooting:**
+- `{{PERMISSION_CONTEXT}}` - Permission context for the resource type
+- `{{TROUBLESHOOTING_SPECIFIC}}` - Configuration-specific troubleshooting
+- `{{RESOURCE_DOCUMENTATION_TITLE}}` - Official docs title
+- `{{RESOURCE_DOCUMENTATION_URL}}` - Official docs URL
+
+### Classification-Specific Values
+
+| Classification | Purpose | Description | Anti-Corruption Layer | Workflow Type |
+|----------------|---------|-------------|----------------------|---------------|
+| `utl-*` | Data Export and Analysis | Provides reusable data sources without deploying resources | Outputting discrete computed attributes instead of full resource objects | Data Export Workflows |
+| `res-*` | Resource Deployment | Deploys primary Power Platform resources following WAF best practices | Outputting resource IDs and computed attributes as discrete outputs | Resource Deployment Workflows |
+| `ptn-*` | Pattern Implementation | Deploys multiple resources using composable patterns | Outputting key resource identifiers and computed values from the pattern | Pattern Deployment Workflows |
+
+### Final Directory Structure
+```
+configurations/{configuration-name}/
+├── main.tf                    # Primary resource definitions
+├── variables.tf               # Input parameters (if needed)
+├── outputs.tf                 # Discrete outputs (if needed)
+├── versions.tf                # Provider and version constraints
+├── README.md                  # Auto-generated documentation
+├── .terraform-docs.yml        # Documentation configuration
+├── _header.md                 # Template header (processed)
+├── _footer.md                 # Template footer (processed)
+├── tests/
+│   └── integration.tftest.hcl # Validation tests
+└── tfvars/                    # Environment-specific values (if requested)
+    ├── dev.tfvars
+    ├── staging.tfvars
+    └── prod.tfvars
+```
+
+---
+
+## ⚡ Execution Checklist
+
+**Before starting:**
+- [ ] User has provided module classification, configuration name, and primary purpose
+- [ ] Naming convention follows `{classification}-{descriptive-name}` pattern
+- [ ] Template directory exists and contains required files
+
+**During execution:**
+- [ ] Template copied using `cp -r` command (not manual creation)
+- [ ] All placeholders inventoried and replaced systematically
+- [ ] Classification-specific files generated based on module type
+- [ ] Quality requirements applied (strong typing, lifecycle management, test coverage)
+
+**Before completion:**
+- [ ] `terraform fmt -check` passes with no output
+- [ ] `terraform validate` passes syntax validation
+- [ ] All required files exist in configuration directory
+- [ ] Template structure preserved (only placeholders modified)
+- [ ] CHANGELOG.md updated with new configuration entry
+
+---
+
+## 🎯 Success Criteria
+
+**Technical Compliance:**
+- AVM-inspired structure with Power Platform adaptations
+- Provider version consistency (`~> 3.8` for all modules)
+- Strong variable typing (no `any` types, comprehensive validation)
+- Appropriate lifecycle management for resource modules
+- Minimum test coverage met for module classification
+
+**Demonstration Quality:**
+- Clear, educational examples suitable for PPCC25 session
+- Comprehensive comments explaining "why" decisions were made
+- Progressive complexity from basic to advanced patterns
+- Troubleshooting guidance for common Power Platform issues
+
+**This improved structure eliminates duplication, provides clear execution order, and maintains all technical requirements while being much easier for AI agents to follow systematically.**
+
+**Ready to proceed? Please provide the module classification, configuration name, and primary purpose.**
 
 You are tasked with creating a new Terraform configuration aligned with Azure Verified Modules (AVM) principles and repository standards. This process **MUST** use the provided template directory for maximum consistency and maintainability. **Never create or overwrite template files from scratch.**
 
@@ -33,8 +403,91 @@ Before proceeding, **MUST** collect the following information from the user:
 
 ---
 
+
 ## 🏗️ Initialization Workflow
-## 📝 Comment Standards Integration (MANDATORY)
+## 🛡️ Phase 1: Critical Guardrails (MANDATORY)
+
+### 1. Enforce Strong Variable Typing
+- **Forbid use of `any` type in all production modules.**
+- **Require explicit object types for all complex variables.**
+- **MANDATORY:** Every object variable must include a `validation` block for each property.
+- **MANDATORY:** All variables must use HEREDOC descriptions with property explanations and examples.
+- **EXAMPLE:**
+```hcl
+variable "example_config" {
+  type = object({
+    property_name = string
+    # ... other properties, all with explicit types
+  })
+  description = <<DESCRIPTION
+Comprehensive configuration object for {resource type}.
+
+Properties:
+- property_name: {detailed explanation}
+
+Example:
+{
+  property_name = "example-value"
+}
+
+Validation Rules:
+- {specific validation reasoning}
+DESCRIPTION
+  validation {
+    condition     = can(regex("^[a-zA-Z0-9-]+$", var.example_config.property_name))
+    error_message = "Property name must contain only alphanumeric characters and hyphens."
+  }
+}
+```
+
+### 2. Centralize Provider Version Management
+- **MANDATORY:** All modules must use the same provider version standard: `~> 3.8` for `microsoft/power-platform`.
+- **MANDATORY:** Add a version check step to the instructions and prompt. All `required_providers` blocks must match the standard.
+- **EXAMPLE:**
+```hcl
+terraform {
+  required_providers {
+    powerplatform = {
+      source  = "microsoft/power-platform"
+      version = "~> 3.8"
+    }
+  }
+}
+```
+
+### 3. Mandate Lifecycle Management for Resource Modules (`res-*`)
+- **MANDATORY:** All `res-*` modules must include a `lifecycle` block with `prevent_destroy = true` and `ignore_changes` for critical attributes.
+- **MANDATORY:** Document lifecycle behavior in the module README.
+- **EXAMPLE:**
+```hcl
+resource "powerplatform_resource" "example" {
+  # ... resource arguments ...
+  lifecycle {
+    prevent_destroy = true
+    ignore_changes  = [display_name, tags]
+  }
+}
+```
+
+### 4. Define Minimum Test Coverage by Module Type
+- **MANDATORY:** Minimum assertion counts:
+  - 15+ for `utl-*`
+  - 20+ for `res-*` (must include both `plan` and `apply` tests)
+  - 25+ for `ptn-*`
+- **MANDATORY:** Resource modules (`res-*`) must have both `plan` and `apply` test blocks.
+- **EXAMPLE:**
+```hcl
+run "plan_validation" {
+  command = plan
+  # ... at least 10 assertions ...
+}
+run "apply_validation" {
+  command = apply
+  # ... at least 10 assertions ...
+}
+```
+
+---
 
 **MANDATORY: All generated Terraform files MUST include comprehensive comments following baseline.instructions.md standards.**
 
@@ -93,21 +546,19 @@ provider "powerplatform" {
 # - Environment Settings: Environment-specific parameters
 # - Security Settings: Authentication and access controls
 # - Feature Flags: Optional functionality toggles
+#
+# CRITICAL: Forbid use of `any` type. All complex variables must use explicit object types with property-level validation.
 
 variable "example_config" {
   type = object({
     property_name = string
-    # ... other properties
+    # ... other properties, all with explicit types
   })
   description = <<DESCRIPTION
 Comprehensive configuration object for {resource type}.
 
-This variable consolidates all core settings to reduce complexity and
-improve validation. The object structure follows Power Platform
-resource requirements while maintaining Terraform best practices.
-
 Properties:
-- property_name: {detailed explanation of purpose and constraints}
+- property_name: {detailed explanation}
 
 Example:
 {
@@ -117,7 +568,6 @@ Example:
 Validation Rules:
 - {specific validation reasoning}
 DESCRIPTION
-
   validation {
     condition     = can(regex("^[a-zA-Z0-9-]+$", var.example_config.property_name))
     error_message = "Property name must contain only alphanumeric characters and hyphens."
@@ -125,46 +575,61 @@ DESCRIPTION
 }
 ```
 
-**outputs.tf Pattern**:
+**main.tf Header Pattern**:
 ```hcl
-# Output Values for {Configuration Title}
+# {Configuration Title} Configuration
 #
-# This file implements the AVM anti-corruption layer pattern by outputting
-# discrete computed attributes instead of complete resource objects.
-# This approach enhances security and maintains interface stability.
+# This configuration {primary purpose} following Azure Verified Module (AVM)
+# best practices with Power Platform provider adaptations.
 #
-# Output Categories:
-# - Resource Identifiers: Primary keys for downstream references
-# - Computed Values: Derived attributes useful for integration
-# - Summary Information: Aggregated data for reporting
-# - Security Attributes: Access-related information (marked sensitive)
+# Key Features:
+# - AVM-Inspired Structure: {explanation of AVM compliance}
+# - Anti-Corruption Layer: {explanation of output strategy}
+# - Security-First: {security considerations}
+# - {Classification}-Specific: {classification-specific benefits}
+# - Strong Typing: All variables use explicit types and validation (no `any`)
+# - Provider Version: All modules use `~> 3.8` for `microsoft/power-platform`
+# - Lifecycle Management: Resource modules include `prevent_destroy` and `ignore_changes` (see below)
+#
+# Architecture Decisions:
+# - Provider Choice: Using microsoft/power-platform due to {reasoning}
+# - Backend Strategy: Azure Storage with OIDC for {security reasoning}
+# - Resource Organization: {organization strategy and why}
 
-# Primary resource identifier for downstream Terraform configurations
-output "resource_id" {
-  description = <<DESCRIPTION
-The unique identifier of the {resource type}.
+# Provider configuration with explicit versioning for reproducibility
+terraform {
+  # Version constraints ensure consistent behavior across environments
+  required_version = ">= 1.5.0"
+  required_providers {
+    powerplatform = {
+      source  = "microsoft/power-platform"
+      version = "~> 3.8"  # Pessimistic constraint for stability
+    }
+  }
 
-This output provides the primary key for referencing this resource
-in other Terraform configurations or external systems. The ID format
-follows Power Platform standards: {id format explanation}.
-DESCRIPTION
-  value       = powerplatform_resource.example.id
+  # Azure backend with OIDC for secure, keyless authentication
+  backend "azurerm" {
+    use_oidc = true
+  }
 }
 
-# Computed configuration summary for validation and reporting
-output "configuration_summary" {
-  description = <<DESCRIPTION
-Summary of the deployed configuration for validation and reporting.
+# Provider configuration using OIDC for enhanced security
+provider "powerplatform" {
+  use_oidc = true
+}
 
-This output aggregates key configuration details in a structured format
-suitable for automated testing and compliance reporting. The summary
-excludes sensitive data while providing comprehensive visibility.
-DESCRIPTION
-  value = {
-    # Group related attributes logically with explanatory comments
-    resource_name = powerplatform_resource.example.display_name
-    # ... other summary attributes
-  }
+# Resource lifecycle management (for res-* modules)
+#
+# All resource modules must include a lifecycle block as shown:
+#
+# resource "powerplatform_resource" "example" {
+#   # ... resource arguments ...
+#   lifecycle {
+#     prevent_destroy = true
+#     ignore_changes  = [display_name, tags]
+#   }
+# }
+```
 }
 ```
 
@@ -181,6 +646,7 @@ DESCRIPTION
 # - Comprehensive Coverage: Validates structure, data integrity, and security
 # - Environment Agnostic: Works across development, staging, and production
 # - Failure Isolation: Clear error messages for rapid troubleshooting
+# - Minimum Assertion Coverage: 15+ for utl-*, 20+ for res-* (plan/apply), 25+ for ptn-*
 #
 # Test Categories:
 # - Framework Validation: Basic Terraform and provider functionality
@@ -195,35 +661,15 @@ variables {
 }
 
 # Comprehensive validation run - optimized for CI/CD performance
-run "comprehensive_validation" {
-  command = plan  # Using plan for performance - no actual resources created
-
-  # Framework and provider validation
-  assert {
-    condition     = can(data.powerplatform_resource.example)
-    error_message = "Basic framework test - validates provider connectivity and data source accessibility"
-  }
-
-  # Resource structure validation
-  assert {
-    condition     = data.powerplatform_resource.example != null
-    error_message = "Resource data source should return valid data structure"
-  }
-
-  # Output compliance validation
-  assert {
-    condition     = can(output.resource_id)
-    error_message = "Primary output should be accessible - validates AVM compliance"
-  }
-
-  # Data integrity validation
-  assert {
-    condition     = output.resource_id != ""
-    error_message = "Resource ID should not be empty - validates successful resource reference"
-  }
-
-  # Add more assertions as needed for specific resource types
+run "plan_validation" {
+  command = plan
+  # ... at least 10 assertions ...
 }
+run "apply_validation" {
+  command = apply
+  # ... at least 10 assertions ...
+}
+# Add more assertions as needed to meet minimum coverage for module type
 ```
 
 **tfvars Pattern**:
