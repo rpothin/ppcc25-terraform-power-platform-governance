@@ -16,8 +16,20 @@
 # - Security Validation: Sensitive data handling and access controls
 
 variables {
+  # Test configuration - adjustable for different environments
   expected_minimum_count = 0 # Allow empty tenants in test environments
   test_timeout_minutes   = 5 # Reasonable timeout for CI/CD
+  
+  # Required variables for res-dlp-policy configuration
+  display_name = "Test DLP Policy - Integration"
+  default_connectors_classification = "Blocked"
+  environment_type = "AllEnvironments"
+  
+  # Minimal connector configurations for testing
+  business_connectors = []
+  non_business_connectors = []
+  blocked_connectors = []
+  custom_connectors_patterns = []
 }
 
 run "comprehensive_validation" {
