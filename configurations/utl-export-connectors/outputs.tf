@@ -1,12 +1,9 @@
 # Output Values for Export Power Platform Connectors Utility
 #
 # Implements AVM anti-corruption layer by outputting only computed attributes.
-# Organized by usage patterns to support different governance scenarios:
-# - Basic outputs: For simple automation and reporting
-# - Paged outputs: For large tenant scenarios requiring incremental processing  
-# - Metrics outputs: For performance monitoring and capacity planning
-# - Utility outputs: For analysis and relationship mapping
-# - Export outputs: For integration with external governance tools
+# Uses unified output structure that always represents the final processed data
+# (filtered and paginated). This eliminates redundancy while maintaining clear,
+# predictable API for all governance scenarios.
 
 # ============================================================================
 # Output Schema Version
@@ -22,105 +19,71 @@ output "output_schema_version" {
 }
 
 # ============================================================================
-# BASIC OUTPUTS - Primary connector data after filtering
+# SHARED TRANSFORMATIONS - DRY principle for connector data structures
+# ============================================================================
+
+locals {
+  # Reusable connector summary transformation
+  connector_summary_structure = {
+    for idx, c in local.paged_connectors : idx => {
+      id           = c.id
+      name         = c.name
+      display_name = c.display_name
+      publisher    = c.publisher
+      tier         = c.tier
+      type         = c.type
+      unblockable  = c.unblockable
+    }
+  }
+
+  # Reusable connector detailed transformation
+  connector_detailed_structure = {
+    for idx, c in local.paged_connectors : idx => {
+      id              = c.id
+      name            = c.name
+      display_name    = c.display_name
+      publisher       = c.publisher
+      tier            = c.tier
+      type            = c.type
+      unblockable     = c.unblockable
+      certified       = try(c.certified, null)
+      capabilities    = try(c.capabilities, null)
+      api             = try(c.api, null)
+      description     = try(c.description, null)
+      icon_url        = try(c.icon_url, null)
+      swagger_url     = try(c.swagger_url, null)
+      policy_template = try(c.policy_template, null)
+    }
+  }
+}
+
+# ============================================================================
+# PRIMARY OUTPUTS - Final processed connector data
 # ============================================================================
 
 output "connector_ids" {
   description = <<DESCRIPTION
-List of all connector IDs in the tenant, after applying any filter criteria.
-Useful for downstream automation, reporting, and governance.
-DESCRIPTION
-  value       = [for c in local.filtered_connectors : c.id]
-}
-
-output "connectors_summary" {
-  description = <<DESCRIPTION
-Summary of all connectors with key metadata for governance and reporting, after applying any filter criteria.
-DESCRIPTION
-  value = [for c in local.filtered_connectors : {
-    id           = c.id
-    name         = c.name
-    display_name = c.display_name
-    publisher    = c.publisher
-    tier         = c.tier
-    type         = c.type
-    unblockable  = c.unblockable
-  }]
-}
-
-output "connectors_detailed" {
-  description = <<DESCRIPTION
-Comprehensive metadata for all connectors in the tenant, after applying any filter criteria.
-Includes certification status, capabilities, API information, and more (if available in provider schema).
-Performance note: For large tenants, this output may be large and impact plan/apply performance.
-DESCRIPTION
-  value = [for c in local.filtered_connectors : {
-    id              = c.id
-    name            = c.name
-    display_name    = c.display_name
-    publisher       = c.publisher
-    tier            = c.tier
-    type            = c.type
-    unblockable     = c.unblockable
-    certified       = try(c.certified, null)
-    capabilities    = try(c.capabilities, null)
-    api             = try(c.api, null)
-    description     = try(c.description, null)
-    icon_url        = try(c.icon_url, null)
-    swagger_url     = try(c.swagger_url, null)
-    policy_template = try(c.policy_template, null)
-  }]
-}
-
-# ============================================================================
-# PAGED OUTPUTS - For large tenant scenarios
-# ============================================================================
-
-output "paged_connector_ids" {
-  description = <<DESCRIPTION
-List of connector IDs after filtering and pagination.
-Use for incremental processing or large tenant scenarios where full dataset would impact performance.
+List of connector IDs after applying filtering and pagination.
+Always represents the final processed dataset for downstream consumption.
 DESCRIPTION
   value       = [for c in local.paged_connectors : c.id]
 }
 
-output "paged_connectors_summary" {
+output "connectors_summary" {
   description = <<DESCRIPTION
-Summary of paged connectors with key metadata after filtering and pagination.
-Optimized for scenarios requiring batch processing of large connector inventories.
+Summary of connectors with key metadata after filtering and pagination.
+Optimized structure for governance reporting and automation scenarios.
 DESCRIPTION
-  value = [for c in local.paged_connectors : {
-    id           = c.id
-    name         = c.name
-    display_name = c.display_name
-    publisher    = c.publisher
-    tier         = c.tier
-    type         = c.type
-    unblockable  = c.unblockable
-  }]
+  value       = values(local.connector_summary_structure)
 }
 
-output "paged_connectors_detailed" {
+output "connectors_detailed" {
   description = <<DESCRIPTION
-Comprehensive metadata for paged connectors after filtering and pagination.
-Use when detailed analysis is needed for subset of connectors in large tenants.
+Comprehensive metadata for connectors after filtering and pagination.
+Includes certification status, capabilities, API information, and more.
+Performance note: For large result sets, consider using pagination to limit output size.
 DESCRIPTION
-  value = [for c in local.paged_connectors : {
-    id              = c.id
-    name            = c.name
-    display_name    = c.display_name
-    publisher       = c.publisher
-    tier            = c.tier
-    type            = c.type
-    unblockable     = c.unblockable
-    certified       = try(c.certified, null)
-    capabilities    = try(c.capabilities, null)
-    api             = try(c.api, null)
-    description     = try(c.description, null)
-    icon_url        = try(c.icon_url, null)
-    swagger_url     = try(c.swagger_url, null)
-    policy_template = try(c.policy_template, null)
-  }]
+  value       = values(local.connector_detailed_structure)
 }
 
 # ============================================================================
@@ -130,49 +93,60 @@ DESCRIPTION
 output "connector_metrics" {
   description = <<DESCRIPTION
 Performance metrics for connector export operation.
-Provides total, filtered, and paged counts for capacity planning and performance monitoring.
+Provides processing pipeline visibility for capacity planning and performance monitoring.
+
+Metrics include:
+- total: All connectors in tenant before filtering
+- filtered: Connectors remaining after applying filter criteria
+- final: Connectors in the final output after filtering and pagination
+- pagination_active: Whether pagination was applied (page_size > 0)
 DESCRIPTION
   value = {
-    total    = local.connector_count_total
-    filtered = local.connector_count_filtered
-    paged    = local.connector_count_paged
+    total             = local.connector_count_total
+    filtered          = local.connector_count_filtered
+    final             = local.connector_count_paged
+    pagination_active = var.page_size > 0
   }
 }
 
 # ============================================================================
-# UTILITY OUTPUTS - Analysis and relationship mapping
+# ANALYSIS OUTPUTS - Governance insights and relationship mapping
 # ============================================================================
 
 output "publishers_present" {
   description = <<DESCRIPTION
-Set of publishers present in the filtered connector set.
+Set of publishers present in the final connector dataset.
 Useful for governance analysis and publisher-based policy decisions.
 DESCRIPTION
-  value       = local.publishers_present
+  value       = toset([for c in local.paged_connectors : c.publisher])
 }
 
 output "tiers_present" {
   description = <<DESCRIPTION
-Set of tiers present in the filtered connector set.
+Set of tiers present in the final connector dataset.
 Helps identify licensing implications and governance requirements.
 DESCRIPTION
-  value       = local.tiers_present
+  value       = toset([for c in local.paged_connectors : c.tier])
 }
 
 output "types_present" {
   description = <<DESCRIPTION
-Set of types present in the filtered connector set.
+Set of types present in the final connector dataset.
 Supports classification and governance rule application.
 DESCRIPTION
-  value       = local.types_present
+  value       = toset([for c in local.paged_connectors : c.type])
 }
 
 output "connectors_by_publisher" {
   description = <<DESCRIPTION
-Mapping of publisher name to list of connectors for that publisher (after filtering).
+Mapping of publisher name to list of connectors for that publisher.
 Enables publisher-specific governance policies and risk assessment.
+Uses final processed dataset (after filtering and pagination).
 DESCRIPTION
-  value       = local.connectors_by_publisher
+  value = {
+    for p in toset([for c in local.paged_connectors : c.publisher]) :
+    p => [for c in local.paged_connectors : c if c.publisher == p]
+  }
 }
 
 # ============================================================================
@@ -181,16 +155,59 @@ DESCRIPTION
 
 output "connectors_json" {
   description = <<DESCRIPTION
-Paged connectors as a JSON string for integration with external tools.
-Structured format for consumption by governance automation and reporting systems.
+Final connector dataset as JSON string for integration with external tools.
+Structured format optimized for governance automation and reporting systems.
 DESCRIPTION
-  value       = local.connectors_json
+  value       = jsonencode(local.paged_connectors)
 }
 
 output "connectors_csv" {
   description = <<DESCRIPTION
-Paged connectors as a CSV string for integration with external tools.
+Final connector dataset as CSV string for integration with external tools.
 Tabular format for spreadsheet analysis and legacy governance systems.
 DESCRIPTION
-  value       = local.connectors_csv
+  value = join("\n", concat([
+    "id,name,display_name,publisher,tier,type,unblockable"
+    ], [
+    for c in local.paged_connectors : join(",", [
+      c.id, c.name, c.display_name, c.publisher, c.tier, c.type, tostring(c.unblockable)
+    ])
+  ]))
+}
+
+# ============================================================================
+# COMPATIBILITY OUTPUTS - Backward compatibility for migration period
+# ============================================================================
+# 
+# DEPRECATION NOTICE: The following outputs are provided for backward compatibility
+# during the migration from the previous dual-structure (basic/paged) API.
+# These will be removed in a future major version (3.0.0).
+# 
+# Migration Guide:
+# - Replace "paged_connector_ids" with "connector_ids"
+# - Replace "paged_connectors_summary" with "connectors_summary"  
+# - Replace "paged_connectors_detailed" with "connectors_detailed"
+
+output "paged_connector_ids" {
+  description = <<DESCRIPTION
+DEPRECATED: Use 'connector_ids' instead. Will be removed in v3.0.0.
+List of connector IDs after filtering and pagination.
+DESCRIPTION
+  value       = [for c in local.paged_connectors : c.id]
+}
+
+output "paged_connectors_summary" {
+  description = <<DESCRIPTION
+DEPRECATED: Use 'connectors_summary' instead. Will be removed in v3.0.0.
+Summary of connectors with key metadata after filtering and pagination.
+DESCRIPTION
+  value       = values(local.connector_summary_structure)
+}
+
+output "paged_connectors_detailed" {
+  description = <<DESCRIPTION
+DEPRECATED: Use 'connectors_detailed' instead. Will be removed in v3.0.0.
+Comprehensive metadata for connectors after filtering and pagination.
+DESCRIPTION
+  value       = values(local.connector_detailed_structure)
 }
