@@ -48,15 +48,7 @@ No required inputs.
 
 ## Optional Inputs
 
-The following input variables are optional (have default values):
-
-### <a name="input_timeout"></a> [timeout](#input\_timeout)
-
-Description: Timeout for reading connectors data (e.g., '60s'). Optional.
-
-Type: `string`
-
-Default: `"60s"`
+No optional inputs.
 
 ## Outputs
 
