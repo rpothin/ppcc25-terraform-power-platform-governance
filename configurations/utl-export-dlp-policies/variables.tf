@@ -11,3 +11,27 @@ variable "policy_filter" {
   EOT
   default     = []
 }
+
+# Optional: Include detailed action and endpoint rules in the output.
+variable "include_detailed_rules" {
+  type        = bool
+  description = <<DESCRIPTION
+Whether to include detailed action and endpoint rules in the output.
+When false (default), outputs connector summaries with rule counts only.
+When true, outputs complete rule configurations for migration scenarios.
+
+Performance impact:
+- false: Optimized for large tenants and quick analysis
+- true: Complete data but may impact performance with many policies/rules
+
+Security considerations:
+- true: Output marked as sensitive due to potential endpoint exposure
+- false: Output not sensitive, safe for logging and external systems
+DESCRIPTION
+  default     = false
+
+  validation {
+    condition     = can(var.include_detailed_rules)
+    error_message = "include_detailed_rules must be a boolean value (true or false)."
+  }
+}
