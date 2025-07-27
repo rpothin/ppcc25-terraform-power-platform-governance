@@ -9,6 +9,19 @@
 # - Export outputs: For integration with external governance tools
 
 # ============================================================================
+# Output Schema Version
+# ============================================================================
+
+locals {
+  output_schema_version = "1.0.0"
+}
+
+output "output_schema_version" {
+  description = "The version of the output schema for this module."
+  value       = local.output_schema_version
+}
+
+# ============================================================================
 # BASIC OUTPUTS - Primary connector data after filtering
 # ============================================================================
 
