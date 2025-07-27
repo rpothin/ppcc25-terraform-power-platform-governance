@@ -82,7 +82,7 @@ locals {
   connectors_json = jsonencode(local.paged_connectors)
   connectors_csv = join("\n", concat([
     "id,name,display_name,publisher,tier,type,unblockable"
-  ], [
+    ], [
     for c in local.paged_connectors : join(",", [c.id, c.name, c.display_name, c.publisher, c.tier, c.type, tostring(c.unblockable)])
   ]))
 }
