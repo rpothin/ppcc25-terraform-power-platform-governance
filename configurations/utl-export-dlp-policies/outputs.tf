@@ -135,9 +135,9 @@ DESCRIPTION
     export_metadata = {
       total_policies_in_tenant = length(data.powerplatform_data_loss_prevention_policies.current.policies)
       filtered_policies_count  = length(local.filtered_policies)
-      filter_applied          = length(var.policy_filter) > 0
-      detail_level           = var.include_detailed_rules ? "detailed" : "summary"
-      export_timestamp       = timestamp()
+      filter_applied           = length(var.policy_filter) > 0
+      detail_level             = var.include_detailed_rules ? "detailed" : "summary"
+      export_timestamp         = timestamp()
     }
 
     # Policy count for quick reference
@@ -188,9 +188,6 @@ DESCRIPTION
       )
     }]
   }
-  
-  # Mark as sensitive when detailed rules are included
-  sensitive = var.include_detailed_rules
 }
 
 # ============================================================================
@@ -212,7 +209,7 @@ DESCRIPTION
         env_type => length([for p in local.filtered_policies : p if p.environment_type == env_type])
       }
       policies_with_custom_patterns = length([
-        for p in local.filtered_policies : p 
+        for p in local.filtered_policies : p
         if length(p.custom_connectors_patterns) > 0
       ])
     }
@@ -223,7 +220,7 @@ DESCRIPTION
         for p in local.filtered_policies : length(p.business_connectors)
       ])
       total_non_business_connectors = sum([
-        for p in local.filtered_policies : length(p.non_business_connectors)  
+        for p in local.filtered_policies : length(p.non_business_connectors)
       ])
       total_blocked_connectors = sum([
         for p in local.filtered_policies : length(p.blocked_connectors)
@@ -249,50 +246,9 @@ DESCRIPTION
         ])
       ])
       average_connectors_per_policy = length(local.filtered_policies) > 0 ? sum([
-        for p in local.filtered_policies : 
+        for p in local.filtered_policies :
         length(p.business_connectors) + length(p.non_business_connectors) + length(p.blocked_connectors)
       ]) / length(local.filtered_policies) : 0
     }
-  }
-}
-
-# ============================================================================
-# EXPORT OUTPUTS - Integration with external governance tools
-# ============================================================================
-
-output "export_formats" {
-  description = <<DESCRIPTION
-DLP policies in various export formats for integration with external tools.
-Provides structured data optimized for different consumption scenarios.
-DESCRIPTION
-  value = {
-    # JSON format for API consumption and automation
-    policies_json = jsonencode({
-      export_timestamp = timestamp()
-      policy_count    = length(local.filtered_policies)
-      detail_level    = var.include_detailed_rules ? "detailed" : "summary"
-      policies        = [for policy_idx, policy in local.filtered_policies : {
-        id           = policy.id
-        display_name = policy.display_name
-        environment_type = policy.environment_type
-        environments = policy.environments
-        summary      = local.policy_summaries[policy_idx]
-      }]
-    })
-
-    # CSV format for spreadsheet analysis (summary data only)
-    policies_csv = join("\n", concat([
-      "policy_id,display_name,environment_type,business_count,non_business_count,blocked_count,total_connectors"
-    ], [
-      for policy_idx, policy in local.filtered_policies : join(",", [
-        policy.id,
-        "\"${policy.display_name}\"",
-        policy.environment_type,
-        tostring(local.policy_summaries[policy_idx].business_count),
-        tostring(local.policy_summaries[policy_idx].non_business_count),
-        tostring(local.policy_summaries[policy_idx].blocked_count),
-        tostring(local.policy_summaries[policy_idx].total_connectors)
-      ])
-    ]))
   }
 }
