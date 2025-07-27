@@ -310,8 +310,8 @@ run "dlp_policies_detailed_validation" {
         can(connector.connector_id) &&
         can(connector.action_rules) &&
         can(connector.endpoint_rules) &&
-        is_list(connector.action_rules) &&
-        is_list(connector.endpoint_rules)
+        can(length(connector.action_rules)) &&
+        can(length(connector.endpoint_rules))
       ]
     ]))
     error_message = "In detailed mode, connectors should have connector_id and rule arrays (unified schema)"
