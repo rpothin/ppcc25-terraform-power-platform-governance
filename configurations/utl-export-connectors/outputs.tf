@@ -40,20 +40,20 @@ Includes certification status, capabilities, API information, and more (if avail
 Performance note: For large tenants, this output may be large and impact plan/apply performance.
 DESCRIPTION
   value = [for c in data.powerplatform_connectors.all.connectors : {
-    id                = c.id
-    name              = c.name
-    display_name      = c.display_name
-    publisher         = c.publisher
-    tier              = c.tier
-    type              = c.type
-    unblockable       = c.unblockable
-    certified         = try(c.certified, null)
-    capabilities      = try(c.capabilities, null)
-    api               = try(c.api, null)
-    description       = try(c.description, null)
-    icon_url          = try(c.icon_url, null)
-    swagger_url       = try(c.swagger_url, null)
-    policy_template   = try(c.policy_template, null)
+    id              = c.id
+    name            = c.name
+    display_name    = c.display_name
+    publisher       = c.publisher
+    tier            = c.tier
+    type            = c.type
+    unblockable     = c.unblockable
+    certified       = try(c.certified, null)
+    capabilities    = try(c.capabilities, null)
+    api             = try(c.api, null)
+    description     = try(c.description, null)
+    icon_url        = try(c.icon_url, null)
+    swagger_url     = try(c.swagger_url, null)
+    policy_template = try(c.policy_template, null)
     # Add more fields as available in provider schema
   }]
 }

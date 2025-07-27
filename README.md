@@ -3,7 +3,7 @@
 <div align="center">
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Terraform](https://img.shields.io/badge/Terraform-1.5%2B-623CE4?logo=terraform)](https://www.terraform.io/)
+[![Terraform](https://img.shields.io/badge/Terraform-1.12%2B-623CE4?logo=terraform)](https://www.terraform.io/)
 [![Power Platform](https://img.shields.io/badge/Power%20Platform-742774?logo=microsoft)](https://powerplatform.microsoft.com/)
 
 </div>
