@@ -48,7 +48,81 @@ No required inputs.
 
 ## Optional Inputs
 
-No optional inputs.
+The following input variables are optional (have default values):
+
+### <a name="input_filter_publishers"></a> [filter\_publishers](#input\_filter\_publishers)
+
+Description: Optional list of connector publishers to include in the export. If set, only connectors whose publisher matches one of the provided values will be included.
+
+Example:  
+  filter\_publishers = ["Microsoft", "Troy Taylor"]
+
+Validation:
+- Each publisher must be a non-empty string.
+- If empty or unset, no filtering by publisher is applied.
+
+Type: `list(string)`
+
+Default: `[]`
+
+### <a name="input_filter_tiers"></a> [filter\_tiers](#input\_filter\_tiers)
+
+Description: Optional list of connector tiers to include in the export. Valid values are "Standard" and "Premium". If set, only connectors whose tier matches one of the provided values will be included.
+
+Example:  
+  filter\_tiers = ["Standard", "Premium"]
+
+Validation:
+- Each tier must be either "Standard" or "Premium" (case-sensitive).
+- If empty or unset, no filtering by tier is applied.
+
+Type: `list(string)`
+
+Default: `[]`
+
+### <a name="input_filter_types"></a> [filter\_types](#input\_filter\_types)
+
+Description: Optional list of connector types to include in the export. If set, only connectors whose type matches one of the provided values will be included.
+
+Example:  
+  filter\_types = ["Custom", "BuiltIn"]
+
+Validation:
+- Each type must be a non-empty string.
+- If empty or unset, no filtering by type is applied.
+
+Type: `list(string)`
+
+Default: `[]`
+
+### <a name="input_page_number"></a> [page\_number](#input\_page\_number)
+
+Description: Optional page number for paginating connector results. Ignored if page\_size is 0. First page is 1.
+
+Example:  
+  page\_number = 1
+
+Validation:
+- Must be >= 1 if page\_size > 0
+
+Type: `number`
+
+Default: `1`
+
+### <a name="input_page_size"></a> [page\_size](#input\_page\_size)
+
+Description: Optional page size for paginating connector results. If set to 0 or unset, all filtered connectors are returned. For very large tenants, set to a reasonable value (e.g., 100) to limit output size.
+
+Example:  
+  page\_size = 100
+
+Validation:
+- Must be >= 0
+- If 0, pagination is disabled (all results returned)
+
+Type: `number`
+
+Default: `0`
 
 ## Outputs
 
@@ -56,18 +130,68 @@ The following outputs are exported:
 
 ### <a name="output_connector_ids"></a> [connector\_ids](#output\_connector\_ids)
 
-Description: List of all connector IDs in the tenant.  
+Description: List of all connector IDs in the tenant, after applying any filter criteria.  
 Useful for downstream automation, reporting, and governance.
+
+### <a name="output_connector_metrics"></a> [connector\_metrics](#output\_connector\_metrics)
+
+Description: Performance metrics for connector export operation.  
+Provides total, filtered, and paged counts for capacity planning and performance monitoring.
+
+### <a name="output_connectors_by_publisher"></a> [connectors\_by\_publisher](#output\_connectors\_by\_publisher)
+
+Description: Mapping of publisher name to list of connectors for that publisher (after filtering).  
+Enables publisher-specific governance policies and risk assessment.
+
+### <a name="output_connectors_csv"></a> [connectors\_csv](#output\_connectors\_csv)
+
+Description: Paged connectors as a CSV string for integration with external tools.  
+Tabular format for spreadsheet analysis and legacy governance systems.
 
 ### <a name="output_connectors_detailed"></a> [connectors\_detailed](#output\_connectors\_detailed)
 
-Description: Comprehensive metadata for all connectors in the tenant, including all available properties from the provider.  
+Description: Comprehensive metadata for all connectors in the tenant, after applying any filter criteria.  
 Includes certification status, capabilities, API information, and more (if available in provider schema).  
 Performance note: For large tenants, this output may be large and impact plan/apply performance.
 
+### <a name="output_connectors_json"></a> [connectors\_json](#output\_connectors\_json)
+
+Description: Paged connectors as a JSON string for integration with external tools.  
+Structured format for consumption by governance automation and reporting systems.
+
 ### <a name="output_connectors_summary"></a> [connectors\_summary](#output\_connectors\_summary)
 
-Description: Summary of all connectors with key metadata for governance and reporting.
+Description: Summary of all connectors with key metadata for governance and reporting, after applying any filter criteria.
+
+### <a name="output_paged_connector_ids"></a> [paged\_connector\_ids](#output\_paged\_connector\_ids)
+
+Description: List of connector IDs after filtering and pagination.  
+Use for incremental processing or large tenant scenarios where full dataset would impact performance.
+
+### <a name="output_paged_connectors_detailed"></a> [paged\_connectors\_detailed](#output\_paged\_connectors\_detailed)
+
+Description: Comprehensive metadata for paged connectors after filtering and pagination.  
+Use when detailed analysis is needed for subset of connectors in large tenants.
+
+### <a name="output_paged_connectors_summary"></a> [paged\_connectors\_summary](#output\_paged\_connectors\_summary)
+
+Description: Summary of paged connectors with key metadata after filtering and pagination.  
+Optimized for scenarios requiring batch processing of large connector inventories.
+
+### <a name="output_publishers_present"></a> [publishers\_present](#output\_publishers\_present)
+
+Description: Set of publishers present in the filtered connector set.  
+Useful for governance analysis and publisher-based policy decisions.
+
+### <a name="output_tiers_present"></a> [tiers\_present](#output\_tiers\_present)
+
+Description: Set of tiers present in the filtered connector set.  
+Helps identify licensing implications and governance requirements.
+
+### <a name="output_types_present"></a> [types\_present](#output\_types\_present)
+
+Description: Set of types present in the filtered connector set.  
+Supports classification and governance rule application.
 
 ## Modules
 
