@@ -54,4 +54,46 @@ run "comprehensive_validation" {
     condition     = length(output.connectors_summary) > 0 ? (type(output.connectors_summary[0].id) == string && type(output.connectors_summary[0].name) == string && type(output.connectors_summary[0].display_name) == string) : true
     error_message = "Connector properties id, name, display_name must be strings."
   }
+
+  # Validate additional connector properties exist in summary
+  assert {
+    condition     = length(output.connectors_summary) > 0 ? all([for c in output.connectors_summary : can(c.publisher) && can(c.tier) && can(c.type)]) : true
+    error_message = "Each connector summary must include publisher, tier, and type properties."
+  }
+
+  # Validate connector IDs are non-empty strings
+  assert {
+    condition     = length(output.connector_ids) > 0 ? all([for id in output.connector_ids : length(id) > 0]) : true
+    error_message = "All connector IDs must be non-empty strings."
+  }
+
+  # Validate connector names are non-empty strings
+  assert {
+    condition     = length(output.connectors_summary) > 0 ? all([for c in output.connectors_summary : length(c.name) > 0]) : true
+    error_message = "All connector names must be non-empty strings."
+  }
+
+  # Validate display names are non-empty strings
+  assert {
+    condition     = length(output.connectors_summary) > 0 ? all([for c in output.connectors_summary : length(c.display_name) > 0]) : true
+    error_message = "All connector display names must be non-empty strings."
+  }
+
+  # Validate connector IDs are unique
+  assert {
+    condition     = length(output.connector_ids) == length(toset(output.connector_ids))
+    error_message = "All connector IDs must be unique (no duplicates)."
+  }
+
+  # Validate unblockable property is boolean
+  assert {
+    condition     = length(output.connectors_summary) > 0 ? all([for c in output.connectors_summary : type(c.unblockable) == bool]) : true
+    error_message = "Connector unblockable property must be boolean type."
+  }
+
+  # Validate data source schema consistency
+  assert {
+    condition     = can(data.powerplatform_connectors.all.connectors) && can(data.powerplatform_connectors.all.id)
+    error_message = "Data source must have both 'connectors' list and 'id' attributes."
+  }
 }
