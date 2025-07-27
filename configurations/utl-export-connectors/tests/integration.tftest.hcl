@@ -9,91 +9,115 @@ variables {
 run "comprehensive_validation" {
   command = plan
 
-  # Provider and data source accessibility
+  # ============================================================================
+  # SECTION 1: Provider and Data Source Validation
+  # ============================================================================
   assert {
     condition     = can(data.powerplatform_connectors.all)
     error_message = "Provider connectivity and data source accessibility failed."
   }
-
-  # Data source returns a list (can be empty)
+  assert {
+    condition     = can(data.powerplatform_connectors.all.connectors) && can(data.powerplatform_connectors.all.id)
+    error_message = "Data source must have both 'connectors' list and 'id' attributes."
+  }
   assert {
     condition     = length(data.powerplatform_connectors.all.connectors) >= 0
     error_message = "Connectors data source should return a list (can be empty)."
   }
 
-  # Output accessibility
+  # ============================================================================
+  # SECTION 2: Output Accessibility and Consistency
+  # ============================================================================
   assert {
-    condition     = can(output.connector_ids)
-    error_message = "Output 'connector_ids' should be accessible."
+    condition     = can(output.connector_ids) && can(output.connectors_summary) && can(output.connectors_detailed)
+    error_message = "All outputs (connector_ids, connectors_summary, connectors_detailed) should be accessible."
   }
   assert {
-    condition     = can(output.connectors_summary)
-    error_message = "Output 'connectors_summary' should be accessible."
+    condition     = length(output.connector_ids) == length(output.connectors_summary) && length(output.connector_ids) == length(output.connectors_detailed)
+    error_message = "All outputs should have matching lengths."
   }
-
-  # Output consistency: connector_ids and connectors_summary lengths match
   assert {
-    condition     = length(output.connector_ids) == length(output.connectors_summary)
-    error_message = "connector_ids and connectors_summary outputs should have matching lengths."
+    condition     = length(data.powerplatform_connectors.all.connectors) == 0 ? (length(output.connector_ids) == 0 && length(output.connectors_summary) == 0 && length(output.connectors_detailed) == 0) : true
+    error_message = "If no connectors are present, all outputs should be empty lists."
   }
-
-  # Validate required properties for each connector (id, name, display_name)
-  assert {
-    condition     = all([for c in output.connectors_summary : can(c.id) && can(c.name) && can(c.display_name)])
-    error_message = "Each connector must have id, name, and display_name properties."
-  }
-
-  # Edge case: empty connector list
-  assert {
-    condition     = length(data.powerplatform_connectors.all.connectors) == 0 ? length(output.connector_ids) == 0 && length(output.connectors_summary) == 0 : true
-    error_message = "If no connectors are present, outputs should be empty lists."
-  }
-
-  # Validate property types for first connector (if present)
-  assert {
-    condition     = length(output.connectors_summary) > 0 ? (type(output.connectors_summary[0].id) == string && type(output.connectors_summary[0].name) == string && type(output.connectors_summary[0].display_name) == string) : true
-    error_message = "Connector properties id, name, display_name must be strings."
-  }
-
-  # Validate additional connector properties exist in summary
-  assert {
-    condition     = length(output.connectors_summary) > 0 ? all([for c in output.connectors_summary : can(c.publisher) && can(c.tier) && can(c.type)]) : true
-    error_message = "Each connector summary must include publisher, tier, and type properties."
-  }
-
-  # Validate connector IDs are non-empty strings
-  assert {
-    condition     = length(output.connector_ids) > 0 ? all([for id in output.connector_ids : length(id) > 0]) : true
-    error_message = "All connector IDs must be non-empty strings."
-  }
-
-  # Validate connector names are non-empty strings
-  assert {
-    condition     = length(output.connectors_summary) > 0 ? all([for c in output.connectors_summary : length(c.name) > 0]) : true
-    error_message = "All connector names must be non-empty strings."
-  }
-
-  # Validate display names are non-empty strings
-  assert {
-    condition     = length(output.connectors_summary) > 0 ? all([for c in output.connectors_summary : length(c.display_name) > 0]) : true
-    error_message = "All connector display names must be non-empty strings."
-  }
-
-  # Validate connector IDs are unique
   assert {
     condition     = length(output.connector_ids) == length(toset(output.connector_ids))
     error_message = "All connector IDs must be unique (no duplicates)."
   }
 
-  # Validate unblockable property is boolean
+  # ============================================================================
+  # SECTION 3: Basic Connector Properties Validation (connectors_summary)
+  # ============================================================================
   assert {
-    condition     = length(output.connectors_summary) > 0 ? all([for c in output.connectors_summary : type(c.unblockable) == bool]) : true
-    error_message = "Connector unblockable property must be boolean type."
+    condition     = length(output.connectors_summary) > 0 ? all([for c in output.connectors_summary : can(c.id) && can(c.name) && can(c.display_name) && can(c.publisher) && can(c.tier) && can(c.type) && can(c.unblockable)]) : true
+    error_message = "Each connector summary must have all required properties: id, name, display_name, publisher, tier, type, unblockable."
+  }
+  assert {
+    condition     = length(output.connectors_summary) > 0 ? all([for c in output.connectors_summary : type(c.id) == string && type(c.name) == string && type(c.display_name) == string && type(c.publisher) == string && type(c.tier) == string && type(c.type) == string && type(c.unblockable) == bool]) : true
+    error_message = "Connector properties must have correct types: strings for id/name/display_name/publisher/tier/type, boolean for unblockable."
+  }
+  assert {
+    condition     = length(output.connectors_summary) > 0 ? all([for c in output.connectors_summary : length(c.id) > 0 && length(c.name) > 0 && length(c.display_name) > 0]) : true
+    error_message = "Connector id, name, and display_name must be non-empty strings."
+  }
+  assert {
+    condition     = length(output.connector_ids) > 0 ? all([for id in output.connector_ids : can(regex("^/providers/Microsoft\\.PowerApps/apis/", id))]) : true
+    error_message = "All connector IDs must follow Power Platform format (/providers/Microsoft.PowerApps/apis/...)."
   }
 
-  # Validate data source schema consistency
+  # ============================================================================
+  # SECTION 4: Advanced Metadata Validation (connectors_detailed)
+  # ============================================================================
   assert {
-    condition     = can(data.powerplatform_connectors.all.connectors) && can(data.powerplatform_connectors.all.id)
-    error_message = "Data source must have both 'connectors' list and 'id' attributes."
+    condition     = length(output.connectors_detailed) > 0 ? all([for c in output.connectors_detailed : can(c.id) && can(c.name) && can(c.display_name) && can(c.publisher) && can(c.tier) && can(c.type) && can(c.unblockable)]) : true
+    error_message = "Each connectors_detailed entry must include all core properties from summary."
+  }
+  assert {
+    condition     = length(output.connectors_detailed) > 0 ? all([for c in output.connectors_detailed : can(c.certified) && can(c.capabilities) && can(c.api) && can(c.description) && can(c.icon_url) && can(c.swagger_url) && can(c.policy_template)]) : true
+    error_message = "Each connectors_detailed entry must include advanced metadata fields."
+  }
+  assert {
+    condition     = length(output.connectors_detailed) > 0 ? all([for c in output.connectors_detailed : 
+      (c.certified == null || type(c.certified) == bool) &&
+      (c.capabilities == null || type(c.capabilities) == list) &&
+      (c.api == null || type(c.api) == string) &&
+      (c.description == null || type(c.description) == string) &&
+      (c.icon_url == null || type(c.icon_url) == string) &&
+      (c.swagger_url == null || type(c.swagger_url) == string) &&
+      (c.policy_template == null || type(c.policy_template) == string)
+    ]) : true
+    error_message = "Advanced metadata fields must have correct types or be null."
+  }
+
+  # ============================================================================
+  # SECTION 5: Error Handling and Edge Cases
+  # ============================================================================
+  assert {
+    condition     = length(output.connectors_detailed) > 0 ? all([for c in output.connectors_detailed : c.certified == null || type(c.certified) == bool]) : true
+    error_message = "Certified field must be boolean or null when missing."
+  }
+  assert {
+    condition     = length(output.connectors_detailed) > 0 ? all([for c in output.connectors_detailed : c.capabilities == null || length(c.capabilities) >= 0]) : true
+    error_message = "Capabilities must be a list (can be empty) or null when missing."
+  }
+  assert {
+    condition     = length(output.connectors_detailed) > 0 ? all([for c in output.connectors_detailed : c.api == null || (type(c.api) == string && length(c.api) >= 0)]) : true
+    error_message = "API field must be string (can be empty) or null when missing."
+  }
+
+  # ============================================================================
+  # SECTION 6: Performance and Scale Validation
+  # ============================================================================
+  assert {
+    condition     = length(output.connectors_detailed) <= 1000
+    error_message = "Warning: More than 1000 connectors detected. Performance may be impacted for very large tenants."
+  }
+  assert {
+    condition     = length(output.connector_ids) == 0 || length(output.connector_ids) >= 10
+    error_message = "Expected either 0 connectors (empty tenant) or at least 10 (typical minimum for active tenants)."
+  }
+  assert {
+    condition     = length(output.connectors_detailed) <= 500 || length(output.connectors_summary) > 0
+    error_message = "For large connector datasets (>500), summary output should be preferred for performance."
   }
 }
