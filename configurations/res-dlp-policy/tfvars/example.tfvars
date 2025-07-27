@@ -1,86 +1,128 @@
+
 # Example tfvars for res-dlp-policy
 #
-# This file provides a sample configuration for deploying a DLP policy using the res-dlp-policy module.
-# All values are based on the official provider documentation and can be customized for your environment.
+# This file provides sample configurations for all supported usage patterns.
+#
+# The default (uncommented) block is the recommended full auto-classification pattern.
+# Other patterns are provided as commented-out alternatives below.
 
-# Display name for the DLP policy
-# (string, required)
+# -----------------------------------------------------------------------------
+# 1. Full Auto-Classification (Recommended)
+#    - Only business_connectors (as list of IDs) and custom_connectors_patterns provided
+#    - non_business_connectors and blocked_connectors will be auto-classified
+# -----------------------------------------------------------------------------
 display_name = "Block All Policy"
-
-# Default classification for connectors ("General", "Confidential", "Blocked")
-# (string, required)
 default_connectors_classification = "Blocked"
-
-# Environment type for the policy ("AllEnvironments", "ExceptEnvironments", "OnlyEnvironments")
-# (string, required)
 environment_type = "AllEnvironments"
-
-# List of environment IDs to which the policy is applied (optional, empty for all environments)
-# (list(string), optional)
 environments = []
-
-# Business connectors (set of objects, required)
 business_connectors = [
-  {
-    id                           = "/providers/Microsoft.PowerApps/apis/shared_sql"
-    default_action_rule_behavior = "Allow"
-    action_rules = [
-      {
-        action_id = "DeleteItem_V2"
-        behavior  = "Block"
-      },
-      {
-        action_id = "ExecutePassThroughNativeQuery_V2"
-        behavior  = "Block"
-      }
-    ]
-    endpoint_rules = [
-      {
-        behavior = "Allow"
-        endpoint = "contoso.com"
-        order    = 1
-      },
-      {
-        behavior = "Deny"
-        endpoint = "*"
-        order    = 2
-      }
-    ]
-  },
-  {
-    id                           = "/providers/Microsoft.PowerApps/apis/shared_approvals"
-    default_action_rule_behavior = ""
-    action_rules                 = []
-    endpoint_rules               = []
-  },
-  {
-    id                           = "/providers/Microsoft.PowerApps/apis/shared_cloudappsecurity"
-    default_action_rule_behavior = ""
-    action_rules                 = []
-    endpoint_rules               = []
-  }
+	"/providers/Microsoft.PowerApps/apis/shared_sql",
+	"/providers/Microsoft.PowerApps/apis/shared_approvals"
 ]
-
-# Non-business connectors (set of objects, required)
-non_business_connectors = [
-  # Example: Add connectors as needed
-]
-
-# Blocked connectors (set of objects, required)
-blocked_connectors = [
-  # Example: Add connectors as needed
-]
-
-# Custom connectors patterns (set of objects, required)
 custom_connectors_patterns = [
-  {
-    order            = 1
-    host_url_pattern = "https://*.contoso.com"
-    data_group       = "Blocked"
-  },
-  {
-    order            = 2
-    host_url_pattern = "*"
-    data_group       = "Ignore"
-  }
+	{
+		order            = 1
+		host_url_pattern = "https://*.contoso.com"
+		data_group       = "Blocked"
+	},
+	{
+		order            = 2
+		host_url_pattern = "*"
+		data_group       = "Ignore"
+	}
 ]
+
+# -----------------------------------------------------------------------------
+# 2. Partial Auto-Classification
+#    - Provide business_connectors and one of non_business_connectors or blocked_connectors
+#    - The other will be auto-classified
+# -----------------------------------------------------------------------------
+# display_name = "Block All Policy"
+# default_connectors_classification = "Blocked"
+# environment_type = "AllEnvironments"
+# environments = []
+# business_connectors = [
+#   "/providers/Microsoft.PowerApps/apis/shared_sql"
+# ]
+# non_business_connectors = [
+#   {
+#     id                           = "/providers/Microsoft.PowerApps/apis/shared_twitter"
+#     default_action_rule_behavior = "Allow"
+#     action_rules                 = []
+#     endpoint_rules               = []
+#   }
+# ]
+# custom_connectors_patterns = [
+#   {
+#     order            = 1
+#     host_url_pattern = "https://*.contoso.com"
+#     data_group       = "Blocked"
+#   }
+# ]
+
+# -----------------------------------------------------------------------------
+# 3. Full Manual
+#    - Provide all connector classifications explicitly
+# -----------------------------------------------------------------------------
+# display_name = "Block All Policy"
+# default_connectors_classification = "Blocked"
+# environment_type = "AllEnvironments"
+# environments = []
+# business_connectors = [
+#   "/providers/Microsoft.PowerApps/apis/shared_sql"
+# ]
+# non_business_connectors = [
+#   {
+#     id                           = "/providers/Microsoft.PowerApps/apis/shared_twitter"
+#     default_action_rule_behavior = "Allow"
+#     action_rules                 = []
+#     endpoint_rules               = []
+#   }
+# ]
+# blocked_connectors = [
+#   {
+#     id                           = "/providers/Microsoft.PowerApps/apis/shared_dropbox"
+#     default_action_rule_behavior = "Block"
+#     action_rules                 = []
+#     endpoint_rules               = []
+#   }
+# ]
+# custom_connectors_patterns = [
+#   {
+#     order            = 1
+#     host_url_pattern = "https://*.contoso.com"
+#     data_group       = "Blocked"
+#   }
+# ]
+
+# -----------------------------------------------------------------------------
+# 4. Traditional (business_connectors null, others provided)
+#    - business_connectors is null, both non_business_connectors and blocked_connectors must be provided
+# -----------------------------------------------------------------------------
+# display_name = "Block All Policy"
+# default_connectors_classification = "Blocked"
+# environment_type = "AllEnvironments"
+# environments = []
+# non_business_connectors = [
+#   {
+#     id                           = "/providers/Microsoft.PowerApps/apis/shared_twitter"
+#     default_action_rule_behavior = "Allow"
+#     action_rules                 = []
+#     endpoint_rules               = []
+#   }
+# ]
+# blocked_connectors = [
+#   {
+#     id                           = "/providers/Microsoft.PowerApps/apis/shared_dropbox"
+#     default_action_rule_behavior = "Block"
+#     action_rules                 = []
+#     endpoint_rules               = []
+#   }
+# ]
+# custom_connectors_patterns = [
+#   {
+#     order            = 1
+#     host_url_pattern = "https://*.contoso.com"
+#     data_group       = "Blocked"
+#   }
+# ]

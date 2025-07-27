@@ -2,17 +2,55 @@
 #
 # This configuration deploys a Data Loss Prevention (DLP) policy in Power Platform
 # following Azure Verified Module (AVM) best practices with Power Platform provider adaptations.
-#
-# Key Features:
-# - AVM-Inspired Structure: Resource module for DLP policy deployment
-# - Anti-Corruption Layer: Outputs only resource IDs and computed attributes
-# - Security-First: OIDC authentication, no secrets in code
-# - Resource Deployment: Follows WAF and Power Platform governance best practices
-#
-# Architecture Decisions:
-# - Provider Choice: Using microsoft/power-platform due to lack of DLP support in azurerm/azapi
-# - Backend Strategy: Azure Storage with OIDC for secure, keyless authentication
-# - Resource Organization: All DLP policy logic in this module for clarity and reusability
+
+data "powerplatform_connectors" "all" {}
+
+locals {
+  # Helper: Set of business connector IDs (empty if null)
+  business_connector_ids = var.business_connectors != null ? toset(var.business_connectors) : toset([])
+
+  # Auto-classified non-business connectors (if needed)
+  auto_non_business_connectors = (
+    var.business_connectors != null && var.non_business_connectors == null
+  ) ? [
+    for c in data.powerplatform_connectors.all.connectors : {
+      id                           = c.id
+      default_action_rule_behavior = "Allow"
+      action_rules                 = []
+      endpoint_rules               = []
+    }
+    if c.unblockable == true && !contains(local.business_connector_ids, c.id)
+  ] : null
+
+  # Auto-classified blocked connectors (if needed)
+  auto_blocked_connectors = (
+    var.business_connectors != null && var.blocked_connectors == null
+  ) ? [
+    for c in data.powerplatform_connectors.all.connectors : {
+      id                           = c.id
+      default_action_rule_behavior = "Block"
+      action_rules                 = []
+      endpoint_rules               = []
+    }
+    if c.unblockable == false && !contains(local.business_connector_ids, c.id)
+  ] : null
+
+  # Final business connectors: if business_connectors is provided, generate objects, else null (must be provided manually)
+  final_business_connectors = var.business_connectors != null ? [
+    for id in var.business_connectors : {
+      id                           = id
+      default_action_rule_behavior = "Allow"
+      action_rules                 = []
+      endpoint_rules               = []
+    }
+  ] : null
+
+  # Final non-business connectors: use user value, else auto-classified, else null
+  final_non_business_connectors = var.non_business_connectors != null ? var.non_business_connectors : local.auto_non_business_connectors
+
+  # Final blocked connectors: use user value, else auto-classified, else null
+  final_blocked_connectors = var.blocked_connectors != null ? var.blocked_connectors : local.auto_blocked_connectors
+}
 
 resource "powerplatform_data_loss_prevention_policy" "this" {
   display_name                      = var.display_name
@@ -20,9 +58,9 @@ resource "powerplatform_data_loss_prevention_policy" "this" {
   environment_type                  = var.environment_type
   environments                      = var.environments
 
-  business_connectors     = var.business_connectors
-  non_business_connectors = var.non_business_connectors
-  blocked_connectors      = var.blocked_connectors
+  business_connectors     = local.final_business_connectors
+  non_business_connectors = local.final_non_business_connectors
+  blocked_connectors      = local.final_blocked_connectors
 
   custom_connectors_patterns = var.custom_connectors_patterns
 }

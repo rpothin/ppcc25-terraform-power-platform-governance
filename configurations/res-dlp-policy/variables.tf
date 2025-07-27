@@ -47,28 +47,118 @@ DESCRIPTION
 
 variable "business_connectors" {
   description = <<DESCRIPTION
-Set of business connectors for sensitive data. See provider docs for structure.
+List of connector IDs to classify as business connectors. When provided, non-business and blocked connectors will be auto-classified unless explicitly set. If null, both non_business_connectors and blocked_connectors must be provided.
+
+Example:
+business_connectors = [
+  "/providers/Microsoft.PowerApps/apis/shared_sql",
+  "/providers/Microsoft.PowerApps/apis/shared_approvals"
+]
 DESCRIPTION
-  type        = any
+  type    = list(string)
+  default = null
 }
 
 variable "non_business_connectors" {
   description = <<DESCRIPTION
-Set of non-business connectors for non-sensitive data. See provider docs for structure.
+Set of non-business connectors for non-sensitive data. When null and business_connectors is provided, will be auto-classified as all unblockable connectors not in business_connectors. When provided, auto-classification is bypassed.
+
+Example:
+non_business_connectors = [
+  {
+    id                           = "/providers/Microsoft.PowerApps/apis/shared_twitter"
+    default_action_rule_behavior = "Allow"
+    action_rules                 = []
+    endpoint_rules               = []
+  }
+]
 DESCRIPTION
-  type        = any
+  type    = list(object({
+    id                           = string
+    default_action_rule_behavior = string
+    action_rules                 = list(object({
+      action_id = string
+      behavior  = string
+    }))
+    endpoint_rules = list(object({
+      endpoint = string
+      behavior = string
+      order    = number
+    }))
+  }))
+  default = null
 }
 
 variable "blocked_connectors" {
   description = <<DESCRIPTION
-Set of blocked connectors. See provider docs for structure.
+Set of blocked connectors. When null and business_connectors is provided, will be auto-classified as all blockable connectors not in business_connectors. When provided, auto-classification is bypassed.
+
+Example:
+blocked_connectors = [
+  {
+    id                           = "/providers/Microsoft.PowerApps/apis/shared_dropbox"
+    default_action_rule_behavior = "Block"
+    action_rules                 = []
+    endpoint_rules               = []
+  }
+]
 DESCRIPTION
-  type        = any
+  type    = list(object({
+    id                           = string
+    default_action_rule_behavior = string
+    action_rules                 = list(object({
+      action_id = string
+      behavior  = string
+    }))
+    endpoint_rules = list(object({
+      endpoint = string
+      behavior = string
+      order    = number
+    }))
+  }))
+  default = null
 }
 
 variable "custom_connectors_patterns" {
   description = <<DESCRIPTION
-Set of custom connector patterns for advanced DLP scenarios. See provider docs for structure.
+Set of custom connector patterns for advanced DLP scenarios. Each pattern must specify order, host_url_pattern, and data_group.
+
+Example:
+custom_connectors_patterns = [
+  {
+    order            = 1
+    host_url_pattern = "https://*.contoso.com"
+    data_group       = "Blocked"
+  },
+  {
+    order            = 2
+    host_url_pattern = "*"
+    data_group       = "Ignore"
+  }
+]
 DESCRIPTION
-  type        = any
+  type = list(object({
+    order            = number
+    host_url_pattern = string
+    data_group       = string
+  }))
+  default = []
+}
+
+# Validation: If business_connectors is null, both non_business_connectors and blocked_connectors must be provided
+locals {
+  _auto_classification_invalid = (
+    var.business_connectors == null &&
+    (var.non_business_connectors == null || var.blocked_connectors == null)
+  )
+}
+
+variable "_auto_classification_guard" {
+  description = "Internal guard variable for auto-classification validation."
+  type        = bool
+  default     = true
+  validation {
+    condition     = !local._auto_classification_invalid
+    error_message = "When business_connectors is null, both non_business_connectors and blocked_connectors must be provided."
+  }
 }
