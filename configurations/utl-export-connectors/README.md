@@ -59,6 +59,12 @@ The following outputs are exported:
 Description: List of all connector IDs in the tenant.  
 Useful for downstream automation, reporting, and governance.
 
+### <a name="output_connectors_detailed"></a> [connectors\_detailed](#output\_connectors\_detailed)
+
+Description: Comprehensive metadata for all connectors in the tenant, including all available properties from the provider.  
+Includes certification status, capabilities, API information, and more (if available in provider schema).  
+Performance note: For large tenants, this output may be large and impact plan/apply performance.
+
 ### <a name="output_connectors_summary"></a> [connectors\_summary](#output\_connectors\_summary)
 
 Description: Summary of all connectors with key metadata for governance and reporting.
