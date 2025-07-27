@@ -77,7 +77,7 @@ run "comprehensive_validation" {
     error_message = "Each connectors_detailed entry must include advanced metadata fields."
   }
   assert {
-    condition     = length(output.connectors_detailed) > 0 ? all([for c in output.connectors_detailed : 
+    condition = length(output.connectors_detailed) > 0 ? all([for c in output.connectors_detailed :
       (c.certified == null || type(c.certified) == bool) &&
       (c.capabilities == null || type(c.capabilities) == list) &&
       (c.api == null || type(c.api) == string) &&
