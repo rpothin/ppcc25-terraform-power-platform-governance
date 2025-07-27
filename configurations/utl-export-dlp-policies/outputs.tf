@@ -2,13 +2,19 @@
 # This output exposes the current DLP policies for analysis and migration planning
 # Using enhanced anti-corruption layer pattern to provide complete migration data while maintaining AVM compliance
 
+locals {
+  # Output schema version for downstream compatibility and migration tooling
+  output_schema_version = "1.0.0"
+}
+
+
 output "dlp_policies" {
   description = <<-EOT
     DLP policies structured for migration analysis with complete configuration data.
     Each policy includes all necessary information to recreate via IaC without regressions.
     
     Structure:
-    - policy_count: Total number of DLP policies in the tenant
+    - policy_count: Total number of DLP policies exported (after filtering)
     - policies: Array of policy objects with complete configuration
       - Basic metadata (id, display_name, environment_type, environments)
       - Connector classifications (business, non_business, blocked)
@@ -16,8 +22,8 @@ output "dlp_policies" {
       - Summary counts for quick analysis
   EOT
   value = {
-    policy_count = length(data.powerplatform_data_loss_prevention_policies.current.policies)
-    policies = [for policy in data.powerplatform_data_loss_prevention_policies.current.policies : {
+    policy_count = length(local.filtered_policies)
+    policies = [for policy in local.filtered_policies : {
       # Core policy metadata
       id                                = policy.id
       display_name                      = policy.display_name
@@ -92,7 +98,7 @@ output "dlp_policies_detailed_rules" {
     Note: Marked as sensitive due to potential exposure of internal endpoints and detailed security configurations.
   EOT
   value = {
-    policies_with_detailed_rules = [for policy in data.powerplatform_data_loss_prevention_policies.current.policies : {
+    policies_with_detailed_rules = [for policy in local.filtered_policies : {
       policy_id   = policy.id
       policy_name = policy.display_name
 
@@ -143,4 +149,9 @@ output "dlp_policies_detailed_rules" {
     }]
   }
   sensitive = true
+}
+
+output "output_schema_version" {
+  description = "The version of the output schema for this module. Consumers should check this value for compatibility."
+  value       = local.output_schema_version
 }

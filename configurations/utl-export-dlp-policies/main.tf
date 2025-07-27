@@ -13,3 +13,11 @@
 
 # Data Loss Prevention Policies - Main focus of this configuration
 data "powerplatform_data_loss_prevention_policies" "current" {}
+
+# Filtered list of policies based on optional policy_filter input
+locals {
+	filtered_policies = length(var.policy_filter) > 0 ? [
+		for policy in data.powerplatform_data_loss_prevention_policies.current.policies : policy
+		if contains(var.policy_filter, policy.display_name)
+	] : data.powerplatform_data_loss_prevention_policies.current.policies
+}
