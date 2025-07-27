@@ -1,17 +1,20 @@
 # Input Variables for Export Power Platform Connectors Utility
 #
-# This file defines input parameters for the configuration following AVM standards.
+# No input variables are currently required for this module.
 #
-# Variable Categories:
-# - Core Configuration: Data export settings
-# - Security Settings: Authentication and access controls
+# To add a variable, use the following pattern for TFNFR1 compliance:
+#
+# variable "example_variable" {
+#   type = string
+#   description = <<DESCRIPTION
+#   Detailed description of the variable, including context and usage.
+#   Example:
+#     example_variable = "value"
+#   DESCRIPTION
+#   default = "default_value"
+#   validation {
+#     condition     = length(var.example_variable) > 0
+#     error_message = "example_variable must not be empty."
+#   }
+# }
 
-variable "timeout" {
-  type        = string
-  description = "Timeout for reading connectors data (e.g., '60s'). Optional."
-  default     = "60s"
-  validation {
-    condition     = can(regex("^[0-9]+s$", var.timeout))
-    error_message = "Timeout must be specified in seconds (e.g., '60s')."
-  }
-}
