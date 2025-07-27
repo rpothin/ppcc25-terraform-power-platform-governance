@@ -150,21 +150,11 @@ Description: Mapping of publisher name to list of connectors for that publisher.
 Enables publisher-specific governance policies and risk assessment.  
 Uses final processed dataset (after filtering and pagination).
 
-### <a name="output_connectors_csv"></a> [connectors\_csv](#output\_connectors\_csv)
-
-Description: Final connector dataset as CSV string for integration with external tools.  
-Tabular format for spreadsheet analysis and legacy governance systems.
-
 ### <a name="output_connectors_detailed"></a> [connectors\_detailed](#output\_connectors\_detailed)
 
 Description: Comprehensive metadata for connectors after filtering and pagination.  
 Includes certification status, capabilities, API information, and more.  
 Performance note: For large result sets, consider using pagination to limit output size.
-
-### <a name="output_connectors_json"></a> [connectors\_json](#output\_connectors\_json)
-
-Description: Final connector dataset as JSON string for integration with external tools.  
-Structured format optimized for governance automation and reporting systems.
 
 ### <a name="output_connectors_summary"></a> [connectors\_summary](#output\_connectors\_summary)
 
@@ -174,21 +164,6 @@ Optimized structure for governance reporting and automation scenarios.
 ### <a name="output_output_schema_version"></a> [output\_schema\_version](#output\_output\_schema\_version)
 
 Description: The version of the output schema for this module.
-
-### <a name="output_paged_connector_ids"></a> [paged\_connector\_ids](#output\_paged\_connector\_ids)
-
-Description: DEPRECATED: Use 'connector\_ids' instead. Will be removed in v3.0.0.  
-List of connector IDs after filtering and pagination.
-
-### <a name="output_paged_connectors_detailed"></a> [paged\_connectors\_detailed](#output\_paged\_connectors\_detailed)
-
-Description: DEPRECATED: Use 'connectors\_detailed' instead. Will be removed in v3.0.0.  
-Comprehensive metadata for connectors after filtering and pagination.
-
-### <a name="output_paged_connectors_summary"></a> [paged\_connectors\_summary](#output\_paged\_connectors\_summary)
-
-Description: DEPRECATED: Use 'connectors\_summary' instead. Will be removed in v3.0.0.  
-Summary of connectors with key metadata after filtering and pagination.
 
 ### <a name="output_publishers_present"></a> [publishers\_present](#output\_publishers\_present)
 
