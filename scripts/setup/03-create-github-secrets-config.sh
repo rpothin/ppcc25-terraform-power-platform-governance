@@ -79,6 +79,7 @@ create_github_variables() {
     # Array of repository variables to create
     declare -A VARIABLES=(
         ["TERRAFORM_VERSION"]="1.12.2"
+        ["POWER_PLATFORM_PROVIDER_VERSION"]="~> 3.8"
     )
     
     # Create each repository variable
@@ -122,6 +123,7 @@ output_instructions() {
     print_status ""
     print_status "Created Repository Variables:"
     print_status "  ✓ TERRAFORM_VERSION (1.12.2)"
+    print_status "  ✓ POWER_PLATFORM_PROVIDER_VERSION (~> 3.8)"
     print_status ""
     print_status "Configuration Summary:"
     print_status "  • GitHub Repository: $GITHUB_OWNER/$GITHUB_REPO"
@@ -142,6 +144,10 @@ output_instructions() {
     print_status "2. Update TERRAFORM_VERSION repository variable"
     print_status "3. All workflows will automatically use the new version"
     print_status ""
+    print_status "To update Power Platform provider version:"
+    print_status "1. Go to: https://github.com/$GITHUB_OWNER/$GITHUB_REPO/settings/variables/actions"
+    print_status "2. Update POWER_PLATFORM_PROVIDER_VERSION repository variable"
+    print_status "3. All AVM compliance checks will use the new version"
     print_status "Repository Setup is now complete!"
 }
 

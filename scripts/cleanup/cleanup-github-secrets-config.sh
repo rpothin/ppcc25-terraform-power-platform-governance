@@ -144,6 +144,7 @@ remove_repository_variables() {
     # Array of repository variables to remove
     VARIABLES_TO_REMOVE=(
         "TERRAFORM_VERSION"
+        "POWER_PLATFORM_PROVIDER_VERSION"
     )
     
     # Track removal results
@@ -277,6 +278,7 @@ output_instructions() {
     print_status ""
     print_status "Removed Repository Variables:"
     print_status "  ✓ TERRAFORM_VERSION"
+    print_status "  ✓ POWER_PLATFORM_PROVIDER_VERSION"
     print_status ""
     print_status "Repository: $GITHUB_OWNER/$GITHUB_REPO"
     print_status ""

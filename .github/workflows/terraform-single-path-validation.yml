@@ -123,16 +123,66 @@ jobs:
             echo "has-docs-yml=false" >> $GITHUB_OUTPUT
             missing_files="${missing_files}.terraform-docs.yml "
           fi
-          # Fail fast if any required files are missing
-          if [ "$missing_files" != "" ]; then
+
+          # === AVM GUARDRAILS: Provider version, variable typing, lifecycle, test coverage ===
+          avm_violations=""
+          # Provider version check (centralized via GitHub variable)
+          if [ -f "versions.tf" ]; then
+            expected_version="${{ vars.POWER_PLATFORM_PROVIDER_VERSION || '~> 3.8' }}"
+            if ! grep -q "version *= *\"$expected_version\"" versions.tf; then
+              avm_violations="${avm_violations}Provider version not $expected_version in versions.tf. "
+              echo "::error title=AVM Violation::Provider version must be '$expected_version' in versions.tf (set via POWER_PLATFORM_PROVIDER_VERSION variable)"
+            else
+              echo "::notice title=Provider Version::Using Power Platform provider version $expected_version"
+            fi
+          fi
+          # Variable typing check (no 'any')
+          if [ -f "variables.tf" ]; then
+            if grep -q 'type *= *any' variables.tf; then
+              avm_violations="${avm_violations}Forbidden 'any' type found in variables.tf. "
+              echo "::error title=AVM Violation::Variables must use explicit types, not 'any'"
+            fi
+          fi
+          # Lifecycle block check for res-* modules
+          module_name=$(basename "$PWD")
+          if [[ "$module_name" == res-* ]]; then
+            if [ -f "main.tf" ] && ! grep -q 'lifecycle' main.tf; then
+              avm_violations="${avm_violations}Missing lifecycle block in res-* module main.tf. "
+              echo "::error title=AVM Violation::Resource modules (res-*) must include lifecycle blocks"
+            fi
+          fi
+          # Minimum test coverage assertions
+          if [ -f "tests/integration.tftest.hcl" ]; then
+            assertions=$(grep -c 'assert {' tests/integration.tftest.hcl || echo "0")
+            if [[ "$module_name" == utl-* && $assertions -lt 15 ]]; then
+              avm_violations="${avm_violations}utl-* module has $assertions assertions, requires 15+. "
+              echo "::error title=AVM Violation::Utility modules require 15+ test assertions"
+            elif [[ "$module_name" == res-* && $assertions -lt 20 ]]; then
+              avm_violations="${avm_violations}res-* module has $assertions assertions, requires 20+. "
+              echo "::error title=AVM Violation::Resource modules require 20+ test assertions"
+            elif [[ "$module_name" == ptn-* && $assertions -lt 25 ]]; then
+              avm_violations="${avm_violations}ptn-* module has $assertions assertions, requires 25+. "
+              echo "::error title=AVM Violation::Pattern modules require 25+ test assertions"
+            else
+              echo "::notice title=Test Coverage::Module has $assertions assertions (meets requirements)"
+            fi
+          fi
+
+          # Fail fast if any required files or AVM violations are present
+          if [ "$missing_files" != "" ] || [ "$avm_violations" != "" ]; then
             echo "should-run-integration=false" >> $GITHUB_OUTPUT
-            echo "::error title=AVM Compliance Violation::Missing required files: $missing_files"
-            echo "::notice title=Required Action::Add missing files to meet AVM quality standards. See terraform-iac.instructions.md for requirements."
+            if [ "$missing_files" != "" ]; then
+              echo "::error title=AVM Compliance Violation::Missing required files: $missing_files"
+            fi
+            if [ "$avm_violations" != "" ]; then
+              echo "::error title=AVM Compliance Violation::$avm_violations"
+            fi
+            echo "::notice title=Required Action::Add missing files and resolve AVM guardrails to meet quality standards. See terraform-iac.instructions.md for requirements."
             exit 1
           fi
-          # If all required files are present, allow integration test
+          # If all required files and AVM guardrails are present, allow integration test
           echo "should-run-integration=true" >> $GITHUB_OUTPUT
-          echo "::notice title=AVM Compliance::All required files present. Integration test will proceed."
+          echo "::notice title=AVM Compliance::All required files and AVM guardrails present. Integration test will proceed."
   
   # === FORMAT CHECK ===
   # Ensures consistent code formatting for the target path
