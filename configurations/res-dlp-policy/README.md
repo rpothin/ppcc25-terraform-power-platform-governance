@@ -40,29 +40,12 @@ The following providers are used by this module:
 The following resources are used by this module:
 
 - [powerplatform_data_loss_prevention_policy.this](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/resources/data_loss_prevention_policy) (resource)
+- [powerplatform_connectors.all](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/data-sources/connectors) (data source)
 
 <!-- markdownlint-disable MD013 -->
 ## Required Inputs
 
 The following input variables are required:
-
-### <a name="input_blocked_connectors"></a> [blocked\_connectors](#input\_blocked\_connectors)
-
-Description: Set of blocked connectors. See provider docs for structure.
-
-Type: `any`
-
-### <a name="input_business_connectors"></a> [business\_connectors](#input\_business\_connectors)
-
-Description: Set of business connectors for sensitive data. See provider docs for structure.
-
-Type: `any`
-
-### <a name="input_custom_connectors_patterns"></a> [custom\_connectors\_patterns](#input\_custom\_connectors\_patterns)
-
-Description: Set of custom connector patterns for advanced DLP scenarios. See provider docs for structure.
-
-Type: `any`
 
 ### <a name="input_default_connectors_classification"></a> [default\_connectors\_classification](#input\_default\_connectors\_classification)
 
@@ -82,15 +65,95 @@ Description: Default environment handling for the policy ("AllEnvironments", "Ex
 
 Type: `string`
 
-### <a name="input_non_business_connectors"></a> [non\_business\_connectors](#input\_non\_business\_connectors)
-
-Description: Set of non-business connectors for non-sensitive data. See provider docs for structure.
-
-Type: `any`
-
 ## Optional Inputs
 
 The following input variables are optional (have default values):
+
+### <a name="input__auto_classification_guard"></a> [\_auto\_classification\_guard](#input\_\_auto\_classification\_guard)
+
+Description: Internal guard variable for auto-classification validation.
+
+Type: `bool`
+
+Default: `true`
+
+### <a name="input_blocked_connectors"></a> [blocked\_connectors](#input\_blocked\_connectors)
+
+Description: Set of blocked connectors. When null and business\_connectors is provided, will be auto-classified as all blockable connectors not in business\_connectors. When provided, auto-classification is bypassed.
+
+Example:  
+blocked\_connectors = [
+  {  
+    id                           = "/providers/Microsoft.PowerApps/apis/shared\_dropbox"  
+    default\_action\_rule\_behavior = "Block"  
+    action\_rules                 = []  
+    endpoint\_rules               = []
+  }
+]
+
+Type:
+
+```hcl
+list(object({
+    id                           = string
+    default_action_rule_behavior = string
+    action_rules                 = list(object({
+      action_id = string
+      behavior  = string
+    }))
+    endpoint_rules = list(object({
+      endpoint = string
+      behavior = string
+      order    = number
+    }))
+  }))
+```
+
+Default: `null`
+
+### <a name="input_business_connectors"></a> [business\_connectors](#input\_business\_connectors)
+
+Description: List of connector IDs to classify as business connectors. When provided, non-business and blocked connectors will be auto-classified unless explicitly set. If null, both non\_business\_connectors and blocked\_connectors must be provided.
+
+Example:  
+business\_connectors = [
+  "/providers/Microsoft.PowerApps/apis/shared\_sql",
+  "/providers/Microsoft.PowerApps/apis/shared\_approvals"
+]
+
+Type: `list(string)`
+
+Default: `null`
+
+### <a name="input_custom_connectors_patterns"></a> [custom\_connectors\_patterns](#input\_custom\_connectors\_patterns)
+
+Description: Set of custom connector patterns for advanced DLP scenarios. Each pattern must specify order, host\_url\_pattern, and data\_group.
+
+Example:  
+custom\_connectors\_patterns = [
+  {  
+    order            = 1  
+    host\_url\_pattern = "https://*.contoso.com"  
+    data\_group       = "Blocked"
+  },
+  {  
+    order            = 2  
+    host\_url\_pattern = "*"  
+    data\_group       = "Ignore"
+  }
+]
+
+Type:
+
+```hcl
+list(object({
+    order            = number
+    host_url_pattern = string
+    data_group       = string
+  }))
+```
+
+Default: `[]`
 
 ### <a name="input_environments"></a> [environments](#input\_environments)
 
@@ -99,6 +162,40 @@ Description: List of environment IDs to which the policy is applied. Leave empty
 Type: `list(string)`
 
 Default: `[]`
+
+### <a name="input_non_business_connectors"></a> [non\_business\_connectors](#input\_non\_business\_connectors)
+
+Description: Set of non-business connectors for non-sensitive data. When null and business\_connectors is provided, will be auto-classified as all unblockable connectors not in business\_connectors. When provided, auto-classification is bypassed.
+
+Example:  
+non\_business\_connectors = [
+  {  
+    id                           = "/providers/Microsoft.PowerApps/apis/shared\_twitter"  
+    default\_action\_rule\_behavior = "Allow"  
+    action\_rules                 = []  
+    endpoint\_rules               = []
+  }
+]
+
+Type:
+
+```hcl
+list(object({
+    id                           = string
+    default_action_rule_behavior = string
+    action_rules                 = list(object({
+      action_id = string
+      behavior  = string
+    }))
+    endpoint_rules = list(object({
+      endpoint = string
+      behavior = string
+      order    = number
+    }))
+  }))
+```
+
+Default: `null`
 
 ## Outputs
 
