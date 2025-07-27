@@ -25,6 +25,18 @@ This configuration uses the `microsoft/power-platform` provider, which creates a
 - **AVM-Inspired**: Follows AVM patterns and standards where technically feasible
 - **Data Export and Analysis**: Provides reusable data sources without deploying resources
 
+## Known Limitations
+
+- **Provider Schema Dependency**: Some advanced metadata fields may return null
+- **Performance**: Large tenants (1000+ connectors) may impact performance
+- **Filter Constraints**: Case-sensitive exact matching only
+
+## Performance Recommendations
+
+- For tenants with >500 connectors, consider using pagination
+- Use filtering to reduce dataset size when possible
+- Monitor plan/apply times for very large exports
+
 ## Troubleshooting
 
 ### Common Issues
