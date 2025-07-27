@@ -118,11 +118,11 @@ run "dlp_policies_comprehensive_validation" {
         can(connector.default_action_rule_behavior) &&
         (
           # Summary level structure (default)
-          (output.dlp_policies.export_metadata.detail_level == "summary" && 
-           can(connector.action_rules_count) && can(connector.endpoint_rules_count)) ||
+          (output.dlp_policies.export_metadata.detail_level == "summary" &&
+          can(connector.action_rules_count) && can(connector.endpoint_rules_count)) ||
           # Detailed level structure 
-          (output.dlp_policies.export_metadata.detail_level == "detailed" && 
-           can(connector.connector_id) && can(connector.action_rules) && can(connector.endpoint_rules))
+          (output.dlp_policies.export_metadata.detail_level == "detailed" &&
+          can(connector.connector_id) && can(connector.action_rules) && can(connector.endpoint_rules))
         )
       ]
     ]))
@@ -136,11 +136,11 @@ run "dlp_policies_comprehensive_validation" {
         can(connector.default_action_rule_behavior) &&
         (
           # Summary level structure (default)
-          (output.dlp_policies.export_metadata.detail_level == "summary" && 
-           can(connector.action_rules_count) && can(connector.endpoint_rules_count)) ||
+          (output.dlp_policies.export_metadata.detail_level == "summary" &&
+          can(connector.action_rules_count) && can(connector.endpoint_rules_count)) ||
           # Detailed level structure 
-          (output.dlp_policies.export_metadata.detail_level == "detailed" && 
-           can(connector.connector_id) && can(connector.action_rules) && can(connector.endpoint_rules))
+          (output.dlp_policies.export_metadata.detail_level == "detailed" &&
+          can(connector.connector_id) && can(connector.action_rules) && can(connector.endpoint_rules))
         )
       ]
     ]))
@@ -154,11 +154,11 @@ run "dlp_policies_comprehensive_validation" {
         can(connector.default_action_rule_behavior) &&
         (
           # Summary level structure (default)
-          (output.dlp_policies.export_metadata.detail_level == "summary" && 
-           can(connector.action_rules_count) && can(connector.endpoint_rules_count)) ||
+          (output.dlp_policies.export_metadata.detail_level == "summary" &&
+          can(connector.action_rules_count) && can(connector.endpoint_rules_count)) ||
           # Detailed level structure 
-          (output.dlp_policies.export_metadata.detail_level == "detailed" && 
-           can(connector.connector_id) && can(connector.action_rules) && can(connector.endpoint_rules))
+          (output.dlp_policies.export_metadata.detail_level == "detailed" &&
+          can(connector.connector_id) && can(connector.action_rules) && can(connector.endpoint_rules))
         )
       ]
     ]))
@@ -272,11 +272,11 @@ run "dlp_policies_comprehensive_validation" {
 
   # Data consistency validation
   assert {
-    condition = output.governance_analysis.tenant_summary.total_policies == output.dlp_policies.policy_count
+    condition     = output.governance_analysis.tenant_summary.total_policies == output.dlp_policies.policy_count
     error_message = "Governance analysis total_policies should match dlp_policies policy_count"
   }
   assert {
-    condition = output.governance_analysis.tenant_summary.total_policies == output.dlp_policies.export_metadata.filtered_policies_count
+    condition     = output.governance_analysis.tenant_summary.total_policies == output.dlp_policies.export_metadata.filtered_policies_count
     error_message = "Governance analysis total_policies should match export metadata filtered_policies_count"
   }
 
@@ -300,7 +300,7 @@ run "dlp_policies_comprehensive_validation" {
 # Additional test run for detailed rules validation (when include_detailed_rules = true)
 run "dlp_policies_detailed_validation" {
   command = plan
-  
+
   variables {
     include_detailed_rules = true
   }
@@ -351,6 +351,6 @@ run "dlp_policies_detailed_validation" {
         ]
       ])
     ]))
-    error_message = "Endpoint rules should have endpoint, behavior, and order attributes"
+    error_message = "Endpoint rules structure validation (when present)"
   }
 }
