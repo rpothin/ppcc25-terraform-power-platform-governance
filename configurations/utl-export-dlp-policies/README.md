@@ -48,7 +48,18 @@ No required inputs.
 
 ## Optional Inputs
 
-No optional inputs.
+The following input variables are optional (have default values):
+
+### <a name="input_policy_filter"></a> [policy\_filter](#input\_policy\_filter)
+
+Description: (Optional) List of DLP policy display names to export. If set, only policies whose display names match any value in this list will be exported.  
+Filtering is case-sensitive and matches exact display names. Improves performance for large tenants.  
+Example:  
+	policy\_filter = ["Corporate DLP", "Finance DLP"]
+
+Type: `list(string)`
+
+Default: `[]`
 
 ## Outputs
 
@@ -60,7 +71,7 @@ Description: DLP policies structured for migration analysis with complete config
 Each policy includes all necessary information to recreate via IaC without regressions.  
 
 Structure:
-- policy\_count: Total number of DLP policies in the tenant
+- policy\_count: Total number of DLP policies exported (after filtering)
 - policies: Array of policy objects with complete configuration
   - Basic metadata (id, display\_name, environment\_type, environments)
   - Connector classifications (business, non\_business, blocked)
@@ -82,6 +93,10 @@ Use this data for:
 - Compliance auditing of specific connector behaviors  
 
 Note: Marked as sensitive due to potential exposure of internal endpoints and detailed security configurations.
+
+### <a name="output_output_schema_version"></a> [output\_schema\_version](#output\_output\_schema\_version)
+
+Description: The version of the output schema for this module. Consumers should check this value for compatibility.
 
 ## Modules
 
