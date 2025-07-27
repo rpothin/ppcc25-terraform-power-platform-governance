@@ -28,7 +28,7 @@ locals {
   # Empty filter lists mean no filtering is applied for that dimension
   filtered_connectors = [
     for c in data.powerplatform_connectors.all.connectors : c
-    if (
+    if(
       (length(var.filter_publishers) == 0 || contains(var.filter_publishers, c.publisher)) &&
       (length(var.filter_tiers) == 0 || contains(var.filter_tiers, c.tier)) &&
       (length(var.filter_types) == 0 || contains(var.filter_types, c.type))
