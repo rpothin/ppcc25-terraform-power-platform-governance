@@ -55,7 +55,7 @@ The following input variables are optional (have default values):
 Description: (Optional) List of DLP policy display names to export. If set, only policies whose display names match any value in this list will be exported.  
 Filtering is case-sensitive and matches exact display names. Improves performance for large tenants.  
 Example:  
-	policy\_filter = ["Corporate DLP", "Finance DLP"]
+  policy\_filter = ["Corporate DLP", "Finance DLP"]
 
 Type: `list(string)`
 
