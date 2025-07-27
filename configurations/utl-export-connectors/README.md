@@ -163,6 +163,10 @@ Structured format for consumption by governance automation and reporting systems
 
 Description: Summary of all connectors with key metadata for governance and reporting, after applying any filter criteria.
 
+### <a name="output_output_schema_version"></a> [output\_schema\_version](#output\_output\_schema\_version)
+
+Description: The version of the output schema for this module.
+
 ### <a name="output_paged_connector_ids"></a> [paged\_connector\_ids](#output\_paged\_connector\_ids)
 
 Description: List of connector IDs after filtering and pagination.  
