@@ -130,38 +130,46 @@ The following outputs are exported:
 
 ### <a name="output_connector_ids"></a> [connector\_ids](#output\_connector\_ids)
 
-Description: List of all connector IDs in the tenant, after applying any filter criteria.  
-Useful for downstream automation, reporting, and governance.
+Description: List of connector IDs after applying filtering and pagination.  
+Always represents the final processed dataset for downstream consumption.
 
 ### <a name="output_connector_metrics"></a> [connector\_metrics](#output\_connector\_metrics)
 
 Description: Performance metrics for connector export operation.  
-Provides total, filtered, and paged counts for capacity planning and performance monitoring.
+Provides processing pipeline visibility for capacity planning and performance monitoring.
+
+Metrics include:
+- total: All connectors in tenant before filtering
+- filtered: Connectors remaining after applying filter criteria
+- final: Connectors in the final output after filtering and pagination
+- pagination\_active: Whether pagination was applied (page\_size > 0)
 
 ### <a name="output_connectors_by_publisher"></a> [connectors\_by\_publisher](#output\_connectors\_by\_publisher)
 
-Description: Mapping of publisher name to list of connectors for that publisher (after filtering).  
-Enables publisher-specific governance policies and risk assessment.
+Description: Mapping of publisher name to list of connectors for that publisher.  
+Enables publisher-specific governance policies and risk assessment.  
+Uses final processed dataset (after filtering and pagination).
 
 ### <a name="output_connectors_csv"></a> [connectors\_csv](#output\_connectors\_csv)
 
-Description: Paged connectors as a CSV string for integration with external tools.  
+Description: Final connector dataset as CSV string for integration with external tools.  
 Tabular format for spreadsheet analysis and legacy governance systems.
 
 ### <a name="output_connectors_detailed"></a> [connectors\_detailed](#output\_connectors\_detailed)
 
-Description: Comprehensive metadata for all connectors in the tenant, after applying any filter criteria.  
-Includes certification status, capabilities, API information, and more (if available in provider schema).  
-Performance note: For large tenants, this output may be large and impact plan/apply performance.
+Description: Comprehensive metadata for connectors after filtering and pagination.  
+Includes certification status, capabilities, API information, and more.  
+Performance note: For large result sets, consider using pagination to limit output size.
 
 ### <a name="output_connectors_json"></a> [connectors\_json](#output\_connectors\_json)
 
-Description: Paged connectors as a JSON string for integration with external tools.  
-Structured format for consumption by governance automation and reporting systems.
+Description: Final connector dataset as JSON string for integration with external tools.  
+Structured format optimized for governance automation and reporting systems.
 
 ### <a name="output_connectors_summary"></a> [connectors\_summary](#output\_connectors\_summary)
 
-Description: Summary of all connectors with key metadata for governance and reporting, after applying any filter criteria.
+Description: Summary of connectors with key metadata after filtering and pagination.  
+Optimized structure for governance reporting and automation scenarios.
 
 ### <a name="output_output_schema_version"></a> [output\_schema\_version](#output\_output\_schema\_version)
 
@@ -169,32 +177,32 @@ Description: The version of the output schema for this module.
 
 ### <a name="output_paged_connector_ids"></a> [paged\_connector\_ids](#output\_paged\_connector\_ids)
 
-Description: List of connector IDs after filtering and pagination.  
-Use for incremental processing or large tenant scenarios where full dataset would impact performance.
+Description: DEPRECATED: Use 'connector\_ids' instead. Will be removed in v3.0.0.  
+List of connector IDs after filtering and pagination.
 
 ### <a name="output_paged_connectors_detailed"></a> [paged\_connectors\_detailed](#output\_paged\_connectors\_detailed)
 
-Description: Comprehensive metadata for paged connectors after filtering and pagination.  
-Use when detailed analysis is needed for subset of connectors in large tenants.
+Description: DEPRECATED: Use 'connectors\_detailed' instead. Will be removed in v3.0.0.  
+Comprehensive metadata for connectors after filtering and pagination.
 
 ### <a name="output_paged_connectors_summary"></a> [paged\_connectors\_summary](#output\_paged\_connectors\_summary)
 
-Description: Summary of paged connectors with key metadata after filtering and pagination.  
-Optimized for scenarios requiring batch processing of large connector inventories.
+Description: DEPRECATED: Use 'connectors\_summary' instead. Will be removed in v3.0.0.  
+Summary of connectors with key metadata after filtering and pagination.
 
 ### <a name="output_publishers_present"></a> [publishers\_present](#output\_publishers\_present)
 
-Description: Set of publishers present in the filtered connector set.  
+Description: Set of publishers present in the final connector dataset.  
 Useful for governance analysis and publisher-based policy decisions.
 
 ### <a name="output_tiers_present"></a> [tiers\_present](#output\_tiers\_present)
 
-Description: Set of tiers present in the filtered connector set.  
+Description: Set of tiers present in the final connector dataset.  
 Helps identify licensing implications and governance requirements.
 
 ### <a name="output_types_present"></a> [types\_present](#output\_types\_present)
 
-Description: Set of types present in the filtered connector set.  
+Description: Set of types present in the final connector dataset.  
 Supports classification and governance rule application.
 
 ## Modules
