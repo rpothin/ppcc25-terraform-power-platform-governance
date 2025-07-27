@@ -9,7 +9,7 @@
 # ============================================================================
 
 variable "filter_publishers" {
-  type = list(string)
+  type        = list(string)
   description = <<DESCRIPTION
 Optional list of connector publishers to include in the export. If set, only connectors whose publisher matches one of the provided values will be included.
 
@@ -20,7 +20,7 @@ Validation:
 - Each publisher must be a non-empty string.
 - If empty or unset, no filtering by publisher is applied.
 DESCRIPTION
-  default = []
+  default     = []
   validation {
     condition     = alltrue([for p in var.filter_publishers : length(trim(p)) > 0])
     error_message = "All publisher filter values must be non-empty strings."
@@ -28,7 +28,7 @@ DESCRIPTION
 }
 
 variable "filter_tiers" {
-  type = list(string)
+  type        = list(string)
   description = <<DESCRIPTION
 Optional list of connector tiers to include in the export. Valid values are "Standard" and "Premium". If set, only connectors whose tier matches one of the provided values will be included.
 
@@ -39,7 +39,7 @@ Validation:
 - Each tier must be either "Standard" or "Premium" (case-sensitive).
 - If empty or unset, no filtering by tier is applied.
 DESCRIPTION
-  default = []
+  default     = []
   validation {
     condition     = alltrue([for t in var.filter_tiers : contains(["Standard", "Premium"], t)])
     error_message = "Each tier filter value must be either 'Standard' or 'Premium'."
@@ -47,7 +47,7 @@ DESCRIPTION
 }
 
 variable "filter_types" {
-  type = list(string)
+  type        = list(string)
   description = <<DESCRIPTION
 Optional list of connector types to include in the export. If set, only connectors whose type matches one of the provided values will be included.
 
@@ -58,7 +58,7 @@ Validation:
 - Each type must be a non-empty string.
 - If empty or unset, no filtering by type is applied.
 DESCRIPTION
-  default = []
+  default     = []
   validation {
     condition     = alltrue([for t in var.filter_types : length(trim(t)) > 0])
     error_message = "All type filter values must be non-empty strings."
@@ -81,7 +81,7 @@ Validation:
 - Must be >= 0
 - If 0, pagination is disabled (all results returned)
 DESCRIPTION
-  default = 0
+  default     = 0
   validation {
     condition     = var.page_size >= 0
     error_message = "page_size must be 0 (disabled) or a positive integer."
@@ -99,7 +99,7 @@ Example:
 Validation:
 - Must be >= 1 if page_size > 0
 DESCRIPTION
-  default = 1
+  default     = 1
   validation {
     condition     = var.page_size == 0 || var.page_number >= 1
     error_message = "page_number must be >= 1 if page_size is set."

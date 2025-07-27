@@ -17,7 +17,7 @@ output "connector_ids" {
 List of all connector IDs in the tenant, after applying any filter criteria.
 Useful for downstream automation, reporting, and governance.
 DESCRIPTION
-  value = [for c in local.filtered_connectors : c.id]
+  value       = [for c in local.filtered_connectors : c.id]
 }
 
 output "connectors_summary" {
@@ -68,7 +68,7 @@ output "paged_connector_ids" {
 List of connector IDs after filtering and pagination.
 Use for incremental processing or large tenant scenarios where full dataset would impact performance.
 DESCRIPTION
-  value = [for c in local.paged_connectors : c.id]
+  value       = [for c in local.paged_connectors : c.id]
 }
 
 output "paged_connectors_summary" {
@@ -135,7 +135,7 @@ output "publishers_present" {
 Set of publishers present in the filtered connector set.
 Useful for governance analysis and publisher-based policy decisions.
 DESCRIPTION
-  value = local.publishers_present
+  value       = local.publishers_present
 }
 
 output "tiers_present" {
@@ -143,7 +143,7 @@ output "tiers_present" {
 Set of tiers present in the filtered connector set.
 Helps identify licensing implications and governance requirements.
 DESCRIPTION
-  value = local.tiers_present
+  value       = local.tiers_present
 }
 
 output "types_present" {
@@ -151,7 +151,7 @@ output "types_present" {
 Set of types present in the filtered connector set.
 Supports classification and governance rule application.
 DESCRIPTION
-  value = local.types_present
+  value       = local.types_present
 }
 
 output "connectors_by_publisher" {
@@ -159,7 +159,7 @@ output "connectors_by_publisher" {
 Mapping of publisher name to list of connectors for that publisher (after filtering).
 Enables publisher-specific governance policies and risk assessment.
 DESCRIPTION
-  value = local.connectors_by_publisher
+  value       = local.connectors_by_publisher
 }
 
 # ============================================================================
@@ -171,7 +171,7 @@ output "connectors_json" {
 Paged connectors as a JSON string for integration with external tools.
 Structured format for consumption by governance automation and reporting systems.
 DESCRIPTION
-  value = local.connectors_json
+  value       = local.connectors_json
 }
 
 output "connectors_csv" {
@@ -179,5 +179,5 @@ output "connectors_csv" {
 Paged connectors as a CSV string for integration with external tools.
 Tabular format for spreadsheet analysis and legacy governance systems.
 DESCRIPTION
-  value = local.connectors_csv
+  value       = local.connectors_csv
 }

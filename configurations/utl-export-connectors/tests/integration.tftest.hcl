@@ -29,19 +29,19 @@ run "comprehensive_validation" {
   # SECTION 2: Output Accessibility and Consistency (including new outputs)
   # ============================================================================
   assert {
-    condition = can(output.connector_ids) && can(output.connectors_summary) && can(output.connectors_detailed)
+    condition     = can(output.connector_ids) && can(output.connectors_summary) && can(output.connectors_detailed)
     error_message = "All outputs (connector_ids, connectors_summary, connectors_detailed) should be accessible."
   }
   assert {
-    condition = can(output.paged_connector_ids) && can(output.paged_connectors_summary) && can(output.paged_connectors_detailed)
+    condition     = can(output.paged_connector_ids) && can(output.paged_connectors_summary) && can(output.paged_connectors_detailed)
     error_message = "Paged outputs (paged_connector_ids, paged_connectors_summary, paged_connectors_detailed) should be accessible."
   }
   assert {
-    condition = can(output.connector_metrics) && can(output.publishers_present) && can(output.tiers_present) && can(output.types_present) && can(output.connectors_by_publisher)
+    condition     = can(output.connector_metrics) && can(output.publishers_present) && can(output.tiers_present) && can(output.types_present) && can(output.connectors_by_publisher)
     error_message = "Utility and metrics outputs should be accessible."
   }
   assert {
-    condition = can(output.connectors_json) && can(output.connectors_csv)
+    condition     = can(output.connectors_json) && can(output.connectors_csv)
     error_message = "Export format outputs (JSON, CSV) should be accessible."
   }
   assert {
@@ -121,23 +121,23 @@ run "comprehensive_validation" {
   # SECTION 6: Performance, Pagination, and Export Format Validation
   # ============================================================================
   assert {
-    condition = output.connector_metrics.total >= output.connector_metrics.filtered && output.connector_metrics.filtered >= output.connector_metrics.paged
+    condition     = output.connector_metrics.total >= output.connector_metrics.filtered && output.connector_metrics.filtered >= output.connector_metrics.paged
     error_message = "Connector metrics should be consistent: total >= filtered >= paged."
   }
   assert {
-    condition = length(output.paged_connector_ids) <= (var.page_size == 0 ? 1000 : var.page_size)
+    condition     = length(output.paged_connector_ids) <= (var.page_size == 0 ? 1000 : var.page_size)
     error_message = "Paged connector IDs should not exceed page_size (or 1000 if not set)."
   }
   assert {
-    condition = length(output.paged_connector_ids) == length(output.paged_connectors_summary) && length(output.paged_connector_ids) == length(output.paged_connectors_detailed)
+    condition     = length(output.paged_connector_ids) == length(output.paged_connectors_summary) && length(output.paged_connector_ids) == length(output.paged_connectors_detailed)
     error_message = "Paged outputs should have matching lengths."
   }
   assert {
-    condition = can(jsondecode(output.connectors_json))
+    condition     = can(jsondecode(output.connectors_json))
     error_message = "connectors_json output should be valid JSON."
   }
   assert {
-    condition = can(regex("^id,name,display_name,publisher,tier,type,unblockable", output.connectors_csv))
+    condition     = can(regex("^id,name,display_name,publisher,tier,type,unblockable", output.connectors_csv))
     error_message = "connectors_csv output should start with the correct header."
   }
   assert {

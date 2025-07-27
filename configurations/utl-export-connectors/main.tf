@@ -44,17 +44,10 @@ locals {
   # Calculate pagination boundaries for filtered connectors
   # When page_size is 0, pagination is disabled (return all filtered connectors)
   page_start_index = var.page_size == 0 ? 0 : (var.page_number - 1) * var.page_size
-  page_end_index   = var.page_size == 0 ? length(local.filtered_connectors) : min(
-    (var.page_number - 1) * var.page_size + var.page_size,
-    length(local.filtered_connectors)
-  )
+  page_end_index   = var.page_size == 0 ? length(local.filtered_connectors) : min((var.page_number - 1) * var.page_size + var.page_size, length(local.filtered_connectors))
 
   # Apply pagination to filtered connectors
-  paged_connectors = var.page_size == 0 ? local.filtered_connectors : slice(
-    local.filtered_connectors,
-    local.page_start_index,
-    local.page_end_index
-  )
+  paged_connectors = var.page_size == 0 ? local.filtered_connectors : slice(local.filtered_connectors, local.page_start_index, local.page_end_index)
 }
 
 # ============================================================================
@@ -90,8 +83,6 @@ locals {
   connectors_csv = join("\n", concat([
     "id,name,display_name,publisher,tier,type,unblockable"
   ], [
-    for c in local.paged_connectors : join(",", [
-      c.id, c.name, c.display_name, c.publisher, c.tier, c.type, tostring(c.unblockable)
-    ])
+    for c in local.paged_connectors : join(",", [c.id, c.name, c.display_name, c.publisher, c.tier, c.type, tostring(c.unblockable)])
   ]))
 }
