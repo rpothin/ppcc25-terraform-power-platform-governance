@@ -63,4 +63,15 @@ resource "powerplatform_data_loss_prevention_policy" "this" {
   blocked_connectors      = local.final_blocked_connectors
 
   custom_connectors_patterns = var.custom_connectors_patterns
+
+  lifecycle {
+    ignore_changes = [
+      # Metadata fields that are automatically updated by Power Platform
+      created_by,           # ✅ User who created the policy (read-only)
+      created_time,         # ✅ Time when the policy was created (read-only)
+      last_modified_by,     # ✅ User who last modified the policy (read-only)
+      last_modified_time,   # ✅ Time when the policy was last modified (read-only)
+      id                    # ✅ Unique name of the policy (read-only)
+    ]
+  }
 }
