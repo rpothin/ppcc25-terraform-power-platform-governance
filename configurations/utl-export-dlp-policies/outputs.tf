@@ -23,70 +23,57 @@ output "output_schema_version" {
 
 locals {
   # Reusable connector transformation function (summary level)
-  transform_connector_summary = {
-    for policy_idx, policy in local.filtered_policies : policy_idx => {
-      business_connectors = [for conn in policy.business_connectors : {
-        id                           = conn.id
-        default_action_rule_behavior = conn.default_action_rule_behavior
-        action_rules_count           = length(conn.action_rules)
-        endpoint_rules_count         = length(conn.endpoint_rules)
-      }]
-      non_business_connectors = [for conn in policy.non_business_connectors : {
-        id                           = conn.id
-        default_action_rule_behavior = conn.default_action_rule_behavior
-        action_rules_count           = length(conn.action_rules)
-        endpoint_rules_count         = length(conn.endpoint_rules)
-      }]
-      blocked_connectors = [for conn in policy.blocked_connectors : {
-        id                           = conn.id
-        default_action_rule_behavior = conn.default_action_rule_behavior
-        action_rules_count           = length(conn.action_rules)
-        endpoint_rules_count         = length(conn.endpoint_rules)
-      }]
-    }
-  }
 
-  # Reusable connector transformation function (detailed level)
-  transform_connector_detailed = {
+  # Unified connector transformation: always includes all possible fields, with irrelevant fields set to null/empty
+  transform_connector_unified = {
     for policy_idx, policy in local.filtered_policies : policy_idx => {
       business_connectors = [for conn in policy.business_connectors : {
+        id                           = conn.id
         connector_id                 = conn.id
         default_action_rule_behavior = conn.default_action_rule_behavior
-        action_rules = [for rule in conn.action_rules : {
+        action_rules_count           = var.include_detailed_rules ? null : length(conn.action_rules)
+        endpoint_rules_count         = var.include_detailed_rules ? null : length(conn.endpoint_rules)
+        action_rules = var.include_detailed_rules ? [for rule in conn.action_rules : {
           action_id = rule.action_id
           behavior  = rule.behavior
-        }]
-        endpoint_rules = [for rule in conn.endpoint_rules : {
+        }] : []
+        endpoint_rules = var.include_detailed_rules ? [for rule in conn.endpoint_rules : {
           endpoint = rule.endpoint
           behavior = rule.behavior
           order    = rule.order
-        }]
+        }] : []
       }]
       non_business_connectors = [for conn in policy.non_business_connectors : {
+        id                           = conn.id
         connector_id                 = conn.id
         default_action_rule_behavior = conn.default_action_rule_behavior
-        action_rules = [for rule in conn.action_rules : {
+        action_rules_count           = var.include_detailed_rules ? null : length(conn.action_rules)
+        endpoint_rules_count         = var.include_detailed_rules ? null : length(conn.endpoint_rules)
+        action_rules = var.include_detailed_rules ? [for rule in conn.action_rules : {
           action_id = rule.action_id
           behavior  = rule.behavior
-        }]
-        endpoint_rules = [for rule in conn.endpoint_rules : {
+        }] : []
+        endpoint_rules = var.include_detailed_rules ? [for rule in conn.endpoint_rules : {
           endpoint = rule.endpoint
           behavior = rule.behavior
           order    = rule.order
-        }]
+        }] : []
       }]
       blocked_connectors = [for conn in policy.blocked_connectors : {
+        id                           = conn.id
         connector_id                 = conn.id
         default_action_rule_behavior = conn.default_action_rule_behavior
-        action_rules = [for rule in conn.action_rules : {
+        action_rules_count           = var.include_detailed_rules ? null : length(conn.action_rules)
+        endpoint_rules_count         = var.include_detailed_rules ? null : length(conn.endpoint_rules)
+        action_rules = var.include_detailed_rules ? [for rule in conn.action_rules : {
           action_id = rule.action_id
           behavior  = rule.behavior
-        }]
-        endpoint_rules = [for rule in conn.endpoint_rules : {
+        }] : []
+        endpoint_rules = var.include_detailed_rules ? [for rule in conn.endpoint_rules : {
           endpoint = rule.endpoint
           behavior = rule.behavior
           order    = rule.order
-        }]
+        }] : []
       }]
     }
   }
@@ -169,23 +156,9 @@ DESCRIPTION
       connector_summary = local.policy_summaries[policy_idx]
 
       # Connector data with configurable detail level
-      business_connectors = (
-        var.include_detailed_rules
-        ? local.transform_connector_detailed[policy_idx].business_connectors
-        : local.transform_connector_summary[policy_idx].business_connectors
-      )
-
-      non_business_connectors = (
-        var.include_detailed_rules
-        ? local.transform_connector_detailed[policy_idx].non_business_connectors
-        : local.transform_connector_summary[policy_idx].non_business_connectors
-      )
-
-      blocked_connectors = (
-        var.include_detailed_rules
-        ? local.transform_connector_detailed[policy_idx].blocked_connectors
-        : local.transform_connector_summary[policy_idx].blocked_connectors
-      )
+      business_connectors     = local.transform_connector_unified[policy_idx].business_connectors
+      non_business_connectors = local.transform_connector_unified[policy_idx].non_business_connectors
+      blocked_connectors      = local.transform_connector_unified[policy_idx].blocked_connectors
     }]
   }
 }

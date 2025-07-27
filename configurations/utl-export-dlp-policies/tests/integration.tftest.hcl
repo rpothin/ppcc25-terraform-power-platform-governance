@@ -109,60 +109,51 @@ run "dlp_policies_comprehensive_validation" {
     error_message = "Each policy should have business_connectors, non_business_connectors, and blocked_connectors arrays"
   }
 
-  # Connector structure validation - Updated for conditional structure
+  # Connector structure validation - Unified schema: all fields present, with conditional population
   assert {
     condition = output.dlp_policies.policy_count == 0 || alltrue(flatten([
       for policy in output.dlp_policies.policies : [
         for connector in policy.business_connectors :
         can(connector.id) &&
+        can(connector.connector_id) &&
         can(connector.default_action_rule_behavior) &&
-        (
-          # Summary level structure (default)
-          (output.dlp_policies.export_metadata.detail_level == "summary" &&
-          can(connector.action_rules_count) && can(connector.endpoint_rules_count)) ||
-          # Detailed level structure 
-          (output.dlp_policies.export_metadata.detail_level == "detailed" &&
-          can(connector.connector_id) && can(connector.action_rules) && can(connector.endpoint_rules))
-        )
+        can(connector.action_rules_count) &&
+        can(connector.endpoint_rules_count) &&
+        can(connector.action_rules) &&
+        can(connector.endpoint_rules)
       ]
     ]))
-    error_message = "Business connectors should have correct structure based on detail level"
+    error_message = "Business connectors should have all unified schema fields"
   }
   assert {
     condition = output.dlp_policies.policy_count == 0 || alltrue(flatten([
       for policy in output.dlp_policies.policies : [
         for connector in policy.non_business_connectors :
         can(connector.id) &&
+        can(connector.connector_id) &&
         can(connector.default_action_rule_behavior) &&
-        (
-          # Summary level structure (default)
-          (output.dlp_policies.export_metadata.detail_level == "summary" &&
-          can(connector.action_rules_count) && can(connector.endpoint_rules_count)) ||
-          # Detailed level structure 
-          (output.dlp_policies.export_metadata.detail_level == "detailed" &&
-          can(connector.connector_id) && can(connector.action_rules) && can(connector.endpoint_rules))
-        )
+        can(connector.action_rules_count) &&
+        can(connector.endpoint_rules_count) &&
+        can(connector.action_rules) &&
+        can(connector.endpoint_rules)
       ]
     ]))
-    error_message = "Non-business connectors should have correct structure based on detail level"
+    error_message = "Non-business connectors should have all unified schema fields"
   }
   assert {
     condition = output.dlp_policies.policy_count == 0 || alltrue(flatten([
       for policy in output.dlp_policies.policies : [
         for connector in policy.blocked_connectors :
         can(connector.id) &&
+        can(connector.connector_id) &&
         can(connector.default_action_rule_behavior) &&
-        (
-          # Summary level structure (default)
-          (output.dlp_policies.export_metadata.detail_level == "summary" &&
-          can(connector.action_rules_count) && can(connector.endpoint_rules_count)) ||
-          # Detailed level structure 
-          (output.dlp_policies.export_metadata.detail_level == "detailed" &&
-          can(connector.connector_id) && can(connector.action_rules) && can(connector.endpoint_rules))
-        )
+        can(connector.action_rules_count) &&
+        can(connector.endpoint_rules_count) &&
+        can(connector.action_rules) &&
+        can(connector.endpoint_rules)
       ]
     ]))
-    error_message = "Blocked connectors should have correct structure based on detail level"
+    error_message = "Blocked connectors should have all unified schema fields"
   }
 
   # Summary counts validation
@@ -311,7 +302,7 @@ run "dlp_policies_detailed_validation" {
     error_message = "When include_detailed_rules = true, detail_level should be 'detailed'"
   }
 
-  # Detailed connector structure validation
+  # Detailed connector structure validation (unified schema: all fields present, arrays populated)
   assert {
     condition = output.dlp_policies.policy_count == 0 || alltrue(flatten([
       for policy in output.dlp_policies.policies : [
@@ -323,7 +314,7 @@ run "dlp_policies_detailed_validation" {
         is_list(connector.endpoint_rules)
       ]
     ]))
-    error_message = "In detailed mode, connectors should have connector_id and rule arrays"
+    error_message = "In detailed mode, connectors should have connector_id and rule arrays (unified schema)"
   }
 
   # Action rules structure validation (when present)
