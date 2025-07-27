@@ -50,6 +50,24 @@ No required inputs.
 
 The following input variables are optional (have default values):
 
+### <a name="input_include_detailed_rules"></a> [include\_detailed\_rules](#input\_include\_detailed\_rules)
+
+Description: Whether to include detailed action and endpoint rules in the output.  
+When false (default), outputs connector summaries with rule counts only.  
+When true, outputs complete rule configurations for migration scenarios.
+
+Performance impact:
+- false: Optimized for large tenants and quick analysis
+- true: Complete data but may impact performance with many policies/rules
+
+Security considerations:
+- true: Output marked as sensitive due to potential endpoint exposure
+- false: Output not sensitive, safe for logging and external systems
+
+Type: `bool`
+
+Default: `false`
+
 ### <a name="input_policy_filter"></a> [policy\_filter](#input\_policy\_filter)
 
 Description: (Optional) List of DLP policy display names to export. If set, only policies whose display names match any value in this list will be exported.  
@@ -67,36 +85,36 @@ The following outputs are exported:
 
 ### <a name="output_dlp_policies"></a> [dlp\_policies](#output\_dlp\_policies)
 
-Description: DLP policies structured for migration analysis with complete configuration data.  
-Each policy includes all necessary information to recreate via IaC without regressions.  
+Description: Unified DLP policies export with configurable detail level for optimal performance.  
+Always represents the final processed dataset after applying any policy filters.
 
 Structure:
 - policy\_count: Total number of DLP policies exported (after filtering)
+- export\_metadata: Information about the export configuration and processing
 - policies: Array of policy objects with complete configuration
-  - Basic metadata (id, display\_name, environment\_type, environments)
-  - Connector classifications (business, non\_business, blocked)
-  - Custom connector patterns for migration accuracy
-  - Summary counts for quick analysis
+  - Core metadata: id, display\_name, environment\_type, environments, etc.
+  - Connector classifications: business, non\_business, blocked (with configurable detail)
+  - Custom connector patterns: For accurate migration of custom connector policies
+  - Summary statistics: Quick analysis and validation metrics
 
-### <a name="output_dlp_policies_detailed_rules"></a> [dlp\_policies\_detailed\_rules](#output\_dlp\_policies\_detailed\_rules)
+Detail Levels:
+- When include\_detailed\_rules = false: Connector summaries with rule counts only
+- When include\_detailed\_rules = true: Complete action and endpoint rule configurations
 
-Description: Detailed connector action and endpoint rules for DLP policies.  
+Performance Notes:
+- Summary level optimized for large tenants and quick analysis
+- Detailed level provides complete migration data but may impact performance
+- Use policy\_filter variable to limit scope for large tenants
 
-This output includes complete rule configurations which may contain:
-- Specific action IDs and their allow/block behaviors
-- Endpoint URLs and access patterns
-- Custom rule configurations  
+### <a name="output_governance_analysis"></a> [governance\_analysis](#output\_governance\_analysis)
 
-Use this data for:
-- Complete policy recreation with exact rule preservation
-- Advanced migration scenarios requiring granular rule control
-- Compliance auditing of specific connector behaviors  
-
-Note: Marked as sensitive due to potential exposure of internal endpoints and detailed security configurations.
+Description: Governance analysis and insights derived from the DLP policies export.  
+Provides high-level statistics and patterns useful for governance planning,  
+compliance reporting, and policy optimization recommendations.
 
 ### <a name="output_output_schema_version"></a> [output\_schema\_version](#output\_output\_schema\_version)
 
-Description: The version of the output schema for this module. Consumers should check this value for compatibility.
+Description: The version of the output schema for this module.
 
 ## Modules
 
