@@ -33,12 +33,15 @@ The following requirements are needed by this module:
 
 The following providers are used by this module:
 
+- <a name="provider_null"></a> [null](#provider\_null)
+
 - <a name="provider_powerplatform"></a> [powerplatform](#provider\_powerplatform) (~> 3.8)
 
 ## Resources
 
 The following resources are used by this module:
 
+- [null_resource.auto_classification_guard](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) (resource)
 - [powerplatform_data_loss_prevention_policy.this](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/resources/data_loss_prevention_policy) (resource)
 - [powerplatform_connectors.all](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/data-sources/connectors) (data source)
 
@@ -68,14 +71,6 @@ Type: `string`
 ## Optional Inputs
 
 The following input variables are optional (have default values):
-
-### <a name="input__auto_classification_guard"></a> [\_auto\_classification\_guard](#input\_\_auto\_classification\_guard)
-
-Description: Internal guard variable for auto-classification validation.
-
-Type: `bool`
-
-Default: `true`
 
 ### <a name="input_blocked_connectors"></a> [blocked\_connectors](#input\_blocked\_connectors)
 
