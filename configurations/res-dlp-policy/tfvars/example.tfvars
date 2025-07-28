@@ -16,8 +16,18 @@ default_connectors_classification = "Blocked"          # Security-first default
 environment_type                  = "OnlyEnvironments" # Security-first default
 environments                      = []
 business_connectors = [
-  "/providers/Microsoft.PowerApps/apis/shared_sql",
-  "/providers/Microsoft.PowerApps/apis/shared_approvals"
+  {
+    id                           = "/providers/Microsoft.PowerApps/apis/shared_sql"
+    default_action_rule_behavior = ""
+    action_rules                 = []
+    endpoint_rules               = []
+  },
+  {
+    id                           = "/providers/Microsoft.PowerApps/apis/shared_approvals"
+    default_action_rule_behavior = ""
+    action_rules                 = []
+    endpoint_rules               = []
+  }
 ]
 custom_connectors_patterns = [
   {
