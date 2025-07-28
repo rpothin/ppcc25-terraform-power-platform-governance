@@ -15,7 +15,7 @@ locals {
     ) ? [
     for c in data.powerplatform_connectors.all.connectors : {
       id                           = c.id
-      default_action_rule_behavior = "Allow"
+      default_action_rule_behavior = ""  # ✅ Empty string when action_rules is empty
       action_rules                 = []
       endpoint_rules               = []
     }
@@ -28,7 +28,7 @@ locals {
     ) ? [
     for c in data.powerplatform_connectors.all.connectors : {
       id                           = c.id
-      default_action_rule_behavior = "Block"
+      default_action_rule_behavior = ""  # ✅ Empty string when action_rules is empty
       action_rules                 = []
       endpoint_rules               = []
     }
@@ -39,7 +39,7 @@ locals {
   final_business_connectors = var.business_connectors != null ? [
     for id in var.business_connectors : {
       id                           = id
-      default_action_rule_behavior = "Allow"
+      default_action_rule_behavior = ""  # ✅ Empty string when action_rules is empty
       action_rules                 = []
       endpoint_rules               = []
     }
