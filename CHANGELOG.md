@@ -5,7 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+
+### Changed
+- **Terraform Configurations**
+  - **res-dlp-policy**: Aligned all variable defaults, example usage, configuration logic, and tests with security-first defaults. Now enforces `environment_type = "OnlyEnvironments"` and blocks all custom connectors by default. Example and test cases updated to match new logic. Null checks for `custom_connectors_patterns` removed for clarity and security. All changes validated with local validation script.
 
 ### Added
 - **Terraform Configurations**

@@ -22,16 +22,24 @@ variables {
 
   # Required variables for res-dlp-policy configuration
   display_name                      = "Test DLP Policy - Integration"
-  default_connectors_classification = "Blocked"
-  environment_type                  = "AllEnvironments"
+  default_connectors_classification = "Blocked"          # Security-first default
+  environment_type                  = "OnlyEnvironments" # Security-first default
 
-  # FIXED: Use empty list instead of null to satisfy provider requirements
-  # This enables manual classification mode while satisfying the required constraint
+  # Security-first: block all custom connectors by default
+  custom_connectors_patterns = [
+    {
+      order            = 1
+      host_url_pattern = "*"
+      data_group       = "Blocked"
+    }
+  ]
+
+  # Manual classification mode (override example)
   business_connectors = []
   non_business_connectors = [
     {
       id                           = "/providers/Microsoft.PowerApps/apis/shared_office365"
-      default_action_rule_behavior = "" # ✅ Empty string when action_rules is empty
+      default_action_rule_behavior = ""
       action_rules                 = []
       endpoint_rules               = []
     }
@@ -39,7 +47,7 @@ variables {
   blocked_connectors = [
     {
       id                           = "/providers/Microsoft.PowerApps/apis/shared_twitter"
-      default_action_rule_behavior = "" # ✅ Empty string when action_rules is empty
+      default_action_rule_behavior = ""
       action_rules                 = []
       endpoint_rules               = []
     }
@@ -73,7 +81,7 @@ run "manual_configuration_test" {
       {
         order            = 1
         host_url_pattern = "*"
-        data_group       = "Ignore"
+        data_group       = "Blocked" # Security-first default
       }
     ]
   }
@@ -104,7 +112,7 @@ run "simple_auto_classification_test" {
       {
         order            = 1
         host_url_pattern = "*"
-        data_group       = "Ignore"
+        data_group       = "Blocked" # Security-first default
       }
     ]
   }
@@ -128,7 +136,7 @@ run "full_auto_classification" {
       {
         order            = 1
         host_url_pattern = "*"
-        data_group       = "Ignore"
+        data_group       = "Blocked" # Security-first default
       }
     ]
   }
@@ -156,7 +164,7 @@ run "partial_auto_classification" {
       {
         order            = 1
         host_url_pattern = "*"
-        data_group       = "Ignore"
+        data_group       = "Blocked" # Security-first default
       }
     ]
   }
@@ -191,7 +199,7 @@ run "full_manual_classification" {
       {
         order            = 1
         host_url_pattern = "*"
-        data_group       = "Ignore"
+        data_group       = "Blocked" # Security-first default
       }
     ]
   }
@@ -266,8 +274,8 @@ run "comprehensive_validation" {
   }
 
   assert {
-    condition     = var.custom_connectors_patterns == null || (can(var.custom_connectors_patterns) && length(var.custom_connectors_patterns) >= 0)
-    error_message = "Custom connectors patterns should be null or a valid non-empty list."
+    condition     = can(var.custom_connectors_patterns) && length(var.custom_connectors_patterns) >= 0
+    error_message = "Custom connectors patterns should be a valid non-empty list."
   }
 
   # New assertion: Ensure at least one of the connector lists is non-empty
