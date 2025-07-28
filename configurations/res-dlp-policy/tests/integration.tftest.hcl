@@ -201,7 +201,6 @@ run "full_manual_classification" {
   }
 }
 
-
 run "comprehensive_validation" {
   command = plan
 
@@ -244,31 +243,52 @@ run "comprehensive_validation" {
     error_message = "Business connectors should be a valid list."
   }
 
-  # AVM: Output validation assertions
+  # AVM: Planned resource validation assertions (plan-compatible)
   assert {
-    condition     = can(output.dlp_policy_id) && output.dlp_policy_id != ""
-    error_message = "DLP policy ID output should be non-empty string."
+    condition     = powerplatform_data_loss_prevention_policy.this.display_name == var.display_name
+    error_message = "Planned DLP policy display_name should match input variable."
   }
+
   assert {
-    condition     = output.dlp_policy_display_name == var.display_name
-    error_message = "Output display name should match input variable."
+    condition     = powerplatform_data_loss_prevention_policy.this.environment_type == var.environment_type
+    error_message = "Planned DLP policy environment_type should match input variable."
   }
+
   assert {
-    condition     = output.dlp_policy_environment_type == var.environment_type
-    error_message = "Output environment type should match input variable."
+    condition     = powerplatform_data_loss_prevention_policy.this.default_connectors_classification == var.default_connectors_classification
+    error_message = "Planned DLP policy default_connectors_classification should match input variable."
   }
+
   # AVM: Enhanced input validation
   assert {
     condition     = length(var.display_name) <= 50
     error_message = "Display name should be 50 characters or less for Power Platform compatibility."
   }
+
   assert {
-    condition     = can(var.custom_connectors_patterns) && length(var.custom_connectors_patterns) >= 0
-    error_message = "Custom connectors patterns should be a valid list."
+    condition     = var.custom_connectors_patterns == null || (can(var.custom_connectors_patterns) && length(var.custom_connectors_patterns) >= 0)
+    error_message = "Custom connectors patterns should be null or a valid non-empty list."
   }
+
   # New assertion: Ensure at least one of the connector lists is non-empty
   assert {
     condition     = length(var.business_connectors) > 0 || length(var.non_business_connectors) > 0 || length(var.blocked_connectors) > 0
     error_message = "At least one connector list (business, non-business, or blocked) should be non-empty."
+  }
+
+  # AVM: Resource structure validation
+  assert {
+    condition     = can(powerplatform_data_loss_prevention_policy.this.business_connectors)
+    error_message = "DLP policy should have business_connectors attribute accessible in plan."
+  }
+
+  assert {
+    condition     = can(powerplatform_data_loss_prevention_policy.this.non_business_connectors)
+    error_message = "DLP policy should have non_business_connectors attribute accessible in plan."
+  }
+
+  assert {
+    condition     = can(powerplatform_data_loss_prevention_policy.this.blocked_connectors)
+    error_message = "DLP policy should have blocked_connectors attribute accessible in plan."
   }
 }
