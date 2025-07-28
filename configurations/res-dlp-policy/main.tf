@@ -86,7 +86,7 @@ resource "powerplatform_data_loss_prevention_policy" "this" {
     ignore_changes = concat(
       # Always ignore provider-controlled metadata (but these aren't needed per warning)
       [],
-      
+
       # Conditionally ignore connector lists that receive auto-additions
       var.default_connectors_classification == "Blocked" ? ["blocked_connectors"] : [],
       var.default_connectors_classification == "Confidential" ? ["non_business_connectors"] : [],
