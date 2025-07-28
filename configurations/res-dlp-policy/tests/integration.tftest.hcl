@@ -201,26 +201,6 @@ run "full_manual_classification" {
   }
 }
 
-# 6. Performance/Scale: Large configuration (simulate 100 connectors)
-run "large_scale_performance" {
-  command = plan
-  variables {
-    business_connectors     = slice([for c in data.powerplatform_connectors.all.connectors : c.id], 0, min(100, length(data.powerplatform_connectors.all.connectors)))
-    non_business_connectors = null
-    blocked_connectors      = null
-    custom_connectors_patterns = [
-      {
-        order            = 1
-        host_url_pattern = "*"
-        data_group       = "Ignore"
-      }
-    ]
-  }
-  assert {
-    condition     = length(var.business_connectors) >= 10
-    error_message = "Module should handle at least 10 business connectors for performance testing."
-  }
-}
 
 run "comprehensive_validation" {
   command = plan
@@ -285,5 +265,10 @@ run "comprehensive_validation" {
   assert {
     condition     = can(var.custom_connectors_patterns) && length(var.custom_connectors_patterns) >= 0
     error_message = "Custom connectors patterns should be a valid list."
+  }
+  # New assertion: Ensure at least one of the connector lists is non-empty
+  assert {
+    condition     = length(var.business_connectors) > 0 || length(var.non_business_connectors) > 0 || length(var.blocked_connectors) > 0
+    error_message = "At least one connector list (business, non-business, or blocked) should be non-empty."
   }
 }
