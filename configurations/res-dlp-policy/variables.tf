@@ -24,6 +24,7 @@ DESCRIPTION
     condition     = contains(["General", "Confidential", "Blocked"], var.default_connectors_classification)
     error_message = "Must be one of: General, Confidential, Blocked."
   }
+  default = "Blocked"
 }
 
 variable "environment_type" {
@@ -35,6 +36,7 @@ DESCRIPTION
     condition     = contains(["AllEnvironments", "ExceptEnvironments", "OnlyEnvironments"], var.environment_type)
     error_message = "Must be one of: AllEnvironments, ExceptEnvironments, OnlyEnvironments."
   }
+  default = "OnlyEnvironments"
 }
 
 variable "environments" {
@@ -142,7 +144,7 @@ DESCRIPTION
     host_url_pattern = string
     data_group       = string
   }))
-  default = []
+  default = null
 }
 
 # Validation: If business_connectors is null, both non_business_connectors and blocked_connectors must be provided

@@ -80,7 +80,7 @@ resource "powerplatform_data_loss_prevention_policy" "this" {
   non_business_connectors = local.final_non_business_connectors
   blocked_connectors      = local.final_blocked_connectors
 
-  custom_connectors_patterns = var.custom_connectors_patterns
+  custom_connectors_patterns = var.custom_connectors_patterns != null ? var.custom_connectors_patterns : []
 
   lifecycle {
     ignore_changes = [
