@@ -43,17 +43,6 @@ No resources.
 
 The following input variables are required:
 
-### <a name="input_source_policy_name"></a> [source\_policy\_name](#input\_source\_policy\_name)
-
-Description: Name of the DLP policy to onboard or generate tfvars for.
-
-- Used to select an existing policy from exported data.
-- Must match a policy name present in the exported JSON file.
-
-Example: "Copilot Studio Autonomous Agents"
-
-Type: `string`
-
 ### <a name="input_template_type"></a> [template\_type](#input\_template\_type)
 
 Description: Type of tfvars template to generate for new policies.
@@ -94,6 +83,20 @@ Type: `string`
 
 Default: `null`
 
+### <a name="input_source_policy_name"></a> [source\_policy\_name](#input\_source\_policy\_name)
+
+Description: Name of the DLP policy to onboard and generate tfvars for.
+
+- Used to select an existing policy from exported data (onboarding mode).
+- If not specified, the generator will use template mode for new policy creation.
+- Must match a policy name present in the exported JSON file if provided.
+
+Example: "Copilot Studio Autonomous Agents"
+
+Type: `string`
+
+Default: `""`
+
 ## Outputs
 
 The following outputs are exported:
@@ -102,9 +105,19 @@ The following outputs are exported:
 
 Description: The generated tfvars content for the selected or templated DLP policy.
 
+This output provides a ready-to-use tfvars block, suitable for direct use with the res-dlp-policy configuration. It is generated based on either onboarding an existing policy (from export) or creating a new policy from a governance template.
+
 ### <a name="output_generation_summary"></a> [generation\_summary](#output\_generation\_summary)
 
-Description: Summary of the tfvars generation process, including input parameters and validation results.
+Description: Summary of the tfvars generation process, including input parameters, operational mode, and validation results.
+
+This output provides operational context for the tfvars generation, including:
+- The source policy name (if onboarding)
+- The template type used (if template mode)
+- The output file name
+- Whether onboarding or template mode was used
+- Validation status for generated tfvars
+- Lists of business, non-business, and blocked connectors
 
 ## Modules
 
