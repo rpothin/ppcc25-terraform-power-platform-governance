@@ -1,3 +1,56 @@
+# Classification for connectors (General, Confidential, Blocked)
+variable "default_connectors_classification" {
+  type        = string
+  description = <<DESCRIPTION
+Default classification for connectors ("General", "Confidential", "Blocked").
+DESCRIPTION
+  default     = "General"
+  validation {
+    condition     = contains(["General", "Confidential", "Blocked"], var.default_connectors_classification)
+    error_message = "Must be one of: General, Confidential, Blocked."
+  }
+}
+
+# Environment type for the policy (AllEnvironments, ExceptEnvironments, OnlyEnvironments)
+variable "environment_type" {
+  type        = string
+  description = <<DESCRIPTION
+Default environment handling for the policy ("AllEnvironments", "ExceptEnvironments", "OnlyEnvironments").
+DESCRIPTION
+  default     = "OnlyEnvironments"
+  validation {
+    condition     = contains(["AllEnvironments", "ExceptEnvironments", "OnlyEnvironments"], var.environment_type)
+    error_message = "Must be one of: AllEnvironments, ExceptEnvironments, OnlyEnvironments."
+  }
+}
+
+# List of environment IDs to which the policy is applied
+variable "environments" {
+  type        = list(string)
+  description = <<DESCRIPTION
+List of environment IDs to which the policy is applied. Leave empty for all environments.
+DESCRIPTION
+  default     = []
+}
+
+# Custom connector patterns for advanced DLP scenarios
+variable "custom_connectors_patterns" {
+  type = list(object({
+    order            = number
+    host_url_pattern = string
+    data_group       = string
+  }))
+  description = <<DESCRIPTION
+Set of custom connector patterns for advanced DLP scenarios. Each pattern must specify order, host_url_pattern, and data_group.
+DESCRIPTION
+  default = [
+    {
+      order            = 1
+      host_url_pattern = "*"
+      data_group       = "Blocked"
+    }
+  ]
+}
 
 # Input Variables for Smart DLP tfvars Generator
 #

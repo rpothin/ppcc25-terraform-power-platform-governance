@@ -11,6 +11,7 @@ locals {
   connectors        = local.connectors_json != null ? jsondecode(local.connectors_json) : {}
 }
 
+
 # Determine operational mode: onboarding (from export) or template (new policy)
 locals {
   onboarding_mode = var.source_policy_name != ""
@@ -19,20 +20,85 @@ locals {
   template_type   = var.template_type != "" ? var.template_type : "strict-security"
 }
 
-# Classify connectors for tfvars output (business, non-business, blocked)
+# Map legacy/simple connector lists to required object structure
 locals {
-  business_connectors     = local.onboarding_mode && local.selected_policy != null ? local.selected_policy["business_connectors"] : []
-  non_business_connectors = local.onboarding_mode && local.selected_policy != null ? local.selected_policy["non_business_connectors"] : []
-  blocked_connectors      = local.onboarding_mode && local.selected_policy != null ? local.selected_policy["blocked_connectors"] : []
+  default_connector_object = {
+    id                           = ""
+    default_action_rule_behavior = ""
+    action_rules                 = []
+    endpoint_rules               = []
+  }
+
+  business_connectors = [
+    for c in(
+      local.onboarding_mode && local.selected_policy != null ? local.selected_policy["business_connectors"] : []
+      ) : (
+      can(c.id) ? c : merge(local.default_connector_object, { id = c })
+    )
+  ]
+  non_business_connectors = [
+    for c in(
+      local.onboarding_mode && local.selected_policy != null ? local.selected_policy["non_business_connectors"] : []
+      ) : (
+      can(c.id) ? c : merge(local.default_connector_object, { id = c })
+    )
+  ]
+  blocked_connectors = [
+    for c in(
+      local.onboarding_mode && local.selected_policy != null ? local.selected_policy["blocked_connectors"] : []
+      ) : (
+      can(c.id) ? c : merge(local.default_connector_object, { id = c })
+    )
+  ]
+}
+
+# Map classification and environment values to allowed enums
+locals {
+  classification_map = {
+    "Business"     = "General"
+    "NonBusiness"  = "Confidential"
+    "Strict"       = "Confidential"
+    "Balanced"     = "General"
+    "Development"  = "General"
+    "General"      = "General"
+    "Confidential" = "Confidential"
+    "Blocked"      = "Blocked"
+  }
+  environment_type_map = {
+    "Production"         = "OnlyEnvironments"
+    "Development"        = "OnlyEnvironments"
+    "All"                = "AllEnvironments"
+    "Except"             = "ExceptEnvironments"
+    "Only"               = "OnlyEnvironments"
+    "OnlyEnvironments"   = "OnlyEnvironments"
+    "AllEnvironments"    = "AllEnvironments"
+    "ExceptEnvironments" = "ExceptEnvironments"
+  }
+  default_connectors_classification = lookup(local.classification_map, var.default_connectors_classification, "General")
+  environment_type                  = lookup(local.environment_type_map, var.environment_type, "OnlyEnvironments")
+}
+
+# Required fields for tfvars
+locals {
+  environments = var.environments != null ? var.environments : []
+  custom_connectors_patterns = var.custom_connectors_patterns != null ? var.custom_connectors_patterns : [
+    {
+      order            = 1
+      host_url_pattern = "*"
+      data_group       = "Blocked"
+    }
+  ]
 }
 
 # Render tfvars content using the selected governance template
 locals {
   tfvars_content = templatefile("${path.module}/templates/${local.template_type}.tftpl", {
-    policy_name             = local.policy_name
-    business_connectors     = local.business_connectors
-    non_business_connectors = local.non_business_connectors
-    blocked_connectors      = local.blocked_connectors
+    policy_name                = local.policy_name
+    business_connectors        = local.business_connectors
+    non_business_connectors    = local.non_business_connectors
+    blocked_connectors         = local.blocked_connectors
+    environments               = local.environments
+    custom_connectors_patterns = local.custom_connectors_patterns
   })
 }
 
