@@ -37,13 +37,13 @@ locals {
 
   # Final business connectors: if business_connectors is provided, generate objects, else null (must be provided manually)
   final_business_connectors = var.business_connectors != null ? [
-  for id in var.business_connectors : {
-    id                           = id
-    default_action_rule_behavior = "Allow"
-    action_rules                 = []
-    endpoint_rules               = []
-  }
-] : []  # Change from null to empty list
+    for id in var.business_connectors : {
+      id                           = id
+      default_action_rule_behavior = "Allow"
+      action_rules                 = []
+      endpoint_rules               = []
+    }
+  ] : [] # Change from null to empty list
 
   # Final non-business connectors: use user value, else auto-classified, else null
   final_non_business_connectors = var.non_business_connectors != null ? var.non_business_connectors : local.auto_non_business_connectors
@@ -83,14 +83,15 @@ resource "powerplatform_data_loss_prevention_policy" "this" {
   custom_connectors_patterns = var.custom_connectors_patterns
 
   lifecycle {
-    ignore_changes = [
-      # Metadata fields that are automatically updated by Power Platform
-      created_by,         # ✅ User who created the policy (read-only)
-      created_time,       # ✅ Time when the policy was created (read-only)
-      last_modified_by,   # ✅ User who last modified the policy (read-only)
-      last_modified_time, # ✅ Time when the policy was last modified (read-only)
-      id                  # ✅ Unique name of the policy (read-only)
-    ]
+    ignore_changes = concat(
+      # Always ignore provider-controlled metadata (but these aren't needed per warning)
+      [],
+      
+      # Conditionally ignore connector lists that receive auto-additions
+      var.default_connectors_classification == "Blocked" ? ["blocked_connectors"] : [],
+      var.default_connectors_classification == "Confidential" ? ["non_business_connectors"] : [],
+      var.default_connectors_classification == "General" ? ["business_connectors"] : []
+    )
   }
 }
 

@@ -31,7 +31,7 @@ variables {
   non_business_connectors = [
     {
       id                           = "/providers/Microsoft.PowerApps/apis/shared_office365"
-      default_action_rule_behavior = "Allow" # Fixed: Should be "Allow" for non-business
+      default_action_rule_behavior = "" # ✅ Empty string when action_rules is empty
       action_rules                 = []
       endpoint_rules               = []
     }
@@ -39,16 +39,9 @@ variables {
   blocked_connectors = [
     {
       id                           = "/providers/Microsoft.PowerApps/apis/shared_twitter"
-      default_action_rule_behavior = "Block" # Fixed: Should be "Block" for blocked
+      default_action_rule_behavior = "" # ✅ Empty string when action_rules is empty
       action_rules                 = []
       endpoint_rules               = []
-    }
-  ]
-  custom_connectors_patterns = [
-    {
-      order            = 1
-      host_url_pattern = "*"
-      data_group       = "Ignore"
     }
   ]
 }
