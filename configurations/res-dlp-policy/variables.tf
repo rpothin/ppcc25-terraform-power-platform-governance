@@ -125,17 +125,19 @@ variable "custom_connectors_patterns" {
   description = <<DESCRIPTION
 Set of custom connector patterns for advanced DLP scenarios. Each pattern must specify order, host_url_pattern, and data_group.
 
-Example:
+By default, blocks all custom connectors following security-first principles. Override this variable to allow specific URL patterns for approved custom connectors.
+
+Example with specific allowances:
 custom_connectors_patterns = [
   {
     order            = 1
     host_url_pattern = "https://*.contoso.com"
-    data_group       = "Blocked"
+    data_group       = "Business"
   },
   {
     order            = 2
     host_url_pattern = "*"
-    data_group       = "Ignore"
+    data_group       = "Blocked"
   }
 ]
 DESCRIPTION
@@ -144,7 +146,13 @@ DESCRIPTION
     host_url_pattern = string
     data_group       = string
   }))
-  default = null
+  default = [
+    {
+      order            = 1
+      host_url_pattern = "*"
+      data_group       = "Blocked"
+    }
+  ]
 }
 
 # Validation: If business_connectors is null, both non_business_connectors and blocked_connectors must be provided
