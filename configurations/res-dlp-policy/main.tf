@@ -41,14 +41,14 @@ locals {
 # Validation: Ensure all business connector IDs exist in the tenant
 check "business_connector_ids_exist" {
   assert {
-    condition = var.business_connectors == null ? true : alltrue([
-      for id in var.business_connectors :
-      contains([for c in data.powerplatform_connectors.all.connectors : c.id], id)
+    condition = alltrue([
+      for bc in var.business_connectors :
+      contains([for c in data.powerplatform_connectors.all.connectors : c.id], bc.id)
     ])
     error_message = <<-EOT
       Invalid business connector IDs detected: ${join(", ", [
-    for id in coalesce(var.business_connectors, []) :
-    id if !contains([for c in data.powerplatform_connectors.all.connectors : c.id], id)
+    for bc in var.business_connectors :
+    bc.id if !contains([for c in data.powerplatform_connectors.all.connectors : c.id], bc.id)
 ])}
       To see available connectors, run:
         terraform plan -target=data.powerplatform_connectors.all
