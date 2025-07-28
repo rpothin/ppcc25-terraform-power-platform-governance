@@ -135,17 +135,19 @@ Default: `null`
 
 Description: Set of custom connector patterns for advanced DLP scenarios. Each pattern must specify order, host\_url\_pattern, and data\_group.
 
-Example:  
+By default, blocks all custom connectors following security-first principles. Override this variable to allow specific URL patterns for approved custom connectors.
+
+Example with specific allowances:  
 custom\_connectors\_patterns = [
   {  
     order            = 1  
     host\_url\_pattern = "https://*.contoso.com"  
-    data\_group       = "Blocked"
+    data\_group       = "Business"
   },
   {  
     order            = 2  
     host\_url\_pattern = "*"  
-    data\_group       = "Ignore"
+    data\_group       = "Blocked"
   }
 ]
 
@@ -159,7 +161,17 @@ list(object({
   }))
 ```
 
-Default: `null`
+Default:
+
+```json
+[
+  {
+    "data_group": "Blocked",
+    "host_url_pattern": "*",
+    "order": 1
+  }
+]
+```
 
 ### <a name="input_default_connectors_classification"></a> [default\_connectors\_classification](#input\_default\_connectors\_classification)
 
