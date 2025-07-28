@@ -79,8 +79,9 @@ run-name: >-
   by @${{ github.actor }}
 
 permissions:
-  id-token: write   # Required for GitHub OIDC token generation
-  contents: write   # Required for repository checkout and documentation commits
+  contents: write         # Required for committing generated output files to repository
+  actions: read           # Required for accessing workflow artifacts and metadata
+  id-token: write         # Required for Azure authentication via OIDC
 
 jobs:
   # === PHASE 1: TERRAFORM PLAN ===

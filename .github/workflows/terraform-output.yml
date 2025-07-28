@@ -70,7 +70,7 @@ on:
 run-name: 🔍 Terraform Output for ${{ github.event.inputs.configuration }} (${{ github.event.inputs.export_format }}) by @${{ github.actor }}
 
 permissions:
-  contents: write          # Required for committing generated output files to repository
+  contents: write         # Required for committing generated output files to repository
   actions: read           # Required for accessing workflow artifacts and metadata
   id-token: write         # Required for Azure authentication via OIDC
 
