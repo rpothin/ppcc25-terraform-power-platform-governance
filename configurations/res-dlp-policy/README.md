@@ -73,21 +73,9 @@ The following resources are used by this module:
 
 The following input variables are required:
 
-### <a name="input_default_connectors_classification"></a> [default\_connectors\_classification](#input\_default\_connectors\_classification)
-
-Description: Default classification for connectors ("General", "Confidential", "Blocked").
-
-Type: `string`
-
 ### <a name="input_display_name"></a> [display\_name](#input\_display\_name)
 
 Description: The display name of the DLP policy.
-
-Type: `string`
-
-### <a name="input_environment_type"></a> [environment\_type](#input\_environment\_type)
-
-Description: Default environment handling for the policy ("AllEnvironments", "ExceptEnvironments", "OnlyEnvironments").
 
 Type: `string`
 
@@ -171,7 +159,23 @@ list(object({
   }))
 ```
 
-Default: `[]`
+Default: `null`
+
+### <a name="input_default_connectors_classification"></a> [default\_connectors\_classification](#input\_default\_connectors\_classification)
+
+Description: Default classification for connectors ("General", "Confidential", "Blocked").
+
+Type: `string`
+
+Default: `"Blocked"`
+
+### <a name="input_environment_type"></a> [environment\_type](#input\_environment\_type)
+
+Description: Default environment handling for the policy ("AllEnvironments", "ExceptEnvironments", "OnlyEnvironments").
+
+Type: `string`
+
+Default: `"OnlyEnvironments"`
 
 ### <a name="input_environments"></a> [environments](#input\_environments)
 
