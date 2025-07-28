@@ -125,7 +125,7 @@ run "simple_auto_classification_test" {
       "/providers/Microsoft.PowerApps/apis/shared_sql"
     ]
     non_business_connectors = null
-    blocked_connectors = null
+    blocked_connectors      = null
     custom_connectors_patterns = [
       {
         order            = 1
@@ -149,7 +149,7 @@ run "full_auto_classification" {
       "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
     ]
     non_business_connectors = null
-    blocked_connectors = null
+    blocked_connectors      = null
     custom_connectors_patterns = [
       {
         order            = 1
@@ -231,9 +231,9 @@ run "full_manual_classification" {
 run "large_scale_performance" {
   command = plan
   variables {
-    business_connectors = [for i in range(0, 100) : "/providers/Microsoft.PowerApps/apis/shared_test${i}"]
+    business_connectors     = [for i in range(0, 100) : "/providers/Microsoft.PowerApps/apis/shared_test${i}"]
     non_business_connectors = null
-    blocked_connectors = null
+    blocked_connectors      = null
     custom_connectors_patterns = [
       {
         order            = 1
