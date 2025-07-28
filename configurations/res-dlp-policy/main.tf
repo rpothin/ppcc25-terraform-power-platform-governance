@@ -3,6 +3,8 @@
 # This configuration deploys a Data Loss Prevention (DLP) policy in Power Platform
 # following Azure Verified Module (AVM) best practices with Power Platform provider adaptations.
 
+# Test
+
 data "powerplatform_connectors" "all" {}
 
 locals {
