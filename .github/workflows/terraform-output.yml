@@ -136,6 +136,7 @@ jobs:
     # === JOB DEPENDENCIES ===
     # WHY: Ensure Terraform output extraction completes successfully before processing
     needs: terraform-output
+    if: always() && needs.terraform-output.result == 'success'
     runs-on: ubuntu-latest
     # === JOB OUTPUT DECLARATIONS ===
     # WHY: Export key processing results for use by subsequent jobs
