@@ -88,7 +88,7 @@ run "comprehensive_validation" {
   }
 
   assert {
-    condition     = can(tomap(output.generation_summary))
+    condition     = can(keys(output.generation_summary))
     error_message = "generation_summary must be a map type for structured data."
   }
 
