@@ -1,4 +1,9 @@
+
 # Unreleased
+
+### Added
+- **Terraform Configurations**
+  - **NEW**: Utility configuration `utl-generate-dlp-tfvars` for automated generation of tfvars files for DLP policy management. Processes exported DLP policy and connector data, supports both new policy creation (from governance templates) and onboarding of existing policies to IaC. Implements AVM-compliant structure, strong variable typing, anti-corruption outputs, and comprehensive integration test. Includes template-based documentation and troubleshooting guidance.
 
 ### Changed
 - **Terraform Configurations**
