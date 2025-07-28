@@ -37,13 +37,13 @@ locals {
 
   # Final business connectors: if business_connectors is provided, generate objects, else null (must be provided manually)
   final_business_connectors = var.business_connectors != null ? [
-    for id in var.business_connectors : {
-      id                           = id
-      default_action_rule_behavior = "Allow"
-      action_rules                 = []
-      endpoint_rules               = []
-    }
-  ] : null
+  for id in var.business_connectors : {
+    id                           = id
+    default_action_rule_behavior = "Allow"
+    action_rules                 = []
+    endpoint_rules               = []
+  }
+] : []  # Change from null to empty list
 
   # Final non-business connectors: use user value, else auto-classified, else null
   final_non_business_connectors = var.non_business_connectors != null ? var.non_business_connectors : local.auto_non_business_connectors
