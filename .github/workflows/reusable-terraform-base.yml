@@ -335,6 +335,18 @@ jobs:
               "timeout_minutes": ${{ inputs.timeout-minutes }}
             }
       
+      # === STEP 7.5: DOWNLOAD PLAN FILE FOR APPLY OPERATIONS ===
+      # Downloads plan file artifact when performing apply operations
+      # Only executes for apply operations to avoid unnecessary downloads
+      - name: Download Plan File
+        if: inputs.operation == 'apply'
+        uses: actions/download-artifact@v4
+        with:
+          # Must match the artifact name pattern used in plan upload
+          name: terraform-plan-${{ inputs.configuration }}-${{ inputs.tfvars-file || 'default' }}
+          path: configurations/${{ inputs.configuration }}
+        continue-on-error: true  # Allow fallback to direct apply if no plan file
+      
       # === STEP 8: TERRAFORM OPERATION EXECUTION ===
       # This is the core step that executes the requested Terraform operation
       # Each operation has specialized logic while maintaining consistent error handling
