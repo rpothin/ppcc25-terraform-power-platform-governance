@@ -82,6 +82,18 @@ Type: `string`
 
 Default: `"generated-dlp-policy.tfvars"`
 
+### <a name="input_policy_name"></a> [policy\_name](#input\_policy\_name)
+
+Description: Name of the new DLP policy to generate tfvars for (used only when not onboarding from export).
+
+If not specified, defaults to "New DLP Policy".
+
+Example: "Production Security"
+
+Type: `string`
+
+Default: `null`
+
 ## Outputs
 
 The following outputs are exported:
@@ -89,8 +101,6 @@ The following outputs are exported:
 ### <a name="output_generated_tfvars_content"></a> [generated\_tfvars\_content](#output\_generated\_tfvars\_content)
 
 Description: The generated tfvars content for the selected or templated DLP policy.
-
-This output provides the tfvars file content as a string, ready for use with the res-dlp-policy configuration.
 
 ### <a name="output_generation_summary"></a> [generation\_summary](#output\_generation\_summary)
 
