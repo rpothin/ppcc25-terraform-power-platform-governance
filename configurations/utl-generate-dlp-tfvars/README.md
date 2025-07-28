@@ -47,6 +47,56 @@ No required inputs.
 
 The following input variables are optional (have default values):
 
+### <a name="input_custom_connectors_patterns"></a> [custom\_connectors\_patterns](#input\_custom\_connectors\_patterns)
+
+Description: Set of custom connector patterns for advanced DLP scenarios. Each pattern must specify order, host\_url\_pattern, and data\_group.
+
+Type:
+
+```hcl
+list(object({
+    order            = number
+    host_url_pattern = string
+    data_group       = string
+  }))
+```
+
+Default:
+
+```json
+[
+  {
+    "data_group": "Blocked",
+    "host_url_pattern": "*",
+    "order": 1
+  }
+]
+```
+
+### <a name="input_default_connectors_classification"></a> [default\_connectors\_classification](#input\_default\_connectors\_classification)
+
+Description: Default classification for connectors ("General", "Confidential", "Blocked").
+
+Type: `string`
+
+Default: `"General"`
+
+### <a name="input_environment_type"></a> [environment\_type](#input\_environment\_type)
+
+Description: Default environment handling for the policy ("AllEnvironments", "ExceptEnvironments", "OnlyEnvironments").
+
+Type: `string`
+
+Default: `"OnlyEnvironments"`
+
+### <a name="input_environments"></a> [environments](#input\_environments)
+
+Description: List of environment IDs to which the policy is applied. Leave empty for all environments.
+
+Type: `list(string)`
+
+Default: `[]`
+
 ### <a name="input_output_file"></a> [output\_file](#input\_output\_file)
 
 Description: Path and filename for the generated tfvars output.
