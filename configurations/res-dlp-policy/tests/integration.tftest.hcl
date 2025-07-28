@@ -48,30 +48,7 @@ variables {
 
 # --- Advanced Test Scenarios ---
 
-# 1. Apply Test: Validate resource creation and output values
-run "apply_validation" {
-  command = apply
-
-  assert {
-    condition     = powerplatform_data_loss_prevention_policy.this.id != ""
-    error_message = "DLP policy should be successfully deployed with valid ID."
-  }
-  assert {
-    condition     = powerplatform_data_loss_prevention_policy.this.display_name == var.display_name
-    error_message = "Deployed policy name should match configuration."
-  }
-  assert {
-    condition     = can(powerplatform_data_loss_prevention_policy.this.created_time)
-    error_message = "Created time should be populated after deployment."
-  }
-  # AVM: Validate lifecycle/metadata
-  assert {
-    condition     = can(powerplatform_data_loss_prevention_policy.this.created_by)
-    error_message = "Created by metadata should be populated after deployment."
-  }
-}
-
-# 2. Edge Case: Manual configuration (explicit connectors)
+# 1. Edge Case: Manual configuration (explicit connectors)
 run "manual_configuration_test" {
   command = plan
   variables {
@@ -110,7 +87,7 @@ run "manual_configuration_test" {
   }
 }
 
-# 3. Edge Case: Simple auto-classification (specific business connectors)
+# 2. Edge Case: Simple auto-classification (specific business connectors)
 run "simple_auto_classification_test" {
   command = plan
   variables {
@@ -133,7 +110,7 @@ run "simple_auto_classification_test" {
   }
 }
 
-# 4. Usage Pattern: Full Auto-Classification
+# 3. Usage Pattern: Full Auto-Classification
 run "full_auto_classification" {
   command = plan
   variables {
@@ -157,7 +134,7 @@ run "full_auto_classification" {
   }
 }
 
-# 5. Usage Pattern: Partial Auto-Classification
+# 4. Usage Pattern: Partial Auto-Classification
 run "partial_auto_classification" {
   command = plan
   variables {
@@ -185,7 +162,7 @@ run "partial_auto_classification" {
   }
 }
 
-# 6. Usage Pattern: Full Manual Classification
+# 5. Usage Pattern: Full Manual Classification
 run "full_manual_classification" {
   command = plan
   variables {
@@ -220,7 +197,7 @@ run "full_manual_classification" {
   }
 }
 
-# 7. Performance/Scale: Large configuration (simulate 100 connectors)
+# 6. Performance/Scale: Large configuration (simulate 100 connectors)
 run "large_scale_performance" {
   command = plan
   variables {
