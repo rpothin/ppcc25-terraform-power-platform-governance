@@ -153,12 +153,4 @@ locals {
   )
 }
 
-variable "_auto_classification_guard" {
-  description = "Internal guard variable for auto-classification validation."
-  type        = bool
-  default     = true
-  validation {
-    condition     = !local._auto_classification_invalid
-    error_message = "When business_connectors is null, both non_business_connectors and blocked_connectors must be provided."
-  }
-}
+

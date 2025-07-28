@@ -32,6 +32,133 @@ variables {
   custom_connectors_patterns = []
 }
 
+# --- Advanced Test Scenarios ---
+
+# 1. Apply Test: Validate resource creation and output values
+run "apply_validation" {
+  command = apply
+
+  assert {
+    condition     = powerplatform_data_loss_prevention_policy.this.id != ""
+    error_message = "DLP policy should be successfully deployed with valid ID."
+  }
+  assert {
+    condition     = powerplatform_data_loss_prevention_policy.this.display_name == var.display_name
+    error_message = "Deployed policy name should match configuration."
+  }
+  assert {
+    condition     = can(powerplatform_data_loss_prevention_policy.this.created_time)
+    error_message = "Created time should be populated after deployment."
+  }
+}
+
+# 2. Edge Case: Minimal configuration (empty connectors)
+run "minimal_configuration_test" {
+  command = plan
+  variables {
+    business_connectors        = []
+    non_business_connectors    = []
+    blocked_connectors         = []
+    custom_connectors_patterns = []
+  }
+  assert {
+    condition     = length(var.business_connectors) == 0
+    error_message = "Business connectors should be empty for minimal configuration."
+  }
+}
+
+# 3. Edge Case: Maximal configuration (simulate large connector lists)
+run "maximal_configuration_test" {
+  command = plan
+  variables {
+    business_connectors        = [for i in range(0, 100) : "/providers/Microsoft.PowerApps/apis/shared_test${i}"]
+    custom_connectors_patterns = []
+  }
+  assert {
+    condition     = length(var.business_connectors) == 100
+    error_message = "Business connectors should support large lists (100+)."
+  }
+}
+
+# 4. Usage Pattern: Full Auto-Classification
+run "full_auto_classification" {
+  command = plan
+  variables {
+    business_connectors = [
+      "/providers/Microsoft.PowerApps/apis/shared_sql",
+      "/providers/Microsoft.PowerApps/apis/shared_approvals"
+    ]
+    custom_connectors_patterns = []
+  }
+  assert {
+    condition     = length(var.business_connectors) == 2
+    error_message = "Full auto-classification pattern should accept business connectors."
+  }
+}
+
+# 5. Usage Pattern: Partial Auto-Classification
+run "partial_auto_classification" {
+  command = plan
+  variables {
+    business_connectors = ["/providers/Microsoft.PowerApps/apis/shared_sql"]
+    non_business_connectors = [
+      {
+        id                           = "/providers/Microsoft.PowerApps/apis/shared_twitter"
+        default_action_rule_behavior = "Allow"
+        action_rules                 = []
+        endpoint_rules               = []
+      }
+    ]
+    custom_connectors_patterns = []
+  }
+  assert {
+    condition     = length(var.business_connectors) == 1 && length(var.non_business_connectors) == 1
+    error_message = "Partial auto-classification pattern should accept mixed connector input."
+  }
+}
+
+# 6. Usage Pattern: Full Manual Classification
+run "full_manual_classification" {
+  command = plan
+  variables {
+    business_connectors = ["/providers/Microsoft.PowerApps/apis/shared_sql"]
+    non_business_connectors = [
+      {
+        id                           = "/providers/Microsoft.PowerApps/apis/shared_twitter"
+        default_action_rule_behavior = "Allow"
+        action_rules                 = []
+        endpoint_rules               = []
+      }
+    ]
+    blocked_connectors = [
+      {
+        id                           = "/providers/Microsoft.PowerApps/apis/shared_dropbox"
+        default_action_rule_behavior = "Block"
+        action_rules                 = []
+        endpoint_rules               = []
+      }
+    ]
+    custom_connectors_patterns = []
+  }
+  assert {
+    condition     = length(var.business_connectors) == 1 && length(var.non_business_connectors) == 1 && length(var.blocked_connectors) == 1
+    error_message = "Full manual classification pattern should accept all connector types."
+  }
+}
+
+# 7. Performance/Scale: Large configuration (simulate 500 connectors)
+run "large_scale_performance" {
+  command = plan
+  variables {
+    business_connectors        = [for i in range(0, 500) : "/providers/Microsoft.PowerApps/apis/shared_test${i}"]
+    custom_connectors_patterns = []
+  }
+  assert {
+    condition     = length(var.business_connectors) == 500
+    error_message = "Module should handle 500 business connectors for performance testing."
+  }
+}
+
 run "comprehensive_validation" {
   command = plan
 

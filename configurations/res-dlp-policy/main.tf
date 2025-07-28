@@ -75,3 +75,11 @@ resource "powerplatform_data_loss_prevention_policy" "this" {
     ]
   }
 }
+
+# Input validation: If business_connectors is null, both non_business_connectors and blocked_connectors must be provided
+resource "null_resource" "auto_classification_guard" {
+  count = var.business_connectors == null && (var.non_business_connectors == null || var.blocked_connectors == null) ? 1 : 0
+  provisioner "local-exec" {
+    command = "echo 'ERROR: When business_connectors is null, both non_business_connectors and blocked_connectors must be provided.' && exit 1"
+  }
+}
