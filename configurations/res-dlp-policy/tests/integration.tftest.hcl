@@ -87,7 +87,7 @@ run "manual_configuration_test" {
   }
   assert {
     condition     = length(var.business_connectors) == 0
-    error_message = "Business connectors should be null for manual configuration."
+    error_message = "Business connectors should be empty for manual configuration."
   }
   assert {
     condition     = length(var.non_business_connectors) == 1
@@ -104,10 +104,15 @@ run "simple_auto_classification_test" {
   command = plan
   variables {
     business_connectors = [
-      "/providers/Microsoft.PowerApps/apis/shared_sql"
+      {
+        id                           = "/providers/Microsoft.PowerApps/apis/shared_sql"
+        default_action_rule_behavior = ""
+        action_rules                 = []
+        endpoint_rules               = []
+      }
     ]
-    non_business_connectors = null
-    blocked_connectors      = null
+    non_business_connectors = []
+    blocked_connectors      = []
     custom_connectors_patterns = [
       {
         order            = 1
@@ -127,11 +132,21 @@ run "full_auto_classification" {
   command = plan
   variables {
     business_connectors = [
-      "/providers/Microsoft.PowerApps/apis/shared_sql",
-      "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+      {
+        id                           = "/providers/Microsoft.PowerApps/apis/shared_sql"
+        default_action_rule_behavior = ""
+        action_rules                 = []
+        endpoint_rules               = []
+      },
+      {
+        id                           = "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+        default_action_rule_behavior = ""
+        action_rules                 = []
+        endpoint_rules               = []
+      }
     ]
-    non_business_connectors = null
-    blocked_connectors      = null
+    non_business_connectors = []
+    blocked_connectors      = []
     custom_connectors_patterns = [
       {
         order            = 1
@@ -150,7 +165,14 @@ run "full_auto_classification" {
 run "partial_auto_classification" {
   command = plan
   variables {
-    business_connectors = ["/providers/Microsoft.PowerApps/apis/shared_sql"]
+    business_connectors = [
+      {
+        id                           = "/providers/Microsoft.PowerApps/apis/shared_sql"
+        default_action_rule_behavior = ""
+        action_rules                 = []
+        endpoint_rules               = []
+      }
+    ]
     non_business_connectors = [
       {
         id                           = "/providers/Microsoft.PowerApps/apis/shared_office365"
@@ -159,7 +181,7 @@ run "partial_auto_classification" {
         endpoint_rules               = []
       }
     ]
-    blocked_connectors = null
+    blocked_connectors = []
     custom_connectors_patterns = [
       {
         order            = 1

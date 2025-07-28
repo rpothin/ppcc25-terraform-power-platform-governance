@@ -1,3 +1,11 @@
+# Unreleased
+
+### Changed
+- **Terraform Configurations**
+  - **BREAKING**: Refactored `res-dlp-policy` to expose all connector bucket variables as full provider schema objects (no longer accepts list of strings for business_connectors). All configuration, logic, and tests updated for AVM compliance. Users must now provide connector objects for all buckets. See plan/avm-dlp-policy-full-schema-exposure.md for migration details.
+
+### Release
+- **MAJOR VERSION BUMP**: This release introduces breaking changes to the `res-dlp-policy` interface. Update your configuration and tfvars files accordingly.
 # Changelog
 
 All notable changes to this project will be documented in this file.

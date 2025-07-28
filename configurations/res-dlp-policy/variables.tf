@@ -49,21 +49,54 @@ DESCRIPTION
 
 variable "business_connectors" {
   description = <<DESCRIPTION
-List of connector IDs to classify as business connectors. When provided, non-business and blocked connectors will be auto-classified unless explicitly set. If null, both non_business_connectors and blocked_connectors must be provided.
+List of business connectors for sensitive data. Each object must match the provider schema and allows full configuration of connector DLP rules.
 
 Example:
 business_connectors = [
-  "/providers/Microsoft.PowerApps/apis/shared_sql",
-  "/providers/Microsoft.PowerApps/apis/shared_approvals"
+  {
+    id                           = "/providers/Microsoft.PowerApps/apis/shared_sql"
+    default_action_rule_behavior = "Allow"
+    action_rules = [
+      {
+        action_id = "DeleteItem_V2"
+        behavior  = "Block"
+      }
+    ]
+    endpoint_rules = [
+      {
+        endpoint = "contoso.com"
+        behavior = "Allow"
+        order    = 1
+      }
+    ]
+  }
 ]
 DESCRIPTION
-  type        = list(string)
-  default     = null
+  type = list(object({
+    id                           = string
+    default_action_rule_behavior = string
+    action_rules = list(object({
+      action_id = string
+      behavior  = string
+    }))
+    endpoint_rules = list(object({
+      endpoint = string
+      behavior = string
+      order    = number
+    }))
+  }))
+  validation {
+    condition = alltrue([
+      for c in var.business_connectors :
+      contains(["Allow", "Block", ""], c.default_action_rule_behavior)
+    ])
+    error_message = "Each business connector's default_action_rule_behavior must be one of: Allow, Block, or empty string."
+  }
 }
 
 variable "non_business_connectors" {
   description = <<DESCRIPTION
-Set of non-business connectors for non-sensitive data. When null and business_connectors is provided, will be auto-classified as all unblockable connectors not in business_connectors. When provided, auto-classification is bypassed.
+Set of non-business connectors for non-sensitive data. Each object must match the provider schema and allows full configuration of connector DLP rules.
 
 Example:
 non_business_connectors = [
@@ -88,12 +121,19 @@ DESCRIPTION
       order    = number
     }))
   }))
-  default = null
+  default = []
+  validation {
+    condition = alltrue([
+      for c in var.non_business_connectors :
+      contains(["Allow", "Block", ""], c.default_action_rule_behavior)
+    ])
+    error_message = "Each non-business connector's default_action_rule_behavior must be one of: Allow, Block, or empty string."
+  }
 }
 
 variable "blocked_connectors" {
   description = <<DESCRIPTION
-Set of blocked connectors. When null and business_connectors is provided, will be auto-classified as all blockable connectors not in business_connectors. When provided, auto-classification is bypassed.
+Set of blocked connectors. Each object must match the provider schema and allows full configuration of connector DLP rules.
 
 Example:
 blocked_connectors = [
@@ -118,7 +158,14 @@ DESCRIPTION
       order    = number
     }))
   }))
-  default = null
+  default = []
+  validation {
+    condition = alltrue([
+      for c in var.blocked_connectors :
+      contains(["Allow", "Block", ""], c.default_action_rule_behavior)
+    ])
+    error_message = "Each blocked connector's default_action_rule_behavior must be one of: Allow, Block, or empty string."
+  }
 }
 
 variable "custom_connectors_patterns" {
@@ -155,10 +202,3 @@ DESCRIPTION
   ]
 }
 
-# Validation: If business_connectors is null, both non_business_connectors and blocked_connectors must be provided
-locals {
-  _auto_classification_invalid = (
-    var.business_connectors == null &&
-    (var.non_business_connectors == null || var.blocked_connectors == null)
-  )
-}

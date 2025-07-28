@@ -8,50 +8,34 @@
 data "powerplatform_connectors" "all" {}
 
 locals {
-  # Helper: Set of business connector IDs (empty if null)
-  business_connector_ids = var.business_connectors != null ? toset(var.business_connectors) : toset([])
+  # Set of business connector IDs for auto-classification
+  business_connector_ids = [for c in var.business_connectors : c.id]
 
-  # Auto-classified non-business connectors (if needed)
+  # Auto-classified non-business connectors (if not provided)
   auto_non_business_connectors = (
-    var.business_connectors != null && var.non_business_connectors == null
+    length(var.non_business_connectors) == 0
     ) ? [
     for c in data.powerplatform_connectors.all.connectors : {
       id                           = c.id
-      default_action_rule_behavior = "" # ✅ Empty string when action_rules is empty
+      default_action_rule_behavior = ""
       action_rules                 = []
       endpoint_rules               = []
     }
     if c.unblockable == true && !contains(local.business_connector_ids, c.id)
-  ] : null
+  ] : var.non_business_connectors
 
-  # Auto-classified blocked connectors (if needed)
+  # Auto-classified blocked connectors (if not provided)
   auto_blocked_connectors = (
-    var.business_connectors != null && var.blocked_connectors == null
+    length(var.blocked_connectors) == 0
     ) ? [
     for c in data.powerplatform_connectors.all.connectors : {
       id                           = c.id
-      default_action_rule_behavior = "" # ✅ Empty string when action_rules is empty
+      default_action_rule_behavior = ""
       action_rules                 = []
       endpoint_rules               = []
     }
     if c.unblockable == false && !contains(local.business_connector_ids, c.id)
-  ] : null
-
-  # Final business connectors: if business_connectors is provided, generate objects, else null (must be provided manually)
-  final_business_connectors = var.business_connectors != null ? [
-    for id in var.business_connectors : {
-      id                           = id
-      default_action_rule_behavior = "" # ✅ Empty string when action_rules is empty
-      action_rules                 = []
-      endpoint_rules               = []
-    }
-  ] : [] # Change from null to empty list
-
-  # Final non-business connectors: use user value, else auto-classified, else null
-  final_non_business_connectors = var.non_business_connectors != null ? var.non_business_connectors : local.auto_non_business_connectors
-
-  # Final blocked connectors: use user value, else auto-classified, else null
-  final_blocked_connectors = var.blocked_connectors != null ? var.blocked_connectors : local.auto_blocked_connectors
+  ] : var.blocked_connectors
 }
 
 # Validation: Ensure all business connector IDs exist in the tenant
@@ -78,23 +62,14 @@ resource "powerplatform_data_loss_prevention_policy" "this" {
   environment_type                  = var.environment_type
   environments                      = var.environments
 
-  business_connectors     = local.final_business_connectors
-  non_business_connectors = local.final_non_business_connectors
-  blocked_connectors      = local.final_blocked_connectors
+  business_connectors     = var.business_connectors
+  non_business_connectors = local.auto_non_business_connectors
+  blocked_connectors      = local.auto_blocked_connectors
 
   custom_connectors_patterns = var.custom_connectors_patterns
 
   lifecycle {
-    ignore_changes = [
-      # Nothing to ignore for now, but can be added later if needed
-    ]
+    ignore_changes = []
   }
 }
 
-# Input validation: If business_connectors is null, both non_business_connectors and blocked_connectors must be provided
-resource "null_resource" "auto_classification_guard" {
-  count = var.business_connectors == null && (var.non_business_connectors == null || var.blocked_connectors == null) ? 1 : 0
-  provisioner "local-exec" {
-    command = "echo 'ERROR: When business_connectors is null, both non_business_connectors and blocked_connectors must be provided.' && exit 1"
-  }
-}
