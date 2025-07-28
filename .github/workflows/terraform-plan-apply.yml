@@ -64,9 +64,17 @@ on:
         default: false
         # WHY: Emergency scenarios may require force apply for state corrections
         # SECURITY: Default false prevents accidental infrastructure operations
+      extract_outputs:
+        description: 'Extract Terraform outputs after successful apply (for consumption by other workflows)'
+        required: false
+        type: boolean
+        default: false
+        # WHY: Output extraction is often not needed for basic deployments
+        # GOVERNANCE: Reduces unnecessary operations and improves workflow performance
+        # SECURITY: Prevents unintended exposure of output values when not required
 
 run-name: >-
-  📋 Terraform Plan${{ github.event.inputs.apply == 'true' && ' and Apply' || '' }} 
+  📋 Terraform Plan${{ github.event.inputs.apply == 'true' && ' and Apply' || '' }}${{ github.event.inputs.extract_outputs == 'true' && ' with Outputs' || '' }} 
   for ${{ github.event.inputs.configuration }} (${{ github.event.inputs.tfvars_file }}) 
   by @${{ github.actor }}
 
@@ -113,12 +121,13 @@ jobs:
 
   # === PHASE 3: OUTPUT EXTRACTION ===
   # Extracts Terraform outputs for consumption by other workflows and audit trails
-  # Only runs after successful apply to capture final infrastructure state
+  # Only runs after successful apply when explicitly requested to capture final infrastructure state
   terraform-outputs:
     name: 📊 Extract Outputs
     if: |
       always() && 
-      needs.terraform-apply.result == 'success'
+      needs.terraform-apply.result == 'success' &&
+      github.event.inputs.extract_outputs == 'true'
     needs: [terraform-plan, terraform-apply]
     uses: ./.github/workflows/reusable-terraform-base.yml
     with:
@@ -127,4 +136,27 @@ jobs:
       tfvars-file: ${{ github.event.inputs.tfvars_file }}
       timeout-minutes: 10
       state-key-override: '${{ github.event.inputs.configuration }}-${{ github.event.inputs.tfvars_file }}.tfstate'
+    secrets: inherit
+
+  # === PHASE 4: EXECUTION SUMMARY ===
+  # Generates comprehensive execution summary with troubleshooting and technical details
+  # Provides insights into plan/apply operations and optional output extraction
+  execution-summary:
+    name: 📊 Execution Summary
+    if: always()  # Always execute for comprehensive reporting
+    needs:
+      - terraform-plan
+      - terraform-apply
+      - terraform-outputs
+    uses: ./.github/workflows/reusable-execution-summary.yml
+    with:
+      workflow-name: "terraform-plan-apply"
+      operation-type: "plan-apply"
+      configuration: ${{ github.event.inputs.configuration }}
+      job-results: ${{ toJSON(needs) }}
+      workflow-inputs: ${{ github.event_name == 'workflow_dispatch' && toJSON(inputs) || '{}' }}
+      include-troubleshooting: true
+      include-technical-details: true
+      summary-level: "detailed"
+      artifact-retention-days: 14
     secrets: inherit
