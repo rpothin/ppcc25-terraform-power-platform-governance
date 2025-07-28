@@ -1,7 +1,8 @@
-# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
+---
+# ═══════════════════════════════════════════════════════════════════════════════════════════════
 # TERRAFORM OUTPUT EXTRACTION WORKFLOW FOR POWER PLATFORM GOVERNANCE
-# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
-# Extracts and processes Terraform outputs from Power Platform configurations for infrastructure 
+# ═══════════════════════════════════════════════════════════════════════════════════════════════
+# Extracts and processes Terraform outputs from Power Platform configurations for infrastructure
 # discovery, migration analysis, and operational visibility with standardized format conversion.
 #
 # 🎯 WHY THIS EXISTS:
@@ -24,13 +25,13 @@
 # - Uses GitHub environments for secret management and OIDC authentication
 # - Leverages operation-metadata output from reusable workflow for consistent metadata
 # - Generates workflow artifacts for downstream consumption and integration
-# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════════════════════════════
 
 name: Terraform Output
 
 concurrency:
   group: terraform-output-${{ github.event.inputs.configuration }}
-  cancel-in-progress: false  # Never cancel running Terraform operations to avoid incomplete state changes
+  cancel-in-progress: false  # Never cancel Terraform operations to avoid incomplete state
 
 on:
   workflow_dispatch:
@@ -42,11 +43,31 @@ on:
         options:
           - 'utl-export-dlp-policies'
           - 'utl-export-connectors'
-        default: 'utl-export-dlp-policies'
+          - 'utl-generate-dlp-tfvars'
         # WHY: Scopes permissions and isolates blast radius for governance
         # VALIDATION: Must exist in configurations/ and contain .tf files
         # SECURITY: Used in state key generation to prevent cross-configuration access
-        # EXAMPLES: 'utl-export-dlp-policies', 'utl-export-connectors'
+        # EXAMPLES: 'utl-export-dlp-policies', 'utl-export-connectors',
+        #   'utl-generate-dlp-tfvars'
+      operation:
+        description: 'Operation to perform before output extraction'
+        required: false
+        type: choice
+        options:
+          - 'output-only'
+          - 'apply-then-output'
+        default: 'output-only'
+        # WHY: Enables generator pattern for tfvars creation and onboarding
+      terraform_variables:
+        description: 'Terraform variables (e.g., -var="policy_name=test" -var="template=strict")'
+        required: false
+        type: string
+        # WHY: Allows passing variables for generator and advanced use cases
+      tfvars_file:
+        description: 'Optional tfvars file (without .tfvars extension)'
+        required: false
+        type: string
+        # WHY: Supports environment-specific or custom tfvars files
       export_format:
         description: 'Export format for output data'
         required: true
@@ -67,7 +88,7 @@ on:
         # CONTEXT: Includes workflow run details, timestamps, and processing context
         # SECURITY: No sensitive data exposed through metadata inclusion
 
-run-name: 🔍 Terraform Output for ${{ github.event.inputs.configuration }} (${{ github.event.inputs.export_format }}) by @${{ github.actor }}
+run-name: 🔍 ${{ github.event.inputs.configuration }} (${{ github.event.inputs.export_format }})
 
 permissions:
   contents: write         # Required for committing generated output files to repository
@@ -75,26 +96,38 @@ permissions:
   id-token: write         # Required for Azure authentication via OIDC
 
 jobs:
-  # === Extracts outputs from Terraform state for compliance, discovery, and integration ===
-  # WHY: Provides a standardized, auditable way to extract and process outputs from Power Platform configurations
-  terraform-output:
-    name: 🔧 Extract Terraform Output
-    # === REUSABLE WORKFLOW INTEGRATION ===
-    # WHY: Ensures consistency, reliability, and maintainability across all Terraform workflows
-    # METADATA: The reusable workflow generates comprehensive operation metadata via generate-workflow-metadata composite action
+  # === Conditionally applies configuration for generator/onboarding ===
+  terraform-apply:
+    name: 🚀 Apply Configuration
+    if: ${{ github.event.inputs.operation == 'apply-then-output' }}
     uses: ./.github/workflows/reusable-terraform-base.yml
     with:
-      operation: 'output'                     # WHY: Extract outputs from current state
+      operation: 'apply'
       configuration: '${{ github.event.inputs.configuration }}'
-      additional-options: '-json -no-color'   # WHY: JSON format with clean output for downstream processing
-      timeout-minutes: 10                     # WHY: Output operations are typically fast
-    # === AUTHENTICATION INHERITANCE ===
-    # WHY: The reusable workflow will use secrets from the calling environment for OIDC auth
-    # SECURITY: Secrets are managed through GitHub environments for security
+      tfvars-file: '${{ github.event.inputs.tfvars_file }}'
+      additional-options: '${{ github.event.inputs.terraform_variables }}'
+      auto-approve: true
+      timeout-minutes: 20
     secrets: inherit
 
-  # === Processes extracted outputs and commits them to the repository for audit and downstream use ===
-  # WHY: Ensures outputs are available for documentation, compliance, and integration with external systems
+  # === Extracts outputs from Terraform state for compliance, discovery, and integration ===
+  terraform-output:
+    name: 🔧 Extract Terraform Output
+    needs: [terraform-apply]
+    if: |
+      github.event.inputs.operation == 'output-only' ||
+      (github.event.inputs.operation == 'apply-then-output' &&
+       needs.terraform-apply.result == 'success')
+    uses: ./.github/workflows/reusable-terraform-base.yml
+    with:
+      operation: 'output'
+      configuration: '${{ github.event.inputs.configuration }}'
+      additional-options: '-json -no-color'
+      timeout-minutes: 10
+    secrets: inherit
+
+  # === Processes extracted outputs and commits them to the repository ===
+  # WHY: Ensures outputs are available for documentation and integration
   process-and-commit:
     name: 📄 Process and Commit Output Files
     # === JOB DEPENDENCIES ===
@@ -118,7 +151,7 @@ jobs:
           # WHY: Ensure we have full repository history and can make commits
           fetch-depth: 0              # Full history for proper Git operations
           token: ${{ secrets.GITHUB_TOKEN }}  # Use default token for repository access
-      
+
       # === DEPENDENCY INSTALLATION ===
       # WHY: Install required tools for output processing and format conversion
       - name: Install Processing Dependencies
@@ -127,24 +160,25 @@ jobs:
           # Install jq for JSON processing and yq for YAML conversion
           # These tools provide reliable data transformation capabilities
           echo "::notice title=Dependency Installation::🔧 Installing output processing tools..."
-          
+
           # === JQ INSTALLATION FOR JSON PROCESSING ===
           # jq provides powerful JSON querying, filtering, and transformation
           # Essential for metadata injection and data structure manipulation
           sudo apt-get update -qq
           sudo apt-get install -y jq
           echo "::notice title=jq Installation::✅ jq $(jq --version) installed successfully"
-          
+
           # === YQ INSTALLATION FOR YAML CONVERSION ===
           # yq enables JSON-to-YAML conversion and YAML processing
           # Provides human-readable output format for documentation and review
           echo "::notice title=yq Installation::🔧 Installing yq for YAML processing..."
-          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo wget -qO /usr/local/bin/yq \
+            https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
           sudo chmod +x /usr/local/bin/yq
           echo "::notice title=yq Installation::✅ yq $(yq --version) installed successfully"
-          
-          echo "::notice title=Dependencies Ready::📦 All processing dependencies installed and verified"
-      
+
+          echo "::notice title=Dependencies Ready::📦 All dependencies installed and verified"
+
       # === ARTIFACT RETRIEVAL ===
       # WHY: Download Terraform output artifacts from the previous job for processing
       - name: Download Terraform Output Artifacts
@@ -153,36 +187,36 @@ jobs:
           # === ARTIFACT DOWNLOAD CONFIGURATION ===
           # Retrieve artifacts generated by the terraform-output job
           # Artifacts are stored in a dedicated directory for organized processing
-          name: terraform-output-${{ github.event.inputs.configuration }}-default    # Match artifact name from reusable workflow
-          path: terraform-artifacts/         # Organized directory for artifact storage
-      
+          name: terraform-output-${{ github.event.inputs.configuration }}-default
+          path: terraform-artifacts/  # Organized directory for artifact storage
+
       # === TERRAFORM OUTPUT VALIDATION AND PREPARATION ===
       # WHY: Validate downloaded artifacts and prepare processing environment for data integrity
       - name: Validate and Prepare Terraform Output
         id: validate-output
         shell: bash
         run: |
-          echo "::notice title=Validation Start::🔄 Starting Terraform output validation and preparation..."
-          
+          echo "::notice title=Validation Start::🔄 Starting Terraform output validation..."
+
           # === PROCESSING CONTEXT SETUP ===
           # Extract configuration and processing parameters from workflow inputs
           # These parameters control output format, metadata inclusion, and file naming
           config="${{ github.event.inputs.configuration }}"
           export_format="${{ github.event.inputs.export_format }}"
           include_metadata="${{ github.event.inputs.include_metadata }}"
-          
+
           echo "::notice title=Processing Context::⚙️ Configuration details:"
           echo "::notice::• Configuration: $config"
-          echo "::notice::• Export format: $export_format" 
+          echo "::notice::• Export format: $export_format"
           echo "::notice::• Include metadata: $include_metadata"
           echo "::notice::• Timestamp: $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-          
+
           # === TERRAFORM OUTPUT VALIDATION ===
           # Validate the output from the reusable workflow and identify the correct artifact file
           # Support multiple artifact formats (JSON preferred, text as fallback)
           tf_output_status='${{ needs.terraform-output.outputs.terraform-output }}'
           echo "::debug::Terraform output status from reusable workflow: $tf_output_status"
-          
+
           # === ARTIFACT FILE DISCOVERY ===
           # Locate the appropriate artifact file with preference for JSON format
           # JSON artifacts provide structured data optimal for processing and conversion
@@ -193,24 +227,25 @@ jobs:
             artifact_file="terraform-artifacts/terraform-output-artifact.txt"
             echo "::notice title=Artifact Located::📄 Using text artifact file for processing"
           else
-            echo "::error title=Missing Artifact::❌ No Terraform output artifact found in expected locations"
+            echo "::error title=Missing Artifact::❌ No Terraform output artifact found"
             echo "::debug::Searching for available files in terraform-artifacts directory..."
-            ls -la terraform-artifacts/ 2>/dev/null || echo "::error::Terraform artifacts directory not found"
-            
+            ls -la terraform-artifacts/ 2>/dev/null || \
+              echo "::error::Terraform artifacts directory not found"
             if [ -d "terraform-artifacts" ]; then
               echo "::debug::Available files in terraform-artifacts:"
               find terraform-artifacts -type f -exec echo "  - {}" \;
             fi
             exit 1
           fi
-          
+
           # === FILE SIZE ANALYSIS AND PROCESSING MODE DETERMINATION ===
           # Analyze file size to determine optimal processing strategy
-          # Large files (>50MB) require special handling to avoid memory and performance issues
-          file_size=$(stat -c%s "$artifact_file" 2>/dev/null || stat -f%z "$artifact_file" 2>/dev/null || echo "0")
+          # Large files (>50MB) require special handling to avoid memory issues
+          file_size=$(stat -c%s "$artifact_file" 2>/dev/null || \
+                     stat -f%z "$artifact_file" 2>/dev/null || echo "0")
           file_size_mb=$((file_size / 1024 / 1024))
-          echo "::notice title=File Analysis::📊 Artifact file size: $file_size bytes (${file_size_mb}MB)"
-          
+          echo "::notice title=File Analysis::📊 Artifact file size: ${file_size_mb}MB"
+
           # === FILE CONTENT VALIDATION ===
           # Validate file content and structure before processing
           # Empty files indicate potential issues with Terraform output generation
@@ -220,17 +255,17 @@ jobs:
             echo "::error::or an error occurred during output generation"
             exit 1
           fi
-          
+
           # === JSON STRUCTURE VALIDATION FOR JSON ARTIFACTS ===
           # Perform comprehensive JSON validation to ensure data integrity
           # This prevents downstream processing errors and ensures reliable output parsing
           if [[ "$artifact_file" == *.json ]]; then
             if ! jq empty "$artifact_file" 2>/dev/null; then
-              echo "::error title=JSON Validation Failed::❌ Invalid JSON structure in artifact"
-              echo "::error::Please ensure 'terraform output -json' was used to generate the artifact"
+              echo "::error title=JSON Validation Failed::❌ Invalid JSON structure"
+              echo "::error::Please ensure 'terraform output -json' was used"
               exit 1
             fi
-            
+
             output_count=$(jq -r 'length' "$artifact_file")
             if [ "$output_count" = "0" ]; then
               echo "::notice title=Empty Output::📄 Configuration has no outputs defined"
@@ -240,13 +275,13 @@ jobs:
           else
             echo "::notice title=Text Output::📋 Processing text format artifact"
           fi
-          
+
           # === SETUP OUTPUT DIRECTORY ===
           # Create centralized output directory for organized artifact storage
           # This ensures consistent file organization across all configurations
           mkdir -p "configurations/outputs"
           timestamp=$(date +%Y%m%d-%H%M%S)
-          
+
           # === ENVIRONMENT VARIABLE STORAGE ===
           # Store processing variables for subsequent steps using GitHub Actions environment
           # This approach maintains data consistency across workflow steps
@@ -256,18 +291,18 @@ jobs:
           echo "INCLUDE_METADATA=$include_metadata" >> $GITHUB_ENV
           echo "FILE_SIZE_MB=$file_size_mb" >> $GITHUB_ENV
           echo "TIMESTAMP=$timestamp" >> $GITHUB_ENV
-          
+
           echo "::notice title=Validation Complete::✅ Artifact validation completed successfully"
-      
+
       # === OUTPUT PROCESSING AND FORMAT CONVERSION ===
       # WHY: Process the validated output into the requested format with optional metadata
-      # METADATA: Leverage operation-metadata output from reusable-terraform-base workflow for consistency
+      # METADATA: Leverage operation-metadata output from reusable workflow
       - name: Process and Format Terraform Output
         id: process-output
         shell: bash
         run: |
           echo "::notice title=Output Processing::🔄 Starting format conversion and processing..."
-          
+
           # === LOAD ENVIRONMENT VARIABLES FROM PREVIOUS STEP ===
           # Retrieve processing parameters stored by the validation step
           artifact_file="$ARTIFACT_FILE"
@@ -276,27 +311,27 @@ jobs:
           include_metadata="$INCLUDE_METADATA"
           file_size_mb="$FILE_SIZE_MB"
           timestamp="$TIMESTAMP"
-          
+
           # === PROCESSING MODE CONFIGURATION ===
           LARGE_FILE_THRESHOLD_MB=50
-          
+
           # === OUTPUT FILE GENERATION ===
           # Use consistent filename with configuration context for Git-tracked changes
           # Store in centralized outputs directory for simplified access
           output_filename="terraform-output-$config.$export_format"
           output_path="configurations/$config/$output_filename"
-          
+
           # === METADATA INTEGRATION FROM REUSABLE WORKFLOW ===
           # Leverage existing metadata from reusable-terraform-base workflow
           # This ensures consistency with other workflows and avoids duplication
           operation_metadata='${{ needs.terraform-output.outputs.operation-metadata }}'
-          
+
           # === FORMAT-SPECIFIC PROCESSING ===
           if [ "$export_format" = "json" ]; then
             if [ "$include_metadata" = "true" ]; then
               # JSON with comprehensive metadata from reusable workflow
               temp_combined_metadata=$(mktemp)
-              
+
               # === MERGE OPERATION METADATA WITH OUTPUT-SPECIFIC CONTEXT ===
               # Combine reusable workflow metadata with terraform-output specific details
               echo "$operation_metadata" | jq --arg export_format "$export_format" \
@@ -310,11 +345,12 @@ jobs:
                     "file_size_mb": '$file_size_mb'
                   }
                 }' > "$temp_combined_metadata"
-              
+
               # === CREATE FINAL OUTPUT WITH MERGED METADATA ===
               # Structure: { "metadata": {...}, "terraform_output": {...} }
               jq -s --argjson metadata "$(cat "$temp_combined_metadata")" \
-                '{"metadata": $metadata, "terraform_output": .[0]}' "$artifact_file" > "$output_path"
+                '{"metadata": $metadata, "terraform_output": .[0]}' \
+                "$artifact_file" > "$output_path"
               rm "$temp_combined_metadata"
             else
               # Clean JSON output without metadata
@@ -325,7 +361,7 @@ jobs:
             if [ "$include_metadata" = "true" ]; then
               # YAML with comprehensive metadata from reusable workflow
               temp_combined_metadata=$(mktemp)
-              
+
               # === MERGE OPERATION METADATA WITH OUTPUT-SPECIFIC CONTEXT ===
               # Combine reusable workflow metadata with terraform-output specific details
               echo "$operation_metadata" | jq --arg export_format "$export_format" \
@@ -339,18 +375,19 @@ jobs:
                     "file_size_mb": '$file_size_mb'
                   }
                 }' > "$temp_combined_metadata"
-              
+
               # === CREATE FINAL YAML OUTPUT WITH MERGED METADATA ===
               # Structure: { "metadata": {...}, "terraform_output": {...} }
               jq -s --argjson metadata "$(cat "$temp_combined_metadata")" \
-                '{"metadata": $metadata, "terraform_output": .[0]}' "$artifact_file" | yq eval -P '.' > "$output_path"
+                '{"metadata": $metadata, "terraform_output": .[0]}' \
+                "$artifact_file" | yq eval -P '.' > "$output_path"
               rm "$temp_combined_metadata"
             else
               # Clean YAML output without metadata
               jq '.' "$artifact_file" | yq eval -P '.' > "$output_path"
             fi
           fi
-          
+
           # === SET OUTPUTS ===
           echo "configuration=$config" >> $GITHUB_OUTPUT
           echo "output-filename=$output_filename" >> $GITHUB_OUTPUT
@@ -358,9 +395,9 @@ jobs:
           echo "export-format=$export_format" >> $GITHUB_OUTPUT
           echo "file-size-mb=$file_size_mb" >> $GITHUB_OUTPUT
           echo "include-metadata=$include_metadata" >> $GITHUB_OUTPUT
-          
+
           echo "::notice title=Processing Complete::✅ Output processing completed successfully"
-      
+
       # === REPOSITORY INTEGRATION AND VERSION CONTROL ===
       # WHY: Commit generated output files to repository for version control and persistence
       - name: Commit Generated Output Files
@@ -371,29 +408,29 @@ jobs:
           output_filename="${{ steps.process-output.outputs.output-filename }}"
           export_format="${{ github.event.inputs.export_format }}"
           include_metadata="${{ github.event.inputs.include_metadata }}"
-          
+
           echo "::notice title=Git Integration::📝 Preparing to commit generated output files"
-          echo "::notice title=Configuration::⚙️ Config: $config, Format: $export_format, Metadata: $include_metadata"
-          
+          echo "::notice title=Configuration::⚙️ Config: $config, Format: $export_format"
+
           # === GIT CONFIGURATION FOR AUTOMATED COMMITS ===
           # Configure Git identity for automated commits from GitHub Actions
           # Uses GitHub Actions bot identity for clear audit trail
           echo "::notice title=Git Config::🔧 Configuring Git identity for automated commits"
           git config user.name "GitHub Actions Bot"
           git config user.email "actions@github.com"
-          
+
           # === OUTPUT FILE DISCOVERY AND STAGING ===
           # Identify and stage all generated output files for commit
           # Includes both standard outputs and potential archive files for large datasets
           echo "::notice title=File Staging::📁 Discovering and staging generated output files"
-          
+
           output_files_staged=0
           if [ -f "configurations/$config/$output_filename" ]; then
             git add "configurations/$config/$output_filename"
             output_files_staged=$((output_files_staged + 1))
             echo "::notice title=File Staged::📄 Primary output: $output_filename"
           fi
-          
+
           # === ARCHIVE FILE STAGING (FOR LARGE FILE PROCESSING) ===
           # Stage archive file if it exists from large file processing
           archive_filename="${{ steps.process-output.outputs.archive-filename }}"
@@ -402,33 +439,35 @@ jobs:
             output_files_staged=$((output_files_staged + 1))
             echo "::notice title=Archive Staged::📦 Archive file: $archive_filename"
           fi
-          
+
           echo "::notice title=Staging Complete::📊 Staged $output_files_staged file(s) for commit"
-          
+
           # === COMMIT OPERATION WITH COMPREHENSIVE METADATA ===
-          # Create detailed commit with comprehensive metadata for audit trail and operational visibility
+          # Create detailed commit with comprehensive metadata for audit trail
           if ! git diff --cached --quiet; then
             echo "::notice title=Commit Creation::💾 Creating commit with comprehensive metadata"
-            
+
             # === PROCESSING MODE DETERMINATION FOR COMMIT MESSAGE ===
             # Determine processing mode for accurate commit message generation
             is_summary="${{ steps.process-output.outputs.output-is-summary }}"
             processing_mode=$([ "$is_summary" = "true" ] && echo "summary" || echo "standard")
-            
+
             # === EXTRACT TERRAFORM METADATA FOR COMMIT MESSAGE ===
             # Include Terraform operation details from reusable workflow in commit
             operation_metadata='${{ needs.terraform-output.outputs.operation-metadata }}'
             if [ -n "$operation_metadata" ] && [ "$operation_metadata" != "null" ]; then
-              terraform_version=$(echo "$operation_metadata" | jq -r '.terraform_version // "unknown"')
-              execution_duration=$(echo "$operation_metadata" | jq -r '.execution_duration // "unknown"')
+              terraform_version=$(echo "$operation_metadata" | \
+                jq -r '.terraform_version // "unknown"')
+              execution_duration=$(echo "$operation_metadata" | \
+                jq -r '.execution_duration // "unknown"')
             else
               terraform_version="unknown"
               execution_duration="unknown"
             fi
-            
+
             # === COMPREHENSIVE COMMIT MESSAGE GENERATION ===
             # Create structured commit message with full context and metadata
-            git commit -m "feat(terraform-output): generate $export_format output for $config configuration
+            git commit -m "feat(terraform-output): generate $export_format output for $config
 
           📊 Processing Details:
           • Configuration: $config
@@ -438,7 +477,7 @@ jobs:
           • Metadata Included: $include_metadata
           • Workflow Run: ${{ github.run_number }}
           • Generated By: ${{ github.actor }}
-          
+
           🔧 Technical Context:
           • Repository: ${{ github.repository }}
           • Branch: ${{ github.ref }}
@@ -447,34 +486,34 @@ jobs:
           • Terraform Version: $terraform_version
           • Execution Duration: $execution_duration
           • Generated At: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          
+
           📋 File Information:
           • Output Files: $output_files_staged file(s) generated
           • Processing Mode: $processing_mode processing applied
           • Archive Created: $([ "$is_summary" = "true" ] && echo "Yes (large file)" || echo "No")
-          
+
           🎯 Purpose:
           This output was generated automatically by the Terraform Output workflow
           for infrastructure discovery, migration analysis, and operational visibility.
-          
+
           Generated at: $(date -u +"%Y-%m-%dT%H:%M:%SZ") by workflow run ${{ github.run_number }}"
-            
+
             # === REPOSITORY UPDATE ===
             # Push changes to repository with error handling
             echo "::notice title=Repository Push::🚀 Pushing changes to remote repository"
             git push origin main
-            
+
             echo "::notice title=Commit Success::✅ Output files committed and pushed successfully"
             echo "::notice title=Commit Summary::📊 Committed $output_files_staged file(s) for configuration: $config"
           else
             # === NO CHANGES DETECTED ===
             # Handle case where no new files were generated (normal for some configurations)
-            echo "::notice title=No Changes::ℹ️ No new output files to commit - existing outputs are current"
+            echo "::notice title=No Changes::ℹ️ No new output files to commit - outputs current"
             echo "::notice title=Status::📊 Repository state unchanged - no action required"
           fi
 
-  # === Generates a comprehensive execution summary for governance, troubleshooting, and audit trail ===
-  # WHY: Provides a clear, actionable summary of the workflow run, including troubleshooting and technical details
+  # === Generates a comprehensive execution summary for governance and audit trail ===
+  # WHY: Provides a clear, actionable summary of the workflow run with troubleshooting details
   execution-summary:
     name: "🎯 Execution Summary"
     needs: [terraform-output, process-and-commit]
