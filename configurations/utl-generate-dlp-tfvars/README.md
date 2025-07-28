@@ -41,18 +41,7 @@ No resources.
 <!-- markdownlint-disable MD013 -->
 ## Required Inputs
 
-The following input variables are required:
-
-### <a name="input_template_type"></a> [template\_type](#input\_template\_type)
-
-Description: Type of tfvars template to generate for new policies.
-
-- Options: "strict-security", "balanced", "development"
-- Used when creating a new policy tfvars from a governance template.
-
-Example: "strict-security"
-
-Type: `string`
+No required inputs.
 
 ## Optional Inputs
 
@@ -96,6 +85,19 @@ Example: "Copilot Studio Autonomous Agents"
 Type: `string`
 
 Default: `""`
+
+### <a name="input_template_type"></a> [template\_type](#input\_template\_type)
+
+Description: Type of tfvars template to generate for new policies.
+
+- Options: "strict-security", "balanced", "development"
+- Used when creating a new policy tfvars from a governance template.
+
+Example: "strict-security"
+
+Type: `string`
+
+Default: `"strict-security"`
 
 ## Outputs
 
