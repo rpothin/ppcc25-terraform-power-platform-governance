@@ -55,8 +55,8 @@ business_connectors = [
   "/providers/Microsoft.PowerApps/apis/shared_approvals"
 ]
 DESCRIPTION
-  type    = list(string)
-  default = null
+  type        = list(string)
+  default     = null
 }
 
 variable "non_business_connectors" {
@@ -73,10 +73,10 @@ non_business_connectors = [
   }
 ]
 DESCRIPTION
-  type    = list(object({
+  type = list(object({
     id                           = string
     default_action_rule_behavior = string
-    action_rules                 = list(object({
+    action_rules = list(object({
       action_id = string
       behavior  = string
     }))
@@ -103,10 +103,10 @@ blocked_connectors = [
   }
 ]
 DESCRIPTION
-  type    = list(object({
+  type = list(object({
     id                           = string
     default_action_rule_behavior = string
-    action_rules                 = list(object({
+    action_rules = list(object({
       action_id = string
       behavior  = string
     }))
@@ -152,5 +152,3 @@ locals {
     (var.non_business_connectors == null || var.blocked_connectors == null)
   )
 }
-
-

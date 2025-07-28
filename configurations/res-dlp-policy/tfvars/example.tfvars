@@ -1,4 +1,3 @@
-
 # Example tfvars for res-dlp-policy
 #
 # This file provides sample configurations for all supported usage patterns.
@@ -11,25 +10,25 @@
 #    - Only business_connectors (as list of IDs) and custom_connectors_patterns provided
 #    - non_business_connectors and blocked_connectors will be auto-classified
 # -----------------------------------------------------------------------------
-display_name = "Block All Policy"
+display_name                      = "Block All Policy"
 default_connectors_classification = "Blocked"
-environment_type = "AllEnvironments"
-environments = []
+environment_type                  = "AllEnvironments"
+environments                      = []
 business_connectors = [
-	"/providers/Microsoft.PowerApps/apis/shared_sql",
-	"/providers/Microsoft.PowerApps/apis/shared_approvals"
+  "/providers/Microsoft.PowerApps/apis/shared_sql",
+  "/providers/Microsoft.PowerApps/apis/shared_approvals"
 ]
 custom_connectors_patterns = [
-	{
-		order            = 1
-		host_url_pattern = "https://*.contoso.com"
-		data_group       = "Blocked"
-	},
-	{
-		order            = 2
-		host_url_pattern = "*"
-		data_group       = "Ignore"
-	}
+  {
+    order            = 1
+    host_url_pattern = "https://*.contoso.com"
+    data_group       = "Blocked"
+  },
+  {
+    order            = 2
+    host_url_pattern = "*"
+    data_group       = "Ignore"
+  }
 ]
 
 # -----------------------------------------------------------------------------
