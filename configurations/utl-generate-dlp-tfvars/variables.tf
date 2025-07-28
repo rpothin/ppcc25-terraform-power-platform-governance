@@ -48,6 +48,7 @@ DESCRIPTION
     condition     = contains(["strict-security", "balanced", "development"], var.template_type)
     error_message = "template_type must be one of: strict-security, balanced, development."
   }
+  default = "strict-security"
 }
 
 variable "output_file" {
