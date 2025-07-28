@@ -44,6 +44,7 @@ on:
           - 'utl-export-dlp-policies'
           - 'utl-export-connectors'
           - 'utl-generate-dlp-tfvars'
+        default: 'utl-export-dlp-policies'
         # WHY: Scopes permissions and isolates blast radius for governance
         # VALIDATION: Must exist in configurations/ and contain .tf files
         # SECURITY: Used in state key generation to prevent cross-configuration access
