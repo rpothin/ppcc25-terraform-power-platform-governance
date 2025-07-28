@@ -89,7 +89,7 @@ on:
         # CONTEXT: Includes workflow run details, timestamps, and processing context
         # SECURITY: No sensitive data exposed through metadata inclusion
 
-run-name: 🔍 ${{ github.event.inputs.configuration }} (${{ github.event.inputs.export_format }})
+run-name: 🔍 Terraform Output for ${{ github.event.inputs.configuration }} (${{ github.event.inputs.export_format }}) by @${{ github.actor }}
 
 permissions:
   contents: write         # Required for committing generated output files to repository
@@ -116,9 +116,11 @@ jobs:
     name: 🔧 Extract Terraform Output
     needs: [terraform-apply]
     if: |
-      github.event.inputs.operation == 'output-only' ||
-      (github.event.inputs.operation == 'apply-then-output' &&
-       needs.terraform-apply.result == 'success')
+      always() && (
+        github.event.inputs.operation == 'output-only' ||
+        (github.event.inputs.operation == 'apply-then-output' &&
+         needs.terraform-apply.result == 'success')
+      )
     uses: ./.github/workflows/reusable-terraform-base.yml
     with:
       operation: 'output'
