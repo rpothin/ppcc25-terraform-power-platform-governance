@@ -50,6 +50,11 @@ run "apply_validation" {
     condition     = can(powerplatform_data_loss_prevention_policy.this.created_time)
     error_message = "Created time should be populated after deployment."
   }
+  # AVM: Validate lifecycle/metadata
+  assert {
+    condition     = can(powerplatform_data_loss_prevention_policy.this.created_by)
+    error_message = "Created by metadata should be populated after deployment."
+  }
 }
 
 # 2. Edge Case: Minimal configuration (empty connectors)
@@ -199,5 +204,28 @@ run "comprehensive_validation" {
   assert {
     condition     = length(var.business_connectors) >= 0
     error_message = "Business connectors should be a valid list."
+  }
+
+  # AVM: Output validation assertions
+  assert {
+    condition     = can(output.dlp_policy_id) && output.dlp_policy_id != ""
+    error_message = "DLP policy ID output should be non-empty string."
+  }
+  assert {
+    condition     = output.dlp_policy_display_name == var.display_name
+    error_message = "Output display name should match input variable."
+  }
+  assert {
+    condition     = output.dlp_policy_environment_type == var.environment_type
+    error_message = "Output environment type should match input variable."
+  }
+  # AVM: Enhanced input validation
+  assert {
+    condition     = length(var.display_name) <= 50
+    error_message = "Display name should be 50 characters or less for Power Platform compatibility."
+  }
+  assert {
+    condition     = can(var.custom_connectors_patterns) && length(var.custom_connectors_patterns) >= 0
+    error_message = "Custom connectors patterns should be a valid list."
   }
 }
