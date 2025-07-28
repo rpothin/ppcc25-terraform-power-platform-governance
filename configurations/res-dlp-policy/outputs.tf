@@ -9,6 +9,7 @@
 # - Computed Values: Derived attributes useful for integration
 # - Summary Information: Aggregated data for reporting
 # - Security Attributes: Access-related information (marked sensitive)
+# - Helper Outputs: Troubleshooting and validation support
 
 output "dlp_policy_id" {
   description = <<DESCRIPTION
