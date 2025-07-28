@@ -1,6 +1,7 @@
-# Version and Provider Requirements for res-dlp-policy
+
+# Version and Provider Requirements (AVM Standard)
 #
-# This file pins the Terraform and provider versions for reproducibility and AVM compliance.
+# Pins Terraform and provider versions for reproducibility and AVM compliance.
 
 terraform {
   required_version = ">= 1.5.0"
@@ -13,6 +14,7 @@ terraform {
   backend "azurerm" {}
 }
 
+# OIDC authentication is enforced for all provider operations (security best practice)
 provider "powerplatform" {
   use_oidc = true
 }

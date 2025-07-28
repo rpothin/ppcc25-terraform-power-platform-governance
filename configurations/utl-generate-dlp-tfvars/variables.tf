@@ -1,4 +1,9 @@
-# Optional: Policy name for new policy creation (used only if not onboarding from export)
+
+# Input Variables for Smart DLP tfvars Generator
+#
+# All variables use explicit types and strong validation (AVM/project standard).
+# Comments focus on intent and rationale, not just mechanics.
+
 variable "policy_name" {
   type        = string
   description = <<DESCRIPTION
@@ -10,31 +15,22 @@ Example: "Production Security"
 DESCRIPTION
   default     = null
 }
-# Input Variables for Smart DLP tfvars Generator
-#
-# This file defines all input parameters for the configuration following
-# AVM variable standards with comprehensive validation and documentation.
-#
-# Variable Categories:
-# - Policy Selection: Select policy by name, environment, or other criteria
-# - Template Type: Choose template (strict, balanced, development)
-# - Output File: Specify output file location and naming
-#
-# CRITICAL: Forbid use of `any` type. All complex variables must use explicit object types with property-level validation.
 
 variable "source_policy_name" {
   type        = string
   description = <<DESCRIPTION
-Name of the DLP policy to onboard or generate tfvars for.
+Name of the DLP policy to onboard and generate tfvars for.
 
-- Used to select an existing policy from exported data.
-- Must match a policy name present in the exported JSON file.
+- Used to select an existing policy from exported data (onboarding mode).
+- If not specified, the generator will use template mode for new policy creation.
+- Must match a policy name present in the exported JSON file if provided.
 
 Example: "Copilot Studio Autonomous Agents"
 DESCRIPTION
+  default     = ""
   validation {
-    condition     = length(var.source_policy_name) > 0
-    error_message = "source_policy_name must not be empty."
+    condition     = var.source_policy_name == "" || (length(var.source_policy_name) > 0 && can(regex("^[a-zA-Z0-9 _-]+$", var.source_policy_name)) && length(var.source_policy_name) <= 100)
+    error_message = "source_policy_name must be empty (for template mode) or a valid policy name (max 100 chars, alphanumeric, space, dash, underscore)."
   }
 }
 
