@@ -115,7 +115,7 @@ Type:
 list(object({
     id                           = string
     default_action_rule_behavior = string
-    action_rules                 = list(object({
+    action_rules = list(object({
       action_id = string
       behavior  = string
     }))
@@ -201,7 +201,7 @@ Type:
 list(object({
     id                           = string
     default_action_rule_behavior = string
-    action_rules                 = list(object({
+    action_rules = list(object({
       action_id = string
       behavior  = string
     }))
