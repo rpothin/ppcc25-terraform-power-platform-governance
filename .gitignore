@@ -43,4 +43,4 @@ reports/*-interrupted-*
 reports/baseline-*.txt
 
 ## Ignore implementation plan files
-plan/
+plans/
