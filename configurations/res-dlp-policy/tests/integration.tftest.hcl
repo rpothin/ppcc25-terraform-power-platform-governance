@@ -25,13 +25,13 @@ variables {
   default_connectors_classification = "Blocked"
   environment_type                  = "AllEnvironments"
 
-  # FIXED: Use manual classification to avoid provider inconsistency with auto-classification
-  # When business_connectors = null, we must provide both non_business_connectors and blocked_connectors
-  business_connectors = null
+  # FIXED: Use empty list instead of null to satisfy required attribute
+  # Provider requires business_connectors to be set (cannot be null)
+  business_connectors = []
   non_business_connectors = [
     {
       id                           = "/providers/Microsoft.PowerApps/apis/shared_office365"
-      default_action_rule_behavior = "Allow"
+      default_action_rule_behavior = "" # Empty when action_rules are empty
       action_rules                 = []
       endpoint_rules               = []
     }
@@ -39,7 +39,7 @@ variables {
   blocked_connectors = [
     {
       id                           = "/providers/Microsoft.PowerApps/apis/shared_twitter"
-      default_action_rule_behavior = "Block"
+      default_action_rule_behavior = "" # Empty when action_rules are empty
       action_rules                 = []
       endpoint_rules               = []
     }
@@ -82,11 +82,11 @@ run "apply_validation" {
 run "manual_configuration_test" {
   command = plan
   variables {
-    business_connectors = null
+    business_connectors = []
     non_business_connectors = [
       {
         id                           = "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
-        default_action_rule_behavior = "Allow"
+        default_action_rule_behavior = ""
         action_rules                 = []
         endpoint_rules               = []
       }
@@ -94,7 +94,7 @@ run "manual_configuration_test" {
     blocked_connectors = [
       {
         id                           = "/providers/Microsoft.PowerApps/apis/shared_dropbox"
-        default_action_rule_behavior = "Block"
+        default_action_rule_behavior = ""
         action_rules                 = []
         endpoint_rules               = []
       }
@@ -108,8 +108,8 @@ run "manual_configuration_test" {
     ]
   }
   assert {
-    condition     = var.business_connectors == null
-    error_message = "Business connectors should be null for manual configuration."
+    condition     = length(var.business_connectors) == 0
+    error_message = "Business connectors should be empty for manual configuration."
   }
   assert {
     condition     = length(var.non_business_connectors) == 1
@@ -168,7 +168,7 @@ run "partial_auto_classification" {
     non_business_connectors = [
       {
         id                           = "/providers/Microsoft.PowerApps/apis/shared_office365"
-        default_action_rule_behavior = "Allow"
+        default_action_rule_behavior = ""
         action_rules                 = []
         endpoint_rules               = []
       }
@@ -195,7 +195,7 @@ run "full_manual_classification" {
     non_business_connectors = [
       {
         id                           = "/providers/Microsoft.PowerApps/apis/shared_office365"
-        default_action_rule_behavior = "Allow"
+        default_action_rule_behavior = ""
         action_rules                 = []
         endpoint_rules               = []
       }
@@ -203,7 +203,7 @@ run "full_manual_classification" {
     blocked_connectors = [
       {
         id                           = "/providers/Microsoft.PowerApps/apis/shared_dropbox"
-        default_action_rule_behavior = "Block"
+        default_action_rule_behavior = ""
         action_rules                 = []
         endpoint_rules               = []
       }
@@ -279,8 +279,8 @@ run "comprehensive_validation" {
   }
 
   assert {
-    condition     = var.business_connectors == null ? true : length(var.business_connectors) >= 0
-    error_message = "Business connectors should be null or a valid list."
+    condition     = length(var.business_connectors) >= 0
+    error_message = "Business connectors should be a valid list."
   }
 
   # AVM: Output validation assertions
