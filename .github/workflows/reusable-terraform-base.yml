@@ -194,14 +194,6 @@ jobs:
     # Enables environment-specific secrets and protection rules
     environment: ${{ inputs.environment-name }}
     
-    # === CONCURRENCY CONTROL ===
-    # Prevents multiple terraform operations from running simultaneously on the same state
-    # This is critical to avoid state corruption and resource conflicts
-    # Group key combines configuration, tfvars file, and git ref for precise control
-    concurrency:
-      group: terraform-${{ inputs.configuration }}-${{ inputs.tfvars-file || 'default' }}-${{ github.ref }}
-      cancel-in-progress: false  # Never cancel running Terraform operations to avoid state corruption
-    
     # === ENVIRONMENT VARIABLES ===
     # These environment variables configure authentication for both Azure and Power Platform
     # All use OIDC (OpenID Connect) for secure, passwordless authentication
