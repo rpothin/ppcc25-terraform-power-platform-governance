@@ -1,0 +1,11 @@
+# Strict Security DLP Policy tfvars Template
+# All connectors are classified as non-business except explicitly allowed business connectors.
+
+dlp_policy_config = {
+  display_name                      = "${policy_name}"
+  default_connectors_classification = "NonBusiness"
+  environment_type                  = "Production"
+  business_connectors               = ${jsonencode(business_connectors)}
+  non_business_connectors           = ${jsonencode(non_business_connectors)}
+  blocked_connectors                = ${jsonencode(blocked_connectors)}
+}

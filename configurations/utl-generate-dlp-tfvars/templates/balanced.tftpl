@@ -1,0 +1,11 @@
+# Balanced DLP Policy tfvars Template
+# Most connectors are non-business, but common productivity connectors are business.
+
+dlp_policy_config = {
+  display_name                      = "${policy_name}"
+  default_connectors_classification = "NonBusiness"
+  environment_type                  = "Production"
+  business_connectors               = ${jsonencode(business_connectors)}
+  non_business_connectors           = ${jsonencode(non_business_connectors)}
+  blocked_connectors                = ${jsonencode(blocked_connectors)}
+}

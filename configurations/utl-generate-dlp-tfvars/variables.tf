@@ -1,3 +1,15 @@
+# Optional: Policy name for new policy creation (used only if not onboarding from export)
+variable "policy_name" {
+  type        = string
+  description = <<DESCRIPTION
+Name of the new DLP policy to generate tfvars for (used only when not onboarding from export).
+
+If not specified, defaults to "New DLP Policy".
+
+Example: "Production Security"
+DESCRIPTION
+  default     = null
+}
 # Input Variables for Smart DLP tfvars Generator
 #
 # This file defines all input parameters for the configuration following
