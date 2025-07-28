@@ -30,7 +30,7 @@
 name: Terraform Output
 
 concurrency:
-  group: terraform-output-${{ github.event.inputs.configuration }}
+  group: terraform-output
   cancel-in-progress: false  # Never cancel Terraform operations to avoid incomplete state
 
 on:
