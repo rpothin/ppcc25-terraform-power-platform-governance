@@ -25,11 +25,17 @@ variables {
   default_connectors_classification = "Blocked"
   environment_type                  = "AllEnvironments"
 
-  # Minimal connector configurations for testing
+  # Minimal connector configurations for testing - FIXED: Include required custom connector patterns
   business_connectors        = []
   non_business_connectors    = []
   blocked_connectors         = []
-  custom_connectors_patterns = []
+  custom_connectors_patterns = [
+    {
+      order            = 1
+      host_url_pattern = "*"
+      data_group       = "Ignore"
+    }
+  ]
 }
 
 # --- Advanced Test Scenarios ---
@@ -64,7 +70,13 @@ run "minimal_configuration_test" {
     business_connectors        = []
     non_business_connectors    = []
     blocked_connectors         = []
-    custom_connectors_patterns = []
+    custom_connectors_patterns = [
+      {
+        order            = 1
+        host_url_pattern = "*"
+        data_group       = "Ignore"
+      }
+    ]
   }
   assert {
     condition     = length(var.business_connectors) == 0
@@ -76,8 +88,14 @@ run "minimal_configuration_test" {
 run "maximal_configuration_test" {
   command = plan
   variables {
-    business_connectors        = [for i in range(0, 100) : "/providers/Microsoft.PowerApps/apis/shared_test${i}"]
-    custom_connectors_patterns = []
+    business_connectors = [for i in range(0, 100) : "/providers/Microsoft.PowerApps/apis/shared_test${i}"]
+    custom_connectors_patterns = [
+      {
+        order            = 1
+        host_url_pattern = "*"
+        data_group       = "Ignore"
+      }
+    ]
   }
   assert {
     condition     = length(var.business_connectors) == 100
@@ -93,7 +111,13 @@ run "full_auto_classification" {
       "/providers/Microsoft.PowerApps/apis/shared_sql",
       "/providers/Microsoft.PowerApps/apis/shared_approvals"
     ]
-    custom_connectors_patterns = []
+    custom_connectors_patterns = [
+      {
+        order            = 1
+        host_url_pattern = "*"
+        data_group       = "Ignore"
+      }
+    ]
   }
   assert {
     condition     = length(var.business_connectors) == 2
@@ -114,7 +138,13 @@ run "partial_auto_classification" {
         endpoint_rules               = []
       }
     ]
-    custom_connectors_patterns = []
+    custom_connectors_patterns = [
+      {
+        order            = 1
+        host_url_pattern = "*"
+        data_group       = "Ignore"
+      }
+    ]
   }
   assert {
     condition     = length(var.business_connectors) == 1 && length(var.non_business_connectors) == 1
@@ -143,7 +173,13 @@ run "full_manual_classification" {
         endpoint_rules               = []
       }
     ]
-    custom_connectors_patterns = []
+    custom_connectors_patterns = [
+      {
+        order            = 1
+        host_url_pattern = "*"
+        data_group       = "Ignore"
+      }
+    ]
   }
   assert {
     condition     = length(var.business_connectors) == 1 && length(var.non_business_connectors) == 1 && length(var.blocked_connectors) == 1
@@ -155,8 +191,14 @@ run "full_manual_classification" {
 run "large_scale_performance" {
   command = plan
   variables {
-    business_connectors        = [for i in range(0, 500) : "/providers/Microsoft.PowerApps/apis/shared_test${i}"]
-    custom_connectors_patterns = []
+    business_connectors = [for i in range(0, 500) : "/providers/Microsoft.PowerApps/apis/shared_test${i}"]
+    custom_connectors_patterns = [
+      {
+        order            = 1
+        host_url_pattern = "*"
+        data_group       = "Ignore"
+      }
+    ]
   }
   assert {
     condition     = length(var.business_connectors) == 500
