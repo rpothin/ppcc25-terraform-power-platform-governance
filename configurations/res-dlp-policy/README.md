@@ -56,15 +56,12 @@ The following requirements are needed by this module:
 
 The following providers are used by this module:
 
-- <a name="provider_null"></a> [null](#provider\_null)
-
 - <a name="provider_powerplatform"></a> [powerplatform](#provider\_powerplatform) (~> 3.8)
 
 ## Resources
 
 The following resources are used by this module:
 
-- [null_resource.auto_classification_guard](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) (resource)
 - [powerplatform_data_loss_prevention_policy.this](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/resources/data_loss_prevention_policy) (resource)
 - [powerplatform_connectors.all](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/data-sources/connectors) (data source)
 
@@ -72,6 +69,49 @@ The following resources are used by this module:
 ## Required Inputs
 
 The following input variables are required:
+
+### <a name="input_business_connectors"></a> [business\_connectors](#input\_business\_connectors)
+
+Description: List of business connectors for sensitive data. Each object must match the provider schema and allows full configuration of connector DLP rules.
+
+Example:  
+business\_connectors = [
+  {  
+    id                           = "/providers/Microsoft.PowerApps/apis/shared\_sql"  
+    default\_action\_rule\_behavior = "Allow"  
+    action\_rules = [
+      {  
+        action\_id = "DeleteItem\_V2"  
+        behavior  = "Block"
+      }
+    ]  
+    endpoint\_rules = [
+      {  
+        endpoint = "contoso.com"  
+        behavior = "Allow"  
+        order    = 1
+      }
+    ]
+  }
+]
+
+Type:
+
+```hcl
+list(object({
+    id                           = string
+    default_action_rule_behavior = string
+    action_rules = list(object({
+      action_id = string
+      behavior  = string
+    }))
+    endpoint_rules = list(object({
+      endpoint = string
+      behavior = string
+      order    = number
+    }))
+  }))
+```
 
 ### <a name="input_display_name"></a> [display\_name](#input\_display\_name)
 
@@ -85,7 +125,7 @@ The following input variables are optional (have default values):
 
 ### <a name="input_blocked_connectors"></a> [blocked\_connectors](#input\_blocked\_connectors)
 
-Description: Set of blocked connectors. When null and business\_connectors is provided, will be auto-classified as all blockable connectors not in business\_connectors. When provided, auto-classification is bypassed.
+Description: Set of blocked connectors. Each object must match the provider schema and allows full configuration of connector DLP rules.
 
 Example:  
 blocked\_connectors = [
@@ -115,21 +155,7 @@ list(object({
   }))
 ```
 
-Default: `null`
-
-### <a name="input_business_connectors"></a> [business\_connectors](#input\_business\_connectors)
-
-Description: List of connector IDs to classify as business connectors. When provided, non-business and blocked connectors will be auto-classified unless explicitly set. If null, both non\_business\_connectors and blocked\_connectors must be provided.
-
-Example:  
-business\_connectors = [
-  "/providers/Microsoft.PowerApps/apis/shared\_sql",
-  "/providers/Microsoft.PowerApps/apis/shared\_approvals"
-]
-
-Type: `list(string)`
-
-Default: `null`
+Default: `[]`
 
 ### <a name="input_custom_connectors_patterns"></a> [custom\_connectors\_patterns](#input\_custom\_connectors\_patterns)
 
@@ -199,7 +225,7 @@ Default: `[]`
 
 ### <a name="input_non_business_connectors"></a> [non\_business\_connectors](#input\_non\_business\_connectors)
 
-Description: Set of non-business connectors for non-sensitive data. When null and business\_connectors is provided, will be auto-classified as all unblockable connectors not in business\_connectors. When provided, auto-classification is bypassed.
+Description: Set of non-business connectors for non-sensitive data. Each object must match the provider schema and allows full configuration of connector DLP rules.
 
 Example:  
 non\_business\_connectors = [
@@ -229,7 +255,7 @@ list(object({
   }))
 ```
 
-Default: `null`
+Default: `[]`
 
 ## Outputs
 
