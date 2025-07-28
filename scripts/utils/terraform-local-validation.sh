@@ -1,3 +1,55 @@
+run_enhanced_autofix() {
+    local config_path="$1"
+    local config_name="$2"
+    cd "$config_path"
+
+    # Fix 1: Replace concat() in ignore_changes blocks (legacy, for future-proofing)
+    if [[ -f "main.tf" ]] && grep -q "ignore_changes = concat(" main.tf; then
+        print_warning "Fixing concat() usage in ignore_changes..."
+        sed -i 's/ignore_changes = concat(/ignore_changes = [/g' main.tf
+        # Remove closing parenthesis and complex logic (manual review may be needed)
+    fi
+
+    # Fix 2: Generate missing outputs.tf
+    if [[ ! -f "outputs.tf" ]]; then
+        print_warning "Generating missing outputs.tf..."
+        cat > outputs.tf << 'EOF'
+output "id" {
+  description = "The ID of the created resource"
+  value       = try(resource.main.id, null)
+}
+EOF
+    fi
+
+    # Fix 3: Update provider version in versions.tf
+    if [[ -f "versions.tf" ]] && ! grep -q '~> 3.8' versions.tf; then
+        print_warning "Updating provider version in versions.tf..."
+        sed -i 's/version = "[^"]*"/version = "~> 3.8"/g' versions.tf
+    fi
+
+    # Fix 4: Add .terraform-docs.yml if missing
+    if [[ ! -f ".terraform-docs.yml" ]]; then
+        print_warning "Generating missing .terraform-docs.yml..."
+        cat > .terraform-docs.yml << 'EOF'
+output: markdown
+output-file: README.md
+sections:
+  hide:
+    - requirements
+    - providers
+    - modules
+    - resources
+    - inputs
+    - outputs
+EOF
+    fi
+
+    # Fix 5: Add lifecycle block for res-* modules if missing
+    if [[ "$config_name" == res-* ]] && [[ -f "main.tf" ]] && ! grep -q 'lifecycle' main.tf; then
+        print_warning "Adding lifecycle block to main.tf..."
+        echo -e '\n  lifecycle {\n    ignore_changes = []\n  }' >> main.tf
+    fi
+}
 #!/bin/bash
 # ============================================================================== 
 # TERRAFORM LOCAL VALIDATION SCRIPT
@@ -141,12 +193,18 @@ run_format_check() {
             if [[ "$QUIET" != "true" ]]; then
                 print_warning "Format issues found in $config_name. Applying autofix..."
             fi
-            terraform fmt -recursive
+            # Apply the formatting fix and capture output
+            local format_fix_output
+            format_fix_output=$(terraform fmt -recursive 2>&1)
+            # Verify the fix was successful by checking again
             if terraform fmt -recursive -check >/dev/null 2>&1; then
                 print_success "✨ Autofix applied successfully for $config_name format"
                 return 0
             else
                 print_error "Autofix failed for $config_name format"
+                if [[ "$QUIET" != "true" ]]; then
+                    echo "Fix output: $format_fix_output"
+                fi
                 return 1
             fi
         else
@@ -195,6 +253,12 @@ run_syntax_validation() {
         if [[ "$QUIET" != "true" ]]; then
             print_error "Syntax validation failed for $config_name:"
             echo "$validate_output"
+            # Provide specific guidance for common issues
+            if echo "$validate_output" | grep -q "static list expression is required"; then
+                print_status "💡 Tip: ignore_changes requires a static list. Remove concat() or conditional expressions."
+            elif echo "$validate_output" | grep -q "Invalid expression"; then
+                print_status "💡 Tip: Check for invalid function usage in expressions."
+            fi
         fi
         return 1
     fi
@@ -215,6 +279,17 @@ validate_configuration() {
     if [[ "$SYNTAX_ONLY" != "true" ]]; then
         if ! run_format_check "$config_path" "$config_name" "$AUTOFIX"; then
             validation_passed=false
+            # Enhanced autofix: try to fix common issues if autofix is enabled
+            if [[ "$AUTOFIX" == "true" ]]; then
+                print_warning "Running enhanced autofix for $config_name..."
+                run_enhanced_autofix "$config_path" "$config_name"
+                # Re-run format check after autofix
+                if run_format_check "$config_path" "$config_name" "false"; then
+                    print_success "Enhanced autofix resolved format issues for $config_name."
+                else
+                    print_error "Enhanced autofix could not resolve all format issues for $config_name."
+                fi
+            fi
         fi
     fi
     if [[ "$FORMAT_ONLY" != "true" ]]; then

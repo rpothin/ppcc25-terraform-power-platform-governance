@@ -15,7 +15,7 @@ locals {
     ) ? [
     for c in data.powerplatform_connectors.all.connectors : {
       id                           = c.id
-      default_action_rule_behavior = ""  # ✅ Empty string when action_rules is empty
+      default_action_rule_behavior = "" # ✅ Empty string when action_rules is empty
       action_rules                 = []
       endpoint_rules               = []
     }
@@ -28,7 +28,7 @@ locals {
     ) ? [
     for c in data.powerplatform_connectors.all.connectors : {
       id                           = c.id
-      default_action_rule_behavior = ""  # ✅ Empty string when action_rules is empty
+      default_action_rule_behavior = "" # ✅ Empty string when action_rules is empty
       action_rules                 = []
       endpoint_rules               = []
     }
@@ -39,7 +39,7 @@ locals {
   final_business_connectors = var.business_connectors != null ? [
     for id in var.business_connectors : {
       id                           = id
-      default_action_rule_behavior = ""  # ✅ Empty string when action_rules is empty
+      default_action_rule_behavior = "" # ✅ Empty string when action_rules is empty
       action_rules                 = []
       endpoint_rules               = []
     }
@@ -83,15 +83,9 @@ resource "powerplatform_data_loss_prevention_policy" "this" {
   custom_connectors_patterns = var.custom_connectors_patterns
 
   lifecycle {
-    ignore_changes = concat(
-      # Always ignore provider-controlled metadata (but these aren't needed per warning)
-      [],
-
-      # Conditionally ignore connector lists that receive auto-additions
-      var.default_connectors_classification == "Blocked" ? ["blocked_connectors"] : [],
-      var.default_connectors_classification == "Confidential" ? ["non_business_connectors"] : [],
-      var.default_connectors_classification == "General" ? ["business_connectors"] : []
-    )
+    ignore_changes = [
+      # Nothing to ignore for now, but can be added later if needed
+    ]
   }
 }
 
