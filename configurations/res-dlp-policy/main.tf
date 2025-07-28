@@ -67,7 +67,7 @@ check "business_connector_ids_exist" {
       To see available connectors, run:
         terraform plan -target=data.powerplatform_connectors.all
       EOT
-  }
+}
 }
 
 resource "powerplatform_data_loss_prevention_policy" "this" {
