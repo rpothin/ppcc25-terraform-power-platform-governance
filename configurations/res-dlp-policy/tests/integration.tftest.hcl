@@ -85,6 +85,10 @@ run "manual_configuration_test" {
     condition     = length(var.non_business_connectors) == 1
     error_message = "Non-business connectors should have one entry for manual configuration."
   }
+  assert {
+    condition     = length(var.blocked_connectors) == 1
+    error_message = "Blocked connectors should have one entry for manual configuration."
+  }
 }
 
 # 2. Edge Case: Simple auto-classification (specific business connectors)
