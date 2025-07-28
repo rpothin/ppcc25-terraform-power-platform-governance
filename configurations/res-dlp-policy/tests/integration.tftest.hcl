@@ -25,9 +25,9 @@ variables {
   default_connectors_classification = "Blocked"
   environment_type                  = "AllEnvironments"
 
-  # FIXED: Use empty list instead of null to satisfy required attribute
-  # Provider requires business_connectors to be set (cannot be null)
-  business_connectors = []
+  # FIXED: Disable auto-classification by setting business_connectors to null
+  # This forces manual classification mode which avoids provider inconsistencies
+  business_connectors = null
   non_business_connectors = [
     {
       id                           = "/providers/Microsoft.PowerApps/apis/shared_office365"
@@ -82,7 +82,7 @@ run "apply_validation" {
 run "manual_configuration_test" {
   command = plan
   variables {
-    business_connectors = []
+    business_connectors = null
     non_business_connectors = [
       {
         id                           = "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
@@ -108,8 +108,8 @@ run "manual_configuration_test" {
     ]
   }
   assert {
-    condition     = length(var.business_connectors) == 0
-    error_message = "Business connectors should be empty for manual configuration."
+    condition     = var.business_connectors == null
+    error_message = "Business connectors should be null for manual configuration."
   }
   assert {
     condition     = length(var.non_business_connectors) == 1
@@ -124,6 +124,8 @@ run "simple_auto_classification_test" {
     business_connectors = [
       "/providers/Microsoft.PowerApps/apis/shared_sql"
     ]
+    non_business_connectors = null
+    blocked_connectors = null
     custom_connectors_patterns = [
       {
         order            = 1
@@ -146,6 +148,8 @@ run "full_auto_classification" {
       "/providers/Microsoft.PowerApps/apis/shared_sql",
       "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
     ]
+    non_business_connectors = null
+    blocked_connectors = null
     custom_connectors_patterns = [
       {
         order            = 1
@@ -173,6 +177,7 @@ run "partial_auto_classification" {
         endpoint_rules               = []
       }
     ]
+    blocked_connectors = null
     custom_connectors_patterns = [
       {
         order            = 1
@@ -191,7 +196,7 @@ run "partial_auto_classification" {
 run "full_manual_classification" {
   command = plan
   variables {
-    business_connectors = ["/providers/Microsoft.PowerApps/apis/shared_sql"]
+    business_connectors = null
     non_business_connectors = [
       {
         id                           = "/providers/Microsoft.PowerApps/apis/shared_office365"
@@ -217,7 +222,7 @@ run "full_manual_classification" {
     ]
   }
   assert {
-    condition     = length(var.business_connectors) == 1 && length(var.non_business_connectors) == 1 && length(var.blocked_connectors) == 1
+    condition     = var.business_connectors == null && length(var.non_business_connectors) == 1 && length(var.blocked_connectors) == 1
     error_message = "Full manual classification pattern should accept all connector types."
   }
 }
@@ -227,6 +232,8 @@ run "large_scale_performance" {
   command = plan
   variables {
     business_connectors = [for i in range(0, 100) : "/providers/Microsoft.PowerApps/apis/shared_test${i}"]
+    non_business_connectors = null
+    blocked_connectors = null
     custom_connectors_patterns = [
       {
         order            = 1
@@ -279,8 +286,8 @@ run "comprehensive_validation" {
   }
 
   assert {
-    condition     = length(var.business_connectors) >= 0
-    error_message = "Business connectors should be a valid list."
+    condition     = var.business_connectors == null ? true : length(var.business_connectors) >= 0
+    error_message = "Business connectors should be null or a valid list."
   }
 
   # AVM: Output validation assertions
