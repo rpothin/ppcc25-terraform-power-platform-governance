@@ -668,7 +668,7 @@ jobs:
               echo "::notice title=Running Apply Command::📋 Running: terraform apply ${tfvars_option:+$tfvars_option} -auto-approve $additional_options"
               
               set +e
-              terraform apply -auto-approve -var='source_policy_name="Copilot Studio Autonomous Agents"' 2>&1 | tee "$apply_output_file"
+              terraform apply -auto-approve -var='source_policy_name=Copilot Studio Autonomous Agents' 2>&1 | tee "$apply_output_file"
               apply_exit_code=${PIPESTATUS[0]}
               set -e
               
