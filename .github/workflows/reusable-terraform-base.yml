@@ -664,10 +664,11 @@ jobs:
               apply_output_file="output-apply.txt"
 
               # Echo of the full command we are trying to run for debugging
-              echo "::notice title=Running Apply Command::📋 Running: terraform apply ${tfvars_option:+$tfvars_option} -auto-approve $additional_options"
+              echo "::notice title=Backup Command::📋 Backup Command: terraform apply ${tfvars_option:+$tfvars_option} -auto-approve $additional_options"
+              echo "::notice title=Running Apply Command::📋 Running: terraform apply -auto-approve $additional_options"
               
               set +e
-              terraform apply ${tfvars_option:+$tfvars_option} -auto-approve $additional_options 2>&1 | tee "$apply_output_file"
+              terraform apply -auto-approve $additional_options 2>&1 | tee "$apply_output_file"
               apply_exit_code=${PIPESTATUS[0]}
               set -e
               
