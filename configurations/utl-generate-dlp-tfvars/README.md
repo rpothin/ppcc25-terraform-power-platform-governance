@@ -32,11 +32,15 @@ The following requirements are needed by this module:
 
 ## Providers
 
-No providers.
+The following providers are used by this module:
+
+- <a name="provider_powerplatform"></a> [powerplatform](#provider\_powerplatform) (~> 3.8)
 
 ## Resources
 
-No resources.
+The following resources are used by this module:
+
+- [powerplatform_data_loss_prevention_policies.current](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/data-sources/data_loss_prevention_policies) (data source)
 
 <!-- markdownlint-disable MD013 -->
 ## Required Inputs
