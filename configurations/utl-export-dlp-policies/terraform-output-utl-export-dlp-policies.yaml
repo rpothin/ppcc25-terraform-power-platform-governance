@@ -1,8 +1,8 @@
 metadata:
-  generated_at: "2025-07-28T18:07:51Z"
+  generated_at: "2025-07-29T13:25:15Z"
   workflow:
-    run_number: 99
-    run_id: "16576693985"
+    run_number: 121
+    run_id: "16597414169"
     generated_by: rpothin
     version: 2.0.0
   terraform_version: 1.12.2
@@ -13,15 +13,14 @@ metadata:
   repository:
     name: rpothin/ppcc25-terraform-power-platform-governance
     ref: refs/heads/main
-    sha: 851fedcd767fa05d71273b4b5c3cb157467644d9
+    sha: 5affcd06a18231baa82b11c6f943f1a036c5e77d
     event: workflow_dispatch
   runner:
     os: Linux
     architecture: X64
   additional:
     state_key: utl-export-dlp-policies.tfstate
-    additional_options: -json -no-color
-    auto_approve: "false"
+    auto_approve: false
     timeout_minutes: 10
   output_processing:
     export_format: yaml
@@ -50807,7 +50806,7 @@ terraform_output:
     value:
       export_metadata:
         detail_level: summary
-        export_timestamp: "2025-07-28T18:09:16Z"
+        export_timestamp: "2025-07-29T13:26:54Z"
         filter_applied: false
         filtered_policies_count: 3
         total_policies_in_tenant: 3
