@@ -97,35 +97,14 @@ permissions:
   id-token: write         # Required for Azure authentication via OIDC
 
 jobs:
-  # === Conditionally applies configuration for generator/onboarding ===
-  terraform-apply:
-    name: 🚀 Apply Configuration
-    if: ${{ github.event.inputs.operation == 'apply-then-output' }}
-    uses: ./.github/workflows/reusable-terraform-base.yml
-    with:
-      operation: 'apply'
-      configuration: '${{ github.event.inputs.configuration }}'
-      tfvars-file: '${{ github.event.inputs.tfvars_file }}'
-      additional-options: '${{ github.event.inputs.terraform_variables }}'
-      auto-approve: true
-      timeout-minutes: 20
-    secrets: inherit
-
   # === Extracts outputs from Terraform state for compliance, discovery, and integration ===
   terraform-output:
     name: 🔧 Extract Terraform Output
-    needs: [terraform-apply]
-    if: |
-      always() && (
-        github.event.inputs.operation == 'output-only' ||
-        (github.event.inputs.operation == 'apply-then-output' &&
-         needs.terraform-apply.result == 'success')
-      )
     uses: ./.github/workflows/reusable-terraform-base.yml
     with:
       operation: 'output'
       configuration: '${{ github.event.inputs.configuration }}'
-      additional-options: '-json -no-color'
+      additional-options: '${{ github.event.inputs.terraform_variables && format("{0} -json -no-color", github.event.inputs.terraform_variables) || "-json -no-color" }}'
       timeout-minutes: 10
     secrets: inherit
 
