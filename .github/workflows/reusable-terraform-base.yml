@@ -358,7 +358,8 @@ jobs:
           config="${{ inputs.configuration }}"
           operation="${{ inputs.operation }}"
           # Use single quotes to preserve original quote structure in additional options
-          additional_options='${{ inputs.additional-options }}'
+          # Auto-escape single quotes in additional options to handle nested quoting
+          additional_options=$(echo '${{ inputs.additional-options }}' | sed "s/'/'\\\\''/g")
           tfvars_file="${{ inputs.tfvars-file }}"
           plan_file="${{ inputs.plan-file-name }}.tfplan"
           
