@@ -635,7 +635,7 @@ jobs:
               
               output_file="terraform-output.txt"
               json_output_file="terraform-output-artifact.json"
-              output_args="$additional_options"
+              output_args="-json -no-color"
               
               # PHASE 1: Ensure state is populated (apply data sources)
               echo "::notice title=Populating State::🔄 Applying configuration to populate state with data sources"

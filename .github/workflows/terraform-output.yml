@@ -92,20 +92,20 @@ jobs:
     with:
       operation: 'output'
       configuration: '${{ github.event.inputs.configuration }}'
-      additional-options: '-json -no-color'
+      additional-options: ''
       timeout-minutes: 10
     secrets: inherit
 
   # === Extracts outputs with variables from Terraform state for compliance, discovery, and integration ===
   terraform-output-with-variables:
-    name: 🔧 Extract Terraform Output
+    name: 🔧 Extract Terraform Output With Variables
     # Only if terraform_variables is provided, use operation with variables
     if: ${{ github.event.inputs.terraform_variables != '' }}
     uses: ./.github/workflows/reusable-terraform-base.yml
     with:
       operation: 'output'
       configuration: '${{ github.event.inputs.configuration }}'
-      additional-options: '${{ github.event.inputs.terraform_variables }} -json -no-color'
+      additional-options: '${{ github.event.inputs.terraform_variables }}'
       timeout-minutes: 10
     secrets: inherit
 
