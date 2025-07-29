@@ -640,10 +640,6 @@ jobs:
               # PHASE 1: Ensure state is populated (apply data sources)
               echo "::notice title=Populating State::🔄 Applying configuration to populate state with data sources"
               apply_output_file="output-apply.txt"
-
-              # Echo of the full command we are trying to run for debugging
-              echo "::notice title=Backup Command::📋 Backup Command: terraform apply ${tfvars_option:+$tfvars_option} -auto-approve $additional_options"
-              echo "::notice title=Running Apply Command::📋 Running: terraform apply -auto-approve $additional_options"
               
               set +e
               eval "terraform apply ${tfvars_option:+$tfvars_option} -auto-approve $additional_options" 2>&1 | tee "$apply_output_file"
