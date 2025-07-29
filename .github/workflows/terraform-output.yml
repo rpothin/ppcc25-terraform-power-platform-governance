@@ -51,7 +51,7 @@ on:
         # EXAMPLES: 'utl-export-dlp-policies', 'utl-export-connectors',
         #   'utl-generate-dlp-tfvars'
       terraform_variables:
-        description: 'Terraform variables (e.g., -var="policy_name=test" -var="template=strict")'
+        description: "Terraform variables (e.g., -var='source_policy_name=Copilot Studio Autonomous Agents')"
         required: false
         type: string
         # WHY: Allows passing variables for generator and advanced use cases
