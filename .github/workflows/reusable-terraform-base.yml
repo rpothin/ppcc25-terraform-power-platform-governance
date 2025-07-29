@@ -358,7 +358,6 @@ jobs:
           config="${{ inputs.configuration }}"
           operation="${{ inputs.operation }}"
           # Use single quotes to preserve original quote structure in additional options
-          # Auto-escape single quotes in additional options to handle nested quoting
           additional_options='${{ inputs.additional-options }}'
           tfvars_file="${{ inputs.tfvars-file }}"
           plan_file="${{ inputs.plan-file-name }}.tfplan"
@@ -669,7 +668,7 @@ jobs:
               echo "::notice title=Running Apply Command::📋 Running: terraform apply ${tfvars_option:+$tfvars_option} -auto-approve $additional_options"
               
               set +e
-              terraform apply ${tfvars_option:+$tfvars_option} -auto-approve $additional_options 2>&1 | tee "$apply_output_file"
+              terraform apply -auto-approve $additional_options 2>&1 | tee "$apply_output_file" # To add back after test:  ${tfvars_option:+$tfvars_option}
               apply_exit_code=${PIPESTATUS[0]}
               set -e
               
