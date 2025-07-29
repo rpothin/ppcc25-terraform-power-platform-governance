@@ -326,12 +326,10 @@ jobs:
           configuration: ${{ inputs.configuration }}
           tfvars-file: ${{ inputs.tfvars-file }}
           phase: 'execution'
-          # Additional context data for enhanced metadata
           additional-data: |
             {
-              "state_key": "${{ steps.terraform-init.outputs.state-key }}",
-              "additional_options": "${{ inputs.additional-options }}",
-              "auto_approve": "${{ inputs.auto-approve }}",
+              "additional_options": ${{ toJSON(inputs.additional-options) }},
+              "auto_approve": ${{ inputs.auto-approve }},
               "timeout_minutes": ${{ inputs.timeout-minutes }}
             }
       
