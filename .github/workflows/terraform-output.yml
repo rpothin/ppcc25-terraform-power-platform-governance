@@ -86,6 +86,21 @@ jobs:
   # === Extracts outputs from Terraform state for compliance, discovery, and integration ===
   terraform-output:
     name: 🔧 Extract Terraform Output
+    # Only if terraform_variables is not provided, use default operation
+    if: ${{ github.event.inputs.terraform_variables == '' }}
+    uses: ./.github/workflows/reusable-terraform-base.yml
+    with:
+      operation: 'output'
+      configuration: '${{ github.event.inputs.configuration }}'
+      additional-options: '-json -no-color'
+      timeout-minutes: 10
+    secrets: inherit
+
+  # === Extracts outputs with variables from Terraform state for compliance, discovery, and integration ===
+  terraform-output-with-variables:
+    name: 🔧 Extract Terraform Output
+    # Only if terraform_variables is provided, use operation with variables
+    if: ${{ github.event.inputs.terraform_variables != '' }}
     uses: ./.github/workflows/reusable-terraform-base.yml
     with:
       operation: 'output'
@@ -100,8 +115,12 @@ jobs:
     name: 📄 Process and Commit Output Files
     # === JOB DEPENDENCIES ===
     # WHY: Ensure Terraform output extraction completes successfully before processing
-    needs: terraform-output
-    if: always() && needs.terraform-output.result == 'success'
+    needs: [terraform-output, terraform-output-with-variables]
+    if: |
+      always() && (
+        (needs.terraform-output.result == 'success' && github.event.inputs.terraform_variables == '') ||
+        (needs.terraform-output-with-variables.result == 'success' && github.event.inputs.terraform_variables != '')
+      )
     runs-on: ubuntu-latest
     # === JOB OUTPUT DECLARATIONS ===
     # WHY: Export key processing results for use by subsequent jobs
@@ -181,10 +200,15 @@ jobs:
           echo "::notice::• Timestamp: $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
           # === TERRAFORM OUTPUT VALIDATION ===
-          # Validate the output from the reusable workflow and identify the correct artifact file
-          # Support multiple artifact formats (JSON preferred, text as fallback)
-          tf_output_status='${{ needs.terraform-output.outputs.terraform-output }}'
-          echo "::debug::Terraform output status from reusable workflow: $tf_output_status"
+          # Dynamically determine which job ran and get appropriate output status
+          # Support both with-variables and without-variables scenarios
+          if [ "${{ github.event.inputs.terraform_variables }}" != "" ]; then
+            tf_output_status='${{ needs.terraform-output-with-variables.outputs.terraform-output }}'
+            echo "::debug::Using terraform-output-with-variables status: $tf_output_status"
+          else
+            tf_output_status='${{ needs.terraform-output.outputs.terraform-output }}'
+            echo "::debug::Using terraform-output status: $tf_output_status"
+          fi
 
           # === ARTIFACT FILE DISCOVERY ===
           # Locate the appropriate artifact file with preference for JSON format
@@ -290,10 +314,37 @@ jobs:
           output_filename="terraform-output-$config.$export_format"
           output_path="configurations/$config/$output_filename"
 
+          # === DEBUG JOB EXECUTION CONTEXT ===
+          # Log which execution path was taken for troubleshooting
+          echo "::notice title=Execution Path::🔍 Job execution analysis:"
+          echo "::notice::• Terraform variables provided: ${{ github.event.inputs.terraform_variables != '' }}"
+          echo "::notice::• terraform-output job result: ${{ needs.terraform-output.result }}"
+          echo "::notice::• terraform-output-with-variables job result: ${{ needs.terraform-output-with-variables.result }}"
+          
+          if [ "${{ github.event.inputs.terraform_variables }}" != "" ]; then
+            echo "::notice::• Execution path: WITH VARIABLES"
+            echo "::notice::• Using artifacts from: terraform-output-with-variables"
+          else
+            echo "::notice::• Execution path: NO VARIABLES"
+            echo "::notice::• Using artifacts from: terraform-output"
+          fi
+
           # === METADATA INTEGRATION FROM REUSABLE WORKFLOW ===
-          # Leverage existing metadata from reusable-terraform-base workflow
+          # Dynamically resolve metadata source based on which job executed
           # This ensures consistency with other workflows and avoids duplication
-          operation_metadata='${{ needs.terraform-output.outputs.operation-metadata }}'
+          if [ "${{ github.event.inputs.terraform_variables }}" != "" ]; then
+            operation_metadata='${{ needs.terraform-output-with-variables.outputs.operation-metadata }}'
+            echo "::debug::Using metadata from terraform-output-with-variables"
+          else
+            operation_metadata='${{ needs.terraform-output.outputs.operation-metadata }}'
+            echo "::debug::Using metadata from terraform-output"
+          fi
+          
+          # Validate metadata is available
+          if [ -z "$operation_metadata" ] || [ "$operation_metadata" = "null" ]; then
+            echo "::warning title=Metadata Unavailable::⚠️ Operation metadata not available, using minimal context"
+            operation_metadata='{"terraform_version": "unknown", "execution_duration": "unknown"}'
+          fi
 
           # === FORMAT-SPECIFIC PROCESSING ===
           if [ "$export_format" = "json" ]; then
@@ -423,7 +474,13 @@ jobs:
 
             # === EXTRACT TERRAFORM METADATA FOR COMMIT MESSAGE ===
             # Include Terraform operation details from reusable workflow in commit
-            operation_metadata='${{ needs.terraform-output.outputs.operation-metadata }}'
+            if [ "${{ github.event.inputs.terraform_variables }}" != "" ]; then
+              operation_metadata='${{ needs.terraform-output-with-variables.outputs.operation-metadata }}'
+            else
+              operation_metadata='${{ needs.terraform-output.outputs.operation-metadata }}'
+            fi
+            
+            if [ -n "$operation_metadata" ] && [ "$operation_metadata" != "null" ]; then
             if [ -n "$operation_metadata" ] && [ "$operation_metadata" != "null" ]; then
               terraform_version=$(echo "$operation_metadata" | \
                 jq -r '.terraform_version // "unknown"')
@@ -485,7 +542,7 @@ jobs:
   # WHY: Provides a clear, actionable summary of the workflow run with troubleshooting details
   execution-summary:
     name: "🎯 Execution Summary"
-    needs: [terraform-output, process-and-commit]
+    needs: [terraform-output, terraform-output-with-variables, process-and-commit]
     uses: ./.github/workflows/reusable-execution-summary.yml
     if: always()
     with:
