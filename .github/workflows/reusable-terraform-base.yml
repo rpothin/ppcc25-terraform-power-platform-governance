@@ -357,8 +357,7 @@ jobs:
           # Extract input parameters for easier handling
           config="${{ inputs.configuration }}"
           operation="${{ inputs.operation }}"
-          # Use single quotes to preserve original quote structure in additional options
-          additional_options='${{ inputs.additional-options }}'
+          additional_options="${{ inputs.additional-options }}"
           tfvars_file="${{ inputs.tfvars-file }}"
           plan_file="${{ inputs.plan-file-name }}.tfplan"
           
