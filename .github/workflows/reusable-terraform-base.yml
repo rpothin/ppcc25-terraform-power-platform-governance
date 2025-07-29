@@ -329,6 +329,7 @@ jobs:
           additional-data: |
             {
               "state_key": "${{ steps.terraform-init.outputs.state-key }}",
+              "additional_options": ${{ toJSON(inputs.additional-options) }},
               "auto_approve": ${{ inputs.auto-approve }},
               "timeout_minutes": ${{ inputs.timeout-minutes }}
             }
@@ -642,7 +643,7 @@ jobs:
               apply_output_file="output-apply.txt"
               
               set +e
-              terraform apply $tfvars_option -auto-approve $additional_options 2>&1 | tee "$apply_output_file"
+              terraform apply $tfvars_option -auto-approve "$additional_options" 2>&1 | tee "$apply_output_file"
               apply_exit_code=${PIPESTATUS[0]}
               set -e
               
