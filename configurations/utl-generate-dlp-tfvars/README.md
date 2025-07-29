@@ -47,9 +47,121 @@ No required inputs.
 
 The following input variables are optional (have default values):
 
+### <a name="input_blocked_connectors"></a> [blocked\_connectors](#input\_blocked\_connectors)
+
+Description: List of blocked connectors prohibited from use.
+
+Blocked connectors represent high-risk services that are not permitted in the organization.  
+These connectors will be completely blocked for users within the policy scope.
+
+Used only in template mode for new policy creation. In onboarding mode,   
+connector data is extracted from existing policy exports.
+
+Example:  
+blocked\_connectors = [
+  {  
+    id                           = "/providers/Microsoft.PowerApps/apis/shared\_dropbox"  
+    default\_action\_rule\_behavior = "Block"  
+    action\_rules                 = []  
+    endpoint\_rules               = []
+  }
+]
+
+Type:
+
+```hcl
+list(object({
+    id                           = string
+    default_action_rule_behavior = string
+    action_rules = list(object({
+      action_id = string
+      behavior  = string
+    }))
+    endpoint_rules = list(object({
+      endpoint = string
+      behavior = string
+      order    = number
+    }))
+  }))
+```
+
+Default: `[]`
+
+### <a name="input_business_connectors"></a> [business\_connectors](#input\_business\_connectors)
+
+Description: List of business connectors for sensitive data (General classification).
+
+Business connectors are typically used for corporate data and productivity scenarios.  
+Each connector can have specific action rules and endpoint restrictions for granular control.
+
+Used only in template mode for new policy creation. In onboarding mode,   
+connector data is extracted from existing policy exports.
+
+Example:  
+business\_connectors = [
+  {  
+    id                           = "/providers/Microsoft.PowerApps/apis/shared\_sharepointonline"  
+    default\_action\_rule\_behavior = "Allow"  
+    action\_rules = [
+      {  
+        action\_id = "DeleteItem\_V2"  
+        behavior  = "Block"
+      }
+    ]  
+    endpoint\_rules = [
+      {  
+        endpoint = "contoso.sharepoint.com"  
+        behavior = "Allow"  
+        order    = 1
+      }
+    ]
+  }
+]
+
+Type:
+
+```hcl
+list(object({
+    id                           = string
+    default_action_rule_behavior = string
+    action_rules = list(object({
+      action_id = string
+      behavior  = string
+    }))
+    endpoint_rules = list(object({
+      endpoint = string
+      behavior = string
+      order    = number
+    }))
+  }))
+```
+
+Default: `[]`
+
 ### <a name="input_custom_connectors_patterns"></a> [custom\_connectors\_patterns](#input\_custom\_connectors\_patterns)
 
-Description: Set of custom connector patterns for advanced DLP scenarios. Each pattern must specify order, host\_url\_pattern, and data\_group.
+Description: Set of custom connector patterns for advanced DLP scenarios.
+
+Each pattern must specify:
+- order: Priority order for pattern evaluation (lower numbers evaluated first)
+- host\_url\_pattern: URL pattern to match (supports wildcards)
+- data\_group: Classification for matching connectors ("General", "Confidential", "Blocked")
+
+Security Best Practice: Default blocks all custom connectors (*) unless explicitly allowed.
+
+Example with specific allowances:  
+custom\_connectors\_patterns = [
+  {  
+    order            = 1  
+    host\_url\_pattern = "https://*.contoso.com"  
+    data\_group       = "General"
+  },
+  {  
+    order            = 2  
+    host\_url\_pattern = "*"  
+    data\_group       = "Blocked"
+  }
+]
 
 Type:
 
@@ -77,13 +189,30 @@ Default:
 
 Description: Default classification for connectors ("General", "Confidential", "Blocked").
 
+This setting determines the fallback classification for connectors not explicitly  
+configured in the business, non-business, or blocked connector lists.
+
+Classification Meanings:
+- General: Low-risk connectors suitable for business data
+- Confidential: Medium-risk connectors requiring additional controls
+- Blocked: High-risk connectors prohibited from use
+
+Security Best Practice: Default to "Blocked" for security-first governance.
+
 Type: `string`
 
-Default: `"General"`
+Default: `"Blocked"`
 
 ### <a name="input_environment_type"></a> [environment\_type](#input\_environment\_type)
 
-Description: Default environment handling for the policy ("AllEnvironments", "ExceptEnvironments", "OnlyEnvironments").
+Description: Environment scope for policy application ("AllEnvironments", "ExceptEnvironments", "OnlyEnvironments").
+
+Environment Types:
+- AllEnvironments: Apply policy to all environments in the tenant
+- ExceptEnvironments: Apply policy to all environments except those specified in 'environments' list
+- OnlyEnvironments: Apply policy only to environments specified in 'environments' list
+
+Security Best Practice: Use "OnlyEnvironments" for targeted governance.
 
 Type: `string`
 
@@ -91,9 +220,55 @@ Default: `"OnlyEnvironments"`
 
 ### <a name="input_environments"></a> [environments](#input\_environments)
 
-Description: List of environment IDs to which the policy is applied. Leave empty for all environments.
+Description: List of environment IDs to which the policy is applied.
+
+- Required when environment\_type is "OnlyEnvironments" or "ExceptEnvironments"
+- Leave empty when environment\_type is "AllEnvironments"
+- Environment IDs must be valid GUIDs from Power Platform
+
+Example: ["00000000-0000-0000-0000-000000000000", "11111111-1111-1111-1111-111111111111"]
 
 Type: `list(string)`
+
+Default: `[]`
+
+### <a name="input_non_business_connectors"></a> [non\_business\_connectors](#input\_non\_business\_connectors)
+
+Description: List of non-business connectors for non-sensitive data (Confidential classification).
+
+Non-business connectors are typically used for external services or less sensitive scenarios.  
+They require additional governance controls compared to business connectors.
+
+Used only in template mode for new policy creation. In onboarding mode,   
+connector data is extracted from existing policy exports.
+
+Example:  
+non\_business\_connectors = [
+  {  
+    id                           = "/providers/Microsoft.PowerApps/apis/shared\_twitter"  
+    default\_action\_rule\_behavior = "Allow"  
+    action\_rules                 = []  
+    endpoint\_rules               = []
+  }
+]
+
+Type:
+
+```hcl
+list(object({
+    id                           = string
+    default_action_rule_behavior = string
+    action_rules = list(object({
+      action_id = string
+      behavior  = string
+    }))
+    endpoint_rules = list(object({
+      endpoint = string
+      behavior = string
+      order    = number
+    }))
+  }))
+```
 
 Default: `[]`
 
@@ -101,7 +276,8 @@ Default: `[]`
 
 Description: Path and filename for the generated tfvars output.
 
-- Should end with .tfvars
+- Should end with .tfvars extension for Terraform compatibility
+- Path is relative to the current working directory
 - If not specified, defaults to "generated-dlp-policy.tfvars"
 
 Example: "outputs/generated-policy.tfvars"
@@ -142,6 +318,11 @@ Description: Type of tfvars template to generate for new policies.
 
 - Options: "strict-security", "balanced", "development"
 - Used when creating a new policy tfvars from a governance template.
+
+Template Characteristics:
+- strict-security: Most connectors classified as Confidential, minimal business connectors
+- balanced: Common productivity connectors as General, others as Confidential
+- development: Most connectors as General, only risky ones blocked
 
 Example: "strict-security"
 
