@@ -399,7 +399,7 @@ jobs:
               # Does not require initialization or state access
               echo "::group::🔍 Terraform Validation"
               
-              if terraform validate $additional_options; then
+              if eval "terraform validate $additional_options"; then
                 echo "::notice title=Validation Success::✅ Terraform configuration is valid"
                 echo "success=true" >> $GITHUB_OUTPUT
                 echo "tf-output=Configuration is valid" >> $GITHUB_OUTPUT
@@ -423,7 +423,7 @@ jobs:
               # Execute terraform plan with output capture
               # Temporarily disable strict error handling to capture plan exit code
               set +e
-              terraform plan $tfvars_option -out="$plan_file" $additional_options 2>&1 | tee "$plan_output_file"
+              eval "terraform plan $tfvars_option -out=\"$plan_file\" $additional_options" 2>&1 | tee "$plan_output_file"
               plan_exit_code=${PIPESTATUS[0]}
               set -e  # Re-enable strict error handling
               
@@ -541,7 +541,7 @@ jobs:
               
               # Execute destroy with full output capture
               destroy_output_file="destroy-output.txt"
-              if terraform destroy $tfvars_option -auto-approve $additional_options 2>&1 | tee "$destroy_output_file"; then
+              if eval "terraform destroy $tfvars_option -auto-approve $additional_options" 2>&1 | tee "$destroy_output_file"; then
                 echo "::notice title=Destroy Success::✅ Terraform destroy completed successfully"
                 echo "success=true" >> $GITHUB_OUTPUT
                 
@@ -603,7 +603,7 @@ jobs:
               
               # Execute import with full output capture
               import_output_file="import-output.txt"
-              if terraform import $tfvars_option $additional_options 2>&1 | tee "$import_output_file"; then
+              if eval "terraform import $tfvars_option $additional_options" 2>&1 | tee "$import_output_file"; then
                 echo "::notice title=Import Success::✅ Terraform import completed successfully"
                 echo "success=true" >> $GITHUB_OUTPUT
                 
