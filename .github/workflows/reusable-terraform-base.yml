@@ -388,28 +388,6 @@ jobs:
           echo "success=false" >> $GITHUB_OUTPUT
           echo "has-changes=false" >> $GITHUB_OUTPUT
           echo "tf-output=" >> $GITHUB_OUTPUT
-
-          # === VARIABLE VALIDATION FOR OPERATIONS REQUIRING INPUT ===
-          # ⚠️ Will need to be improved for better flexibility if it works
-          # Validate that required variables are provided for operations that need them
-          # This prevents cryptic Terraform errors and provides clear guidance
-          if [ "$operation" = "output" ] && [ "$config" = "utl-generate-dlp-tfvars" ]; then
-            echo "::notice title=Variable Validation::🔍 Validating required variables for $config"
-            
-            # Check if source_policy_name is provided in additional_options
-            if ! echo "$additional_options" | grep -q "source_policy_name"; then
-              echo "::error title=Missing Required Variable::❌ utl-generate-dlp-tfvars requires 'source_policy_name' variable"
-              echo "::error::Please provide: -var='source_policy_name=Your Policy Name'"
-              echo "::error::Example: -var='source_policy_name=Copilot Studio Autonomous Agents'"
-              exit 1
-            fi
-
-            if echo "$additional_options" | grep -q "var="; then
-              echo "::warning::Detected unquoted variable assignment. Consider using -var='name=value' format"
-            fi
-            
-            echo "::notice title=Validation Success::✅ Required variables detected"
-          fi
           
           # === OPERATION DISPATCH ===
           # Execute operation-specific logic based on the requested operation
