@@ -641,10 +641,6 @@ jobs:
               # PHASE 1: Ensure state is populated (apply data sources)
               echo "::notice title=Populating State::🔄 Applying configuration to populate state with data sources"
               apply_output_file="output-apply.txt"
-
-              echo "::debug::Full terraform command: terraform output $additional_options"
-              echo "::debug::Parsed arguments:"
-              printf '"%s"\n' terraform output $additional_options
               
               set +e
               terraform apply $tfvars_option -auto-approve $additional_options 2>&1 | tee "$apply_output_file"
