@@ -150,7 +150,7 @@ jobs:
           # === PARSE JOB RESULTS FROM CALLING WORKFLOW ===
           # Extract and validate job execution data for summary generation
           job_results='${{ inputs.job-results }}'
-          workflow_inputs='${{ inputs.workflow-inputs }}'
+          workflow_inputs="${{ inputs.workflow-inputs }}"
           operation_type="${{ inputs.operation-type }}"
           workflow_name="${{ inputs.workflow-name }}"
           configuration="${{ inputs.configuration }}"
