@@ -4,26 +4,20 @@
 # Tests require authentication via OIDC and are designed for CI/CD environments like GitHub Actions.
 #
 # Test Philosophy:
-# - Performance Optimized: Consolidated assertions minimize plan cycles
+# - Performance Optimized: Single apply run for utility module testing
 # - Comprehensive Coverage: Validates structure, data integrity, and input validation
 # - Environment Agnostic: Works across development, staging, and production
 # - Failure Isolation: Clear error messages for rapid troubleshooting
 # - Minimum Assertion Coverage: 15+ for utility modules (AVM requirement)
-#
-# Test Categories:
-# - Framework Validation: Basic Terraform and provider functionality
-# - Variable Validation: Input parameter structure and constraints
-# - Output Validation: AVM compliance and data integrity
-# - Onboarding Logic: Policy existence and connector extraction validation
 
 variables {
   source_policy_name = "Copilot Studio Autonomous Agents"
   output_file        = "outputs/test-policy.tfvars"
 }
 
-# Comprehensive validation run - optimized for CI/CD performance
+# Comprehensive validation run - apply command for utility module
 run "comprehensive_validation" {
-  command = plan
+  command = apply # Changed from plan to apply for output validation
 
   # === VARIABLE VALIDATION (Assertions 1-4) ===
   # Validate onboarding input variables
