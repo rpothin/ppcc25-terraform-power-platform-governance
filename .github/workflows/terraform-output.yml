@@ -50,25 +50,11 @@ on:
         # SECURITY: Used in state key generation to prevent cross-configuration access
         # EXAMPLES: 'utl-export-dlp-policies', 'utl-export-connectors',
         #   'utl-generate-dlp-tfvars'
-      operation:
-        description: 'Operation to perform before output extraction'
-        required: false
-        type: choice
-        options:
-          - 'output-only'
-          - 'apply-then-output'
-        default: 'output-only'
-        # WHY: Enables generator pattern for tfvars creation and onboarding
       terraform_variables:
         description: 'Terraform variables (e.g., -var="policy_name=test" -var="template=strict")'
         required: false
         type: string
         # WHY: Allows passing variables for generator and advanced use cases
-      tfvars_file:
-        description: 'Optional tfvars file (without .tfvars extension)'
-        required: false
-        type: string
-        # WHY: Supports environment-specific or custom tfvars files
       export_format:
         description: 'Export format for output data'
         required: true
