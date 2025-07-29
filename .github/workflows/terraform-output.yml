@@ -481,7 +481,6 @@ jobs:
             fi
             
             if [ -n "$operation_metadata" ] && [ "$operation_metadata" != "null" ]; then
-            if [ -n "$operation_metadata" ] && [ "$operation_metadata" != "null" ]; then
               terraform_version=$(echo "$operation_metadata" | \
                 jq -r '.terraform_version // "unknown"')
               execution_duration=$(echo "$operation_metadata" | \
