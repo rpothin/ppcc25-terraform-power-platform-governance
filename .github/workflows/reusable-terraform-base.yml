@@ -329,7 +329,7 @@ jobs:
           additional-data: |
             {
               "state_key": "${{ steps.terraform-init.outputs.state-key }}",
-              "additional_options": "${{ inputs.additional-options }}",
+              "additional_options": "${{ replace(replace(inputs.additional-options, '"', ''), '''', '') }}",
               "auto_approve": ${{ inputs.auto-approve }},
               "timeout_minutes": ${{ inputs.timeout-minutes }}
             }
