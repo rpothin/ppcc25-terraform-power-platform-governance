@@ -663,19 +663,8 @@ jobs:
               echo "::notice title=Populating State::🔄 Applying configuration to populate state with data sources"
               apply_output_file="output-apply.txt"
               
-              # === PROPER ARGUMENT HANDLING FOR TERRAFORM COMMANDS ===
-              # Parse additional_options into an array to handle quotes and spaces correctly
-              # This prevents quote corruption and ensures proper argument separation
-              if [ -n "$additional_options" ]; then
-                # Use bash array to properly handle quoted arguments
-                IFS=' ' read -ra additional_args <<< "$additional_options"
-                echo "::debug::Parsed additional arguments: ${additional_args[*]}"
-              else
-                additional_args=()
-              fi
-              
               set +e
-              terraform apply $tfvars_option -auto-approve "${additional_args[@]}" 2>&1 | tee "$apply_output_file"
+              terraform apply $tfvars_option -auto-approve $additional_options 2>&1 | tee "$apply_output_file"
               apply_exit_code=${PIPESTATUS[0]}
               set -e
               
