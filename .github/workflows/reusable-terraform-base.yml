@@ -328,7 +328,8 @@ jobs:
           phase: 'execution'
           additional-data: |
             {
-              "additional_options": ${{ toJSON(inputs.additional-options) }},
+              "state_key": "${{ steps.terraform-init.outputs.state-key }}",
+              "additional_options": "${{ inputs.additional-options }}",
               "auto_approve": ${{ inputs.auto-approve }},
               "timeout_minutes": ${{ inputs.timeout-minutes }}
             }
