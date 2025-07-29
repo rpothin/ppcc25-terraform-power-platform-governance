@@ -550,7 +550,7 @@ jobs:
       configuration: ${{ github.event.inputs.configuration }}
       output-filename: ${{ needs.process-and-commit.outputs.output-filename }}
       job-results: ${{ toJSON(needs) }}
-      workflow-inputs: ${{ toJSON(inputs) }}
+      workflow-inputs: ${{ toJSON(inputs) }} # issue here when variables defined like this: -var='source_policy_name=Copilot Studio Autonomous Agents'
       include-troubleshooting: true
       include-technical-details: true
       summary-level: "detailed"
