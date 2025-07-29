@@ -1,0 +1,77 @@
+{
+  "metadata": {
+    "generated_at": "2025-07-29T15:14:42Z",
+    "workflow": {
+      "run_number": 139,
+      "run_id": "16600180075",
+      "generated_by": "rpothin",
+      "version": "2.0.0"
+    },
+    "terraform_version": "1.12.2",
+    "operation": "output",
+    "phase": "execution",
+    "configuration": "utl-generate-dlp-tfvars",
+    "tfvars_file": "",
+    "repository": {
+      "name": "rpothin/ppcc25-terraform-power-platform-governance",
+      "ref": "refs/heads/main",
+      "sha": "f3b109943fcda596103f3b13a4f17440f007c7ab",
+      "event": "workflow_dispatch"
+    },
+    "runner": {
+      "os": "Linux",
+      "architecture": "X64"
+    },
+    "additional": {
+      "state_key": "utl-generate-dlp-tfvars.tfstate",
+      "auto_approve": false,
+      "timeout_minutes": 10
+    },
+    "output_processing": {
+      "export_format": "json",
+      "processing_workflow": "terraform-output",
+      "output_filename": "terraform-output-utl-generate-dlp-tfvars.json",
+      "file_size_mb": 0
+    }
+  },
+  "terraform_output": {
+    "generated_tfvars_content": {
+      "sensitive": false,
+      "type": "string",
+      "value": "# Generated tfvars for DLP policy: Copilot Studio Autonomous Agents\n# Generated on: 2025-07-29T15:14:44Z\n# Source: utl-generate-dlp-tfvars\n\npolicy_name = \"Copilot Studio Autonomous Agents\"\n\nbusiness_connectors = []\n\nnon_business_connectors = []\n\nblocked_connectors = []\n\nenvironments = []\n\ncustom_connectors_patterns = [{\"data_group\":\"Blocked\",\"host_url_pattern\":\"*\",\"order\":1}]\n"
+    },
+    "generation_summary": {
+      "sensitive": false,
+      "type": [
+        "object",
+        {
+          "blocked_connectors": [
+            "tuple",
+            []
+          ],
+          "business_connectors": [
+            "tuple",
+            []
+          ],
+          "non_business_connectors": [
+            "tuple",
+            []
+          ],
+          "output_file": "string",
+          "policy_exists": "bool",
+          "source_policy_name": "string",
+          "tfvars_valid": "bool"
+        }
+      ],
+      "value": {
+        "blocked_connectors": [],
+        "business_connectors": [],
+        "non_business_connectors": [],
+        "output_file": "generated-dlp-policy.tfvars",
+        "policy_exists": false,
+        "source_policy_name": "Copilot Studio Autonomous Agents",
+        "tfvars_valid": false
+      }
+    }
+  }
+}
