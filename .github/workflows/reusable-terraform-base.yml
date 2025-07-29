@@ -388,6 +388,23 @@ jobs:
           echo "success=false" >> $GITHUB_OUTPUT
           echo "has-changes=false" >> $GITHUB_OUTPUT
           echo "tf-output=" >> $GITHUB_OUTPUT
+
+          # === VARIABLE VALIDATION FOR OPERATIONS REQUIRING INPUT ===
+          # Validate that required variables are provided for operations that need them
+          # This prevents cryptic Terraform errors and provides clear guidance
+          if [ "$operation" = "output" ] && [ "$config" = "utl-generate-dlp-tfvars" ]; then
+            echo "::notice title=Variable Validation::🔍 Validating required variables for $config"
+            
+            # Check if source_policy_name is provided in additional_options
+            if ! echo "$additional_options" | grep -q "source_policy_name"; then
+              echo "::error title=Missing Required Variable::❌ utl-generate-dlp-tfvars requires 'source_policy_name' variable"
+              echo "::error::Please provide: -var='source_policy_name=Your Policy Name'"
+              echo "::error::Example: -var='source_policy_name=Copilot Studio Autonomous Agents'"
+              exit 1
+            fi
+            
+            echo "::notice title=Validation Success::✅ Required variables detected"
+          fi
           
           # === OPERATION DISPATCH ===
           # Execute operation-specific logic based on the requested operation
@@ -641,8 +658,19 @@ jobs:
               echo "::notice title=Populating State::🔄 Applying configuration to populate state with data sources"
               apply_output_file="output-apply.txt"
               
+              # === PROPER ARGUMENT HANDLING FOR TERRAFORM COMMANDS ===
+              # Parse additional_options into an array to handle quotes and spaces correctly
+              # This prevents quote corruption and ensures proper argument separation
+              if [ -n "$additional_options" ]; then
+                # Use bash array to properly handle quoted arguments
+                IFS=' ' read -ra additional_args <<< "$additional_options"
+                echo "::debug::Parsed additional arguments: ${additional_args[*]}"
+              else
+                additional_args=()
+              fi
+              
               set +e
-              terraform apply $tfvars_option -auto-approve "$additional_options" 2>&1 | tee "$apply_output_file"
+              terraform apply $tfvars_option -auto-approve "${additional_args[@]}" 2>&1 | tee "$apply_output_file"
               apply_exit_code=${PIPESTATUS[0]}
               set -e
               
@@ -683,8 +711,28 @@ jobs:
                   exit 1
                 fi
               else
-                echo "::error title=Apply Failed::❌ Terraform apply failed, cannot extract outputs"
                 echo "tf-output=Apply failed, no outputs available" >> $GITHUB_OUTPUT
+                
+                echo "::error title=Apply Failed::❌ Terraform apply failed during output operation"
+                
+                # === ENHANCED ERROR ANALYSIS ===
+                # Analyze the apply output to provide specific guidance
+                if grep -q "Value for undeclared variable" "$apply_output_file"; then
+                  echo "::error title=Variable Issue::🔍 Detected variable declaration problem"
+                  echo "::error::This often indicates quote escaping issues in variable values"
+                  echo "::error::Ensure variables are formatted as: -var='name=value'"
+                fi
+                
+                if grep -q "No value for required variable" "$apply_output_file"; then
+                  echo "::error title=Missing Variable::📋 Required variable not provided"
+                  echo "::error::Check that all required variables are included in terraform_variables input"
+                fi
+                
+                # Display the last 20 lines of terraform output for debugging
+                echo "::group::🔍 Terraform Apply Output (Last 20 lines)"
+                tail -n 20 "$apply_output_file"
+                echo "::endgroup::"
+                
                 exit 1
               fi
               
