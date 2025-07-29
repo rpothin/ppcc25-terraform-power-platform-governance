@@ -90,7 +90,7 @@ jobs:
     with:
       operation: 'output'
       configuration: '${{ github.event.inputs.configuration }}'
-      additional-options: '${{ github.event.inputs.terraform_variables && format("{0} -json -no-color", github.event.inputs.terraform_variables) || "-json -no-color" }}'
+      additional-options: '${{ github.event.inputs.terraform_variables }} -json -no-color'
       timeout-minutes: 10
     secrets: inherit
 
