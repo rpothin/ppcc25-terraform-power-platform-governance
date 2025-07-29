@@ -1,6 +1,6 @@
 # Smart DLP tfvars Generator: Data Processing Logic (Onboarding Only)
 #
-# This file implements the core logic for generating tfvars files from exported DLP policy data.
+# This file implements the core logic for generating tfvars files from live DLP policy data.
 # Focuses only on onboarding existing policies to IaC (no template generation).
 # Follows AVM and project standards: clear separation of concerns, security-first, and anti-corruption outputs.
 
@@ -63,7 +63,9 @@ locals {
 # Generated on: ${timestamp()}
 # Source: utl-generate-dlp-tfvars
 
-policy_name = "${var.source_policy_name}"
+display_name = "${var.source_policy_name}"
+default_connectors_classification = "${local.policy_exists ? local.selected_policy.default_connectors_classification : "Blocked"}"
+environment_type = "${local.policy_exists ? local.selected_policy.environment_type : "OnlyEnvironments"}"
 
 business_connectors = ${jsonencode(local.business_connectors)}
 
@@ -75,6 +77,16 @@ environments = ${jsonencode(local.environments)}
 
 custom_connectors_patterns = ${jsonencode(local.custom_connectors_patterns)}
 TFVARS
+}
+
+# Write the tfvars file to disk
+resource "local_file" "generated_tfvars" {
+  count    = local.policy_exists ? 1 : 0
+  filename = var.output_file
+  content  = local.tfvars_content
+  
+  # Ensure proper file permissions
+  file_permission = "0644"
 }
 
 # Validate that we found the policy and generated valid content

@@ -1,49 +1,63 @@
-## Authentication
+## Authentication & Security
 
-This configuration requires authentication to Microsoft Power Platform:
+This configuration requires secure authentication to Microsoft Power Platform:
 
+### Authentication Method
 - **OIDC Authentication**: Uses GitHub Actions OIDC with Azure/Entra ID
-- **Required Permissions**: Power Platform Service Admin role
+- **No Client Secrets**: Keyless authentication for enhanced security
+- **Required Permissions**: Power Platform Service Admin role or DLP Policy Read permissions
 - **State Backend**: Azure Storage with OIDC authentication
 
-## Data Collection
+### Security Best Practices
+- **Principle of Least Privilege**: Service principal permissions limited to DLP policy read access
+- **Secure State Management**: Terraform state encrypted at rest in Azure Storage
+- **No Sensitive Data Storage**: Generated tfvars contain policy configuration only (no secrets)
+- **Audit Logging**: All operations logged through Azure AD and Power Platform audit logs
 
-This configuration does not collect telemetry data. All data queried remains within your Power Platform tenant and is only accessible through your authenticated Terraform execution environment.
+## Data Handling & Privacy
 
-## ⚠️ AVM Compliance
+This configuration prioritizes data security and privacy:
 
-### Provider Exception
+### Data Sources
+- **Live API Access**: Connects directly to Power Platform Management APIs
+- **No Data Export**: No intermediate file storage or data export requirements
+- **Tenant Isolation**: All data remains within your Power Platform tenant boundaries
+- **Real-time Queries**: Policy data retrieved at execution time only
 
-This configuration uses the `microsoft/power-platform` provider, which creates an exception to AVM TFFR3 requirements since Power Platform resources are not available through approved Azure providers (`azurerm`/`azapi`). 
+### Data Collection Policy
+- **No Telemetry**: This configuration does not collect or transmit telemetry data
+- **Local Processing**: All data processing occurs in your execution environment
+- **Temporary Access**: Policy data accessed only during terraform execution
+- **No Third-party Storage**: No data stored outside your tenant and execution environment
+
+## ⚠️ AVM Compliance & Standards
+
+### Provider Exception Documentation
+
+This configuration uses the `microsoft/power-platform` provider, which creates a documented exception to AVM TFFR3 requirements since Power Platform resources are not available through approved Azure providers (`azurerm`/`azapi`).
 
 **Exception Documentation**: [Power Platform Provider Exception](../../docs/explanations/power-platform-provider-exception.md)
 
-### Complementary Details
+### AVM Compliance Implementation
 
-- **Anti-Corruption Layer**: Implements TFFR2 compliance by outputting discrete computed attributes instead of full resource objects
-- **Security-First**: Sensitive data properly marked and segregated in outputs 
-- **AVM-Inspired**: Follows AVM patterns and standards where technically feasible
-- **Data Export and Analysis**: Provides reusable data sources without deploying resources
+- **TFFR2 Anti-Corruption Layer**: Implements discrete outputs instead of exposing full resource objects
+- **TFFR4 Security Standards**: Sensitive data properly marked and segregated in outputs
+- **TFFR6 Validation**: Comprehensive input validation with clear error messages
+- **TFFR9 Documentation**: Complete variable and output documentation with examples
+- **AVM-Inspired Patterns**: Follows AVM standards where technically feasible with Power Platform
 
-## Troubleshooting
+### Module Classification
+- **Utility Module (`utl-*`)**: Provides data processing and file generation without deploying resources
+- **Anti-Corruption Focus**: Transforms live API data into standardized tfvars format
+- **Reusable Pattern**: Can be extended for other Power Platform resource onboarding scenarios
 
-### Common Issues
+## Troubleshooting & Support
+
+### Common Issues & Resolutions
 
 **Authentication Failures**
-- Verify service principal has Power Platform Service Admin role
-- Confirm OIDC configuration in GitHub repository secrets
-- Check tenant ID and client ID configuration
-
-**Permission Errors** 
-- Ensure service principal is not blocked by conditional access policies
-- Verify admin permissions for DLP policy and connector data export management
-- Check for tenant-level restrictions on automation
-
-- Ensure exported JSON files from `utl-export-dlp-policies` and `utl-export-connectors` are present and valid.
-- Check for schema changes in export files if errors occur.
-
-## Additional Links
-
-- [Data Loss Prevention Policies (Power Platform)](https://learn.microsoft.com/power-platform/admin/wp-data-loss-prevention)
-- [Power Platform Terraform Provider](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs)
-- [AVM Terraform Specifications](https://azure.github.io/Azure-Verified-Modules/specs/tf/)
+```bash
+# Verify service principal configuration
+az ad sp show --id <service-principal-id>
+# Check Power Platform permissions
+az role assignment list --assignee <service-principal-id>

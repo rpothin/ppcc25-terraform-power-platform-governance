@@ -1,4 +1,3 @@
-
 # Version and Provider Requirements (AVM Standard)
 #
 # Pins Terraform and provider versions for reproducibility and AVM compliance.
@@ -9,6 +8,10 @@ terraform {
     powerplatform = {
       source  = "microsoft/power-platform"
       version = "~> 3.8"
+    }
+    local = {
+      source  = "hashicorp/local"
+      version = "~> 2.4"
     }
   }
   backend "azurerm" {}
