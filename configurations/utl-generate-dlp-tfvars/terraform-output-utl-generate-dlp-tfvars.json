@@ -1,9 +1,9 @@
 {
   "metadata": {
-    "generated_at": "2025-07-29T15:14:42Z",
+    "generated_at": "2025-07-29T15:40:02Z",
     "workflow": {
-      "run_number": 139,
-      "run_id": "16600180075",
+      "run_number": 143,
+      "run_id": "16600772005",
       "generated_by": "rpothin",
       "version": "2.0.0"
     },
@@ -15,7 +15,7 @@
     "repository": {
       "name": "rpothin/ppcc25-terraform-power-platform-governance",
       "ref": "refs/heads/main",
-      "sha": "f3b109943fcda596103f3b13a4f17440f007c7ab",
+      "sha": "50cbdaaf0b28024e591274fe5422c6c9ba074f1b",
       "event": "workflow_dispatch"
     },
     "runner": {
@@ -38,7 +38,7 @@
     "generated_tfvars_content": {
       "sensitive": false,
       "type": "string",
-      "value": "# Generated tfvars for DLP policy: Copilot Studio Autonomous Agents\n# Generated on: 2025-07-29T15:14:44Z\n# Source: utl-generate-dlp-tfvars\n\npolicy_name = \"Copilot Studio Autonomous Agents\"\n\nbusiness_connectors = []\n\nnon_business_connectors = []\n\nblocked_connectors = []\n\nenvironments = []\n\ncustom_connectors_patterns = [{\"data_group\":\"Blocked\",\"host_url_pattern\":\"*\",\"order\":1}]\n"
+      "value": "# Generated tfvars for DLP policy: Copilot Studio Autonomous Agents\n# Generated on: 2025-07-29T15:40:04Z\n# Source: utl-generate-dlp-tfvars\n\npolicy_name = \"Copilot Studio Autonomous Agents\"\n\nbusiness_connectors = []\n\nnon_business_connectors = []\n\nblocked_connectors = []\n\nenvironments = []\n\ncustom_connectors_patterns = [{\"data_group\":\"Blocked\",\"host_url_pattern\":\"*\",\"order\":1}]\n"
     },
     "generation_summary": {
       "sensitive": false,
