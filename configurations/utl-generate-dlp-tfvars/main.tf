@@ -76,7 +76,7 @@ business_connectors = [
     default_action_rule_behavior = "${c.default_action_rule_behavior}"
     action_rules                 = []
     endpoint_rules               = []
-  }%{if c != local.business_connectors[length(local.business_connectors)-1]},
+  }%{if c != local.business_connectors[length(local.business_connectors) - 1]},
 %{endif}
 %{endfor~}
 ]
@@ -88,7 +88,7 @@ non_business_connectors = [
     default_action_rule_behavior = "${c.default_action_rule_behavior}"
     action_rules                 = []
     endpoint_rules               = []
-  }%{if c != local.non_business_connectors[length(local.non_business_connectors)-1]},
+  }%{if c != local.non_business_connectors[length(local.non_business_connectors) - 1]},
 %{endif}
 %{endfor~}
 ]
@@ -100,7 +100,7 @@ blocked_connectors = [
     default_action_rule_behavior = "${c.default_action_rule_behavior}"
     action_rules                 = []
     endpoint_rules               = []
-  }%{if c != local.blocked_connectors[length(local.blocked_connectors)-1]},
+  }%{if c != local.blocked_connectors[length(local.blocked_connectors) - 1]},
 %{endif}
 %{endfor~}
 ]
@@ -111,7 +111,7 @@ custom_connectors_patterns = [
     order            = ${p.order}
     host_url_pattern = "${p.host_url_pattern}"
     data_group       = "${p.data_group}"
-  }%{if p != local.custom_connectors_patterns[length(local.custom_connectors_patterns)-1]},
+  }%{if p != local.custom_connectors_patterns[length(local.custom_connectors_patterns) - 1]},
 %{endif}
 %{endfor~}
 ]
