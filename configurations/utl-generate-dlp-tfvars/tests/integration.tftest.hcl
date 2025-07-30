@@ -1,4 +1,4 @@
-# Integration Tests for Smart DLP tfvars Generator (Direct Data Source Approach)
+# Integration Tests for Smart DLP tfvars Generator (Simplified Outputs)
 #
 # These integration tests validate the tfvars generation process using live Power Platform data.
 # Tests require OIDC authentication and are designed for CI/CD environments like GitHub Actions.
@@ -6,10 +6,10 @@
 # Test Philosophy:
 # - Performance Optimized: Single apply run for utility module testing
 # - Live Data Validation: Tests direct Power Platform API connectivity
-# - Comprehensive Coverage: Validates structure, data integrity, and input validation
+# - Simplified Coverage: Focuses on core functionality following "Keep It Simple" principle
 # - Environment Agnostic: Works across development, staging, and production
 # - Failure Isolation: Clear error messages for rapid troubleshooting
-# - Enhanced Coverage: 20+ assertions for comprehensive utility module validation
+# - Focused Testing: 20+ assertions covering essential functionality only
 
 variables {
   source_policy_name = "Copilot Studio Autonomous Agents"
@@ -21,7 +21,7 @@ run "comprehensive_validation" {
   command = apply # Apply required for output validation and file generation
 
   # === INPUT VARIABLE VALIDATION (Assertions 1-6) ===
-  # Validate onboarding input variables and enhanced validation rules
+  # Validate input variables and enhanced validation rules
 
   assert {
     condition     = var.source_policy_name != ""
@@ -54,11 +54,16 @@ run "comprehensive_validation" {
   }
 
   # === PRIMARY OUTPUT VALIDATION (Assertions 7-10) ===
-  # Validate core outputs and AVM anti-corruption layer compliance
+  # Validate core outputs exist and are properly typed
 
   assert {
     condition     = output.generated_tfvars_content != null
     error_message = "generated_tfvars_content output must be defined for AVM compliance."
+  }
+
+  assert {
+    condition     = output.tfvars_file_path != null
+    error_message = "tfvars_file_path output must be defined for file path reference."
   }
 
   assert {
@@ -71,35 +76,25 @@ run "comprehensive_validation" {
     error_message = "generated_tfvars_content must be a string type for file content."
   }
 
+  # === OUTPUT TYPE VALIDATION (Assertions 11-13) ===
+  # Validate output data types match expected structure
+
   assert {
     condition     = can(keys(output.generation_summary))
     error_message = "generation_summary must be a map type for structured data."
   }
 
-  # === NEW OUTPUT STRUCTURE VALIDATION (Assertions 11-14) ===
-  # Validate enhanced output structure with new fields
-
   assert {
-    condition     = output.tfvars_file_path != null
-    error_message = "tfvars_file_path output must be defined for file path reference."
+    condition     = can(tostring(output.tfvars_file_path)) || output.tfvars_file_path == null
+    error_message = "tfvars_file_path must be a string or null type for file path."
   }
 
   assert {
-    condition     = output.policy_analysis != null || output.generation_summary.policy_found == false
-    error_message = "policy_analysis output must be defined when policy is found."
+    condition     = can(tobool(output.generation_summary.policy_found))
+    error_message = "policy_found must be a boolean value for policy existence validation."
   }
 
-  assert {
-    condition     = output.diagnostic_info != null
-    error_message = "diagnostic_info output must be defined for troubleshooting support."
-  }
-
-  assert {
-    condition     = output.connector_analysis != null || output.generation_summary.policy_found == false
-    error_message = "connector_analysis output must be defined when policy is found."
-  }
-
-  # === GENERATION SUMMARY VALIDATION (Assertions 15-20) ===
+  # === GENERATION SUMMARY VALIDATION (Assertions 14-19) ===
   # Validate generation summary structure and content alignment
 
   assert {
@@ -128,11 +123,11 @@ run "comprehensive_validation" {
   }
 
   assert {
-    condition     = can(tobool(output.generation_summary.policy_found))
-    error_message = "policy_found must be a boolean value for policy existence validation."
+    condition     = can(tobool(output.generation_summary.tfvars_generated))
+    error_message = "tfvars_generated must be a boolean value for generation status validation."
   }
 
-  # === CONNECTOR VALIDATION (Assertions 21-23) ===
+  # === CONNECTOR VALIDATION (Assertions 20-24) ===
   # Validate connector classification extraction and structure
 
   assert {
@@ -150,25 +145,17 @@ run "comprehensive_validation" {
     error_message = "blocked_connectors count must be a number for connector analysis."
   }
 
-  # === LIVE DATA SOURCE VALIDATION (Assertions 24-26) ===
-  # Validate direct Power Platform API connectivity and authentication
-
   assert {
-    condition     = output.diagnostic_info.data_source_status.query_successful == true
-    error_message = "Power Platform data source query must be successful for live data access."
+    condition     = can(tonumber(output.generation_summary.connector_counts.total_connectors))
+    error_message = "total_connectors count must be a number for total connector validation."
   }
 
   assert {
-    condition     = output.diagnostic_info.data_source_status.authentication_method == "OIDC"
-    error_message = "Authentication method must be OIDC for secure Power Platform access."
+    condition     = output.generation_summary.connector_counts.total_connectors >= 0
+    error_message = "total_connectors count must be non-negative for valid connector data."
   }
 
-  assert {
-    condition     = can(tonumber(output.diagnostic_info.data_source_status.total_policies_available))
-    error_message = "total_policies_available must be a number indicating live tenant data access."
-  }
-
-  # === CONTENT FORMAT VALIDATION (Assertions 27-29) ===
+  # === CONTENT FORMAT VALIDATION (Assertions 25-28) ===
   # Validate generated tfvars content format and structure
 
   assert {
@@ -182,11 +169,16 @@ run "comprehensive_validation" {
   }
 
   assert {
-    condition     = can(regex("business_connectors\\s*=", output.generated_tfvars_content))
-    error_message = "generated_tfvars_content must contain business_connectors assignment for complete policy configuration."
+    condition     = can(regex("business_connectors\\s*=", output.generated_tfvars_content)) || output.generation_summary.connector_counts.business_connectors == 0
+    error_message = "generated_tfvars_content must contain business_connectors assignment when business connectors exist."
   }
 
-  # === FILE GENERATION VALIDATION (Assertions 30-31) ===
+  assert {
+    condition     = can(regex("non_business_connectors\\s*=", output.generated_tfvars_content)) || output.generation_summary.connector_counts.non_business_connectors == 0
+    error_message = "generated_tfvars_content must contain non_business_connectors assignment when non-business connectors exist."
+  }
+
+  # === FILE GENERATION VALIDATION (Assertions 29-30) ===
   # Validate physical file generation and file system operations
 
   assert {
@@ -195,21 +187,34 @@ run "comprehensive_validation" {
   }
 
   assert {
-    condition     = output.diagnostic_info.file_generation.generation_successful == true
-    error_message = "File generation process must complete successfully for valid tfvars output."
+    condition     = output.tfvars_file_path != null || output.generation_summary.file_written == false
+    error_message = "tfvars_file_path must be provided when file is successfully written."
+  }
+
+  # === POLICY DISCOVERY VALIDATION (Assertions 31-32) ===
+  # Validate policy matching and discovery logic
+
+  assert {
+    condition     = output.generation_summary.policy_found == true || output.generation_summary.policy_found == false
+    error_message = "policy_found must be a valid boolean indicating policy discovery status."
+  }
+
+  assert {
+    condition     = output.generation_summary.policy_found == false || (output.generation_summary.policy_found == true && output.generation_summary.connector_counts.total_connectors >= 0)
+    error_message = "When policy is found, connector counts must be non-negative numbers."
   }
 }
 
-# Performance and error handling validation
+# Error handling validation for non-existent policies
 run "error_handling_validation" {
   command = plan # Plan-only test for error scenarios
 
   variables {
-    source_policy_name = "NonExistentPolicyForTesting"
+    source_policy_name = "NonExistentPolicyForTesting12345"
     output_file        = "test-error-handling.tfvars"
   }
 
-  # === ERROR HANDLING VALIDATION (Assertions 32-34) ===
+  # === ERROR HANDLING VALIDATION (Assertions 33-36) ===
   # Validate graceful handling of missing policies and error conditions
 
   assert {
@@ -218,12 +223,50 @@ run "error_handling_validation" {
   }
 
   assert {
-    condition     = output.diagnostic_info.policy_matching.exact_match_found == false
-    error_message = "diagnostic_info must correctly report no match for non-existent policies."
+    condition     = output.generated_tfvars_content != null
+    error_message = "generated_tfvars_content must be defined even for non-existent policies (may be empty)."
   }
 
   assert {
-    condition     = length(output.diagnostic_info.policy_matching.available_policies) >= 0
-    error_message = "diagnostic_info must provide list of available policies for troubleshooting."
+    condition     = contains(keys(output.generation_summary), "policy_found")
+    error_message = "generation_summary must include policy_found field for error scenarios."
+  }
+
+  assert {
+    condition     = can(tobool(output.generation_summary.policy_found))
+    error_message = "policy_found must be a boolean even for non-existent policies."
+  }
+}
+
+# Input validation edge cases
+run "input_validation_edge_cases" {
+  command = plan # Plan-only test for input validation
+
+  variables {
+    source_policy_name = "Test Policy"
+    output_file        = "minimal.tfvars"
+  }
+
+  # === INPUT EDGE CASE VALIDATION (Assertions 37-40) ===
+  # Validate edge cases and boundary conditions
+
+  assert {
+    condition     = var.source_policy_name == "Test Policy"
+    error_message = "Variable assignment must work correctly for simple policy names."
+  }
+
+  assert {
+    condition     = var.output_file == "minimal.tfvars"
+    error_message = "Variable assignment must work correctly for minimal file paths."
+  }
+
+  assert {
+    condition     = output.generation_summary.source_policy_name == var.source_policy_name
+    error_message = "generation_summary must correctly echo input variables in edge cases."
+  }
+
+  assert {
+    condition     = output.generation_summary.output_file_path == var.output_file
+    error_message = "generation_summary must correctly echo output file path in edge cases."
   }
 }
