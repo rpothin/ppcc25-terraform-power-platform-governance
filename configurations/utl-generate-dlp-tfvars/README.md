@@ -164,31 +164,6 @@ Default: `"generated-dlp-policy.tfvars"`
 
 The following outputs are exported:
 
-### <a name="output_connector_analysis"></a> [connector\_analysis](#output\_connector\_analysis)
-
-Description: Detailed analysis of connector classifications and configurations from the source policy.
-
-Provides granular insights into:
-- Connector distribution across classifications
-- Action and endpoint rule configurations
-- Custom connector pattern analysis
-- Policy governance compliance indicators
-
-Use for detailed policy analysis and compliance reporting.
-
-### <a name="output_diagnostic_info"></a> [diagnostic\_info](#output\_diagnostic\_info)
-
-Description: Diagnostic information for troubleshooting tfvars generation issues.
-
-Provides detailed diagnostic data including:
-- Data source query results and status
-- Policy matching logic and results
-- Validation errors and warnings
-- Performance metrics and execution context
-
-Use this output when generation fails or produces unexpected results.  
-All diagnostics based on live Power Platform API responses.
-
 ### <a name="output_generated_tfvars_content"></a> [generated\_tfvars\_content](#output\_generated\_tfvars\_content)
 
 Description: The generated tfvars content for the selected DLP policy.
@@ -224,19 +199,6 @@ Data sourced directly from live Power Platform tenant via authenticated API acce
 ### <a name="output_output_schema_version"></a> [output\_schema\_version](#output\_output\_schema\_version)
 
 Description: The version of the output schema for this module.
-
-### <a name="output_policy_analysis"></a> [policy\_analysis](#output\_policy\_analysis)
-
-Description: Analysis of the source DLP policy for governance insights and migration planning.
-
-Provides detailed analysis of the policy structure including:
-- Policy complexity indicators (action rules, endpoint rules, custom patterns)
-- Environment targeting and scope information
-- Connector distribution and classification patterns
-- Migration considerations and recommendations
-
-Use this output for policy assessment and migration planning activities.  
-Analysis based on live Power Platform policy data for maximum accuracy.
 
 ### <a name="output_tfvars_file_path"></a> [tfvars\_file\_path](#output\_tfvars\_file\_path)
 
