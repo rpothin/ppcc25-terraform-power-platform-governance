@@ -6,7 +6,7 @@ display_name                      = "Copilot Studio Autonomous Agents"
 default_connectors_classification = "Blocked"
 environment_type                  = "OnlyEnvironments"
 
-environments = ["36f603f9-0af2-e33d-98a5-64b02c1bac19","4f97b361-3879-e3aa-919e-4469777c06f1","Default-7e7df62f-7cc4-4e63-a250-a277063e1be7"]
+environments = ["36f603f9-0af2-e33d-98a5-64b02c1bac19", "4f97b361-3879-e3aa-919e-4469777c06f1", "Default-7e7df62f-7cc4-4e63-a250-a277063e1be7"]
 
 business_connectors = [
   {
