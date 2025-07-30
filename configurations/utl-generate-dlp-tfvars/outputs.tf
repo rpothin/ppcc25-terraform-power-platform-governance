@@ -39,8 +39,8 @@ The content includes:
 Generated from live Power Platform data to ensure accuracy and freshness.
 No dependency on exported files - direct tenant access via OIDC authentication.
 DESCRIPTION
-  value     = local.tfvars_content
-  sensitive = false
+  value       = local.tfvars_content
+  sensitive   = false
 }
 
 output "tfvars_file_path" {
@@ -60,7 +60,7 @@ Usage:
 - Use with terraform apply -var-file="$(terraform output -raw tfvars_file_path)"
 - Integrate with CI/CD pipelines for policy deployment automation
 DESCRIPTION
-  value = length(resource.local_file.generated_tfvars) > 0 ? resource.local_file.generated_tfvars[0].filename : null
+  value       = length(resource.local_file.generated_tfvars) > 0 ? resource.local_file.generated_tfvars[0].filename : null
 }
 
 # ============================================================================
@@ -85,16 +85,16 @@ DESCRIPTION
     # Input validation
     source_policy_name = var.source_policy_name
     output_file_path   = var.output_file
-    
+
     # Policy matching results
     policy_found            = local.policy_exists
     policy_id               = local.policy_exists ? local.selected_policy.id : null
     policy_environment_type = local.policy_exists ? local.selected_policy.environment_type : null
-    
+
     # Content validation
     tfvars_generated = local.tfvars_valid
     file_written     = length(resource.local_file.generated_tfvars) > 0
-    
+
     # Connector summaries
     connector_counts = {
       business_connectors     = length(local.business_connectors)
@@ -103,7 +103,7 @@ DESCRIPTION
       custom_patterns         = local.policy_exists ? length(local.custom_connectors_patterns) : 0
       total_connectors        = length(local.business_connectors) + length(local.non_business_connectors) + length(local.blocked_connectors)
     }
-    
+
     # Generation metadata
     generation_timestamp = timestamp()
     terraform_workspace  = terraform.workspace
@@ -126,15 +126,15 @@ DESCRIPTION
   value = local.policy_exists ? {
     # Policy metadata
     policy_metadata = {
-      display_name         = local.selected_policy.display_name
-      environment_type     = local.selected_policy.environment_type
-      environments_count   = length(local.environments)
-      created_time         = try(local.selected_policy.created_time, null)
-      last_modified_time   = try(local.selected_policy.last_modified_time, null)
-      created_by          = try(local.selected_policy.created_by, null)
-      last_modified_by    = try(local.selected_policy.last_modified_by, null)
+      display_name       = local.selected_policy.display_name
+      environment_type   = local.selected_policy.environment_type
+      environments_count = length(local.environments)
+      created_time       = try(local.selected_policy.created_time, null)
+      last_modified_time = try(local.selected_policy.last_modified_time, null)
+      created_by         = try(local.selected_policy.created_by, null)
+      last_modified_by   = try(local.selected_policy.last_modified_by, null)
     }
-    
+
     # Complexity analysis
     complexity_indicators = {
       has_custom_patterns = length(local.custom_connectors_patterns) > 0
@@ -162,7 +162,7 @@ DESCRIPTION
         ]) ? 1 : 0)
       )
     }
-    
+
     # Migration recommendations
     migration_considerations = {
       requires_custom_pattern_review = length(local.custom_connectors_patterns) > 0
@@ -173,7 +173,7 @@ DESCRIPTION
       ])
       environment_scope_review = length(local.environments) > 1
       recommended_testing_approach = (
-        length(local.custom_connectors_patterns) > 0 || 
+        length(local.custom_connectors_patterns) > 0 ||
         anytrue([
           anytrue([for conn in local.business_connectors : length(try(conn.action_rules, [])) > 0 || length(try(conn.endpoint_rules, [])) > 0]),
           anytrue([for conn in local.non_business_connectors : length(try(conn.action_rules, [])) > 0 || length(try(conn.endpoint_rules, [])) > 0]),
@@ -208,18 +208,18 @@ DESCRIPTION
       query_successful         = can(data.powerplatform_data_loss_prevention_policies.current.policies)
       authentication_method    = "OIDC"
     }
-    
+
     # Policy matching diagnostics
     policy_matching = {
-      search_term_used    = var.source_policy_name
-      matching_policies   = length(local.matching_policies)
-      exact_match_found   = local.policy_exists
-      available_policies  = [
+      search_term_used  = var.source_policy_name
+      matching_policies = length(local.matching_policies)
+      exact_match_found = local.policy_exists
+      available_policies = [
         for policy in data.powerplatform_data_loss_prevention_policies.current.policies :
         policy.display_name
       ]
     }
-    
+
     # File generation diagnostics
     file_generation = {
       output_path_configured = var.output_file
@@ -227,14 +227,14 @@ DESCRIPTION
       generation_successful  = local.tfvars_valid
       file_resource_created  = length(resource.local_file.generated_tfvars) > 0
     }
-    
+
     # Execution context
     execution_context = {
-      terraform_version    = "1.5+"  # Minimum required version
-      powerplatform_version = "~> 3.8"  # Power Platform provider
-      local_provider_version = "~> 2.4"  # Local file provider
-      workspace           = terraform.workspace
-      execution_time      = timestamp()
+      terraform_version      = "1.5+"   # Minimum required version
+      powerplatform_version  = "~> 3.8" # Power Platform provider
+      local_provider_version = "~> 2.4" # Local file provider
+      workspace              = terraform.workspace
+      execution_time         = timestamp()
     }
   }
 }
@@ -271,7 +271,7 @@ DESCRIPTION
         ids   = [for conn in local.blocked_connectors : conn.id]
       }
     }
-    
+
     # Rule complexity analysis
     rule_analysis = {
       total_action_rules = (
@@ -293,18 +293,18 @@ DESCRIPTION
         sum([for conn in local.blocked_connectors : length(try(conn.endpoint_rules, []))])
       ) > 0
     }
-    
+
     # Custom connector patterns
     custom_pattern_analysis = {
-      pattern_count     = length(local.custom_connectors_patterns)
-      patterns_defined  = local.custom_connectors_patterns
-      has_wildcards     = anytrue([for pattern in local.custom_connectors_patterns : can(regex("\\*", pattern.host_url_pattern))])
+      pattern_count      = length(local.custom_connectors_patterns)
+      patterns_defined   = local.custom_connectors_patterns
+      has_wildcards      = anytrue([for pattern in local.custom_connectors_patterns : can(regex("\\*", pattern.host_url_pattern))])
       blocked_by_default = anytrue([for pattern in local.custom_connectors_patterns : pattern.data_group == "Blocked"])
     }
-    
+
     # Environment scope
     environment_analysis = {
-      environment_count       = length(local.environments)
+      environment_count      = length(local.environments)
       environment_ids        = local.environments
       environment_type       = local.selected_policy.environment_type
       default_classification = local.selected_policy.default_connectors_classification

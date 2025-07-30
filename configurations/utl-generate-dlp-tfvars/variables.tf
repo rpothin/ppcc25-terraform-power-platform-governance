@@ -14,7 +14,7 @@
 # ============================================================================
 
 variable "source_policy_name" {
-  type = string
+  type        = string
   description = <<DESCRIPTION
 Name of the DLP policy to onboard and generate tfvars for.
 
@@ -62,7 +62,7 @@ DESCRIPTION
 # ============================================================================
 
 variable "output_file" {
-  type = string
+  type        = string
   description = <<DESCRIPTION
 Path and filename for the generated tfvars output file.
 
@@ -95,7 +95,7 @@ Security Considerations:
 - Ensure appropriate file system permissions and access controls
 - Consider excluding generated tfvars from version control if sensitive
 DESCRIPTION
-  
+
   default = "generated-dlp-policy.tfvars"
 
   validation {
@@ -104,7 +104,7 @@ DESCRIPTION
   }
 
   validation {
-    condition     = length(var.output_file) >= 9  # Minimum: "x.tfvars"
+    condition     = length(var.output_file) >= 9 # Minimum: "x.tfvars"
     error_message = "output_file must be at least 9 characters long (minimum valid filename)."
   }
 

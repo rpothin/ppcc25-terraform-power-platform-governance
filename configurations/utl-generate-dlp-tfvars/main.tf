@@ -84,7 +84,7 @@ resource "local_file" "generated_tfvars" {
   count    = local.policy_exists ? 1 : 0
   filename = var.output_file
   content  = local.tfvars_content
-  
+
   # Ensure proper file permissions
   file_permission = "0644"
 }

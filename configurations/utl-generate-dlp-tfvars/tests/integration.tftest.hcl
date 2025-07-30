@@ -203,10 +203,10 @@ run "comprehensive_validation" {
 # Performance and error handling validation
 run "error_handling_validation" {
   command = plan # Plan-only test for error scenarios
-  
+
   variables {
     source_policy_name = "NonExistentPolicyForTesting"
-    output_file       = "test-error-handling.tfvars"
+    output_file        = "test-error-handling.tfvars"
   }
 
   # === ERROR HANDLING VALIDATION (Assertions 32-34) ===
