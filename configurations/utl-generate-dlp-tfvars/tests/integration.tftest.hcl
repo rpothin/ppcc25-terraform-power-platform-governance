@@ -207,7 +207,7 @@ run "comprehensive_validation" {
 
 # Error handling validation for non-existent policies
 run "error_handling_validation" {
-  command = plan # Plan-only test for error scenarios
+  command = apply # Changed from plan to apply for complete error handling validation
 
   variables {
     source_policy_name = "NonExistentPolicyForTesting12345"
