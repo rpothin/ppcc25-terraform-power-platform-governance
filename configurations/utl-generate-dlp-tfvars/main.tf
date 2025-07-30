@@ -63,19 +63,58 @@ locals {
 # Generated on: ${timestamp()}
 # Source: utl-generate-dlp-tfvars
 
-display_name = "${var.source_policy_name}"
+display_name                      = "${var.source_policy_name}"
 default_connectors_classification = "${local.policy_exists ? local.selected_policy.default_connectors_classification : "Blocked"}"
-environment_type = "${local.policy_exists ? local.selected_policy.environment_type : "OnlyEnvironments"}"
-
-business_connectors = ${jsonencode(local.business_connectors)}
-
-non_business_connectors = ${jsonencode(local.non_business_connectors)}
-
-blocked_connectors = ${jsonencode(local.blocked_connectors)}
+environment_type                  = "${local.policy_exists ? local.selected_policy.environment_type : "OnlyEnvironments"}"
 
 environments = ${jsonencode(local.environments)}
 
-custom_connectors_patterns = ${jsonencode(local.custom_connectors_patterns)}
+business_connectors = [
+%{for c in local.business_connectors~}
+  {
+    id                           = "${c.id}"
+    default_action_rule_behavior = "${c.default_action_rule_behavior}"
+    action_rules                 = []
+    endpoint_rules               = []
+  }%{if c != local.business_connectors[length(local.business_connectors)-1]},
+%{endif}
+%{endfor~}
+]
+
+non_business_connectors = [
+%{for c in local.non_business_connectors~}
+  {
+    id                           = "${c.id}"
+    default_action_rule_behavior = "${c.default_action_rule_behavior}"
+    action_rules                 = []
+    endpoint_rules               = []
+  }%{if c != local.non_business_connectors[length(local.non_business_connectors)-1]},
+%{endif}
+%{endfor~}
+]
+
+blocked_connectors = [
+%{for c in local.blocked_connectors~}
+  {
+    id                           = "${c.id}"
+    default_action_rule_behavior = "${c.default_action_rule_behavior}"
+    action_rules                 = []
+    endpoint_rules               = []
+  }%{if c != local.blocked_connectors[length(local.blocked_connectors)-1]},
+%{endif}
+%{endfor~}
+]
+
+custom_connectors_patterns = [
+%{for p in local.custom_connectors_patterns~}
+  {
+    order            = ${p.order}
+    host_url_pattern = "${p.host_url_pattern}"
+    data_group       = "${p.data_group}"
+  }%{if p != local.custom_connectors_patterns[length(local.custom_connectors_patterns)-1]},
+%{endif}
+%{endfor~}
+]
 TFVARS
 }
 
