@@ -749,6 +749,7 @@ jobs:
           path: |
             configurations/${{ inputs.configuration }}/terraform-output-artifact.*
             configurations/${{ inputs.configuration }}/terraform-output.txt
+            configurations/${{ inputs.configuration }}/*.tfvars
           retention-days: 30  # Longer retention - outputs used for reference
           if-no-files-found: warn  # Warn if output file not found
           compression-level: 6  # Good compression for potentially large JSON files

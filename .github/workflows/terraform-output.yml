@@ -440,15 +440,46 @@ jobs:
           git config user.email "actions@github.com"
 
           # === OUTPUT FILE DISCOVERY AND STAGING ===
-          # Identify and stage all generated output files for commit
-          # Includes both standard outputs and potential archive files for large datasets
           echo "::notice title=File Staging::📁 Discovering and staging generated output files"
 
           output_files_staged=0
+
+          # Stage primary output file
           if [ -f "configurations/$config/$output_filename" ]; then
             git add "configurations/$config/$output_filename"
             output_files_staged=$((output_files_staged + 1))
             echo "::notice title=File Staged::📄 Primary output: $output_filename"
+          fi
+
+          # Stage any generated .tfvars files
+          tfvars_files_found=0
+          if find "terraform-artifacts" -name "*.tfvars" -type f | head -1 > /dev/null; then
+            echo "::notice title=tfvars Discovery::🔍 Scanning for generated .tfvars files..."
+            
+            find "terraform-artifacts" -name "*.tfvars" -type f | while read -r tfvars_file; do
+              # Extract just the filename from the full path
+              tfvars_basename=$(basename "$tfvars_file")
+              target_path="configurations/$config/$tfvars_basename"
+              
+              # Copy from artifacts to target location
+              cp "$tfvars_file" "$target_path"
+              git add "$target_path"
+              output_files_staged=$((output_files_staged + 1))
+              tfvars_files_found=$((tfvars_files_found + 1))
+
+              # Handle potential filename conflicts gracefully
+              if [ -f "$target_path" ]; then
+                echo "::warning title=File Exists::⚠️ $tfvars_basename already exists, will be overwritten"
+              fi
+              
+              echo "::notice title=tfvars Staged::📋 Generated tfvars: $tfvars_basename"
+            done
+
+            # Monitor generated file sizes for governance
+            file_size=$(stat -c%s "$tfvars_file" 2>/dev/null || echo "0")
+            echo "::notice title=File Size::📊 $tfvars_basename: ${file_size} bytes"
+            
+            echo "::notice title=tfvars Summary::📊 Staged $tfvars_files_found .tfvars file(s)"
           fi
 
           # === ARCHIVE FILE STAGING (FOR LARGE FILE PROCESSING) ===
