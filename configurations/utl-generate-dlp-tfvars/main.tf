@@ -111,8 +111,7 @@ custom_connectors_patterns = [
     order            = ${p.order}
     host_url_pattern = "${p.host_url_pattern}"
     data_group       = "${p.data_group}"
-  }%{if p != local.custom_connectors_patterns[length(local.custom_connectors_patterns) - 1]},
-%{endif}
+  },
 %{endfor~}
 ]
 TFVARS
