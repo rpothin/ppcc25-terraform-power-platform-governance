@@ -2,9 +2,14 @@
 # Unreleased
 
 ### Added
-- **Terraform Configurations**
   - **NEW**: Utility configuration `utl-generate-dlp-tfvars` for automated generation of tfvars files for DLP policy management. Processes exported DLP policy and connector data, supports both new policy creation (from governance templates) and onboarding of existing policies to IaC. Implements AVM-compliant structure, strong variable typing, anti-corruption outputs, and comprehensive integration test. Includes template-based documentation and troubleshooting guidance.
 
+### DLP tfvars Management Implementation
+- **Refactored Generator Utility**: `utl-generate-dlp-tfvars` now focuses solely on onboarding existing DLP policies to Infrastructure as Code (IaC), transforming exports to tfvars files. Template generation logic removed for clarity and simplicity.
+- **Template tfvars for New Policies**: Created `configurations/res-dlp-policy/tfvars/template.tfvars` with secure defaults, clear comments, and concise documentation. README added to explain usage and customization.
+- **Documentation and Usage Guides**: Added step-by-step guides in `docs/guides/` for onboarding existing policies and creating new ones, clarifying when to use the generator utility versus the template.
+- **Validation**: Both onboarding and template flows tested end-to-end with real data to ensure reliability and usability.
+- **Communication**: Announced new approach in project documentation for clear separation of onboarding and new policy creation flows.
 ### Changed
 - **Terraform Configurations**
   - **BREAKING**: Refactored `res-dlp-policy` to expose all connector bucket variables as full provider schema objects (no longer accepts list of strings for business_connectors). All configuration, logic, and tests updated for AVM compliance. Users must now provide connector objects for all buckets. See plan/avm-dlp-policy-full-schema-exposure.md for migration details.
