@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../terraform-provider-power-platform/docs"
+		},
+		{
+			"path": "../Azure-Verified-Modules/docs"
+		}
+	],
+	"settings": {}
+}
