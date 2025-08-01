@@ -269,7 +269,7 @@ jobs:
       operation: 'destroy'
       configuration: ${{ github.event.inputs.configuration }}
       tfvars-file: ${{ github.event.inputs.tfvars_file }}
-      create-state-backup: ${{ github.event.inputs.backup_state }}
+      create-state-backup: ${{ github.event.inputs.backup_state == 'true' }}
       timeout-minutes: 25
       environment-name: 'production'
     secrets: inherit
