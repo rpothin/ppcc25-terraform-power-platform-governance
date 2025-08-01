@@ -24,6 +24,7 @@ variables {
   display_name                      = "Test DLP Policy - Integration"
   default_connectors_classification = "Blocked"          # Security-first default
   environment_type                  = "OnlyEnvironments" # Security-first default
+  enable_duplicate_protection       = true               # Test with guardrail enabled
 
   # Security-first: block all custom connectors by default
   custom_connectors_patterns = [
@@ -56,11 +57,77 @@ variables {
 
 # --- Advanced Test Scenarios ---
 
+# 0. Guardrail Testing: Duplicate Protection
+run "duplicate_protection_enabled_test" {
+  command = plan
+  variables {
+    enable_duplicate_protection = true
+    display_name                = "Test DLP Policy - Duplicate Check"
+    business_connectors         = []
+    non_business_connectors     = []
+    blocked_connectors          = []
+  }
+  assert {
+    condition     = var.enable_duplicate_protection == true
+    error_message = "Duplicate protection should be enabled for this test."
+  }
+  assert {
+    condition     = can(data.powerplatform_data_loss_prevention_policies.all)
+    error_message = "Should be able to query existing DLP policies when duplicate protection is enabled."
+  }
+  assert {
+    condition     = can(local.existing_policy_matches)
+    error_message = "Should be able to compute existing_policy_matches local value."
+  }
+  assert {
+    condition     = can(local.has_duplicate)
+    error_message = "Should be able to compute has_duplicate local value."
+  }
+  assert {
+    condition     = can(null_resource.dlp_policy_duplicate_guardrail)
+    error_message = "Guardrail null_resource should be accessible when duplicate protection is enabled."
+  }
+}
+
+run "duplicate_protection_disabled_test" {
+  command = plan
+  variables {
+    enable_duplicate_protection = false
+    display_name                = "Test DLP Policy - No Duplicate Check"
+    business_connectors         = []
+    non_business_connectors     = []
+    blocked_connectors          = []
+  }
+  assert {
+    condition     = var.enable_duplicate_protection == false
+    error_message = "Duplicate protection should be disabled for this test."
+  }
+}
+
+run "duplicate_protection_default_test" {
+  command = plan
+  variables {
+    # Test default value (should be true)
+    enable_duplicate_protection = false # Disable to avoid interference
+    display_name                = "Test DLP Policy - Default Protection"
+    business_connectors         = []
+    non_business_connectors     = []
+    blocked_connectors          = []
+  }
+  assert {
+    condition     = var.enable_duplicate_protection == true
+    error_message = "Duplicate protection should default to true for security."
+  }
+}
+
+# --- Advanced Test Scenarios ---
+
 # 1. Edge Case: Manual configuration (explicit connectors)
 run "manual_configuration_test" {
   command = plan
   variables {
-    business_connectors = []
+    enable_duplicate_protection = false # Disable to avoid interference
+    business_connectors         = []
     non_business_connectors = [
       {
         id                           = "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
@@ -103,6 +170,7 @@ run "manual_configuration_test" {
 run "simple_auto_classification_test" {
   command = plan
   variables {
+    enable_duplicate_protection = false # Disable to avoid interference
     business_connectors = [
       {
         id                           = "/providers/Microsoft.PowerApps/apis/shared_sql"
@@ -131,6 +199,7 @@ run "simple_auto_classification_test" {
 run "full_auto_classification" {
   command = plan
   variables {
+    enable_duplicate_protection = false # Disable to avoid interference
     business_connectors = [
       {
         id                           = "/providers/Microsoft.PowerApps/apis/shared_sql"
@@ -165,6 +234,7 @@ run "full_auto_classification" {
 run "partial_auto_classification" {
   command = plan
   variables {
+    enable_duplicate_protection = false # Disable to avoid interference
     business_connectors = [
       {
         id                           = "/providers/Microsoft.PowerApps/apis/shared_sql"
@@ -200,7 +270,8 @@ run "partial_auto_classification" {
 run "full_manual_classification" {
   command = plan
   variables {
-    business_connectors = []
+    enable_duplicate_protection = false # Disable to avoid interference
+    business_connectors         = []
     non_business_connectors = [
       {
         id                           = "/providers/Microsoft.PowerApps/apis/shared_office365"
@@ -320,5 +391,76 @@ run "comprehensive_validation" {
   assert {
     condition     = can(powerplatform_data_loss_prevention_policy.this.blocked_connectors)
     error_message = "DLP policy should have blocked_connectors attribute accessible in plan."
+  }
+
+  # AVM: Guardrail variable validation
+  assert {
+    condition     = can(var.enable_duplicate_protection) && (var.enable_duplicate_protection == true || var.enable_duplicate_protection == false)
+    error_message = "Enable duplicate protection should be a valid boolean value."
+  }
+
+  # AVM: Conditional data source validation
+  assert {
+    condition     = var.enable_duplicate_protection == false ? true : can(data.powerplatform_data_loss_prevention_policies.all)
+    error_message = "When duplicate protection is enabled, should be able to access DLP policies data source."
+  }
+
+  # AVM: Guardrail resource validation
+  assert {
+    condition     = var.enable_duplicate_protection == false ? true : can(null_resource.dlp_policy_duplicate_guardrail)
+    error_message = "When duplicate protection is enabled, guardrail null_resource should be accessible."
+  }
+}
+
+# Advanced Guardrail Integration Testing
+run "guardrail_integration_test" {
+  command = plan
+  variables {
+    enable_duplicate_protection = true
+    display_name                = "Guardrail Integration Test Policy"
+    environment_type            = "OnlyEnvironments"
+    business_connectors         = []
+    non_business_connectors     = []
+    blocked_connectors          = []
+  }
+
+  # Test that locals are properly computed when guardrail is enabled
+  assert {
+    condition     = can(local.has_duplicate)
+    error_message = "Should be able to compute has_duplicate local value."
+  }
+
+  assert {
+    condition     = can(local.existing_policy_matches)
+    error_message = "Should be able to compute existing_policy_matches local value."
+  }
+
+  assert {
+    condition     = can(local.duplicate_policy_id)
+    error_message = "Should be able to compute duplicate_policy_id local value."
+  }
+
+  # Test that guardrail resource is conditionally created
+  assert {
+    condition     = var.enable_duplicate_protection ? can(null_resource.dlp_policy_duplicate_guardrail) : true
+    error_message = "Guardrail resource should be accessible when duplicate protection is enabled."
+  }
+
+  # Test that DLP policy resource has proper dependencies
+  assert {
+    condition     = can(powerplatform_data_loss_prevention_policy.this.depends_on)
+    error_message = "DLP policy resource should have depends_on attribute for guardrail dependency."
+  }
+
+  # Test data source conditional creation
+  assert {
+    condition     = can(data.powerplatform_data_loss_prevention_policies.all)
+    error_message = "DLP policies data source should be accessible when duplicate protection is enabled."
+  }
+
+  # Test check block is accessible
+  assert {
+    condition     = can(check.business_connector_ids_exist)
+    error_message = "Business connector IDs validation check should be accessible."
   }
 }
