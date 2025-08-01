@@ -92,6 +92,7 @@ run-name: 🚨 Terraform DESTROY ${{ github.event.inputs.configuration }} (${{ g
 permissions:
   id-token: write   # Required for GitHub OIDC token generation
   contents: write   # Required for state backup commits and artifact management
+  actions: read     # Required for reusable workflow execution summary
 
 jobs:
   # === PRE-DESTROY VALIDATION AND CONFIRMATION ===

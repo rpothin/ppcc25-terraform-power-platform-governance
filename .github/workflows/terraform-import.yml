@@ -93,7 +93,8 @@ run-name: 📥 Terraform Import ${{ github.event.inputs.resource_type }}.${{ git
 # Principle of least privilege for OIDC authentication and repository access
 permissions:
   id-token: write   # Required for GitHub OIDC token generation
-  contents: read    # Required for repository checkout
+  contents: write   # Required for state backup commits and artifact management
+  actions: read     # Required for reusable workflow execution summary
 
 jobs:
   # === IMPORT EXECUTION JOB ===
