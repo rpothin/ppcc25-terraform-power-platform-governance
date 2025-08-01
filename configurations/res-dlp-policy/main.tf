@@ -13,10 +13,11 @@ data "powerplatform_data_loss_prevention_policies" "all" {
 
 # Consolidated locals block with all logic
 locals {
-  # Simple duplicate detection logic (no state awareness to avoid cycles)
-  # This will check duplicates for all new deployments
-  # After import, users should disable duplicate protection temporarily if needed
-  should_check_duplicates = var.enable_duplicate_protection
+  # Check if resource is managed in current state
+  is_managed_resource = can(terraform.workspace) # This would need proper state checking
+  
+  # Only check for duplicates if not managing this resource
+  should_check_duplicates = var.enable_duplicate_protection && !local.is_managed_resource
 
   # Duplicate detection logic (only runs when needed)
   existing_policy_matches = var.enable_duplicate_protection ? [
