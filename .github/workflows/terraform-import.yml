@@ -56,19 +56,25 @@ on:
         # GOVERNANCE: Ensures correct context for imported resource
         # VALIDATION: Must match a file in tfvars/ subdirectory
       resource_type:
-        description: 'Terraform resource type (e.g., powerplatform_data_loss_prevention_policy)'
+        description: 'Terraform resource type for import operation'
         required: true
-        type: string
-        # WHY: Specifies the Terraform resource type for import
-        # GOVERNANCE: Ensures correct mapping to configuration
-        # VALIDATION: Must match a valid Terraform resource type
+        type: choice
+        options:
+          - 'powerplatform_data_loss_prevention_policy'
+          - 'powerplatform_environment'
+        # WHY: Provides guided selection of supported resource types
+        # GOVERNANCE: Prevents typos and ensures only supported resources are imported
+        # VALIDATION: GitHub automatically validates against the choice list
       resource_name:
-        description: 'Terraform resource name in the configuration (e.g., main)'
+        description: 'Terraform resource name in the configuration (e.g., this, main)'
         required: true
-        type: string
-        # WHY: Specifies the resource name in the configuration for import
-        # GOVERNANCE: Ensures correct mapping to configuration
-        # VALIDATION: Must match a resource defined in the configuration
+        type: choice
+        options:
+          - 'this'
+          - 'main'
+        # WHY: Most configurations use standard resource naming patterns
+        # GOVERNANCE: Ensures consistency with established patterns
+        # VALIDATION: Matches common resource names in configurations
       resource_id:
         description: 'Power Platform resource ID to import (UUID format)'
         required: true

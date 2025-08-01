@@ -93,6 +93,27 @@ resource "null_resource" "dlp_policy_duplicate_guardrail" {
   }
 }
 
+# Validation: Ensure all business connector IDs exist in the tenant
+check "business_connector_ids_exist" {
+  assert {
+    condition = alltrue([
+      for bc in var.business_connectors :
+      contains([for c in data.powerplatform_connectors.all.connectors : c.id], bc.id)
+    ])
+    error_message = <<-EOT
+      Invalid business connector IDs detected: ${join(", ", [
+    for bc in var.business_connectors :
+    bc.id if !contains([for c in data.powerplatform_connectors.all.connectors : c.id], bc.id)
+])}
+      
+      To see available connectors, run:
+        terraform plan -target=data.powerplatform_connectors.all
+      
+      Or check the Power Platform admin center for valid connector IDs.
+    EOT
+}
+}
+
 # Main DLP Policy Resource
 resource "powerplatform_data_loss_prevention_policy" "this" {
   depends_on = [null_resource.dlp_policy_duplicate_guardrail]
@@ -116,38 +137,3 @@ resource "powerplatform_data_loss_prevention_policy" "this" {
     ]
   }
 }
-
-# Validation: Ensure all business connector IDs exist in the tenant
-check "business_connector_ids_exist" {
-  assert {
-    condition = alltrue([
-      for bc in var.business_connectors :
-      contains([for c in data.powerplatform_connectors.all.connectors : c.id], bc.id)
-    ])
-    error_message = <<-EOT
-      Invalid business connector IDs detected: ${join(", ", [
-    for bc in var.business_connectors :
-    bc.id if !contains([for c in data.powerplatform_connectors.all.connectors : c.id], bc.id)
-])}
-      
-      To see available connectors, run:
-        terraform plan -target=data.powerplatform_connectors.all
-      
-      Or check the Power Platform admin center for valid connector IDs.
-    EOT
-}
-}
-
-# Debug output for troubleshooting (remove in production)
-# Uncomment these outputs during development/testing
-/*
-output "debug_duplicate_detection" {
-  value = {
-    resource_in_state       = local.resource_in_state
-    should_check_duplicates = local.should_check_duplicates
-    has_duplicate          = local.has_duplicate
-    duplicate_policy_id    = local.duplicate_policy_id
-    existing_matches_count = length(local.existing_policy_matches)
-  }
-}
-*/

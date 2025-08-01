@@ -26,16 +26,16 @@
 
 ### 2.a. Implementation Plan: Guardrails & Import Workflow (Best Practices)
 
-- **Add Terraform-native guardrails to res-dlp-policy module:**
+- **Add Terraform-native guardrails to res-dlp-policy module:** ✅
   - Implement a data source to query existing DLP policies by display name and environment type.
   - Add a `null_resource` with lifecycle precondition to fail the plan if a duplicate is detected, providing a clear error message and import instructions.
   - Make duplicate protection configurable via a variable (e.g., `enable_duplicate_protection`).
 
-- **Enhance input validation:**
+- **Enhance input validation:** ✅
   - Enforce display name format, environment type consistency, and required environment assignments in `variables.tf`.
   - Use Terraform variable validation blocks for early error detection.
 
-- **Improve import workflow:**
+- **Improve import workflow:** ✅
   - Update `terraform-import.yml` to support resource type selection and auto-suggest resource IDs based on configuration and tenant discovery.
   - Add a pre-import step to scan for existing resources and output import commands for the operator.
 
@@ -43,7 +43,7 @@
   - Add a how-to guide in `docs/guides/` for DLP policy import and duplicate protection.
   - Include troubleshooting steps for common onboarding issues (e.g., duplicate detection, import errors).
 
-- **Test and validate:**
+- **Test and validate:** 🛠️
   - Run onboarding scenarios with and without existing resources to confirm guardrail effectiveness.
   - Ensure error messages are actionable and guide the operator to resolution.
 
