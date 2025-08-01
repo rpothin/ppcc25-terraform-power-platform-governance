@@ -56,14 +56,18 @@ The following requirements are needed by this module:
 
 The following providers are used by this module:
 
+- <a name="provider_null"></a> [null](#provider\_null)
+
 - <a name="provider_powerplatform"></a> [powerplatform](#provider\_powerplatform) (~> 3.8)
 
 ## Resources
 
 The following resources are used by this module:
 
+- [null_resource.dlp_policy_duplicate_guardrail](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) (resource)
 - [powerplatform_data_loss_prevention_policy.this](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/resources/data_loss_prevention_policy) (resource)
 - [powerplatform_connectors.all](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/data-sources/connectors) (data source)
+- [powerplatform_data_loss_prevention_policies.all](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/data-sources/data_loss_prevention_policies) (data source)
 
 <!-- markdownlint-disable MD013 -->
 ## Required Inputs
@@ -206,6 +210,17 @@ Description: Default classification for connectors ("General", "Confidential", "
 Type: `string`
 
 Default: `"Blocked"`
+
+### <a name="input_enable_duplicate_protection"></a> [enable\_duplicate\_protection](#input\_enable\_duplicate\_protection)
+
+Description: Enable duplicate DLP policy detection and prevention. Set to true in production.  
+If true, the module will query existing DLP policies and fail the plan if a duplicate is detected (same display\_name and environment\_type).
+
+Set to false to disable duplicate detection (not recommended for production).
+
+Type: `bool`
+
+Default: `true`
 
 ### <a name="input_environment_type"></a> [environment\_type](#input\_environment\_type)
 
