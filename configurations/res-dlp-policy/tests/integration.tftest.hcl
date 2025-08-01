@@ -84,7 +84,7 @@ run "duplicate_protection_enabled_test" {
     error_message = "Should be able to compute has_duplicate local value."
   }
   assert {
-    condition     = can(null_resource.dlp_policy_duplicate_guardrail)
+    condition     = var.enable_duplicate_protection ? can(null_resource.dlp_policy_duplicate_guardrail[0]) : true
     error_message = "Guardrail null_resource should be accessible when duplicate protection is enabled."
   }
 }
@@ -101,6 +101,11 @@ run "duplicate_protection_disabled_test" {
   assert {
     condition     = var.enable_duplicate_protection == false
     error_message = "Duplicate protection should be disabled for this test."
+  }
+  # When disabled, guardrail resource should not be created (count = 0)
+  assert {
+    condition     = length(null_resource.dlp_policy_duplicate_guardrail) == 0
+    error_message = "Guardrail null_resource should not be created when duplicate protection is disabled."
   }
 }
 
@@ -405,9 +410,9 @@ run "comprehensive_validation" {
     error_message = "When duplicate protection is enabled, should be able to access DLP policies data source."
   }
 
-  # AVM: Guardrail resource validation
+  # AVM: Guardrail resource validation  
   assert {
-    condition     = var.enable_duplicate_protection == false ? true : can(null_resource.dlp_policy_duplicate_guardrail)
+    condition     = var.enable_duplicate_protection == false ? true : can(null_resource.dlp_policy_duplicate_guardrail[0])
     error_message = "When duplicate protection is enabled, guardrail null_resource should be accessible."
   }
 }
@@ -442,7 +447,7 @@ run "guardrail_integration_test" {
 
   # Test that guardrail resource is conditionally created
   assert {
-    condition     = var.enable_duplicate_protection ? can(null_resource.dlp_policy_duplicate_guardrail) : true
+    condition     = var.enable_duplicate_protection ? can(null_resource.dlp_policy_duplicate_guardrail[0]) : true
     error_message = "Guardrail resource should be accessible when duplicate protection is enabled."
   }
 
