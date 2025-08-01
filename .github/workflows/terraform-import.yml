@@ -114,7 +114,7 @@ jobs:
       tfvars-file: ${{ github.event.inputs.tfvars_file }}
       # Format import arguments: resource_type.resource_name resource_id
       additional-options: '${{ github.event.inputs.resource_type }}.${{ github.event.inputs.resource_name }} ${{ github.event.inputs.resource_id }}'
-      create-state-backup: ${{ github.event.inputs.backup_state }}
+      create-state-backup: ${{ github.event.inputs.backup_state == 'true' }}
       timeout-minutes: 15
       environment-name: 'production'
     secrets: inherit
