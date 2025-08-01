@@ -60,11 +60,11 @@ resource "null_resource" "dlp_policy_duplicate_guardrail" {
         🚨 DUPLICATE DLP POLICY DETECTED!
         Policy Name: "${var.display_name}"
         Environment Type: "${var.environment_type}"
-        Existing Policy ID: ${local.duplicate_policy_id}
+        Existing Policy ID: ${coalesce(local.duplicate_policy_id, "unknown")}
 
         💡 RESOLUTION OPTIONS:
         1. Import existing policy:
-           terraform import powerplatform_data_loss_prevention_policy.this ${local.duplicate_policy_id}
+           terraform import powerplatform_data_loss_prevention_policy.this ${coalesce(local.duplicate_policy_id, "POLICY_ID_HERE")}
         2. Use a different display_name or environment_type.
         3. Set enable_duplicate_protection = false (not recommended).
 
