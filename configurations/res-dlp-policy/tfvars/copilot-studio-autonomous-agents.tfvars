@@ -2,7 +2,7 @@
 # Generated on: 2025-07-30T02:40:10Z
 # Source: utl-generate-dlp-tfvars
 
-display_name                      = "Copilot Studio Autonomous Agents"
+display_name = "Copilot Studio Autonomous Agents"
 #default_connectors_classification = "Blocked"
 #environment_type                  = "OnlyEnvironments"
 
