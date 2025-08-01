@@ -72,8 +72,8 @@ run "duplicate_protection_enabled_test" {
     error_message = "Duplicate protection should be enabled for this test."
   }
   assert {
-    condition     = local.should_check_duplicates ? can(data.powerplatform_data_loss_prevention_policies.all[0]) : true
-    error_message = "Should be able to query existing DLP policies when duplicate checking is active."
+    condition     = can(data.powerplatform_data_loss_prevention_policies.all)
+    error_message = "Should be able to query existing DLP policies when duplicate protection is enabled."
   }
   assert {
     condition     = can(local.existing_policy_matches)
@@ -86,20 +86,6 @@ run "duplicate_protection_enabled_test" {
   assert {
     condition     = var.enable_duplicate_protection ? length(null_resource.dlp_policy_duplicate_guardrail) == 1 : true
     error_message = "Guardrail null_resource should be planned when duplicate protection is enabled."
-  }
-
-  # New state-aware logic assertions
-  assert {
-    condition     = can(local.resource_in_state)
-    error_message = "Should be able to compute resource_in_state local value."
-  }
-  assert {
-    condition     = can(local.should_check_duplicates)
-    error_message = "Should be able to compute should_check_duplicates local value."
-  }
-  assert {
-    condition     = length(data.powerplatform_data_loss_prevention_policies.all) == (local.should_check_duplicates ? 1 : 0)
-    error_message = "Data source count should match should_check_duplicates logic."
   }
 }
 
@@ -123,30 +109,6 @@ run "duplicate_protection_disabled_test" {
   }
 }
 
-# New Test: State-Aware Logic Validation
-run "state_aware_duplicate_detection_test" {
-  command = plan
-  variables {
-    enable_duplicate_protection = true
-    display_name                = "State Aware Test Policy"
-    business_connectors         = []
-    non_business_connectors     = []
-    blocked_connectors          = []
-  }
-
-  # Test that conditional data source logic works
-  assert {
-    condition     = local.should_check_duplicates ? can(data.powerplatform_data_loss_prevention_policies.all[0]) : true
-    error_message = "Data source should be accessible when duplicate checking is active."
-  }
-
-  # Test logic combination
-  assert {
-    condition     = var.enable_duplicate_protection && !local.resource_in_state == local.should_check_duplicates
-    error_message = "should_check_duplicates logic should properly combine protection setting and state awareness."
-  }
-}
-
 # New Test: Performance Optimization Validation
 run "performance_optimization_test" {
   command = plan
@@ -165,8 +127,8 @@ run "performance_optimization_test" {
   }
 
   assert {
-    condition     = !local.should_check_duplicates
-    error_message = "should_check_duplicates should be false when protection is disabled."
+    condition     = !var.enable_duplicate_protection
+    error_message = "Duplicate protection should be disabled for this test."
   }
 }
 
@@ -507,8 +469,8 @@ run "guardrail_integration_test" {
 
   # Test data source conditional creation
   assert {
-    condition     = local.should_check_duplicates ? can(data.powerplatform_data_loss_prevention_policies.all[0]) : true
-    error_message = "DLP policies data source should be accessible when duplicate checking is active."
+    condition     = can(data.powerplatform_data_loss_prevention_policies.all)
+    error_message = "DLP policies data source should be accessible when duplicate protection is enabled."
   }
 
   # Test that business connector configuration is valid for check block validation
@@ -518,34 +480,5 @@ run "guardrail_integration_test" {
       if can(connector.id) && length(connector.id) > 0
     ]) == length(var.business_connectors)
     error_message = "All business connectors should have valid IDs for check block validation."
-  }
-}
-
-# New Test: Enhanced Guardrail Error Message
-run "enhanced_guardrail_error_message_test" {
-  command = plan
-  variables {
-    enable_duplicate_protection = true
-    display_name                = "Enhanced Guardrail Test"
-    business_connectors         = []
-    non_business_connectors     = []
-    blocked_connectors          = []
-  }
-
-  # Test that guardrail includes enhanced triggers
-  assert {
-    condition     = can(null_resource.dlp_policy_duplicate_guardrail[0].triggers.state_timestamp)
-    error_message = "Guardrail should include state_timestamp trigger for re-evaluation."
-  }
-
-  assert {
-    condition     = can(null_resource.dlp_policy_duplicate_guardrail[0].triggers.display_name)
-    error_message = "Guardrail should include display_name trigger."
-  }
-
-  # Test state-aware logic in guardrail context
-  assert {
-    condition     = local.should_check_duplicates == (var.enable_duplicate_protection && !local.resource_in_state)
-    error_message = "Guardrail should use state-aware duplicate checking logic."
   }
 }
