@@ -6,7 +6,7 @@
 
 ---
 
-## 1. Test Terraform Destroy Workflow
+## 1. Test Terraform Destroy Workflow 🛠️
 - Use `terraform-destroy.yml` workflow.
 - Target: `example.tfvars` file.
 - Validate safe and auditable resource destruction.
