@@ -270,6 +270,7 @@ jobs:
       configuration: ${{ github.event.inputs.configuration }}
       tfvars-file: ${{ github.event.inputs.tfvars_file }}
       create-state-backup: ${{ github.event.inputs.backup_state == 'true' }}
+      auto-approve: true  # Required for destroy operations
       timeout-minutes: 25
       environment-name: 'production'
     secrets: inherit
