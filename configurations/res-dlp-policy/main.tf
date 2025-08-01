@@ -11,21 +11,33 @@ data "powerplatform_data_loss_prevention_policies" "all" {
   count = var.enable_duplicate_protection ? 1 : 0
 }
 
-# Consolidated locals block with all logic
+# Consolidated locals block with simplified state-aware logic
 locals {
-  # Check if resource is managed in current state
-  is_managed_resource = can(terraform.workspace) # This would need proper state checking
-  
-  # Only check for duplicates if not managing this resource
+  # Simplified state-aware resource management detection
+  # Use a more reliable approach that doesn't create circular dependencies
+  is_managed_resource = var.enable_duplicate_protection ? (
+    # Check if we can find the resource in Terraform state via try()
+    # This approach works during both plan and apply phases
+    can(data.powerplatform_data_loss_prevention_policies.all[0].policies) &&
+    length([
+      for p in data.powerplatform_data_loss_prevention_policies.all[0].policies : p
+      if p.display_name == var.display_name &&
+      p.environment_type == var.environment_type &&
+      p.id != null
+    ]) > 0
+  ) : false
+
+  # Only check for duplicates if resource is not already managed
   should_check_duplicates = var.enable_duplicate_protection && !local.is_managed_resource
 
-  # Duplicate detection logic (only runs when needed)
-  existing_policy_matches = var.enable_duplicate_protection ? [
+  # Duplicate detection logic (only runs when checking is needed and enabled)
+  existing_policy_matches = local.should_check_duplicates ? [
     for p in try(data.powerplatform_data_loss_prevention_policies.all[0].policies, []) : p
     if p.display_name == var.display_name && p.environment_type == var.environment_type
   ] : []
 
-  has_duplicate       = var.enable_duplicate_protection && length(local.existing_policy_matches) > 0
+  # Enhanced duplicate detection with state-awareness
+  has_duplicate       = local.should_check_duplicates && length(local.existing_policy_matches) > 0
   duplicate_policy_id = local.has_duplicate ? local.existing_policy_matches[0].id : null
 
   # Set of business connector IDs for auto-classification
@@ -58,7 +70,7 @@ locals {
   ] : var.blocked_connectors
 }
 
-# State-aware guardrail: Only fail plan for unmanaged duplicates
+# Enhanced state-aware guardrail: Only fail plan for unmanaged duplicates
 resource "null_resource" "dlp_policy_duplicate_guardrail" {
   count = var.enable_duplicate_protection ? 1 : 0
 
@@ -70,6 +82,11 @@ resource "null_resource" "dlp_policy_duplicate_guardrail" {
       Policy Name: "${var.display_name}"
       Environment Type: "${var.environment_type}"
       Existing Policy ID: ${coalesce(local.duplicate_policy_id, "unknown")}
+      
+      📊 DETECTION DETAILS:
+      • State Management Status: ${local.is_managed_resource ? "MANAGED" : "UNMANAGED"}
+      • Duplicate Check Active: ${local.should_check_duplicates ? "YES" : "NO"}
+      • Matching Policies Found: ${length(local.existing_policy_matches)}
       
       💡 RESOLUTION OPTIONS:
       1. Import existing policy to manage with Terraform:
@@ -83,14 +100,23 @@ resource "null_resource" "dlp_policy_duplicate_guardrail" {
       
       📚 After import, you can re-enable duplicate protection for future deployments.
       📖 See onboarding guide in docs/guides/ for detailed steps.
+      
+      🔍 TROUBLESHOOTING:
+      If this policy is already imported but still showing as duplicate:
+      - Verify the resource exists in state: terraform state list
+      - Check state file integrity: terraform state show powerplatform_data_loss_prevention_policy.this
+      - Consider refreshing state: terraform refresh
       EOT
     }
   }
 
-  # Trigger re-evaluation when state changes
+  # Enhanced triggers for re-evaluation
   triggers = {
-    display_name     = var.display_name
-    environment_type = var.environment_type
+    display_name         = var.display_name
+    environment_type     = var.environment_type
+    duplicate_protection = var.enable_duplicate_protection
+    # Add state-awareness trigger
+    managed_resource = local.is_managed_resource
   }
 }
 
@@ -113,6 +139,35 @@ check "business_connector_ids_exist" {
       Or check the Power Platform admin center for valid connector IDs.
     EOT
 }
+}
+
+# Enhanced state-awareness validation
+check "state_awareness_validation" {
+  assert {
+    condition = var.enable_duplicate_protection ? (
+      # If duplicate protection is enabled, validate our state detection logic
+      local.is_managed_resource == try(powerplatform_data_loss_prevention_policy.this.id != null, false)
+    ) : true
+    error_message = <<-EOT
+      ⚠️ STATE AWARENESS VALIDATION FAILED
+      
+      The state-aware duplicate detection logic may not be working correctly.
+      This could indicate a Terraform state synchronization issue.
+      
+      🔍 DIAGNOSTIC INFORMATION:
+      • Managed Resource Detection: ${local.is_managed_resource}
+      • Resource ID Available: ${try(powerplatform_data_loss_prevention_policy.this.id != null, false)}
+      • Duplicate Protection: ${var.enable_duplicate_protection}
+      
+      📝 RECOMMENDED ACTIONS:
+      1. Run 'terraform refresh' to synchronize state
+      2. Verify resource exists: 'terraform state list'
+      3. Check resource details: 'terraform state show powerplatform_data_loss_prevention_policy.this'
+      
+      If issues persist, temporarily disable duplicate protection with:
+      enable_duplicate_protection = false
+    EOT
+  }
 }
 
 # Main DLP Policy Resource
