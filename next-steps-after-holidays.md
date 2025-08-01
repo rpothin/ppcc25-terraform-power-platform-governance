@@ -6,10 +6,13 @@
 
 ---
 
-## 1. Test Terraform Destroy Workflow 🛠️
+## 1. Test Terraform Destroy Workflow - **COMPLETED** ✅
 - Use `terraform-destroy.yml` workflow.
 - Target: `example.tfvars` file.
 - Validate safe and auditable resource destruction.
+
+> [!WARNING]
+> Output Delimiter Issue Identified and fixed pushed but not yet tested.
 
 ## 2. Test DLP Policy Onboarding Process
 - Use `copilot-studio-autonomous-agents.tfvars` for onboarding.
