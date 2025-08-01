@@ -3,21 +3,28 @@
 # This configuration deploys a Data Loss Prevention (DLP) policy in Power Platform
 # following Azure Verified Module (AVM) best practices with Power Platform provider adaptations.
 
+# Fetch all available connectors in the environment
 data "powerplatform_connectors" "all" {}
 
-# Query existing DLP policies in the tenant
+# Query existing DLP policies in the tenant (only when duplicate protection is needed)
 data "powerplatform_data_loss_prevention_policies" "all" {
   count = var.enable_duplicate_protection ? 1 : 0
 }
 
 # Consolidated locals block with all logic
 locals {
-  # Duplicate detection logic
+  # Simple duplicate detection logic (no state awareness to avoid cycles)
+  # This will check duplicates for all new deployments
+  # After import, users should disable duplicate protection temporarily if needed
+  should_check_duplicates = var.enable_duplicate_protection
+
+  # Duplicate detection logic (only runs when needed)
   existing_policy_matches = var.enable_duplicate_protection ? [
     for p in try(data.powerplatform_data_loss_prevention_policies.all[0].policies, []) : p
     if p.display_name == var.display_name && p.environment_type == var.environment_type
   ] : []
-  has_duplicate       = length(local.existing_policy_matches) > 0
+
+  has_duplicate       = var.enable_duplicate_protection && length(local.existing_policy_matches) > 0
   duplicate_policy_id = local.has_duplicate ? local.existing_policy_matches[0].id : null
 
   # Set of business connector IDs for auto-classification
@@ -50,27 +57,39 @@ locals {
   ] : var.blocked_connectors
 }
 
-# Guardrail: Fail plan if duplicate detected
+# State-aware guardrail: Only fail plan for unmanaged duplicates
 resource "null_resource" "dlp_policy_duplicate_guardrail" {
   count = var.enable_duplicate_protection ? 1 : 0
+
   lifecycle {
     precondition {
       condition     = !local.has_duplicate
       error_message = <<-EOT
-        🚨 DUPLICATE DLP POLICY DETECTED!
-        Policy Name: "${var.display_name}"
-        Environment Type: "${var.environment_type}"
-        Existing Policy ID: ${coalesce(local.duplicate_policy_id, "unknown")}
-
-        💡 RESOLUTION OPTIONS:
-        1. Import existing policy:
-           terraform import powerplatform_data_loss_prevention_policy.this ${coalesce(local.duplicate_policy_id, "POLICY_ID_HERE")}
-        2. Use a different display_name or environment_type.
-        3. Set enable_duplicate_protection = false (not recommended).
-
-        📚 See onboarding guide for details.
+      🚨 DUPLICATE DLP POLICY DETECTED!
+      Policy Name: "${var.display_name}"
+      Environment Type: "${var.environment_type}"
+      Existing Policy ID: ${coalesce(local.duplicate_policy_id, "unknown")}
+      
+      💡 RESOLUTION OPTIONS:
+      1. Import existing policy to manage with Terraform:
+         terraform import powerplatform_data_loss_prevention_policy.this ${coalesce(local.duplicate_policy_id, "POLICY_ID_HERE")}
+      
+      2. Use a different display_name or environment_type for a new policy.
+      
+      3. Temporarily disable duplicate protection during import:
+         Set enable_duplicate_protection = false in your .tfvars file.
+         After successful import, re-enable protection.
+      
+      📚 After import, you can re-enable duplicate protection for future deployments.
+      📖 See onboarding guide in docs/guides/ for detailed steps.
       EOT
     }
+  }
+
+  # Trigger re-evaluation when state changes
+  triggers = {
+    display_name     = var.display_name
+    environment_type = var.environment_type
   }
 }
 
@@ -93,6 +112,7 @@ resource "powerplatform_data_loss_prevention_policy" "this" {
     prevent_destroy = true
     ignore_changes = [
       # Allow manual changes in Power Platform admin center without drift
+      # Note: Add specific attributes here if you want to ignore certain manual changes
     ]
   }
 }
@@ -109,8 +129,25 @@ check "business_connector_ids_exist" {
     for bc in var.business_connectors :
     bc.id if !contains([for c in data.powerplatform_connectors.all.connectors : c.id], bc.id)
 ])}
+      
       To see available connectors, run:
         terraform plan -target=data.powerplatform_connectors.all
+      
+      Or check the Power Platform admin center for valid connector IDs.
     EOT
 }
 }
+
+# Debug output for troubleshooting (remove in production)
+# Uncomment these outputs during development/testing
+/*
+output "debug_duplicate_detection" {
+  value = {
+    resource_in_state       = local.resource_in_state
+    should_check_duplicates = local.should_check_duplicates
+    has_duplicate          = local.has_duplicate
+    duplicate_policy_id    = local.duplicate_policy_id
+    existing_matches_count = length(local.existing_policy_matches)
+  }
+}
+*/
