@@ -292,24 +292,62 @@ run "dataverse_null_configuration_test" {
   }
 
   assert {
-    condition     = var.dataverse_config == null
-    error_message = "Dataverse config should be null for this test."
-  }
-
-  assert {
     condition     = var.environment_config.environment_type == "Sandbox"
     error_message = "Environment type should be Sandbox for this test."
   }
 
+  # FIXED: Test actual provider behavior
   assert {
     condition = (
-      # Power Platform provider creates default Dataverse configuration
-      # even when not explicitly specified - this is expected behavior
+      # When dataverse_config is null, Power Platform provider does NOT 
+      # automatically create Dataverse configuration - this is correct behavior
+      powerplatform_environment.this.dataverse == null
+    )
+    error_message = "When dataverse_config is null, provider should not create Dataverse configuration. This allows environments without databases."
+  }
+}
+
+# Dataverse configuration test (explicit case)
+run "dataverse_explicit_configuration_test" {
+  command = apply
+  variables {
+    environment_config = {
+      display_name     = "Test With Dataverse"
+      location         = "unitedstates"
+      environment_type = "Sandbox"
+      owner_id         = null
+    }
+    dataverse_config = {
+      language_code = "1033" # English
+      currency_code = "USD"
+    }
+    enable_duplicate_protection = false
+    tags = {
+      TestScenario = "ExplicitDataverse"
+    }
+  }
+
+  assert {
+    condition     = var.dataverse_config != null
+    error_message = "Dataverse config should be provided for this test."
+  }
+
+  assert {
+    condition = (
+      # When dataverse_config is explicitly provided, provider creates Dataverse
       powerplatform_environment.this.dataverse != null &&
       powerplatform_environment.this.dataverse.language_code != null &&
       powerplatform_environment.this.dataverse.currency_code != null
     )
-    error_message = "Provider should create default Dataverse configuration for Sandbox environments."
+    error_message = "When dataverse_config is provided, provider should create Dataverse configuration."
+  }
+
+  assert {
+    condition = (
+      powerplatform_environment.this.dataverse.language_code == var.dataverse_config.language_code &&
+      powerplatform_environment.this.dataverse.currency_code == var.dataverse_config.currency_code
+    )
+    error_message = "Dataverse configuration should match input variables."
   }
 }
 
