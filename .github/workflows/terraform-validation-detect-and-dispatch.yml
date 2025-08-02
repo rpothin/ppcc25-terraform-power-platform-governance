@@ -53,6 +53,7 @@ permissions:
   actions: write          # Required: Dispatch other workflows and access workflow metadata
   security-events: write  # Required: Upload security findings to GitHub Security tab
   id-token: write         # Required: OIDC authentication with Azure AD for integration
+  pull-requests: write    # Required for commenting on PRs with documentation status
 
 jobs:
   # === REUSABLE CHANGE DETECTION ===
