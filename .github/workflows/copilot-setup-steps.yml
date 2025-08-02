@@ -29,7 +29,7 @@
 name: "🛠️ Copilot Setup Steps"
 
 concurrency:
-  group: copilot-setup-steps-${{ github.ref }}
+  group: copilot-setup-steps
   cancel-in-progress: false
 
 on:
