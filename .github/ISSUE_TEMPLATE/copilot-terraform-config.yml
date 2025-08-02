@@ -55,7 +55,7 @@ body:
       label: Environment Support
       description: Select if multi-environment support is needed
       options:
-        - label: Multi-environment support (creates tfvars/ directory with an example file)
+        - label: Multi-environment support (creates tfvars/ directory with an example.tfvars file)
           required: false
 
   - type: textarea
