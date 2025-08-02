@@ -81,28 +81,29 @@ jobs:
           curl -sSLo ./terraform-docs.tar.gz https://terraform-docs.io/dl/v0.20.0/terraform-docs-v0.20.0-$(uname)-amd64.tar.gz
           tar -xzf terraform-docs.tar.gz
           chmod +x terraform-docs
+          # Move terraform-docs binary to proper folder in GitHub Actions runner
           sudo mv terraform-docs /usr/local/bin/terraform-docs
           terraform-docs --version
-          
-          # Install yamllint for YAML validation
-          pip install yamllint==1.35.1
-          yamllint --version
-          
-          # Install actionlint for GitHub Actions validation
-          bash <(curl https://raw.githubusercontent.com/rhymond/actionlint/main/scripts/download-actionlint.bash)
-          sudo mv actionlint /usr/local/bin/actionlint
-          actionlint -version
-          
-          echo "Documentation and validation tools installed"
 
-      # === YAML PROCESSING ===
-      # Enhanced YAML processing for GitHub Actions and configuration files
-      - name: Install Python YAML Tools
+      # === PYTHON ENVIRONMENT SETUP ===
+      # Python 3.11 provides stable foundation for YAML processing libraries
+      # No pip cache needed since tools are installed via shell scripts
+      - name: "Setup Python Environment"
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      # === YAML VALIDATION TOOLS INSTALLATION ===
+      # Use modular installation library for consistent tool setup across environments
+      # Leverages yaml-tools-installer.sh for reusable installation patterns
+      - name: "Install YAML Validation Tools"
         run: |
-          pip install --upgrade pip
-          pip install PyYAML==6.0.1 ruamel.yaml==0.18.5
-          python3 -c "import yaml; print(f'PyYAML {yaml.__version__} installed')"
-          echo "Python YAML processing tools installed"
+          # Source the installation library and install all validation tools
+          source scripts/utils/yaml-tools-installer.sh
+          install_all_yaml_tools
+          
+          # Ensure PATH includes user-installed packages for subsequent steps
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       # === ENVIRONMENT VALIDATION ===
       # Comprehensive validation that all tools are properly installed
