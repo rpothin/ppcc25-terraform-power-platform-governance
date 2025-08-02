@@ -19,10 +19,10 @@ environment_config = {
 
 # Dataverse configuration (optional - remove entire block if not needed)
 dataverse_config = {
-  language_code     = 1033 # English (United States)
-  currency_code     = "USD"  # US Dollar
-  security_group_id = null   # Optional: Set to Azure AD group ID for access control
-  domain            = null   # Optional: Custom domain (auto-generated if not provided)
+  language_code     = 1033  # English (United States)
+  currency_code     = "USD" # US Dollar
+  security_group_id = null  # Optional: Set to Azure AD group ID for access control
+  domain            = null  # Optional: Custom domain (auto-generated if not provided)
 }
 
 # Alternatively, to create environment without Dataverse:
