@@ -23,7 +23,6 @@ dataverse_config = {
   currency_code     = "USD"  # US Dollar
   security_group_id = null   # Optional: Set to Azure AD group ID for access control
   domain            = null   # Optional: Custom domain (auto-generated if not provided)
-  organization_name = null   # Optional: Organization name (defaults to display_name)
 }
 
 # Alternatively, to create environment without Dataverse:
