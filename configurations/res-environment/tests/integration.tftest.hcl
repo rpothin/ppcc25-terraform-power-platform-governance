@@ -265,6 +265,48 @@ run "developer_environment_test" {
   }
 }
 
+# Developer environment with Dataverse test (security_group_id optional)
+run "developer_dataverse_test" {
+  command = apply
+  variables {
+    environment = {
+      display_name     = "Developer With Dataverse"
+      location         = "unitedstates"
+      environment_type = "Developer" # Developer environment
+      owner_id         = "87654321-4321-4321-4321-210987654321"
+    }
+    dataverse = {
+      language_code = 1033
+      currency_code = "USD"
+      # security_group_id NOT required for Developer environments
+    }
+    enable_duplicate_protection = false
+    tags = {
+      TestScenario = "DeveloperDataverse"
+    }
+  }
+
+  assert {
+    condition     = var.environment.environment_type == "Developer"
+    error_message = "Environment type should be Developer for this test."
+  }
+
+  assert {
+    condition     = var.environment.owner_id != null
+    error_message = "Owner ID should be provided for Developer environment."
+  }
+
+  assert {
+    condition     = var.dataverse.security_group_id == null
+    error_message = "Security group ID should be null for Developer environment test."
+  }
+
+  assert {
+    condition     = powerplatform_environment.this.dataverse != null
+    error_message = "Developer environment should support Dataverse without security_group_id."
+  }
+}
+
 # Dataverse configuration test (null case)
 run "dataverse_null_configuration_test" {
   command = apply
@@ -296,18 +338,19 @@ run "dataverse_null_configuration_test" {
   }
 }
 
-# Dataverse configuration test (explicit case)
+# Dataverse configuration test (explicit case) - FIXED
 run "dataverse_explicit_configuration_test" {
   command = apply
   variables {
     environment = {
       display_name     = "Test With Dataverse"
       location         = "unitedstates"
-      environment_type = "Sandbox"
+      environment_type = "Sandbox" # Non-Developer environment
     }
     dataverse = {
-      language_code = 1033 # ✅ CORRECTED: INTEGER not string
-      currency_code = "USD"
+      language_code     = 1033
+      currency_code     = "USD"
+      security_group_id = "12345678-1234-1234-1234-123456789012" # ✅ REQUIRED for non-Developer
     }
     enable_duplicate_protection = false
     tags = {
@@ -330,7 +373,12 @@ run "dataverse_explicit_configuration_test" {
     error_message = "Currency code should be USD string."
   }
 
-  # ✅ CORRECTED: Test actual provider schema
+  # ✅ ADDED: Verify security_group_id is provided for non-Developer environments
+  assert {
+    condition     = var.dataverse.security_group_id != null
+    error_message = "Security group ID should be provided for non-Developer environments with Dataverse."
+  }
+
   assert {
     condition     = powerplatform_environment.this.dataverse != null
     error_message = "When dataverse is provided, provider should create Dataverse configuration."

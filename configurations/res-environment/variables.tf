@@ -151,14 +151,15 @@ variable "dataverse" {
   })
 
   description = <<DESCRIPTION
-Dataverse database configuration using ONLY real provider arguments.
+Dataverse database configuration for the Power Platform environment.
 
 Required Properties:
-- language_code: LCID integer (e.g., 1033 for English US) - NOTE: NUMBER not string!
+- language_code: LCID integer (e.g., 1033 for English US) 
 - currency_code: ISO currency code string (e.g., "USD", "EUR", "GBP")
 
 Optional Properties:
-- security_group_id: Azure AD security group GUID
+- security_group_id: Azure AD security group GUID 
+  ⚠️  REQUIRED for all environment types except Developer
 - domain: Custom domain name for the Dataverse instance
 - administration_mode_enabled: Enable admin mode for the environment
 - background_operation_enabled: Enable background operations
@@ -167,18 +168,27 @@ Optional Properties:
 
 Examples:
 
-# Production Dataverse
+# Production/Sandbox Dataverse (security_group_id REQUIRED)
 dataverse = {
-  language_code                = 1033  # English (United States) - INTEGER!
-  currency_code               = "USD"
-  security_group_id           = "12345678-1234-1234-1234-123456789012"
-  domain                      = "contoso-prod"
-  administration_mode_enabled = false
-  background_operation_enabled = true
+  language_code     = 1033
+  currency_code     = "USD"
+  security_group_id = "12345678-1234-1234-1234-123456789012"  # Required!
+}
+
+# Developer Dataverse (security_group_id optional)
+dataverse = {
+  language_code = 1033
+  currency_code = "USD"
+  # security_group_id not required for Developer environments
 }
 
 # No Dataverse
 dataverse = null
+
+Provider Requirements:
+- security_group_id is MANDATORY for Sandbox, Production, and Trial environments
+- security_group_id is OPTIONAL for Developer environments  
+- All other properties are optional across all environment types
 DESCRIPTION
   default     = null
 
