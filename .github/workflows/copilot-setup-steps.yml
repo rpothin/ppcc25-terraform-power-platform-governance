@@ -50,8 +50,6 @@ jobs:
   # otherwise it will not be picked up by Copilot.
   copilot-setup-steps:
     runs-on: ubuntu-latest
-    environment: production
-    timeout-minutes: 30   # WHY: Comprehensive tool installation can take 15-25 minutes
 
     steps:
       # === REPOSITORY ACCESS ===
@@ -74,34 +72,6 @@ jobs:
           curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
           tflint --version
           echo "TFLint installed for Terraform code quality validation"
-
-      # === AZURE AUTHENTICATION ===
-      # Authenticates with Azure using OIDC for passwordless, secure authentication
-      # This authentication is required for both Azure resources and the Terraform backend
-      - name: Azure Login with OIDC
-        uses: azure/login@v2.3.0
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      # === POWER PLATFORM GOVERNANCE ===
-      # Core tool for tenant operations and connector management
-      - name: Install Power Platform CLI
-        run: |
-          # Install .NET runtime for Power Platform CLI
-          wget https://dot.net/v1/dotnet-install.sh -O dotnet-install.sh
-          chmod +x dotnet-install.sh
-          ./dotnet-install.sh --version latest --install-dir ~/.dotnet
-          export PATH="$HOME/.dotnet:$PATH"
-          echo "$HOME/.dotnet" >> $GITHUB_PATH
-          
-          # Install Power Platform CLI
-          dotnet tool install --global Microsoft.PowerApps.CLI.Tool
-          echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
-          
-          # Verify installation
-          pac --version
-          echo "Power Platform CLI installed for governance operations"
 
       # === DOCUMENTATION TOOLS ===
       # Terraform documentation generation for AVM compliance
