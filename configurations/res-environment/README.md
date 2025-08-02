@@ -64,18 +64,29 @@ Properties:
 - display\_name: Human-readable name for the environment (3-64 chars, alphanumeric with spaces/hyphens/underscores)
 - location: Azure region where the environment will be created (e.g., "unitedstates", "europe", "asia")
 - environment\_type: Type of environment determining capabilities ("Sandbox", "Production", "Trial", "Developer")
+- owner\_id: Entra ID user GUID - REQUIRED for Developer environments, optional for others
 
-Example:  
+Examples:
+# Developer environment (owner\_id required)  
 environment\_config = {  
-  display\_name     = "Development Environment"  
+  display\_name     = "John's Development Environment"  
   location         = "unitedstates"  
-  environment\_type = "Sandbox"
+  environment\_type = "Developer"  
+  owner\_id         = "12345678-1234-1234-1234-123456789012"
+}
+
+# Other environment types (owner\_id optional)  
+environment\_config = {  
+  display\_name     = "Production Environment"  
+  location         = "unitedstates"  
+  environment\_type = "Production"
 }
 
 Validation Rules:
 - Display name must be unique within tenant and follow organizational standards
 - Location must be supported by Power Platform for environment creation
 - Environment type determines available features and capacity limits
+- Owner ID must be valid UUID format when provided (required for Developer environments)
 
 Type:
 
@@ -84,6 +95,7 @@ object({
     display_name     = string
     location         = string
     environment_type = string
+    owner_id         = optional(string)
   })
 ```
 
