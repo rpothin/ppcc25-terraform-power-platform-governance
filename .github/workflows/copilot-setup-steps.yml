@@ -81,7 +81,6 @@ jobs:
           curl -sSLo ./terraform-docs.tar.gz https://terraform-docs.io/dl/v0.20.0/terraform-docs-v0.20.0-$(uname)-amd64.tar.gz
           tar -xzf terraform-docs.tar.gz
           chmod +x terraform-docs
-          # Move terraform-docs binary to proper folder in GitHub Actions runner
           sudo mv terraform-docs /usr/local/bin/terraform-docs
           terraform-docs --version
 
