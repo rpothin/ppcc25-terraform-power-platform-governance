@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📚 Repository Documentation
+    url: https://github.com/rpothin/ppcc25-terraform-power-platform-governance/tree/main/docs
+    about: Browse comprehensive documentation and guides for Power Platform governance
+  - name: 🔧 Terraform Configuration Standards
+    url: https://github.com/rpothin/ppcc25-terraform-power-platform-governance/blob/main/.github/instructions/terraform-iac.instructions.md
+    about: Review Terraform and AVM compliance standards for this repository
