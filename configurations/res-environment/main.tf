@@ -125,11 +125,11 @@ resource "powerplatform_environment" "this" {
     security_group_id = var.dataverse_config.security_group_id
     domain            = var.dataverse_config.domain
     organization_name = var.dataverse_config.organization_name
-  } : (
+    } : (
     # Power Platform provider requires dataverse when owner_id is specified (Developer environments)
     var.environment_config.environment_type == "Developer" && var.environment_config.owner_id != null ? {
-      language_code     = "1033"  # English (United States) - default for Developer environments
-      currency_code     = "USD"   # US Dollar - default for Developer environments
+      language_code     = "1033" # English (United States) - default for Developer environments
+      currency_code     = "USD"  # US Dollar - default for Developer environments
       security_group_id = null
       domain            = null
       organization_name = null

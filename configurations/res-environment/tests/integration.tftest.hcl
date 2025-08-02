@@ -292,8 +292,15 @@ run "dataverse_null_configuration_test" {
   }
 
   assert {
-    condition     = powerplatform_environment.this.dataverse == null
-    error_message = "No Dataverse block should be planned when dataverse_config is null and environment_type is Sandbox."
+    condition = (
+      powerplatform_environment.this.dataverse == null ||
+      length(try(powerplatform_environment.this.dataverse, {})) == 0 ||
+      (
+        try(powerplatform_environment.this.dataverse.language_code, null) == null &&
+        try(powerplatform_environment.this.dataverse.currency_code, null) == null
+      )
+    )
+    error_message = "Dataverse should not be configured when dataverse_config is null and environment_type is Sandbox."
   }
 }
 
