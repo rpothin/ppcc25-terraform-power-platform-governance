@@ -273,7 +273,7 @@ run "duplicate_protection_enabled_test" {
 
 # Dataverse configuration test (null case)
 run "dataverse_null_configuration_test" {
-  command = plan
+  command = apply
   variables {
     environment_config = {
       display_name     = "Test No Dataverse"
