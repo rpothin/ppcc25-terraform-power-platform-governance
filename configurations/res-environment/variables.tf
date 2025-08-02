@@ -82,7 +82,7 @@ DESCRIPTION
       var.environment_config.owner_id == null ? true :
       can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.environment_config.owner_id))
     )
-    error_message = "Owner ID must be a valid UUID format when provided. Example: '12345678-1234-1234-1234-123456789012'. Current: '${var.environment_config.owner_id}'"
+    error_message = "Owner ID must be a valid UUID format when provided. Example: '12345678-1234-1234-1234-123456789012'"
   }
 
   validation {
