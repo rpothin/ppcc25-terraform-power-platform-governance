@@ -235,6 +235,10 @@ run "duplicate_protection_enabled_test" {
       environment_type = "Developer"
       owner_id         = "12345678-1234-1234-1234-123456789012"
     }
+    dataverse_config = {
+      language_code = "1033"
+      currency_code = "USD"
+    }
     enable_duplicate_protection = true
     tags = {
       TestScenario = "DuplicateProtection"
