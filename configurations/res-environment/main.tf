@@ -2,6 +2,17 @@
 #
 # This configuration uses ONLY the arguments that actually exist in the
 # microsoft/power-platform provider to ensure 100% compatibility.
+#
+# ⚠️  KNOWN LIMITATIONS:
+# - Developer environments are NOT SUPPORTED with service principal authentication
+# - This module only supports Sandbox, Production, and Trial environment types
+# - Developer environments require user authentication (not service principal)
+# - See: https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/resources/environment
+#
+# Supported Environment Types:
+# - Sandbox: For development and testing
+# - Production: For live business applications  
+# - Trial: For evaluation purposes
 
 # Query existing environments for duplicate detection
 data "powerplatform_environments" "all" {
@@ -53,11 +64,10 @@ resource "null_resource" "environment_duplicate_guardrail" {
 resource "powerplatform_environment" "this" {
   depends_on = [null_resource.environment_duplicate_guardrail]
 
-  # ✅ REAL ARGUMENTS ONLY
+  # ✅ REAL ARGUMENTS ONLY - NO DEVELOPER ENVIRONMENT SUPPORT
   display_name                     = var.environment.display_name
   location                         = var.environment.location
   environment_type                 = var.environment.environment_type
-  owner_id                         = var.environment.owner_id
   description                      = var.environment.description
   azure_region                     = var.environment.azure_region
   cadence                          = var.environment.cadence
@@ -67,9 +77,8 @@ resource "powerplatform_environment" "this" {
   environment_group_id             = var.environment.environment_group_id
   release_cycle                    = var.environment.release_cycle
 
-  # ✅ REAL DATAVERSE BLOCK - FIXED TYPE CONSISTENCY
+  # ✅ SIMPLIFIED DATAVERSE BLOCK - NO DEVELOPER ENVIRONMENT HANDLING
   dataverse = var.dataverse != null ? {
-    # Use provided dataverse configuration
     language_code                = var.dataverse.language_code
     currency_code                = var.dataverse.currency_code
     security_group_id            = var.dataverse.security_group_id
@@ -78,22 +87,11 @@ resource "powerplatform_environment" "this" {
     background_operation_enabled = var.dataverse.background_operation_enabled
     template_metadata            = var.dataverse.template_metadata
     templates                    = var.dataverse.templates
-    } : (
-    # Default Dataverse for Developer environments (CONSISTENT TYPE)
-    var.environment.environment_type == "Developer" && var.environment.owner_id != null ? {
-      language_code                = 1033  # English (United States)
-      currency_code                = "USD" # US Dollar
-      security_group_id            = null  # No security group by default
-      domain                       = null  # Auto-generated domain
-      administration_mode_enabled  = null  # Use platform default
-      background_operation_enabled = null  # Use platform default
-      template_metadata            = null  # No template metadata
-      templates                    = null  # No templates
-    } : null                               # No Dataverse for non-Developer environments without explicit config
-  )
+  } : null
 
   # Lifecycle management
   lifecycle {
+    prevent_destroy = true
     ignore_changes = [
       description, # Allow manual updates in admin center
     ]

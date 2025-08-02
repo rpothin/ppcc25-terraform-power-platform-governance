@@ -4,6 +4,10 @@
 # Tests require authentication via OIDC and are designed for CI/CD environments like GitHub Actions.
 #
 # Updated to align with corrected provider schema and variable structure.
+# 
+# ⚠️  DEVELOPER ENVIRONMENT LIMITATION:
+# - Developer environments are NOT SUPPORTED with service principal authentication
+# - All tests use Sandbox, Production, or Trial environment types only
 #
 # Test Philosophy:
 # - Performance Optimized: Consolidated assertions minimize plan/apply cycles
@@ -17,11 +21,11 @@ variables {
   expected_minimum_count = 0  # Allow empty tenants in test environments
   test_timeout_minutes   = 10 # Extended timeout for environment operations
 
-  # ✅ CORRECTED: Use actual variable structure
+  # ✅ CORRECTED: Use actual variable structure - NO DEVELOPER ENVIRONMENTS
   environment = {
     display_name     = "Test Environment - Integration"
     location         = "unitedstates"
-    environment_type = "Sandbox"
+    environment_type = "Sandbox" # Sandbox only - no Developer support
   }
 
   # Optional Dataverse configuration for testing
@@ -67,8 +71,8 @@ run "plan_validation" {
 
   # Variable validation and input constraints (Assertions 5-8)
   assert {
-    condition     = contains(["Sandbox", "Production", "Trial", "Developer"], var.environment.environment_type)
-    error_message = "Environment type should be valid value: ${var.environment.environment_type}"
+    condition     = contains(["Sandbox", "Production", "Trial"], var.environment.environment_type)
+    error_message = "Environment type should be valid value (no Developer support): ${var.environment.environment_type}"
   }
 
   assert {
@@ -223,90 +227,6 @@ run "duplicate_protection_disabled_test" {
   }
 }
 
-# Developer environment with owner_id test
-run "developer_environment_test" {
-  command = plan
-  variables {
-    environment = {
-      display_name     = "Developer Environment Test"
-      location         = "unitedstates"
-      environment_type = "Developer"
-      owner_id         = "87654321-4321-4321-4321-210987654321"
-    }
-    dataverse = {
-      language_code = 1033 # INTEGER not string!
-      currency_code = "USD"
-    }
-    enable_duplicate_protection = false
-    tags = {
-      EnvironmentType = "Developer"
-      TestScenario    = "DeveloperEnvironment"
-    }
-  }
-
-  assert {
-    condition     = var.environment.environment_type == "Developer"
-    error_message = "Environment type should be Developer for this test."
-  }
-
-  assert {
-    condition     = var.environment.owner_id != null
-    error_message = "Owner ID should be provided for Developer environment."
-  }
-
-  assert {
-    condition     = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.environment.owner_id))
-    error_message = "Owner ID should be valid UUID format."
-  }
-
-  assert {
-    condition     = powerplatform_environment.this.owner_id == var.environment.owner_id
-    error_message = "Planned environment owner_id should match input variable."
-  }
-}
-
-# Developer environment with Dataverse test (security_group_id optional)
-run "developer_dataverse_test" {
-  command = apply
-  variables {
-    environment = {
-      display_name     = "Developer With Dataverse"
-      location         = "unitedstates"
-      environment_type = "Developer" # Developer environment
-      owner_id         = "87654321-4321-4321-4321-210987654321"
-    }
-    dataverse = {
-      language_code = 1033
-      currency_code = "USD"
-      # security_group_id NOT required for Developer environments
-    }
-    enable_duplicate_protection = false
-    tags = {
-      TestScenario = "DeveloperDataverse"
-    }
-  }
-
-  assert {
-    condition     = var.environment.environment_type == "Developer"
-    error_message = "Environment type should be Developer for this test."
-  }
-
-  assert {
-    condition     = var.environment.owner_id != null
-    error_message = "Owner ID should be provided for Developer environment."
-  }
-
-  assert {
-    condition     = var.dataverse.security_group_id == null
-    error_message = "Security group ID should be null for Developer environment test."
-  }
-
-  assert {
-    condition     = powerplatform_environment.this.dataverse != null
-    error_message = "Developer environment should support Dataverse without security_group_id."
-  }
-}
-
 # Dataverse configuration test (null case)
 run "dataverse_null_configuration_test" {
   command = apply
@@ -326,7 +246,6 @@ run "dataverse_null_configuration_test" {
     error_message = "Dataverse config should be null for this test."
   }
 
-  # ✅ CORRECTED: Test actual provider behavior
   assert {
     condition     = powerplatform_environment.this.dataverse == null
     error_message = "When dataverse is null, provider should not create Dataverse configuration."
@@ -338,19 +257,19 @@ run "dataverse_null_configuration_test" {
   }
 }
 
-# Dataverse configuration test (explicit case) - FIXED
+# Dataverse configuration test (explicit case) - FIXED with security_group_id
 run "dataverse_explicit_configuration_test" {
   command = apply
   variables {
     environment = {
       display_name     = "Test With Dataverse"
       location         = "unitedstates"
-      environment_type = "Sandbox" # Non-Developer environment
+      environment_type = "Sandbox"
     }
     dataverse = {
       language_code     = 1033
       currency_code     = "USD"
-      security_group_id = "12345678-1234-1234-1234-123456789012" # ✅ REQUIRED for non-Developer
+      security_group_id = "12345678-1234-1234-1234-123456789012" # REQUIRED
     }
     enable_duplicate_protection = false
     tags = {
@@ -373,10 +292,9 @@ run "dataverse_explicit_configuration_test" {
     error_message = "Currency code should be USD string."
   }
 
-  # ✅ ADDED: Verify security_group_id is provided for non-Developer environments
   assert {
     condition     = var.dataverse.security_group_id != null
-    error_message = "Security group ID should be provided for non-Developer environments with Dataverse."
+    error_message = "Security group ID should be provided for all environment types."
   }
 
   assert {
@@ -437,6 +355,68 @@ run "new_provider_properties_test" {
   }
 }
 
+# Production environment test
+run "production_environment_test" {
+  command = plan
+  variables {
+    environment = {
+      display_name     = "Production Environment Test"
+      location         = "unitedstates"
+      environment_type = "Production"
+      description      = "Production environment for testing"
+      cadence          = "Moderate"
+    }
+    dataverse                   = null
+    enable_duplicate_protection = false
+    tags = {
+      EnvironmentType = "Production"
+    }
+  }
+
+  assert {
+    condition     = var.environment.environment_type == "Production"
+    error_message = "Environment type should be Production for this test."
+  }
+
+  assert {
+    condition     = contains(["Sandbox", "Production", "Trial"], var.environment.environment_type)
+    error_message = "Environment type should be valid (no Developer support)."
+  }
+
+  assert {
+    condition     = powerplatform_environment.this.description == var.environment.description
+    error_message = "Environment description should match input."
+  }
+}
+
+# Trial environment test
+run "trial_environment_test" {
+  command = plan
+  variables {
+    environment = {
+      display_name     = "Trial Environment Test"
+      location         = "unitedstates"
+      environment_type = "Trial"
+      description      = "Trial environment for evaluation"
+    }
+    dataverse                   = null
+    enable_duplicate_protection = false
+    tags = {
+      EnvironmentType = "Trial"
+    }
+  }
+
+  assert {
+    condition     = var.environment.environment_type == "Trial"
+    error_message = "Environment type should be Trial for this test."
+  }
+
+  assert {
+    condition     = powerplatform_environment.this.environment_type == "Trial"
+    error_message = "Planned environment type should be Trial."
+  }
+}
+
 # Edge case: Minimum valid display name
 run "minimum_display_name_test" {
   command = plan
@@ -487,40 +467,6 @@ run "maximum_display_name_test" {
   }
 }
 
-# Production environment test
-run "production_environment_test" {
-  command = plan
-  variables {
-    environment = {
-      display_name     = "Production Environment Test"
-      location         = "unitedstates"
-      environment_type = "Production"
-      description      = "Production environment for testing"
-      cadence          = "Moderate"
-    }
-    dataverse                   = null
-    enable_duplicate_protection = false
-    tags = {
-      EnvironmentType = "Production"
-    }
-  }
-
-  assert {
-    condition     = var.environment.environment_type == "Production"
-    error_message = "Environment type should be Production for this test."
-  }
-
-  assert {
-    condition     = contains(["Sandbox", "Production", "Trial", "Developer"], var.environment.environment_type)
-    error_message = "Environment type should be valid."
-  }
-
-  assert {
-    condition     = powerplatform_environment.this.description == var.environment.description
-    error_message = "Environment description should match input."
-  }
-}
-
 # Comprehensive dataverse properties test
 run "comprehensive_dataverse_test" {
   command = plan
@@ -564,5 +510,10 @@ run "comprehensive_dataverse_test" {
   assert {
     condition     = length(var.dataverse.templates) == 2
     error_message = "Templates list should be configurable."
+  }
+
+  assert {
+    condition     = var.dataverse.security_group_id != null
+    error_message = "Security group ID should be required."
   }
 }

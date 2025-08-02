@@ -13,7 +13,6 @@ variable "environment" {
     environment_type = string
 
     # Optional Arguments - ✅ REAL
-    owner_id                         = optional(string)
     description                      = optional(string)
     azure_region                     = optional(string)
     cadence                          = optional(string) # "Frequent" or "Moderate" only
@@ -33,10 +32,10 @@ microsoft/power-platform provider to ensure 100% compatibility.
 Required Properties:
 - display_name: Human-readable environment name
 - location: Power Platform region (e.g., "unitedstates", "europe")
-- environment_type: Environment classification (Sandbox, Production, Trial, Developer)
+- environment_type: Environment classification (Sandbox, Production, Trial)
+  ⚠️  Developer environments are NOT SUPPORTED with service principal authentication
 
 Optional Properties:
-- owner_id: Entra ID user GUID (REQUIRED for Developer environments)
 - description: Environment description
 - azure_region: Specific Azure region (westeurope, eastus, etc.)
 - cadence: Update cadence ("Frequent" or "Moderate")
@@ -60,14 +59,17 @@ environment = {
   allow_moving_data_across_regions = false
 }
 
-# Developer Environment (owner_id required)
+# Sandbox Environment
 environment = {
-  display_name     = "John's Development Environment"
+  display_name     = "Development Sandbox"
   location         = "unitedstates"
-  environment_type = "Developer"
-  owner_id         = "12345678-1234-1234-1234-123456789012"
+  environment_type = "Sandbox"
   cadence          = "Frequent"
 }
+
+Limitations:
+- Developer environments require user authentication (not service principal)
+- This module only supports Sandbox, Production, and Trial environment types
 DESCRIPTION
 
   validation {
@@ -89,25 +91,8 @@ DESCRIPTION
   }
 
   validation {
-    condition     = contains(["Sandbox", "Production", "Trial", "Developer"], var.environment.environment_type)
-    error_message = "Environment type must be one of: Sandbox, Production, Trial, Developer."
-  }
-
-  validation {
-    condition = (
-      var.environment.owner_id == null ? true :
-      can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.environment.owner_id))
-    )
-    error_message = "Owner ID must be a valid UUID format when provided."
-  }
-
-  validation {
-    condition = (
-      var.environment.environment_type == "Developer" ?
-      var.environment.owner_id != null :
-      true
-    )
-    error_message = "Developer environment type requires owner_id to be specified."
+    condition     = contains(["Sandbox", "Production", "Trial"], var.environment.environment_type)
+    error_message = "Environment type must be one of: Sandbox, Production, Trial. Developer environments are not supported with service principal authentication."
   }
 
   validation {
@@ -142,7 +127,7 @@ variable "dataverse" {
     currency_code = string
 
     # Optional Arguments - ✅ REAL
-    security_group_id            = optional(string)
+    security_group_id            = string # REQUIRED for all supported environment types
     domain                       = optional(string)
     administration_mode_enabled  = optional(bool)
     background_operation_enabled = optional(bool)
@@ -156,10 +141,9 @@ Dataverse database configuration for the Power Platform environment.
 Required Properties:
 - language_code: LCID integer (e.g., 1033 for English US) 
 - currency_code: ISO currency code string (e.g., "USD", "EUR", "GBP")
+- security_group_id: Azure AD security group GUID (REQUIRED for all environment types)
 
 Optional Properties:
-- security_group_id: Azure AD security group GUID 
-  ⚠️  REQUIRED for all environment types except Developer
 - domain: Custom domain name for the Dataverse instance
 - administration_mode_enabled: Enable admin mode for the environment
 - background_operation_enabled: Enable background operations
@@ -168,27 +152,20 @@ Optional Properties:
 
 Examples:
 
-# Production/Sandbox Dataverse (security_group_id REQUIRED)
+# Production/Sandbox/Trial Dataverse (security_group_id REQUIRED)
 dataverse = {
   language_code     = 1033
   currency_code     = "USD"
-  security_group_id = "12345678-1234-1234-1234-123456789012"  # Required!
-}
-
-# Developer Dataverse (security_group_id optional)
-dataverse = {
-  language_code = 1033
-  currency_code = "USD"
-  # security_group_id not required for Developer environments
+  security_group_id = "12345678-1234-1234-1234-123456789012"
+  domain            = "contoso-prod"
 }
 
 # No Dataverse
 dataverse = null
 
 Provider Requirements:
-- security_group_id is MANDATORY for Sandbox, Production, and Trial environments
-- security_group_id is OPTIONAL for Developer environments  
-- All other properties are optional across all environment types
+- security_group_id is MANDATORY for all supported environment types (Sandbox, Production, Trial)
+- All other properties are optional
 DESCRIPTION
   default     = null
 
@@ -204,10 +181,10 @@ DESCRIPTION
 
   validation {
     condition = var.dataverse == null ? true : (
-      var.dataverse.security_group_id == null ? true :
+      var.dataverse.security_group_id != null &&
       can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.dataverse.security_group_id))
     )
-    error_message = "Security group ID must be a valid UUID format if provided."
+    error_message = "Security group ID is REQUIRED and must be a valid UUID format for all environment types supported by this module."
   }
 
   validation {
