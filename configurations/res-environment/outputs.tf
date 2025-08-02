@@ -16,7 +16,7 @@ DESCRIPTION
   value       = powerplatform_environment.this.id
 }
 
-# Environment URL for applications and integrations
+# Environment URL for applications and integrations (via Dataverse when available)
 output "environment_url" {
   description = <<DESCRIPTION
 The web URL for accessing the Power Platform environment.
@@ -26,8 +26,10 @@ This URL can be used for:
 - Power Apps maker portal links
 - Power Automate environment access
 - API endpoint construction
+
+Note: Returns Dataverse URL when Dataverse is enabled, otherwise null.
 DESCRIPTION
-  value       = powerplatform_environment.this.url
+  value       = try(powerplatform_environment.this.dataverse.url, null)
 }
 
 # Dataverse organization URL (when Dataverse is enabled)
@@ -38,7 +40,7 @@ The organization URL for the Dataverse database, if enabled.
 Returns the base URL for Dataverse API access and application integrations.
 Will be null if Dataverse is not configured for this environment.
 DESCRIPTION
-  value       = try(powerplatform_environment.this.dataverse[0].organization_url, null)
+  value       = try(powerplatform_environment.this.dataverse.url, null)
 }
 
 # Environment configuration summary for validation and reporting
@@ -49,10 +51,10 @@ output "environment_summary" {
     environment_id               = powerplatform_environment.this.id
     location                     = powerplatform_environment.this.location
     environment_type             = powerplatform_environment.this.environment_type
-    url                          = powerplatform_environment.this.url
-    has_dataverse                = try(powerplatform_environment.this.dataverse[0] != null, false)
-    dataverse_url                = try(powerplatform_environment.this.dataverse[0].organization_url, null)
-    created_time                 = powerplatform_environment.this.created_time
+    environment_url              = try(powerplatform_environment.this.dataverse.url, null)
+    has_dataverse                = var.dataverse_config != null
+    dataverse_url                = try(powerplatform_environment.this.dataverse.url, null)
+    deployment_timestamp         = timestamp()
     resource_type                = "powerplatform_environment"
     classification               = "res-environment"
     terraform_managed            = true
@@ -64,15 +66,12 @@ output "environment_summary" {
 output "dataverse_configuration" {
   description = "Dataverse database configuration details when enabled, null otherwise"
   value = var.dataverse_config != null ? {
-    organization_id   = try(powerplatform_environment.this.dataverse[0].organization_id, null)
-    organization_url  = try(powerplatform_environment.this.dataverse[0].organization_url, null)
-    domain_name       = try(powerplatform_environment.this.dataverse[0].domain_name, null)
+    organization_url  = try(powerplatform_environment.this.dataverse.url, null)
     language_code     = var.dataverse_config.language_code
     currency_code     = var.dataverse_config.currency_code
     security_group_id = var.dataverse_config.security_group_id
-    linked_app_type   = try(powerplatform_environment.this.dataverse[0].linked_app_type, null)
-    linked_app_id     = try(powerplatform_environment.this.dataverse[0].linked_app_id, null)
-    linked_app_url    = try(powerplatform_environment.this.dataverse[0].linked_app_url, null)
+    domain            = var.dataverse_config.domain
+    organization_name = var.dataverse_config.organization_name
   } : null
   sensitive = false # Organization details are not sensitive for operations teams
 }
