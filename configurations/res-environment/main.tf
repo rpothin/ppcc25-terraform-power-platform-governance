@@ -118,14 +118,23 @@ resource "powerplatform_environment" "this" {
   # Owner ID only for Developer environments (Power Platform provider requirement)
   owner_id = var.environment_config.environment_type == "Developer" ? var.environment_config.owner_id : null
 
-  # Dataverse configuration (optional - only when enabled)
+  # Dataverse configuration (required when owner_id is specified for Developer environments)
   dataverse = var.dataverse_config != null ? {
     language_code     = var.dataverse_config.language_code
     currency_code     = var.dataverse_config.currency_code
     security_group_id = var.dataverse_config.security_group_id
     domain            = var.dataverse_config.domain
     organization_name = var.dataverse_config.organization_name
-  } : null
+  } : (
+    # Power Platform provider requires dataverse when owner_id is specified (Developer environments)
+    var.environment_config.environment_type == "Developer" && var.environment_config.owner_id != null ? {
+      language_code     = "1033"  # English (United States) - default for Developer environments
+      currency_code     = "USD"   # US Dollar - default for Developer environments
+      security_group_id = null
+      domain            = null
+      organization_name = null
+    } : null
+  )
 
   # Enhanced lifecycle management for critical environment resources
   lifecycle {

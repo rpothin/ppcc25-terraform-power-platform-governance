@@ -279,6 +279,7 @@ run "dataverse_null_configuration_test" {
       display_name     = "Test No Dataverse"
       location         = "unitedstates"
       environment_type = "Sandbox"
+      owner_id         = null
     }
     dataverse_config            = null
     enable_duplicate_protection = false
@@ -291,8 +292,8 @@ run "dataverse_null_configuration_test" {
   }
 
   assert {
-    condition     = length(powerplatform_environment.this.dataverse) == 0
-    error_message = "No Dataverse block should be planned when dataverse_config is null."
+    condition     = powerplatform_environment.this.dataverse == null
+    error_message = "No Dataverse block should be planned when dataverse_config is null and environment_type is Sandbox."
   }
 }
 
