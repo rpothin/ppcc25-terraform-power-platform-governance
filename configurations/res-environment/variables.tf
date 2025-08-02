@@ -17,6 +17,7 @@ variable "environment_config" {
     display_name     = string
     location         = string
     environment_type = string
+    owner_id         = optional(string)
   })
   description = <<DESCRIPTION
 Comprehensive configuration object for Power Platform environment.
@@ -28,18 +29,29 @@ Properties:
 - display_name: Human-readable name for the environment (3-64 chars, alphanumeric with spaces/hyphens/underscores)
 - location: Azure region where the environment will be created (e.g., "unitedstates", "europe", "asia")
 - environment_type: Type of environment determining capabilities ("Sandbox", "Production", "Trial", "Developer")
+- owner_id: Entra ID user GUID - REQUIRED for Developer environments, optional for others
 
-Example:
+Examples:
+# Developer environment (owner_id required)
 environment_config = {
-  display_name     = "Development Environment"
+  display_name     = "John's Development Environment"
   location         = "unitedstates"
-  environment_type = "Sandbox"
+  environment_type = "Developer"
+  owner_id         = "12345678-1234-1234-1234-123456789012"
+}
+
+# Other environment types (owner_id optional)
+environment_config = {
+  display_name     = "Production Environment"
+  location         = "unitedstates"
+  environment_type = "Production"
 }
 
 Validation Rules:
 - Display name must be unique within tenant and follow organizational standards
 - Location must be supported by Power Platform for environment creation
 - Environment type determines available features and capacity limits
+- Owner ID must be valid UUID format when provided (required for Developer environments)
 DESCRIPTION
 
   validation {
@@ -63,6 +75,23 @@ DESCRIPTION
   validation {
     condition     = contains(["Sandbox", "Production", "Trial", "Developer"], var.environment_config.environment_type)
     error_message = "Environment type must be one of: Sandbox, Production, Trial, Developer. Received: '${var.environment_config.environment_type}'. Check Power Platform licensing for availability."
+  }
+
+  validation {
+    condition = (
+      var.environment_config.owner_id == null ? true :
+      can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.environment_config.owner_id))
+    )
+    error_message = "Owner ID must be a valid UUID format when provided. Example: '12345678-1234-1234-1234-123456789012'. Current: '${var.environment_config.owner_id}'"
+  }
+
+  validation {
+    condition = (
+      var.environment_config.environment_type == "Developer" ?
+      var.environment_config.owner_id != null :
+      true
+    )
+    error_message = "Developer environment type requires owner_id to be specified. Please provide a valid Entra ID user GUID. Environment type: '${var.environment_config.environment_type}'"
   }
 }
 

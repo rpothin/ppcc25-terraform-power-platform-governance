@@ -115,6 +115,9 @@ resource "powerplatform_environment" "this" {
   location         = var.environment_config.location
   environment_type = var.environment_config.environment_type
 
+  # Owner ID for Developer environments (required by Power Platform provider)
+  owner_id = var.environment_config.owner_id
+
   # Dataverse configuration (optional - only when enabled)
   dataverse = var.dataverse_config != null ? {
     language_code     = var.dataverse_config.language_code

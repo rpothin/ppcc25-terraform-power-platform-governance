@@ -233,6 +233,7 @@ run "duplicate_protection_enabled_test" {
       display_name     = "Test Duplicate Check Enabled"
       location         = "europe"
       environment_type = "Developer"
+      owner_id         = "12345678-1234-1234-1234-123456789012"
     }
     enable_duplicate_protection = true
     tags = {
@@ -253,6 +254,16 @@ run "duplicate_protection_enabled_test" {
   assert {
     condition     = can(data.powerplatform_environments.all)
     error_message = "Should be able to query existing environments when duplicate protection is enabled."
+  }
+
+  assert {
+    condition     = var.environment_config.owner_id != null
+    error_message = "Owner ID should be provided for Developer environment test."
+  }
+
+  assert {
+    condition     = powerplatform_environment.this.owner_id == var.environment_config.owner_id
+    error_message = "Planned environment owner_id should match input variable."
   }
 }
 
@@ -352,5 +363,78 @@ run "environment_types_test" {
   assert {
     condition     = contains(["Sandbox", "Production", "Trial", "Developer"], var.environment_config.environment_type)
     error_message = "Environment type should be valid."
+  }
+}
+
+# Developer environment specific test
+run "developer_environment_test" {
+  command = plan
+  variables {
+    environment_config = {
+      display_name     = "Developer Environment Test"
+      location         = "unitedstates"
+      environment_type = "Developer"
+      owner_id         = "87654321-4321-4321-4321-210987654321"
+    }
+    enable_duplicate_protection = false
+    tags = {
+      EnvironmentType = "Developer"
+      TestScenario    = "DeveloperEnvironment"
+    }
+  }
+
+  assert {
+    condition     = var.environment_config.environment_type == "Developer"
+    error_message = "Environment type should be Developer for this test."
+  }
+
+  assert {
+    condition     = var.environment_config.owner_id != null
+    error_message = "Owner ID should be provided for Developer environment."
+  }
+
+  assert {
+    condition     = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.environment_config.owner_id))
+    error_message = "Owner ID should be valid UUID format."
+  }
+
+  assert {
+    condition     = powerplatform_environment.this.owner_id == var.environment_config.owner_id
+    error_message = "Planned environment owner_id should match input variable."
+  }
+
+  assert {
+    condition     = powerplatform_environment.this.environment_type == "Developer"
+    error_message = "Planned environment type should be Developer."
+  }
+}
+
+# Owner ID validation test (negative case)
+run "owner_id_validation_test" {
+  command = plan
+  variables {
+    environment_config = {
+      display_name     = "Sandbox with Optional Owner"
+      location         = "unitedstates"
+      environment_type = "Sandbox"
+      owner_id         = null
+    }
+    enable_duplicate_protection = false
+    tags                        = {}
+  }
+
+  assert {
+    condition     = var.environment_config.environment_type == "Sandbox"
+    error_message = "Environment type should be Sandbox for this test."
+  }
+
+  assert {
+    condition     = var.environment_config.owner_id == null
+    error_message = "Owner ID should be null for non-Developer environment test."
+  }
+
+  assert {
+    condition     = powerplatform_environment.this.owner_id == null
+    error_message = "Planned environment owner_id should be null when not provided."
   }
 }
