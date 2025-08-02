@@ -21,6 +21,36 @@ inputs:
   tfvars-file: 'production'  # Uses tfvars/production.tfvars
 ```
 
+## Pre-requisites - Granting Service Principal System Administrator Permissions
+
+To ensure the service principal used by Terraform has the necessary permissions to manage Power Platform environments, you must assign it the **System Administrator** role in each target environment. This is required for successful resource provisioning and lifecycle management.
+
+Use the provided script to automate this process:
+
+```bash
+./scripts/utils/assign-sp-power-platform-envs.sh --auto-approve
+```
+
+**Script Purpose:**
+- Adds the service principal (configured in `config.env`) as System Administrator on all Power Platform environments.
+- Supports targeting specific environments, dry-run mode, and interactive confirmation.
+
+**Requirements:**
+- Power Platform CLI (`pac`) installed and authenticated
+- Service principal configured in Azure AD and `config.env`
+- Power Platform Administrator privileges for the executing user
+
+**Example:**
+```bash
+# Assign permissions to all environments automatically
+./scripts/utils/assign-sp-power-platform-envs.sh --auto-approve
+
+# Assign permissions to a specific environment
+./scripts/utils/assign-sp-power-platform-envs.sh --environment "<environment-id>" --auto-approve
+```
+
+> **Note:** This step is mandatory before running Terraform to avoid permission errors during environment creation or management.
+
 <!-- markdownlint-disable MD033 -->
 ## Requirements
 
