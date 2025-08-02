@@ -216,6 +216,8 @@ This URL can be used for:
 - Power Automate environment access
 - API endpoint construction
 
+Note: Returns Dataverse URL when Dataverse is enabled, otherwise null.
+
 ## Modules
 
 No modules.
