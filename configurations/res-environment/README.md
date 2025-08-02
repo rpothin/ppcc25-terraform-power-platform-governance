@@ -53,49 +53,71 @@ The following resources are used by this module:
 
 The following input variables are required:
 
-### <a name="input_environment_config"></a> [environment\_config](#input\_environment\_config)
+### <a name="input_environment"></a> [environment](#input\_environment)
 
-Description: Comprehensive configuration object for Power Platform environment.
+Description: Power Platform environment configuration using ONLY real provider arguments.
 
-This variable consolidates core environment settings to reduce complexity while  
-ensuring all requirements are validated at plan time.
+This variable includes exclusively the arguments that actually exist in the   
+microsoft/power-platform provider to ensure 100% compatibility.
 
-Properties:
-- display\_name: Human-readable name for the environment (3-64 chars, alphanumeric with spaces/hyphens/underscores)
-- location: Azure region where the environment will be created (e.g., "unitedstates", "europe", "asia")
-- environment\_type: Type of environment determining capabilities ("Sandbox", "Production", "Trial", "Developer")
-- owner\_id: Entra ID user GUID - REQUIRED for Developer environments, optional for others
+Required Properties:
+- display\_name: Human-readable environment name
+- location: Power Platform region (e.g., "unitedstates", "europe")
+- environment\_type: Environment classification (Sandbox, Production, Trial, Developer)
+
+Optional Properties:
+- owner\_id: Entra ID user GUID (REQUIRED for Developer environments)
+- description: Environment description
+- azure\_region: Specific Azure region (westeurope, eastus, etc.)
+- cadence: Update cadence ("Frequent" or "Moderate")
+- allow\_bing\_search: Enable Bing search in the environment
+- allow\_moving\_data\_across\_regions: Allow data movement across regions
+- billing\_policy\_id: GUID for pay-as-you-go billing policy
+- environment\_group\_id: GUID for environment group membership
+- release\_cycle: Early release participation
 
 Examples:
-# Developer environment (owner\_id required)  
-environment\_config = {  
+
+# Production Environment  
+environment = {  
+  display\_name                     = "Production Finance Environment"  
+  location                        = "unitedstates"  
+  environment\_type               = "Production"  
+  description                    = "Production environment for Finance applications"  
+  azure\_region                   = "eastus"  
+  cadence                        = "Moderate"  
+  allow\_bing\_search              = false  
+  allow\_moving\_data\_across\_regions = false
+}
+
+# Developer Environment (owner\_id required)  
+environment = {  
   display\_name     = "John's Development Environment"  
   location         = "unitedstates"  
   environment\_type = "Developer"  
-  owner\_id         = "12345678-1234-1234-1234-123456789012"
+  owner\_id         = "12345678-1234-1234-1234-123456789012"  
+  cadence          = "Frequent"
 }
-
-# Other environment types (owner\_id optional)  
-environment\_config = {  
-  display\_name     = "Production Environment"  
-  location         = "unitedstates"  
-  environment\_type = "Production"
-}
-
-Validation Rules:
-- Display name must be unique within tenant and follow organizational standards
-- Location must be supported by Power Platform for environment creation
-- Environment type determines available features and capacity limits
-- Owner ID must be valid UUID format when provided (required for Developer environments)
 
 Type:
 
 ```hcl
 object({
+    # Required Arguments - ✅ REAL
     display_name     = string
     location         = string
     environment_type = string
-    owner_id         = optional(string)
+
+    # Optional Arguments - ✅ REAL
+    owner_id                         = optional(string)
+    description                      = optional(string)
+    azure_region                     = optional(string)
+    cadence                          = optional(string) # "Frequent" or "Moderate" only
+    allow_bing_search                = optional(bool)
+    allow_moving_data_across_regions = optional(bool)
+    billing_policy_id                = optional(string)
+    environment_group_id             = optional(string)
+    release_cycle                    = optional(string)
   })
 ```
 
@@ -103,47 +125,52 @@ object({
 
 The following input variables are optional (have default values):
 
-### <a name="input_dataverse_config"></a> [dataverse\_config](#input\_dataverse\_config)
+### <a name="input_dataverse"></a> [dataverse](#input\_dataverse)
 
-Description: Optional Dataverse database configuration for the environment.
+Description: Dataverse database configuration using ONLY real provider arguments.
 
-When provided, creates a Dataverse database with the specified settings.  
-Leave as null to create an environment without Dataverse.
+Required Properties:
+- language\_code: LCID integer (e.g., 1033 for English US) - NOTE: NUMBER not string!
+- currency\_code: ISO currency code string (e.g., "USD", "EUR", "GBP")
 
-Properties:
-- language\_code: LCID code for the default language (e.g., "1033" for English US)
-- currency\_code: ISO currency code for the default currency (e.g., "USD", "EUR", "GBP")
-- security\_group\_id: Optional Azure AD security group ID for database access control
-- domain: Optional custom domain name for the Dataverse instance (auto-generated if not provided)
-- organization\_name: Optional organization name for the Dataverse instance (defaults to display\_name if not provided)
+Optional Properties:
+- security\_group\_id: Azure AD security group GUID
+- domain: Custom domain name for the Dataverse instance
+- administration\_mode\_enabled: Enable admin mode for the environment
+- background\_operation\_enabled: Enable background operations
+- template\_metadata: Additional D365 template metadata as string
+- templates: List of D365 template names
 
-Example:  
-dataverse\_config = {  
-  language\_code     = "1033"  # English (United States)  
-  currency\_code     = "USD"   # US Dollar  
-  security\_group\_id = "12345678-1234-1234-1234-123456789012"  
-  domain            = "contoso-dev"  
-  organization\_name = "Contoso Development"
+Examples:
+
+# Production Dataverse  
+dataverse = {  
+  language\_code                = 1033  # English (United States) - INTEGER!  
+  currency\_code               = "USD"  
+  security\_group\_id           = "12345678-1234-1234-1234-123456789012"  
+  domain                      = "contoso-prod"  
+  administration\_mode\_enabled = false  
+  background\_operation\_enabled = true
 }
 
-Set to null to create environment without Dataverse:  
-dataverse\_config = null
-
-Validation Rules:
-- Language code must be valid LCID (see Microsoft documentation)
-- Currency code must be supported by Power Platform  
-- Security group ID must be valid Azure AD object ID format if provided
-- Domain must be unique within tenant and follow naming conventions
+# No Dataverse  
+dataverse = null
 
 Type:
 
 ```hcl
 object({
-    language_code     = string
-    currency_code     = string
-    security_group_id = optional(string)
-    domain            = optional(string)
-    organization_name = optional(string)
+    # Required Arguments - ✅ REAL
+    language_code = number # LCID integer, not string!
+    currency_code = string
+
+    # Optional Arguments - ✅ REAL
+    security_group_id            = optional(string)
+    domain                       = optional(string)
+    administration_mode_enabled  = optional(bool)
+    background_operation_enabled = optional(bool)
+    template_metadata            = optional(string) # String, not object!
+    templates                    = optional(list(string))
   })
 ```
 
@@ -153,39 +180,13 @@ Default: `null`
 
 Description: Enable duplicate environment detection and prevention.
 
-When true, the module will query existing environments and fail the plan if a duplicate   
-is detected (same display\_name). This is recommended for production to prevent  
-accidental environment duplication.
-
-Set to false to disable duplicate detection during environment import processes  
-or when creating environments with potentially conflicting names.
-
-Default: true (recommended for production)
-
-Usage scenarios:
-- Production deployments: true (prevent duplicates)
-- Environment import: false (temporarily during import process)
-- Development/testing: true (maintain consistency)
-
 Type: `bool`
 
 Default: `true`
 
 ### <a name="input_tags"></a> [tags](#input\_tags)
 
-Description: Optional tags to apply to the environment for organization and cost tracking.
-
-Note: Power Platform environments have limited native tagging support compared  
-to Azure resources. These tags are primarily used for Terraform state organization  
-and may be used by governance processes.
-
-Example:  
-tags = {  
-  Environment = "Production"  
-  Department  = "Finance"  
-  CostCenter  = "CC-12345"  
-  Owner       = "finance-team@contoso.com"
-}
+Description: Optional tags for Terraform state organization and governance.
 
 Type: `map(string)`
 
@@ -206,6 +207,10 @@ Description: The organization URL for the Dataverse database, if enabled.
 Returns the base URL for Dataverse API access and application integrations.  
 Will be null if Dataverse is not configured for this environment.
 
+### <a name="output_enterprise_policies"></a> [enterprise\_policies](#output\_enterprise\_policies)
+
+Description: Enterprise policies applied to the environment (read-only from provider)
+
 ### <a name="output_environment_id"></a> [environment\_id](#output\_environment\_id)
 
 Description: The unique identifier of the Power Platform environment.
@@ -213,6 +218,10 @@ Description: The unique identifier of the Power Platform environment.
 This output provides the primary key for referencing this environment  
 in other Terraform configurations, DLP policies, or external systems.  
 The ID is stable across environment updates and safe for external consumption.
+
+### <a name="output_environment_metadata"></a> [environment\_metadata](#output\_environment\_metadata)
+
+Description: Additional environment metadata for operational monitoring and compliance
 
 ### <a name="output_environment_summary"></a> [environment\_summary](#output\_environment\_summary)
 
