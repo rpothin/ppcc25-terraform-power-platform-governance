@@ -10,20 +10,22 @@
 #
 # 🔒 SECURITY DECISIONS:
 # - Uses pinned tool versions for reproducible, secure environments
-# - OIDC authentication configured for Azure and Power Platform connections
 # - No hardcoded secrets - environment configured for secure operations
+# - Modular tool installation via reusable shell scripts for consistency
 #
 # ⚙️ OPERATIONAL CONTEXT:
 # - Manual dispatch for validation testing of Copilot environment setup
 # - Auto-triggered on changes to this workflow for immediate validation
-# - 30-minute timeout sized for comprehensive tool installation and validation
+# - No timeout specified - relies on GitHub Actions default limits for tool installation
 #
 # 📋 INTEGRATION REQUIREMENTS:
-# - Terraform ~> 1.12.2 for Power Platform provider compatibility
-# - Power Platform CLI for tenant operations and connector exports
-# - Azure CLI for backend authentication and resource management
+# - Terraform ~> 1.12.2 for Power Platform provider compatibility (configurable via repository variables)
 # - TFLint for Terraform code quality validation
+# - terraform-docs for AVM-compliant module documentation
+# - Python 3.11 with YAML processing tools (yamllint, PyYAML, actionlint)
+# - Modular installation via scripts/utils/yaml-tools-installer.sh
 # ═══════════════════════════════════════════════════════════════════════════════════════════════════════
+
 name: "🛠️ Copilot Setup Steps"
 
 concurrency:
