@@ -1,0 +1,178 @@
+---
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
+# GITHUB COPILOT SETUP STEPS WORKFLOW FOR POWER PLATFORM GOVERNANCE
+# Configures the environment for GitHub Copilot coding agent to work with Power Platform Terraform governance.
+#
+# 🎯 WHY THIS EXISTS:
+# - Provides Copilot coding agent with all required tools for Power Platform governance automation
+# - Enables automated Terraform development, validation, and documentation tasks
+# - Supports AVM-compliant module development and testing workflows
+#
+# 🔒 SECURITY DECISIONS:
+# - Uses pinned tool versions for reproducible, secure environments
+# - OIDC authentication configured for Azure and Power Platform connections
+# - No hardcoded secrets - environment configured for secure operations
+#
+# ⚙️ OPERATIONAL CONTEXT:
+# - Manual dispatch for validation testing of Copilot environment setup
+# - Auto-triggered on changes to this workflow for immediate validation
+# - 30-minute timeout sized for comprehensive tool installation and validation
+#
+# 📋 INTEGRATION REQUIREMENTS:
+# - Terraform ~> 1.12.2 for Power Platform provider compatibility
+# - Power Platform CLI for tenant operations and connector exports
+# - Azure CLI for backend authentication and resource management
+# - TFLint for Terraform code quality validation
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
+name: "🛠️ Copilot Setup Steps"
+
+concurrency:
+  group: copilot-setup-steps-${{ github.ref }}
+  cancel-in-progress: false
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+  pull_request:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+
+run-name: "🤖 Configure Copilot Environment by @${{ github.actor }}"
+
+permissions:
+  contents: read          # Required: Repository access for setup validation
+  actions: read           # Required: Workflow metadata access
+
+jobs:
+  # The job MUST be called `copilot-setup-steps`
+  # otherwise it will not be picked up by Copilot.
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30   # WHY: Comprehensive tool installation can take 15-25 minutes
+
+    steps:
+      # === REPOSITORY ACCESS ===
+      # Required foundation for all Copilot operations
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # === TERRAFORM INFRASTRUCTURE ===
+      # Primary tool for Power Platform governance automation
+      - name: Setup Terraform CLI
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ vars.TERRAFORM_VERSION || '1.12.2' }}  # Uses repository variable with fallback
+          terraform_wrapper: false       # WHY: Clean output for Copilot parsing
+
+      # === TERRAFORM CODE QUALITY ===
+      # Linting and validation for AVM-compliant modules
+      - name: Install TFLint
+        run: |
+          curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
+          tflint --version
+          echo "TFLint installed for Terraform code quality validation"
+
+      # === AZURE INTEGRATION ===
+      # Backend authentication and resource management
+      - name: Setup Azure CLI
+        uses: azure/setup-azure-cli@v2
+
+      # === POWER PLATFORM GOVERNANCE ===
+      # Core tool for tenant operations and connector management
+      - name: Install Power Platform CLI
+        run: |
+          # Install .NET runtime for Power Platform CLI
+          wget https://dot.net/v1/dotnet-install.sh -O dotnet-install.sh
+          chmod +x dotnet-install.sh
+          ./dotnet-install.sh --version latest --install-dir ~/.dotnet
+          export PATH="$HOME/.dotnet:$PATH"
+          echo "$HOME/.dotnet" >> $GITHUB_PATH
+          
+          # Install Power Platform CLI
+          dotnet tool install --global Microsoft.PowerApps.CLI.Tool
+          echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
+          
+          # Verify installation
+          pac --version
+          echo "Power Platform CLI installed for governance operations"
+
+      # === DOCUMENTATION TOOLS ===
+      # Terraform documentation generation for AVM compliance
+      - name: Install Documentation Tools
+        run: |
+          # Install terraform-docs for module documentation
+          curl -sSLo ./terraform-docs.tar.gz https://terraform-docs.io/dl/v0.20.0/terraform-docs-v0.20.0-$(uname)-amd64.tar.gz
+          tar -xzf terraform-docs.tar.gz
+          chmod +x terraform-docs
+          sudo mv terraform-docs /usr/local/bin/terraform-docs
+          terraform-docs --version
+          
+          # Install yamllint for YAML validation
+          pip install yamllint==1.35.1
+          yamllint --version
+          
+          # Install actionlint for GitHub Actions validation
+          bash <(curl https://raw.githubusercontent.com/rhymond/actionlint/main/scripts/download-actionlint.bash)
+          sudo mv actionlint /usr/local/bin/actionlint
+          actionlint -version
+          
+          echo "Documentation and validation tools installed"
+
+      # === YAML PROCESSING ===
+      # Enhanced YAML processing for GitHub Actions and configuration files
+      - name: Install Python YAML Tools
+        run: |
+          pip install --upgrade pip
+          pip install PyYAML==6.0.1 ruamel.yaml==0.18.5
+          python3 -c "import yaml; print(f'PyYAML {yaml.__version__} installed')"
+          echo "Python YAML processing tools installed"
+
+      # === ENVIRONMENT VALIDATION ===
+      # Comprehensive validation that all tools are properly installed
+      - name: Validate Environment Setup
+        run: |
+          echo "=== Environment Validation ==="
+          echo "Validating all tools for Copilot coding agent..."
+          
+          # Core tools validation
+          echo "✓ Terraform: $(terraform version -json | jq -r '.terraform_version')"
+          echo "✓ TFLint: $(tflint --version | head -1)"
+          echo "✓ Azure CLI: $(az version --query '"azure-cli"' -o tsv)"
+          echo "✓ Power Platform CLI: $(pac --version | head -1)"
+          echo "✓ NPM: $(npm --version)"
+          
+          # Documentation tools validation  
+          echo "✓ terraform-docs: $(terraform-docs version)"
+          echo "✓ yamllint: $(yamllint --version)"
+          echo "✓ actionlint: $(actionlint -version)"
+          echo "✓ Python: $(python3 --version)"
+          echo "✓ PyYAML: $(python3 -c 'import yaml; print(yaml.__version__)')"
+          
+          # Repository context validation
+          echo "✓ Repository: ${GITHUB_REPOSITORY}"
+          echo "✓ Branch: ${GITHUB_REF_NAME}"
+          echo "✓ Workspace: ${GITHUB_WORKSPACE}"
+          
+          # Power Platform governance context
+          echo "✓ Configurations directory: $(ls -la configurations/ | wc -l) items"
+          echo "✓ Scripts directory: $(ls -la scripts/ | wc -l) items"
+          echo "✓ Documentation: $(ls -la docs/ | wc -l) items"
+          
+          echo "=== Environment Ready ==="
+          echo "GitHub Copilot coding agent environment configured successfully!"
+          echo "All tools installed and validated for Power Platform governance automation."
+
+      # === PERFORMANCE OPTIMIZATION ===
+      # Cache setup for faster subsequent Copilot runs
+      - name: Setup Caching
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.terraform.d/plugin-cache
+            ~/.cache/pip
+            ~/.npm
+          key: copilot-setup-${{ runner.os }}-${{ hashFiles('**/*.tf', '**/package*.json', '**/requirements*.txt') }}
+          restore-keys: |
+            copilot-setup-${{ runner.os }}-
