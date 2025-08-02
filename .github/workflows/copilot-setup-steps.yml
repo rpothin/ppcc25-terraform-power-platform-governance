@@ -41,15 +41,18 @@ on:
 
 run-name: "🤖 Configure Copilot Environment by @${{ github.actor }}"
 
-permissions:
-  contents: read          # Required: Repository access for setup validation
-  actions: read           # Required: Workflow metadata access
-
 jobs:
   # The job MUST be called `copilot-setup-steps`
   # otherwise it will not be picked up by Copilot.
   copilot-setup-steps:
     runs-on: ubuntu-latest
+
+    # Permissions set just for the setup steps
+    # Copilot has permissions to its branch
+    
+    permissions:
+      # To allow GitHub to clone the repo for setup
+      contents: read
 
     steps:
       # === REPOSITORY ACCESS ===
