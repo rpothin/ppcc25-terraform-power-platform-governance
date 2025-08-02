@@ -87,6 +87,8 @@ jobs:
           tar -xzf terraform-docs.tar.gz
           chmod +x terraform-docs
           sudo mv terraform-docs /usr/local/bin/terraform-docs
+          # CLEANUP: Remove temporary installation files
+          rm -f terraform-docs.tar.gz
           terraform-docs --version
 
       # === PYTHON ENVIRONMENT SETUP ===

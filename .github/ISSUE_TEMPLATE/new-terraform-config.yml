@@ -5,19 +5,29 @@ labels: ["terraform", "new-configuration"]
 projects: []
 assignees: []
 body:
-  - type: markdown
+  - type: textarea
+    id: implementation_instructions
     attributes:
+      label: Implementation Instructions (Auto-populated)
+      description: "Required standards and processes that must be followed during configuration initialization"
       value: |
         ## 🎯 Terraform Configuration Initialization Request
         
-        This form creates a task for GitHub Copilot to initialize a new Terraform configuration following Azure Verified Modules (AVM) specifications and repository standards.
+        This form creates a task to initialize a new Terraform configuration following Azure Verified Modules (AVM) specifications and repository standards.
         
-        **📋 Required Instructions:**
+        ### 📋 Required Instructions:
         - **Baseline Standards**: Follow [baseline.instructions.md](/.github/instructions/baseline.instructions.md)
         - **Terraform Standards**: Follow [terraform-iac.instructions.md](/.github/instructions/terraform-iac.instructions.md)
         - **Initialization Process**: Follow [init-terraform-configuration.prompt.md](/.github/prompts/init-terraform-configuration.prompt.md)
         
-        **⚠️ Important:** All generated code must pass `terraform fmt -check` and `terraform validate` before completion.
+        ### ⚠️ Important Constraints:
+        - **File Scope Restriction**: Only create/modify files within the `configurations/[config-name]/` directory and update `CHANGELOG.md` in the root
+        - **Prohibited Modifications**: Do NOT modify LICENSE, README.md, .github/, docs/, scripts/, or any existing configuration directories
+        - **Temporary Files**: Do NOT commit temporary files (*.tar.gz, *.zip, installation artifacts, cache files)
+        - **Validation Requirements**: All generated code must pass `terraform fmt -check` and `terraform validate` before completion
+      render: markdown
+    validations:
+      required: false
 
   - type: dropdown
     id: classification
@@ -73,31 +83,37 @@ body:
     validations:
       required: true
       
-  - type: markdown
+  - type: textarea
+    id: success_criteria
     attributes:
+      label: Success Criteria (Auto-populated)
+      description: "Validation requirements that serve as success criteria for this task"
       value: |
         ## 🎯 Success Criteria for Terraform Configuration Initialization
         
         **The following validation requirements serve as success criteria for this task:**
         
-        ### ✅ **Format & Syntax Validation**
-        - Configuration must pass `terraform fmt -check` validation (proper HCL formatting)
-        - Configuration must pass `terraform validate` syntax check (valid Terraform syntax)
+        ### ✅ Format & Syntax Validation
+        - [ ] Configuration must pass `terraform fmt -check` validation (proper HCL formatting)
+        - [ ] Configuration must pass `terraform validate` syntax check (valid Terraform syntax)
         
-        ### ✅ **Test Coverage Requirements** 
-        - **`utl-*` modules**: Minimum 15+ test assertions (plan tests only)
-        - **`res-*` modules**: Minimum 20+ test assertions (both plan and apply tests)
-        - **`ptn-*` modules**: Minimum 25+ test assertions (both plan and apply tests)
+        ### ✅ Test Coverage Requirements 
+        - [ ] **`utl-*` modules**: Minimum 15+ test assertions (plan tests only)
+        - [ ] **`res-*` modules**: Minimum 20+ test assertions (both plan and apply tests)
+        - [ ] **`ptn-*` modules**: Minimum 25+ test assertions (both plan and apply tests)
         
-        ### ✅ **AVM Compliance Standards**
-        - Follow Azure Verified Modules (AVM) specifications and repository standards
-        - Implement anti-corruption layer pattern for outputs
-        - Use explicit variable typing (no `any` types) with comprehensive validation
-        - Include lifecycle management for resource modules (`ignore_changes`)
-        - Use centralized provider version (`~> 3.8` for `microsoft/power-platform`)
+        ### ✅ AVM Compliance Standards
+        - [ ] Follow Azure Verified Modules (AVM) specifications and repository standards
+        - [ ] Implement anti-corruption layer pattern for outputs
+        - [ ] Use explicit variable typing (no `any` types) with comprehensive validation
+        - [ ] Include lifecycle management for resource modules (`ignore_changes`)
+        - [ ] Use centralized provider version (`~> 3.8` for `microsoft/power-platform`)
         
-        ### ✅ **Documentation & Structure**
-        - Auto-generated README.md via terraform-docs
-        - Comprehensive inline comments explaining architectural decisions
-        - Template-based initialization following placeholder replacement process
-        - CHANGELOG.md entry for new configuration
+        ### ✅ Documentation & Structure
+        - [ ] Auto-generated README.md via terraform-docs
+        - [ ] Comprehensive inline comments explaining architectural decisions
+        - [ ] Template-based initialization following placeholder replacement process
+        - [ ] CHANGELOG.md entry for new configuration
+      render: markdown
+    validations:
+      required: false

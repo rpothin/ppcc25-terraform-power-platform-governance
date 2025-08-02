@@ -1,46 +1,97 @@
-# Terraform files
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# PPCC25 TERRAFORM POWER PLATFORM GOVERNANCE - GITIGNORE
+# Organized by category with clear sections for maintainability
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+# ──────────────────────────────────────────────────────────────────────────────────────
+# TERRAFORM STATE & RUNTIME FILES
+# ──────────────────────────────────────────────────────────────────────────────────────
 *.tfstate
 *.tfstate.*
-
-# Block sensitive tfvars files everywhere
-*.tfvars
-!terraform.tfvars.example
-# Allow tfvars files in configurations/ directory (these are templates/examples)
-!configurations/**/*.tfvars
-
 .terraform/
 .terraform.lock.hcl
 tfplan
 *.log
+crash.log
+crash.*.log
 
-# Environment configuration files (sensitive)
+# ──────────────────────────────────────────────────────────────────────────────────────
+# TERRAFORM VARIABLES & CONFIGURATION
+# ──────────────────────────────────────────────────────────────────────────────────────
+# Block sensitive tfvars files everywhere
+*.tfvars
+!terraform.tfvars.example
+
+# Allow tfvars files in configurations/ directory (these are templates/examples)
+!configurations/**/*.tfvars
+
+# Environment configuration files (contain sensitive data)
 *.env
 *.env.*
 !*.env.example
 
-# IDE files
+# ──────────────────────────────────────────────────────────────────────────────────────
+# DEVELOPMENT ENVIRONMENT FILES
+# ──────────────────────────────────────────────────────────────────────────────────────
+# IDE and editor files
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# OS files
+# Operating system files
 .DS_Store
 Thumbs.db
 
+# ──────────────────────────────────────────────────────────────────────────────────────
+# TEMPORARY & BACKUP FILES
+# ──────────────────────────────────────────────────────────────────────────────────────
 # Backup files
 *.backup
 *.bak
 
-# Test files
+# Test and temporary files
 test.tf
-crash.log
-crash.*.log
+*.tmp
+*~
 
-# Reports directory - timing and ROI reports
+# ──────────────────────────────────────────────────────────────────────────────────────
+# TOOL INSTALLATION & ARTIFACTS
+# ──────────────────────────────────────────────────────────────────────────────────────
+# Installation packages
+*.tar.gz
+*.zip
+*.deb
+*.rpm
+
+# Tool binaries (from setup workflows)
+terraform-docs
+tflint
+actionlint
+
+# ──────────────────────────────────────────────────────────────────────────────────────
+# PROJECT-SPECIFIC EXCLUSIONS
+# ──────────────────────────────────────────────────────────────────────────────────────
+# Implementation planning files (internal documentation)
+plans/
+
+# Generated reports with timing/failure data
 reports/*-failed-*
 reports/*-interrupted-*
 reports/baseline-*.txt
 
-## Ignore implementation plan files
-plans/
+# ──────────────────────────────────────────────────────────────────────────────────────
+# CACHE & BUILD ARTIFACTS
+# ──────────────────────────────────────────────────────────────────────────────────────
+# Node.js (if used for tooling)
+node_modules/
+npm-debug.log*
+
+# Python cache (for YAML tools)
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Go modules (if using Go tools)
+go.sum
+vendor/
