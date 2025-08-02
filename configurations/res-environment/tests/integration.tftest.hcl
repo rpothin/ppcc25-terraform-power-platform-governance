@@ -150,7 +150,7 @@ run "apply_validation" {
 
   assert {
     condition     = output.environment_url == null || can(regex("^https://", output.environment_url))
-    error_message = "Environment URL should be a valid HTTPS URL when available: ${try(output.environment_url, "null")}"
+    error_message = "Environment URL should be a valid HTTPS URL when available."
   }
 
   assert {
