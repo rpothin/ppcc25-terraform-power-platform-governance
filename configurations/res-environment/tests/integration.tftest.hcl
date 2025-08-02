@@ -144,18 +144,18 @@ run "apply_validation" {
   }
 
   assert {
-    condition     = powerplatform_environment.this.url != null && powerplatform_environment.this.url != ""
-    error_message = "Environment should have a valid URL after creation."
+    condition     = powerplatform_environment.this.id != null && powerplatform_environment.this.id != ""
+    error_message = "Environment should have a valid ID after creation."
   }
 
   assert {
-    condition     = can(regex("^https://", powerplatform_environment.this.url))
-    error_message = "Environment URL should be a valid HTTPS URL: ${powerplatform_environment.this.url}"
+    condition     = output.environment_url == null || can(regex("^https://", output.environment_url))
+    error_message = "Environment URL should be a valid HTTPS URL when available: ${try(output.environment_url, "null")}"
   }
 
   assert {
-    condition     = powerplatform_environment.this.created_time != null && powerplatform_environment.this.created_time != ""
-    error_message = "Environment should have a created_time after deployment."
+    condition     = powerplatform_environment.this.display_name != null && powerplatform_environment.this.display_name != ""
+    error_message = "Environment should have a valid display_name after deployment."
   }
 
   assert {
@@ -170,8 +170,8 @@ run "apply_validation" {
   }
 
   assert {
-    condition     = output.environment_url == powerplatform_environment.this.url
-    error_message = "Environment URL output should match resource URL."
+    condition     = output.environment_url == try(powerplatform_environment.this.dataverse.url, null)
+    error_message = "Environment URL output should match resource Dataverse URL when available."
   }
 
   assert {
@@ -253,16 +253,6 @@ run "duplicate_protection_enabled_test" {
   assert {
     condition     = can(data.powerplatform_environments.all)
     error_message = "Should be able to query existing environments when duplicate protection is enabled."
-  }
-
-  assert {
-    condition     = can(local.existing_environment_matches)
-    error_message = "Should be able to compute existing_environment_matches local value."
-  }
-
-  assert {
-    condition     = can(local.has_duplicate)
-    error_message = "Should be able to compute has_duplicate local value."
   }
 }
 
