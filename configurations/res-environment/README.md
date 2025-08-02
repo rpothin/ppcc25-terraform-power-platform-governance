@@ -63,10 +63,10 @@ microsoft/power-platform provider to ensure 100% compatibility.
 Required Properties:
 - display\_name: Human-readable environment name
 - location: Power Platform region (e.g., "unitedstates", "europe")
-- environment\_type: Environment classification (Sandbox, Production, Trial, Developer)
+- environment\_type: Environment classification (Sandbox, Production, Trial)
+  ⚠️  Developer environments are NOT SUPPORTED with service principal authentication
 
 Optional Properties:
-- owner\_id: Entra ID user GUID (REQUIRED for Developer environments)
 - description: Environment description
 - azure\_region: Specific Azure region (westeurope, eastus, etc.)
 - cadence: Update cadence ("Frequent" or "Moderate")
@@ -90,14 +90,17 @@ environment = {
   allow\_moving\_data\_across\_regions = false
 }
 
-# Developer Environment (owner\_id required)  
+# Sandbox Environment  
 environment = {  
-  display\_name     = "John's Development Environment"  
+  display\_name     = "Development Sandbox"  
   location         = "unitedstates"  
-  environment\_type = "Developer"  
-  owner\_id         = "12345678-1234-1234-1234-123456789012"  
+  environment\_type = "Sandbox"  
   cadence          = "Frequent"
 }
+
+Limitations:
+- Developer environments require user authentication (not service principal)
+- This module only supports Sandbox, Production, and Trial environment types
 
 Type:
 
@@ -109,7 +112,6 @@ object({
     environment_type = string
 
     # Optional Arguments - ✅ REAL
-    owner_id                         = optional(string)
     description                      = optional(string)
     azure_region                     = optional(string)
     cadence                          = optional(string) # "Frequent" or "Moderate" only
@@ -132,10 +134,9 @@ Description: Dataverse database configuration for the Power Platform environment
 Required Properties:
 - language\_code: LCID integer (e.g., 1033 for English US)
 - currency\_code: ISO currency code string (e.g., "USD", "EUR", "GBP")
+- security\_group\_id: Azure AD security group GUID (REQUIRED for all environment types)
 
 Optional Properties:
-- security\_group\_id: Azure AD security group GUID
-  ⚠️  REQUIRED for all environment types except Developer
 - domain: Custom domain name for the Dataverse instance
 - administration\_mode\_enabled: Enable admin mode for the environment
 - background\_operation\_enabled: Enable background operations
@@ -144,27 +145,20 @@ Optional Properties:
 
 Examples:
 
-# Production/Sandbox Dataverse (security\_group\_id REQUIRED)  
+# Production/Sandbox/Trial Dataverse (security\_group\_id REQUIRED)  
 dataverse = {  
   language\_code     = 1033  
   currency\_code     = "USD"  
-  security\_group\_id = "12345678-1234-1234-1234-123456789012"  # Required!
-}
-
-# Developer Dataverse (security\_group\_id optional)  
-dataverse = {  
-  language\_code = 1033  
-  currency\_code = "USD"
-  # security\_group\_id not required for Developer environments
+  security\_group\_id = "12345678-1234-1234-1234-123456789012"  
+  domain            = "contoso-prod"
 }
 
 # No Dataverse  
 dataverse = null
 
 Provider Requirements:
-- security\_group\_id is MANDATORY for Sandbox, Production, and Trial environments
-- security\_group\_id is OPTIONAL for Developer environments  
-- All other properties are optional across all environment types
+- security\_group\_id is MANDATORY for all supported environment types (Sandbox, Production, Trial)
+- All other properties are optional
 
 Type:
 
@@ -175,7 +169,7 @@ object({
     currency_code = string
 
     # Optional Arguments - ✅ REAL
-    security_group_id            = optional(string)
+    security_group_id            = string # REQUIRED for all supported environment types
     domain                       = optional(string)
     administration_mode_enabled  = optional(bool)
     background_operation_enabled = optional(bool)
