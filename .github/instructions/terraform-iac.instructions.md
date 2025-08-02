@@ -259,13 +259,12 @@ resource "powerplatform_data_loss_prevention_policy" "this" {
   # ... other arguments ...
 
   lifecycle {
-    prevent_destroy = true                    # Protect against accidental deletion
-    ignore_changes  = [display_name, tags]    # Allow manual changes without drift
+   ignore_changes  = [display_name, tags]    # Allow manual changes without drift
   }
 }
 ```
 
-*Why lifecycle blocks: DLP policies are critical governance resources that should not be accidentally destroyed. Manual changes in Power Platform admin center should not cause Terraform drift.*
+*Why lifecycle blocks: Manual changes in Power Platform admin center should not cause Terraform drift.*
 
 **Documentation requirement:** Include lifecycle behavior explanation in module README.
 

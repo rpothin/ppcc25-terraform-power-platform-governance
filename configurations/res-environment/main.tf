@@ -91,7 +91,6 @@ resource "powerplatform_environment" "this" {
 
   # Lifecycle management
   lifecycle {
-    prevent_destroy = true
     ignore_changes = [
       description, # Allow manual updates in admin center
     ]

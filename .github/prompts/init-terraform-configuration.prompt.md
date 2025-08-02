@@ -103,7 +103,6 @@ provider "powerplatform" {
 # - {Classification}-Specific: {classification-specific benefits}
 # - Strong Typing: All variables use explicit types and validation (no `any`)
 # - Provider Version: Centralized `~> 3.8` for `microsoft/power-platform`
-# - Lifecycle Management: Resource modules include `prevent_destroy` (see below)
 #
 # Architecture Decisions:
 # - Provider Choice: Using microsoft/power-platform for native Power Platform integration
@@ -119,7 +118,6 @@ provider "powerplatform" {
 # resource "powerplatform_resource" "example" {
 #   # ... resource arguments ...
 #   lifecycle {
-#     prevent_destroy = true                    # Protect critical governance resources
 #     ignore_changes  = [display_name, tags]    # Allow manual admin center changes
 #   }
 # }
@@ -456,14 +454,13 @@ terraform {
 ```
 
 ### 3. Mandate Lifecycle Management for Resource Modules (`res-*`)
-- **MANDATORY:** All `res-*` modules must include a `lifecycle` block with `prevent_destroy = true` and `ignore_changes` for critical attributes.
+- **MANDATORY:** All `res-*` modules must include a `lifecycle` block with `ignore_changes` for critical attributes.
 - **MANDATORY:** Document lifecycle behavior in the module README.
 - **EXAMPLE:**
 ```hcl
 resource "powerplatform_resource" "example" {
   # ... resource arguments ...
   lifecycle {
-    prevent_destroy = true
     ignore_changes  = [display_name, tags]
   }
 }
@@ -589,7 +586,7 @@ DESCRIPTION
 # - {Classification}-Specific: {classification-specific benefits}
 # - Strong Typing: All variables use explicit types and validation (no `any`)
 # - Provider Version: All modules use `~> 3.8` for `microsoft/power-platform`
-# - Lifecycle Management: Resource modules include `prevent_destroy` and `ignore_changes` (see below)
+# - Lifecycle Management: Resource modules include `ignore_changes` (see below)
 #
 # Architecture Decisions:
 # - Provider Choice: Using microsoft/power-platform due to {reasoning}
@@ -625,7 +622,6 @@ provider "powerplatform" {
 # resource "powerplatform_resource" "example" {
 #   # ... resource arguments ...
 #   lifecycle {
-#     prevent_destroy = true
 #     ignore_changes  = [display_name, tags]
 #   }
 # }
