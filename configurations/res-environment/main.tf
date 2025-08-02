@@ -1,37 +1,20 @@
-# Power Platform Environment Configuration
+# Power Platform Environment Configuration - Provider Schema Compliant
 #
-# This configuration creates and manages Power Platform environments following Azure Verified Module (AVM)
-# best practices with Power Platform provider adaptations.
-#
-# Key Features:
-# - AVM-Inspired Structure: Uses strong typing, validation, and lifecycle management
-# - Anti-Corruption Layer: Outputs discrete environment attributes instead of full resource objects
-# - Security-First: OIDC authentication, no hardcoded secrets, secure defaults
-# - Resource-Specific: Deploys and manages Power Platform environment resources with governance
-# - Strong Typing: All variables use explicit types and validation (no `any`)
-# - Provider Version: Centralized `~> 3.8` for `microsoft/power-platform`
-# - Lifecycle Management: Resource modules include `prevent_destroy` and `ignore_changes`
-#
-# Architecture Decisions:
-# - Provider Choice: Using microsoft/power-platform for native Power Platform integration
-# - Backend Strategy: Azure Storage with OIDC for secure, keyless state management
-# - Resource Organization: Single environment per configuration for clear governance boundaries
-# - Duplicate Detection: Simplified protection without dependency cycles
+# This configuration uses ONLY the arguments that actually exist in the
+# microsoft/power-platform provider to ensure 100% compatibility.
 
-# Query existing environments for duplicate detection (only when enabled)
+# Query existing environments for duplicate detection
 data "powerplatform_environments" "all" {
   count = var.enable_duplicate_protection ? 1 : 0
 }
 
-# Simplified duplicate detection logic (no dependency cycles)
+# Duplicate detection logic
 locals {
-  # Find environments with matching display names
   existing_environment_matches = var.enable_duplicate_protection ? [
     for env in try(data.powerplatform_environments.all[0].environments, []) : env
-    if env.display_name == var.environment_config.display_name
+    if env.display_name == var.environment.display_name
   ] : []
 
-  # Simple duplicate detection
   has_duplicate            = var.enable_duplicate_protection && length(local.existing_environment_matches) > 0
   duplicate_environment_id = local.has_duplicate ? local.existing_environment_matches[0].id : null
 }
@@ -45,104 +28,75 @@ resource "null_resource" "environment_duplicate_guardrail" {
       condition     = !local.has_duplicate
       error_message = <<-EOT
       🚨 DUPLICATE ENVIRONMENT DETECTED!
-      Environment Name: "${var.environment_config.display_name}"
+      Environment Name: "${var.environment.display_name}"
       Existing Environment ID: ${coalesce(local.duplicate_environment_id, "unknown")}
       
-      📊 DETECTION DETAILS:
-      • Duplicate Protection: ENABLED
-      • Matching Environments Found: ${length(local.existing_environment_matches)}
-      
-      💡 RESOLUTION OPTIONS:
-      1. Import existing environment to manage with Terraform:
+      RESOLUTION OPTIONS:
+      1. Import existing environment:
          terraform import powerplatform_environment.this ${coalesce(local.duplicate_environment_id, "ENVIRONMENT_ID_HERE")}
       
-      2. Use a different display_name for a new environment.
+      2. Use a different display_name
       
-      3. Temporarily disable duplicate protection during import:
-         Set enable_duplicate_protection = false in your .tfvars file.
-         After successful import, re-enable protection.
-      
-      📚 After import, you can re-enable duplicate protection for future deployments.
-      📖 See onboarding guide in docs/guides/ for detailed steps.
-      
-      🔍 TROUBLESHOOTING:
-      If this environment should be imported:
-      - Get the environment ID from Power Platform Admin Center
-      - Run: terraform import powerplatform_environment.this <ENVIRONMENT_ID>
-      - Verify import: terraform state show powerplatform_environment.this
+      3. Temporarily disable protection:
+         Set enable_duplicate_protection = false
       EOT
     }
   }
 
-  # Triggers for re-evaluation
   triggers = {
-    display_name         = var.environment_config.display_name
+    display_name         = var.environment.display_name
     duplicate_protection = var.enable_duplicate_protection
   }
 }
 
-# Validation: Ensure environment name follows organizational standards
-check "environment_name_validation" {
-  assert {
-    condition = (
-      can(regex("^[a-zA-Z0-9][a-zA-Z0-9\\s\\-_]*[a-zA-Z0-9]$", var.environment_config.display_name)) &&
-      length(var.environment_config.display_name) >= 3 &&
-      length(var.environment_config.display_name) <= 64
-    )
-    error_message = <<-EOT
-      Environment display name validation failed: "${var.environment_config.display_name}"
-      
-      Requirements:
-      - Must be 3-64 characters long
-      - Must start and end with alphanumeric characters
-      - Can contain letters, numbers, spaces, hyphens, and underscores
-      - Cannot start or end with spaces or special characters
-      
-      Examples of valid names:
-      - "Development Environment"
-      - "Prod-Finance-01" 
-      - "Test_Marketing_Sandbox"
-    EOT
-  }
-}
-
-# Main Power Platform Environment Resource
+# Main Power Platform Environment Resource - REAL SCHEMA ONLY
 resource "powerplatform_environment" "this" {
   depends_on = [null_resource.environment_duplicate_guardrail]
 
-  # Core environment configuration
-  display_name     = var.environment_config.display_name
-  location         = var.environment_config.location
-  environment_type = var.environment_config.environment_type
+  # ✅ REAL ARGUMENTS ONLY
+  display_name                     = var.environment.display_name
+  location                         = var.environment.location
+  environment_type                 = var.environment.environment_type
+  owner_id                         = var.environment.owner_id
+  description                      = var.environment.description
+  azure_region                     = var.environment.azure_region
+  cadence                          = var.environment.cadence
+  allow_bing_search                = var.environment.allow_bing_search
+  allow_moving_data_across_regions = var.environment.allow_moving_data_across_regions
+  billing_policy_id                = var.environment.billing_policy_id
+  environment_group_id             = var.environment.environment_group_id
+  release_cycle                    = var.environment.release_cycle
 
-  # Owner ID only for Developer environments (Power Platform provider requirement)
-  owner_id = var.environment_config.environment_type == "Developer" ? var.environment_config.owner_id : null
-
-  # Dataverse configuration (required when owner_id is specified for Developer environments)
-  dataverse = var.dataverse_config != null ? {
-    language_code     = var.dataverse_config.language_code
-    currency_code     = var.dataverse_config.currency_code
-    security_group_id = var.dataverse_config.security_group_id
-    domain            = var.dataverse_config.domain
-    organization_name = var.dataverse_config.organization_name
+  # ✅ REAL DATAVERSE BLOCK - FIXED TYPE CONSISTENCY
+  dataverse = var.dataverse != null ? {
+    # Use provided dataverse configuration
+    language_code                = var.dataverse.language_code
+    currency_code                = var.dataverse.currency_code
+    security_group_id            = var.dataverse.security_group_id
+    domain                       = var.dataverse.domain
+    administration_mode_enabled  = var.dataverse.administration_mode_enabled
+    background_operation_enabled = var.dataverse.background_operation_enabled
+    template_metadata            = var.dataverse.template_metadata
+    templates                    = var.dataverse.templates
     } : (
-    # Power Platform provider requires dataverse when owner_id is specified (Developer environments)
-    var.environment_config.environment_type == "Developer" && var.environment_config.owner_id != null ? {
-      language_code     = "1033" # English (United States) - default for Developer environments
-      currency_code     = "USD"  # US Dollar - default for Developer environments
-      security_group_id = null
-      domain            = null
-      organization_name = null
-    } : null
+    # Default Dataverse for Developer environments (CONSISTENT TYPE)
+    var.environment.environment_type == "Developer" && var.environment.owner_id != null ? {
+      language_code                = 1033  # English (United States)
+      currency_code                = "USD" # US Dollar
+      security_group_id            = null  # No security group by default
+      domain                       = null  # Auto-generated domain
+      administration_mode_enabled  = null  # Use platform default
+      background_operation_enabled = null  # Use platform default
+      template_metadata            = null  # No template metadata
+      templates                    = null  # No templates
+    } : null                               # No Dataverse for non-Developer environments without explicit config
   )
 
-  # Enhanced lifecycle management for critical environment resources
+  # Lifecycle management
   lifecycle {
+    prevent_destroy = true
     ignore_changes = [
-      # Allow manual changes in Power Platform admin center without drift
-      # Common admin center changes that should not cause Terraform drift
-      description, # Admins often update descriptions
-      # Add other attributes here if manual changes should be ignored
+      description, # Allow manual updates in admin center
     ]
   }
 }

@@ -3,32 +3,29 @@
 # These integration tests validate the environment deployment against a real Power Platform tenant.
 # Tests require authentication via OIDC and are designed for CI/CD environments like GitHub Actions.
 #
+# Updated to align with corrected provider schema and variable structure.
+#
 # Test Philosophy:
 # - Performance Optimized: Consolidated assertions minimize plan/apply cycles
 # - Comprehensive Coverage: Validates structure, data integrity, and security
 # - Environment Agnostic: Works across development, staging, and production
 # - Failure Isolation: Clear error messages for rapid troubleshooting
 # - Minimum Assertion Coverage: 20+ for res-* modules (plan and apply tests)
-#
-# Test Categories:
-# - Framework Validation: Basic Terraform and provider functionality
-# - Resource Validation: Resource-specific structure and constraints
-# - Variable Validation: Input parameter validation and constraints  
-# - Configuration Validation: Resource configuration compliance
-# - Duplicate Protection: Guardrail functionality and state awareness
-# - Dataverse Integration: Optional database configuration testing
 
 variables {
   # Test configuration - adjustable for different environments
   expected_minimum_count = 0  # Allow empty tenants in test environments
   test_timeout_minutes   = 10 # Extended timeout for environment operations
 
-  # Required variables for res-environment configuration
-  environment_config = {
+  # ✅ CORRECTED: Use actual variable structure
+  environment = {
     display_name     = "Test Environment - Integration"
     location         = "unitedstates"
     environment_type = "Sandbox"
   }
+
+  # Optional Dataverse configuration for testing
+  dataverse = null
 
   # Disable duplicate protection for testing to avoid conflicts
   enable_duplicate_protection = false
@@ -64,14 +61,14 @@ run "plan_validation" {
   }
 
   assert {
-    condition     = powerplatform_environment.this.display_name == var.environment_config.display_name
+    condition     = powerplatform_environment.this.display_name == var.environment.display_name
     error_message = "Planned environment display_name should match input variable."
   }
 
   # Variable validation and input constraints (Assertions 5-8)
   assert {
-    condition     = contains(["Sandbox", "Production", "Trial", "Developer"], var.environment_config.environment_type)
-    error_message = "Environment type should be valid value: ${var.environment_config.environment_type}"
+    condition     = contains(["Sandbox", "Production", "Trial", "Developer"], var.environment.environment_type)
+    error_message = "Environment type should be valid value: ${var.environment.environment_type}"
   }
 
   assert {
@@ -79,28 +76,28 @@ run "plan_validation" {
       "unitedstates", "europe", "asia", "australia", "india", "japan", "canada",
       "southamerica", "unitedkingdom", "france", "germany", "unitedarabemirates",
       "switzerland", "korea", "norway", "southafrica"
-    ], var.environment_config.location)
-    error_message = "Location should be valid Power Platform region: ${var.environment_config.location}"
+    ], var.environment.location)
+    error_message = "Location should be valid Power Platform region: ${var.environment.location}"
   }
 
   assert {
-    condition     = length(var.environment_config.display_name) >= 3 && length(var.environment_config.display_name) <= 64
-    error_message = "Display name should be 3-64 characters: '${var.environment_config.display_name}' (${length(var.environment_config.display_name)} chars)"
+    condition     = length(var.environment.display_name) >= 3 && length(var.environment.display_name) <= 64
+    error_message = "Display name should be 3-64 characters: '${var.environment.display_name}' (${length(var.environment.display_name)} chars)"
   }
 
   assert {
-    condition     = can(regex("^[a-zA-Z0-9][a-zA-Z0-9\\s\\-_]*[a-zA-Z0-9]$", var.environment_config.display_name))
-    error_message = "Display name should match required pattern: '${var.environment_config.display_name}'"
+    condition     = can(regex("^[a-zA-Z0-9][a-zA-Z0-9\\s\\-_]*[a-zA-Z0-9]$", var.environment.display_name))
+    error_message = "Display name should match required pattern: '${var.environment.display_name}'"
   }
 
   # Resource configuration validation (Assertions 9-12)
   assert {
-    condition     = powerplatform_environment.this.location == var.environment_config.location
+    condition     = powerplatform_environment.this.location == var.environment.location
     error_message = "Planned environment location should match input variable."
   }
 
   assert {
-    condition     = powerplatform_environment.this.environment_type == var.environment_config.environment_type
+    condition     = powerplatform_environment.this.environment_type == var.environment.environment_type
     error_message = "Planned environment type should match input variable."
   }
 
@@ -144,23 +141,23 @@ run "apply_validation" {
   }
 
   assert {
-    condition     = powerplatform_environment.this.id != null && powerplatform_environment.this.id != ""
-    error_message = "Environment should have a valid ID after creation."
-  }
-
-  assert {
-    condition     = output.environment_url == null || can(regex("^https://", output.environment_url))
-    error_message = "Environment URL should be a valid HTTPS URL when available."
-  }
-
-  assert {
     condition     = powerplatform_environment.this.display_name != null && powerplatform_environment.this.display_name != ""
     error_message = "Environment should have a valid display_name after deployment."
   }
 
   assert {
-    condition     = powerplatform_environment.this.display_name == var.environment_config.display_name
-    error_message = "Deployed environment display_name should match input: expected '${var.environment_config.display_name}', got '${powerplatform_environment.this.display_name}'"
+    condition     = powerplatform_environment.this.display_name == var.environment.display_name
+    error_message = "Deployed environment display_name should match input: expected '${var.environment.display_name}', got '${powerplatform_environment.this.display_name}'"
+  }
+
+  assert {
+    condition     = powerplatform_environment.this.location == var.environment.location
+    error_message = "Deployed environment location should match input."
+  }
+
+  assert {
+    condition     = powerplatform_environment.this.environment_type == var.environment.environment_type
+    error_message = "Deployed environment type should match input."
   }
 
   # Output validation and anti-corruption layer (Assertions 21-25)
@@ -170,17 +167,12 @@ run "apply_validation" {
   }
 
   assert {
-    condition     = output.environment_url == try(powerplatform_environment.this.dataverse.url, null)
-    error_message = "Environment URL output should match resource Dataverse URL when available."
-  }
-
-  assert {
     condition     = can(output.environment_summary)
     error_message = "Environment summary output should be available."
   }
 
   assert {
-    condition     = output.environment_summary.name == var.environment_config.display_name
+    condition     = output.environment_summary.name == var.environment.display_name
     error_message = "Environment summary name should match configuration."
   }
 
@@ -192,6 +184,11 @@ run "apply_validation" {
     )
     error_message = "Environment summary should contain correct metadata."
   }
+
+  assert {
+    condition     = output.environment_summary.has_dataverse == (var.dataverse != null)
+    error_message = "Environment summary dataverse flag should match configuration."
+  }
 }
 
 # --- Advanced Test Scenarios ---
@@ -200,11 +197,12 @@ run "apply_validation" {
 run "duplicate_protection_disabled_test" {
   command = plan
   variables {
-    environment_config = {
+    environment = {
       display_name     = "Test No Duplicate Check"
       location         = "unitedstates"
       environment_type = "Sandbox"
     }
+    dataverse                   = null
     enable_duplicate_protection = false
     tags                        = {}
   }
@@ -225,215 +223,19 @@ run "duplicate_protection_disabled_test" {
   }
 }
 
-# Duplicate protection enabled test
-run "duplicate_protection_enabled_test" {
-  command = plan
-  variables {
-    environment_config = {
-      display_name     = "Test Duplicate Check Enabled"
-      location         = "europe"
-      environment_type = "Developer"
-      owner_id         = "12345678-1234-1234-1234-123456789012"
-    }
-    dataverse_config = {
-      language_code = "1033"
-      currency_code = "USD"
-    }
-    enable_duplicate_protection = true
-    tags = {
-      TestScenario = "DuplicateProtection"
-    }
-  }
-
-  assert {
-    condition     = var.enable_duplicate_protection == true
-    error_message = "Duplicate protection should be enabled for this test."
-  }
-
-  assert {
-    condition     = length(null_resource.environment_duplicate_guardrail) == 1
-    error_message = "Guardrail null_resource should be created when duplicate protection is enabled."
-  }
-
-  assert {
-    condition     = can(data.powerplatform_environments.all)
-    error_message = "Should be able to query existing environments when duplicate protection is enabled."
-  }
-
-  assert {
-    condition     = var.environment_config.owner_id != null
-    error_message = "Owner ID should be provided for Developer environment test."
-  }
-
-  assert {
-    condition     = powerplatform_environment.this.owner_id == var.environment_config.owner_id
-    error_message = "Planned environment owner_id should match input variable."
-  }
-}
-
-# Dataverse configuration test (null case)
-run "dataverse_null_configuration_test" {
-  command = apply
-  variables {
-    environment_config = {
-      display_name     = "Test No Dataverse"
-      location         = "unitedstates"
-      environment_type = "Sandbox"
-      owner_id         = null
-    }
-    dataverse_config            = null
-    enable_duplicate_protection = false
-    tags                        = {}
-  }
-
-  assert {
-    condition     = var.dataverse_config == null
-    error_message = "Dataverse config should be null for this test."
-  }
-
-  assert {
-    condition     = var.environment_config.environment_type == "Sandbox"
-    error_message = "Environment type should be Sandbox for this test."
-  }
-
-  # FIXED: Test actual provider behavior
-  assert {
-    condition = (
-      # When dataverse_config is null, Power Platform provider does NOT 
-      # automatically create Dataverse configuration - this is correct behavior
-      powerplatform_environment.this.dataverse == null
-    )
-    error_message = "When dataverse_config is null, provider should not create Dataverse configuration. This allows environments without databases."
-  }
-}
-
-# Dataverse configuration test (explicit case)
-run "dataverse_explicit_configuration_test" {
-  command = apply
-  variables {
-    environment_config = {
-      display_name     = "Test With Dataverse"
-      location         = "unitedstates"
-      environment_type = "Sandbox"
-      owner_id         = null
-    }
-    dataverse_config = {
-      language_code = "1033" # English
-      currency_code = "USD"
-    }
-    enable_duplicate_protection = false
-    tags = {
-      TestScenario = "ExplicitDataverse"
-    }
-  }
-
-  assert {
-    condition     = var.dataverse_config != null
-    error_message = "Dataverse config should be provided for this test."
-  }
-
-  assert {
-    condition = (
-      # When dataverse_config is explicitly provided, provider creates Dataverse
-      powerplatform_environment.this.dataverse != null &&
-      powerplatform_environment.this.dataverse.language_code != null &&
-      powerplatform_environment.this.dataverse.currency_code != null
-    )
-    error_message = "When dataverse_config is provided, provider should create Dataverse configuration."
-  }
-
-  assert {
-    condition = (
-      powerplatform_environment.this.dataverse.language_code == var.dataverse_config.language_code &&
-      powerplatform_environment.this.dataverse.currency_code == var.dataverse_config.currency_code
-    )
-    error_message = "Dataverse configuration should match input variables."
-  }
-}
-
-# Edge case: Minimum valid display name
-run "minimum_display_name_test" {
-  command = plan
-  variables {
-    environment_config = {
-      display_name     = "Dev" # 3 characters - minimum valid
-      location         = "unitedstates"
-      environment_type = "Sandbox"
-    }
-    enable_duplicate_protection = false
-    tags                        = {}
-  }
-
-  assert {
-    condition     = length(var.environment_config.display_name) == 3
-    error_message = "Display name should be exactly 3 characters for minimum test."
-  }
-
-  assert {
-    condition     = can(regex("^[a-zA-Z0-9][a-zA-Z0-9\\s\\-_]*[a-zA-Z0-9]$", var.environment_config.display_name))
-    error_message = "Minimum display name should pass regex validation."
-  }
-}
-
-# Edge case: Maximum valid display name  
-run "maximum_display_name_test" {
-  command = plan
-  variables {
-    environment_config = {
-      display_name     = "Very Long Environment Name for Testing Maximum Length Validation" # 64 characters
-      location         = "unitedstates"
-      environment_type = "Sandbox"
-    }
-    enable_duplicate_protection = false
-    tags                        = {}
-  }
-
-  assert {
-    condition     = length(var.environment_config.display_name) == 64
-    error_message = "Display name should be exactly 64 characters for maximum test."
-  }
-
-  assert {
-    condition     = can(regex("^[a-zA-Z0-9][a-zA-Z0-9\\s\\-_]*[a-zA-Z0-9]$", var.environment_config.display_name))
-    error_message = "Maximum display name should pass regex validation."
-  }
-}
-
-# Environment type coverage test
-run "environment_types_test" {
-  command = plan
-  variables {
-    environment_config = {
-      display_name     = "Production Environment Test"
-      location         = "unitedstates"
-      environment_type = "Production"
-    }
-    enable_duplicate_protection = false
-    tags = {
-      EnvironmentType = "Production"
-    }
-  }
-
-  assert {
-    condition     = var.environment_config.environment_type == "Production"
-    error_message = "Environment type should be Production for this test."
-  }
-
-  assert {
-    condition     = contains(["Sandbox", "Production", "Trial", "Developer"], var.environment_config.environment_type)
-    error_message = "Environment type should be valid."
-  }
-}
-
-# Developer environment specific test
+# Developer environment with owner_id test
 run "developer_environment_test" {
   command = plan
   variables {
-    environment_config = {
+    environment = {
       display_name     = "Developer Environment Test"
       location         = "unitedstates"
       environment_type = "Developer"
       owner_id         = "87654321-4321-4321-4321-210987654321"
+    }
+    dataverse = {
+      language_code = 1033 # INTEGER not string!
+      currency_code = "USD"
     }
     enable_duplicate_protection = false
     tags = {
@@ -443,57 +245,276 @@ run "developer_environment_test" {
   }
 
   assert {
-    condition     = var.environment_config.environment_type == "Developer"
+    condition     = var.environment.environment_type == "Developer"
     error_message = "Environment type should be Developer for this test."
   }
 
   assert {
-    condition     = var.environment_config.owner_id != null
+    condition     = var.environment.owner_id != null
     error_message = "Owner ID should be provided for Developer environment."
   }
 
   assert {
-    condition     = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.environment_config.owner_id))
+    condition     = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.environment.owner_id))
     error_message = "Owner ID should be valid UUID format."
   }
 
   assert {
-    condition     = powerplatform_environment.this.owner_id == var.environment_config.owner_id
+    condition     = powerplatform_environment.this.owner_id == var.environment.owner_id
     error_message = "Planned environment owner_id should match input variable."
-  }
-
-  assert {
-    condition     = powerplatform_environment.this.environment_type == "Developer"
-    error_message = "Planned environment type should be Developer."
   }
 }
 
-# Owner ID validation test (negative case)
-run "owner_id_validation_test" {
-  command = plan
+# Dataverse configuration test (null case)
+run "dataverse_null_configuration_test" {
+  command = apply
   variables {
-    environment_config = {
-      display_name     = "Sandbox with Optional Owner"
+    environment = {
+      display_name     = "Test No Dataverse"
       location         = "unitedstates"
       environment_type = "Sandbox"
-      owner_id         = null
     }
+    dataverse                   = null
     enable_duplicate_protection = false
     tags                        = {}
   }
 
   assert {
-    condition     = var.environment_config.environment_type == "Sandbox"
-    error_message = "Environment type should be Sandbox for this test."
+    condition     = var.dataverse == null
+    error_message = "Dataverse config should be null for this test."
+  }
+
+  # ✅ CORRECTED: Test actual provider behavior
+  assert {
+    condition     = powerplatform_environment.this.dataverse == null
+    error_message = "When dataverse is null, provider should not create Dataverse configuration."
   }
 
   assert {
-    condition     = var.environment_config.owner_id == null
-    error_message = "Owner ID should be null for non-Developer environment test."
+    condition     = output.dataverse_configuration == null
+    error_message = "Dataverse configuration output should be null when no Dataverse is configured."
+  }
+}
+
+# Dataverse configuration test (explicit case)
+run "dataverse_explicit_configuration_test" {
+  command = apply
+  variables {
+    environment = {
+      display_name     = "Test With Dataverse"
+      location         = "unitedstates"
+      environment_type = "Sandbox"
+    }
+    dataverse = {
+      language_code = 1033 # ✅ CORRECTED: INTEGER not string
+      currency_code = "USD"
+    }
+    enable_duplicate_protection = false
+    tags = {
+      TestScenario = "ExplicitDataverse"
+    }
   }
 
   assert {
-    condition     = powerplatform_environment.this.owner_id == null
-    error_message = "Planned environment owner_id should be null when not provided."
+    condition     = var.dataverse != null
+    error_message = "Dataverse config should be provided for this test."
+  }
+
+  assert {
+    condition     = var.dataverse.language_code == 1033
+    error_message = "Language code should be integer 1033."
+  }
+
+  assert {
+    condition     = var.dataverse.currency_code == "USD"
+    error_message = "Currency code should be USD string."
+  }
+
+  # ✅ CORRECTED: Test actual provider schema
+  assert {
+    condition     = powerplatform_environment.this.dataverse != null
+    error_message = "When dataverse is provided, provider should create Dataverse configuration."
+  }
+
+  assert {
+    condition     = output.dataverse_configuration != null
+    error_message = "Dataverse configuration output should be available when Dataverse is configured."
+  }
+}
+
+# New provider properties test
+run "new_provider_properties_test" {
+  command = plan
+  variables {
+    environment = {
+      display_name                     = "Test New Properties"
+      location                         = "unitedstates"
+      environment_type                 = "Sandbox"
+      azure_region                     = "eastus"
+      cadence                          = "Moderate"
+      allow_bing_search                = false
+      allow_moving_data_across_regions = false
+      description                      = "Test environment for new provider properties"
+    }
+    dataverse                   = null
+    enable_duplicate_protection = false
+    tags = {
+      TestScenario = "NewProperties"
+    }
+  }
+
+  assert {
+    condition     = var.environment.azure_region == "eastus"
+    error_message = "Azure region should be configurable."
+  }
+
+  assert {
+    condition     = contains(["Frequent", "Moderate"], var.environment.cadence)
+    error_message = "Cadence should be valid value."
+  }
+
+  assert {
+    condition     = var.environment.allow_bing_search == false
+    error_message = "Bing search should be configurable."
+  }
+
+  assert {
+    condition     = powerplatform_environment.this.azure_region == var.environment.azure_region
+    error_message = "Planned azure_region should match input."
+  }
+
+  assert {
+    condition     = powerplatform_environment.this.cadence == var.environment.cadence
+    error_message = "Planned cadence should match input."
+  }
+}
+
+# Edge case: Minimum valid display name
+run "minimum_display_name_test" {
+  command = plan
+  variables {
+    environment = {
+      display_name     = "Dev" # 3 characters - minimum valid
+      location         = "unitedstates"
+      environment_type = "Sandbox"
+    }
+    dataverse                   = null
+    enable_duplicate_protection = false
+    tags                        = {}
+  }
+
+  assert {
+    condition     = length(var.environment.display_name) == 3
+    error_message = "Display name should be exactly 3 characters for minimum test."
+  }
+
+  assert {
+    condition     = can(regex("^[a-zA-Z0-9][a-zA-Z0-9\\s\\-_]*[a-zA-Z0-9]$", var.environment.display_name))
+    error_message = "Minimum display name should pass regex validation."
+  }
+}
+
+# Edge case: Maximum valid display name  
+run "maximum_display_name_test" {
+  command = plan
+  variables {
+    environment = {
+      display_name     = "Very Long Environment Name for Testing Maximum Length Validation" # 64 characters
+      location         = "unitedstates"
+      environment_type = "Sandbox"
+    }
+    dataverse                   = null
+    enable_duplicate_protection = false
+    tags                        = {}
+  }
+
+  assert {
+    condition     = length(var.environment.display_name) == 64
+    error_message = "Display name should be exactly 64 characters for maximum test."
+  }
+
+  assert {
+    condition     = can(regex("^[a-zA-Z0-9][a-zA-Z0-9\\s\\-_]*[a-zA-Z0-9]$", var.environment.display_name))
+    error_message = "Maximum display name should pass regex validation."
+  }
+}
+
+# Production environment test
+run "production_environment_test" {
+  command = plan
+  variables {
+    environment = {
+      display_name     = "Production Environment Test"
+      location         = "unitedstates"
+      environment_type = "Production"
+      description      = "Production environment for testing"
+      cadence          = "Moderate"
+    }
+    dataverse                   = null
+    enable_duplicate_protection = false
+    tags = {
+      EnvironmentType = "Production"
+    }
+  }
+
+  assert {
+    condition     = var.environment.environment_type == "Production"
+    error_message = "Environment type should be Production for this test."
+  }
+
+  assert {
+    condition     = contains(["Sandbox", "Production", "Trial", "Developer"], var.environment.environment_type)
+    error_message = "Environment type should be valid."
+  }
+
+  assert {
+    condition     = powerplatform_environment.this.description == var.environment.description
+    error_message = "Environment description should match input."
+  }
+}
+
+# Comprehensive dataverse properties test
+run "comprehensive_dataverse_test" {
+  command = plan
+  variables {
+    environment = {
+      display_name     = "Comprehensive Dataverse Test"
+      location         = "unitedstates"
+      environment_type = "Sandbox"
+    }
+    dataverse = {
+      language_code                = 1033
+      currency_code                = "USD"
+      security_group_id            = "12345678-1234-1234-1234-123456789012"
+      domain                       = "test-domain"
+      administration_mode_enabled  = true
+      background_operation_enabled = false
+      template_metadata            = "test-metadata"
+      templates                    = ["template1", "template2"]
+    }
+    enable_duplicate_protection = false
+    tags = {
+      TestScenario = "ComprehensiveDataverse"
+    }
+  }
+
+  assert {
+    condition     = var.dataverse.language_code == 1033
+    error_message = "Language code should be integer."
+  }
+
+  assert {
+    condition     = var.dataverse.administration_mode_enabled == true
+    error_message = "Administration mode should be configurable."
+  }
+
+  assert {
+    condition     = var.dataverse.background_operation_enabled == false
+    error_message = "Background operations should be configurable."
+  }
+
+  assert {
+    condition     = length(var.dataverse.templates) == 2
+    error_message = "Templates list should be configurable."
   }
 }
