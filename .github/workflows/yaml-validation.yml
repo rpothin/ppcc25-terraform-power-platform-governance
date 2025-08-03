@@ -51,7 +51,7 @@ run-name: "🛠️ YAML validation for ${{ github.event_name }} by @${{ github.a
 
 permissions:
   contents: write
-  workflows: write
+  actions: write
 
 jobs:
   validate-yaml:
