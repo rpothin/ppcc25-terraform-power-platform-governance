@@ -50,7 +50,8 @@ on:
 run-name: "🛠️ YAML validation for ${{ github.event_name }} by @${{ github.actor }}"
 
 permissions:
-  contents: write  # ✅ FIXED: Enable write access for auto-fix commits
+  contents: write
+  workflows: write
 
 jobs:
   validate-yaml:
