@@ -57,7 +57,7 @@ jobs:
   validate-yaml:
     name: "Validate YAML Syntax and Style"
     runs-on: ubuntu-latest
-
+    
     steps:
       - name: "Checkout Repository"
         uses: actions/checkout@v4
@@ -65,7 +65,7 @@ jobs:
           # Fetch full history for comprehensive validation
           fetch-depth: 0
           token: ${{ secrets.YAML_VALIDATION_AUTOFIX_PAT }}
-
+      
       # === PYTHON ENVIRONMENT SETUP ===
       # Python 3.11 provides stable foundation for YAML processing libraries
       # No pip cache needed since tools are installed via shell scripts
@@ -73,7 +73,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
+      
       # === YAML VALIDATION TOOLS INSTALLATION ===
       # Use modular installation library for consistent tool setup across environments
       # Leverages yaml-tools-installer.sh for reusable installation patterns
@@ -82,44 +82,33 @@ jobs:
           # Source the installation library and install all validation tools
           source scripts/utils/yaml-tools-installer.sh
           install_all_yaml_tools
-
+          
           # Ensure PATH includes user-installed packages for subsequent steps
           echo "$HOME/.local/bin" >> $GITHUB_PATH
-
-      # === SMART AUTO-FIX STRATEGY WITH LOOP PREVENTION ===
-      # Controls auto-fix behavior with default-on approach and intelligent loop prevention
+      
+      # === SMART AUTO-FIX STRATEGY ===
+      # Controls auto-fix behavior with default-on approach
       - name: "Determine Auto-Fix Strategy"
         id: autofix-strategy
         run: |
-          echo "🔍 Analyzing commit context for auto-fix strategy..."
-
-          # Get the latest commit message for analysis
-          LATEST_COMMIT_MSG="${{ github.event.head_commit.message }}"
-          echo "📝 Latest commit: $LATEST_COMMIT_MSG"
-
-          # Check for auto-fix skip indicators (prevents infinite loops)
-          if [[ "$LATEST_COMMIT_MSG" =~ \[skip-autofix\] ]] || \
-             [[ "$LATEST_COMMIT_MSG" =~ \[no-autofix\] ]] || \
-             [[ "$LATEST_COMMIT_MSG" =~ "🤖 Auto-fix YAML" ]]; then
+          echo "🔍 Checking if auto-fix should run..."
+          
+          # Simple check - if this is a pull request or manual trigger, always enable
+          if [[ "${{ github.event_name }}" == "pull_request" ]] || [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "mode=enabled" >> $GITHUB_OUTPUT
+            echo "️🛠️ Auto-fix ENABLED: PR or manual trigger"
+            echo "reason=safe-trigger" >> $GITHUB_OUTPUT
+          # For push events, check if it's an auto-fix commit
+          elif [[ "${{ github.event.head_commit.message }}" =~ "🤖 Auto-fix YAML" ]]; then
             echo "mode=detect-only" >> $GITHUB_OUTPUT
-            echo "🚫 Auto-fix DISABLED: Skip flag detected or previous auto-fix commit"
-            echo "reason=skip-requested" >> $GITHUB_OUTPUT
-          # Check for explicit disable requests
-          elif [[ "$LATEST_COMMIT_MSG" =~ \[disable-autofix\] ]]; then
-            echo "mode=detect-only" >> $GITHUB_OUTPUT
-            echo "🚫 Auto-fix DISABLED: Explicitly disabled via commit message"
-            echo "reason=explicit-disable" >> $GITHUB_OUTPUT
-          # Default behavior: auto-fix enabled
+            echo "🚫 Auto-fix DISABLED: Previous auto-fix commit detected"
+            echo "reason=auto-fix-commit" >> $GITHUB_OUTPUT
           else
             echo "mode=enabled" >> $GITHUB_OUTPUT
-            echo "🛠️ Auto-fix ENABLED: Default behavior (use [skip-autofix] to disable)"
-            echo "reason=default-enabled" >> $GITHUB_OUTPUT
+            echo "🛠️ Auto-fix ENABLED: Regular push commit"
+            echo "reason=regular-push" >> $GITHUB_OUTPUT
           fi
-
-          # Additional context logging
-          echo "Event type: ${{ github.event_name }}"
-          echo "Branch: ${{ github.ref_name }}"
-
+      
       # === ENHANCED YAML VALIDATION WITH DEFAULT AUTO-FIX ===
       - name: "Validate YAML Files with Default Auto-Fix"
         id: yaml-validation
@@ -130,15 +119,15 @@ jobs:
           ls -la
           echo "📁 .github directory:"
           ls -la .github/ || echo "No .github directory found"
-
+          
           # Run validation based on auto-fix strategy
           if [[ "${{ steps.autofix-strategy.outputs.mode }}" == "enabled" ]]; then
             echo "🛠️ Running validation with AUTO-FIX ENABLED (default behavior)..."
             echo "💡 Tip: Use [skip-autofix] in commit message to disable auto-fix"
-
+            
             if ./scripts/utils/validate-yaml.sh --autofix --all-github; then
               echo "validation-result=success" >> $GITHUB_OUTPUT
-
+              
               # Check if any files were modified by auto-fix
               if ! git diff --quiet; then
                 echo "autofix-applied=true" >> $GITHUB_OUTPUT
@@ -161,7 +150,7 @@ jobs:
           else
             echo "🔍 Running validation in DETECTION-ONLY mode..."
             echo "📋 Reason: ${{ steps.autofix-strategy.outputs.reason }}"
-
+            
             if ./scripts/utils/validate-yaml.sh --all-github; then
               echo "validation-result=success" >> $GITHUB_OUTPUT
               echo "autofix-applied=false" >> $GITHUB_OUTPUT
@@ -174,50 +163,47 @@ jobs:
               echo "💡 To enable auto-fix for next run, commit without [skip-autofix] flag"
             fi
           fi
-
-      # === SMART AUTO-COMMIT WITH LOOP PREVENTION ===
-      - name: "Commit Auto-Fix Changes with Loop Prevention"
+      
+      # === NATIVE SKIP AUTO-COMMIT ===
+      # https://docs.github.com/en/actions/how-tos/manage-workflow-runs/skip-workflow-runs
+      - name: "Commit Auto-Fix Changes with Native Skip"
         if: steps.yaml-validation.outputs.autofix-applied == 'true'
         uses: stefanzweifel/git-auto-commit-action@v6
         with:
           commit_message: |
-            🤖 Auto-fix YAML formatting and compliance issues [skip-autofix]
-
+            🤖 Auto-fix YAML formatting and compliance issues [skip ci]
+            
             Applied automatic fixes for:
             - Document start markers (---)
             - Indentation and spacing
             - Trailing whitespace
             - File ending newlines
             - Style consistency improvements
-
+            
             Triggered by: ${{ github.event_name }}
-            Auto-fix reason: ${{ steps.autofix-strategy.outputs.reason }}
             Commit SHA: ${{ github.sha }}
-
-            [skip-autofix] prevents infinite auto-fix loops
-            Remove [skip-autofix] from future commits to re-enable auto-fix
           file_pattern: ".github/**/*.yml"
           commit_user_name: "github-actions"
           commit_user_email: "github-actions@github.com"
-
+      
       # === ENHANCED VALIDATION REPORTING WITH AUTO-FIX STATUS ===
       - name: "Generate Comprehensive Validation Report"
         if: always()
         run: |
           echo "## 📋 YAML Validation Report" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-
+          
           # Validation results with enhanced context
           if [[ "${{ steps.yaml-validation.outputs.validation-result }}" == "success" ]]; then
             echo "✅ **Validation Result**: PASSED" >> $GITHUB_STEP_SUMMARY
           else
             echo "❌ **Validation Result**: FAILED" >> $GITHUB_STEP_SUMMARY
           fi
-
+          
           # Auto-fix strategy and results
           echo "🛠️ **Auto-fix Mode**: ${{ steps.autofix-strategy.outputs.mode }}" >> $GITHUB_STEP_SUMMARY
           echo "📋 **Strategy Reason**: ${{ steps.autofix-strategy.outputs.reason }}" >> $GITHUB_STEP_SUMMARY
-
+          
           if [[ "${{ steps.yaml-validation.outputs.autofix-applied }}" == "true" ]]; then
             echo "✨ **Auto-fixes Applied**: YES" >> $GITHUB_STEP_SUMMARY
             echo "🔄 **Next Run**: Auto-fix will be skipped (loop prevention)" >> $GITHUB_STEP_SUMMARY
@@ -229,14 +215,14 @@ jobs:
               echo "🚫 **Reason**: Auto-fix was disabled" >> $GITHUB_STEP_SUMMARY
             fi
           fi
-
+          
           # File processing summary
           yaml_count=$(find .github -name "*.yml" -o -name "*.yaml" | wc -l)
           echo "- **Files validated:** ${yaml_count}" >> $GITHUB_STEP_SUMMARY
           echo "- **Validation scope:** GitHub Actions workflows and composite actions" >> $GITHUB_STEP_SUMMARY
           echo "- **Tools used:** yamllint, actionlint, Python YAML, yamlfixer" >> $GITHUB_STEP_SUMMARY
           echo "- **Configuration:** Project-specific .yamllint rules" >> $GITHUB_STEP_SUMMARY
-
+          
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🚀 Auto-Fix Control Guide" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
