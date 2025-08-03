@@ -1,3 +1,4 @@
+---
 # ═══════════════════════════════════════════════════════════════════════════════════════════════════════
 # TERRAFORM VALIDATION DETECT-AND-DISPATCH WORKFLOW FOR POWER PLATFORM GOVERNANCE
 # ═══════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -114,8 +115,8 @@ jobs:
             const workflow_id = 'terraform-single-path-validation.yml';
             const owner = context.repo.owner;
             const repo = context.repo.repo;
-            const ref = context.eventName === 'pull_request' 
-              ? context.payload.pull_request.head.ref 
+            const ref = context.eventName === 'pull_request'
+              ? context.payload.pull_request.head.ref
               : context.ref.replace('refs/heads/', '');
             const runNumber = process.env.GITHUB_RUN_NUMBER;
             const runId = process.env.GITHUB_RUN_ID;
@@ -124,7 +125,7 @@ jobs:
             const eventName = process.env.GITHUB_EVENT_NAME;
             const actor = process.env.GITHUB_ACTOR;
             const timestamp = new Date().toISOString();
-            
+
             if (!changedPaths || changedPaths.trim() === '') {
               core.info('No paths to process');
               core.setOutput('notice', '');
@@ -134,16 +135,16 @@ jobs:
               core.setOutput('timestamp', timestamp);
               return;
             }
-            
+
             // Split paths by newline and filter out empty lines
             const paths = changedPaths.split('\n').filter(path => path.trim() !== '');
-            
+
             core.info(`Processing ${paths.length} changed path(s)`);
-            
+
             // Track dispatched configs for summary
             const dispatched = [];
             let failed = false;
-            
+
             for (const path of paths) {
               const trimmedPath = path.trim();
               if (!trimmedPath) continue;
@@ -162,7 +163,7 @@ jobs:
                 failed = true;
               }
             }
-            
+
             core.setOutput('dispatched-count', dispatched.length);
             core.setOutput('dispatched-paths', dispatched.join('%0A'));
             core.setOutput('has-failures', failed ? 'true' : 'false');

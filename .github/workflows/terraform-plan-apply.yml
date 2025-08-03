@@ -1,12 +1,13 @@
+---
 # ═══════════════════════════════════════════════════════════════════════════════
 # TERRAFORM PLAN AND APPLY WORKFLOW FOR POWER PLATFORM GOVERNANCE
 # ═══════════════════════════════════════════════════════════════════════════════
-# Manual deployment workflow enabling controlled infrastructure changes with comprehensive 
+# Manual deployment workflow enabling controlled infrastructure changes with comprehensive
 # safety checks and audit trails for Power Platform governance automation.
 #
 # 🎯 WHY THIS EXISTS:
 # - Governance requirement: Controlled deployment process with approval gates
-# - Business problem: Manual ClickOps lacks consistency and audit trails  
+# - Business problem: Manual ClickOps lacks consistency and audit trails
 # - Operational benefit: 85% reduction in deployment errors through automation
 #
 # 🔒 SECURITY DECISIONS:
@@ -74,8 +75,8 @@ on:
         # SECURITY: Prevents unintended exposure of output values when not required
 
 run-name: >-
-  📋 Terraform Plan${{ github.event.inputs.apply == 'true' && ' and Apply' || '' }}${{ github.event.inputs.extract_outputs == 'true' && ' with Outputs' || '' }} 
-  for ${{ github.event.inputs.configuration }} (${{ github.event.inputs.tfvars_file }}) 
+  📋 Terraform Plan${{ github.event.inputs.apply == 'true' && ' and Apply' || '' }}${{ github.event.inputs.extract_outputs == 'true' && ' with Outputs' || '' }}
+  for ${{ github.event.inputs.configuration }} (${{ github.event.inputs.tfvars_file }})
   by @${{ github.actor }}
 
 permissions:
@@ -99,14 +100,14 @@ jobs:
       create-state-backup: true  # Safety backup before planning
     secrets: inherit  # Pass all secrets to reusable workflow
 
-  # === PHASE 2: TERRAFORM APPLY ===  
+  # === PHASE 2: TERRAFORM APPLY ===
   # Conditionally executes only when plan succeeds, has changes, and apply requested
   # Applies infrastructure changes with comprehensive safety checks
   terraform-apply:
     name: 🚀 Terraform Apply
     if: |
-      always() && 
-      needs.terraform-plan.result == 'success' && 
+      always() &&
+      needs.terraform-plan.result == 'success' &&
       needs.terraform-plan.outputs.has-changes == 'true' &&
       (github.event.inputs.apply == 'true' || github.event.inputs.force_apply == 'true')
     needs: terraform-plan
@@ -126,7 +127,7 @@ jobs:
   terraform-outputs:
     name: 📊 Extract Outputs
     if: |
-      always() && 
+      always() &&
       needs.terraform-apply.result == 'success' &&
       github.event.inputs.extract_outputs == 'true'
     needs: [terraform-plan, terraform-apply]

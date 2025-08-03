@@ -335,44 +335,44 @@ jobs:
           script: |
             const hasChanges = '${{ steps.changes.outputs.has_changes }}' === 'true';
             const changedPaths = `${{ needs.detect-changes.outputs.changed-paths }}`.split('\n').filter(p => p.trim());
-      
+
             let commentBody;
             if (hasChanges) {
               const pathsList = changedPaths.map(path => `- \`${path}\``).join('\n');
               commentBody = `## 📚 Terraform Documentation Updated
-      
+
               The terraform-docs workflow has automatically updated documentation ` +
               `for the following changed paths:
-      
+
               ### Updated Paths
               ${pathsList}
-      
+
               ### Changes Made
               - Documentation regenerated using terraform-docs v0.20.0
               - README files updated with latest Terraform configuration details
               - Changes committed automatically to this PR branch
-      
+
               ### Next Steps
               Please review the documentation changes in the **Files changed** ` +
               `tab to ensure they look correct.
-      
+
               ---
               *This comment was generated automatically by the terraform-docs workflow.*`;
             } else {
               commentBody = `## 📚 Terraform Documentation Status
-      
+
               The terraform-docs workflow has completed successfully with no changes needed.
-      
+
               ### Status
               ✅ All documentation is up-to-date for changed paths
-      
+
               ### Processed Paths
               ${changedPaths.map(path => `- \`${path}\``).join('\n')}
-      
+
               ---
               *This comment was generated automatically by the terraform-docs workflow.*`;
             }
-      
+
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,

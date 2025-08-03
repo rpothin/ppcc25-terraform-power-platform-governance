@@ -66,7 +66,7 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-        
+
       # === EXECUTION METADATA GENERATION ===
       # Generate comprehensive metadata for audit trails and workflow tracking
       - name: Generate Structure Validation Metadata
@@ -183,7 +183,7 @@ jobs:
           # If all required files and AVM guardrails are present, allow integration test
           echo "should-run-integration=true" >> $GITHUB_OUTPUT
           echo "::notice title=AVM Compliance::All required files and AVM guardrails present. Integration test will proceed."
-  
+
   # === FORMAT CHECK ===
   # Ensures consistent code formatting for the target path
   format-check:
@@ -331,14 +331,14 @@ jobs:
       POWER_PLATFORM_USE_OIDC: true
       POWER_PLATFORM_CLIENT_ID: ${{ secrets.POWER_PLATFORM_CLIENT_ID }}
       POWER_PLATFORM_TENANT_ID: ${{ secrets.POWER_PLATFORM_TENANT_ID }}
-      
+
       # Azure OIDC Configuration
       # Required for Azure provider authentication and resource management
       ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       ARM_USE_OIDC: true
-      
+
       # Terraform Backend Configuration
       # Required for Azure Storage backend where Terraform state is stored
       # Used by terraform-init-with-backend composite action
@@ -407,7 +407,7 @@ jobs:
         run: |
           cd "configurations/${{ inputs.target_configuration }}"
           echo "::notice title=Test Start::$(date)"
-          
+
           # Execute terraform test with XML output
           if terraform test -junit-xml="terraform_test_results.xml" 2>&1 | tee "terraform_test_output.log"; then
             echo "test-success=true" >> $GITHUB_OUTPUT
@@ -415,7 +415,7 @@ jobs:
             echo "test-success=false" >> $GITHUB_OUTPUT
             echo "::error title=Integration Test Failure::Tests failed but continuing for result publication"
           fi
-          
+
           # Verify XML file was generated
           if [ -f "terraform_test_results.xml" ]; then
             echo "xml-generated=true" >> $GITHUB_OUTPUT
@@ -423,7 +423,7 @@ jobs:
           else
             echo "xml-generated=false" >> $GITHUB_OUTPUT
             echo "::warning title=Missing Test Results::JUnit XML file not generated"
-            
+
             # Create minimal XML for reporter if none exists
             cat > terraform_test_results.xml << 'EOF'
           <?xml version="1.0" encoding="UTF-8"?>
@@ -435,7 +435,7 @@ jobs:
           EOF
             echo "::notice title=Fallback XML::Created minimal JUnit XML for reporting"
           fi
-          
+
           echo "::notice title=Test End::$(date)"
 
       # === PUBLISH TEST RESULTS ===

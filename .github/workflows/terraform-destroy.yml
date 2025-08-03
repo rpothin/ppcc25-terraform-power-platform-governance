@@ -1,3 +1,4 @@
+---
 # ═══════════════════════════════════════════════════════════════════════════════════════════════════════
 # TERRAFORM DESTROY WORKFLOW FOR POWER PLATFORM GOVERNANCE
 # ═══════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -49,7 +50,7 @@ on:
         # WHY: Only allows safe, non-foundational configs to be destroyed
         # SECURITY: Prevents destruction of critical infrastructure components
         # VALIDATION: Must exist in configurations/ and contain .tf files
-      
+
       tfvars_file:
         description: 'tfvars file name without extension (e.g., dlp-finance, env-production)'
         required: true
@@ -57,7 +58,7 @@ on:
         # WHY: Targets specific resource instance for precise, auditable destruction
         # GOVERNANCE: Ensures correct context for resource identification
         # VALIDATION: Must match a file in tfvars/ subdirectory
-      
+
       confirmation:
         description: 'Type "DESTROY" to confirm resource destruction (case sensitive)'
         required: true
@@ -65,7 +66,7 @@ on:
         # WHY: Explicit, case-sensitive confirmation required for destructive operations
         # SECURITY: Prevents accidental destruction through UI misclicks
         # GOVERNANCE: Creates explicit audit trail of user intent
-      
+
       backup_state:
         description: 'Create state backup before destroy (recommended for production)'
         required: true
@@ -74,7 +75,7 @@ on:
         # WHY: Ensures disaster recovery and auditability before destructive actions
         # GOVERNANCE: Provides rollback capability for audit compliance
         # SECURITY: Protects against accidental state loss
-      
+
       force_destroy:
         description: 'Force destroy even if plan shows no resources (use with caution)'
         required: false
@@ -102,28 +103,28 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: production  # Production environment protection for sensitive operations
-    
+
     # Output values for conditional execution control
     outputs:
       validation-passed: ${{ steps.validate-confirmation.outputs.validation-passed }}
       resources-exist: ${{ steps.check-resources.outputs.resources-exist }}
       resource-count: ${{ steps.check-resources.outputs.resource-count }}
       validation-metadata: ${{ steps.generate-metadata.outputs.validation-metadata }}
-    
+
     steps:
       # === CHECKOUT REPOSITORY ===
       - name: Checkout Repository
         uses: actions/checkout@v4
-      
+
       # === CRITICAL CONFIRMATION VALIDATION ===
       # Rigorous validation of user input to prevent accidental destruction
       - name: Validate Destroy Confirmation
         id: validate-confirmation
         run: |
           echo "::notice title=Confirmation Validation::🔍 Validating destruction confirmation..."
-          
+
           confirmation="${{ github.event.inputs.confirmation }}"
-          
+
           if [ "$confirmation" != "DESTROY" ]; then
             echo "::error title=Invalid Confirmation::❌ Confirmation validation failed"
             echo "::error title=Required Input::You must type 'DESTROY' (case sensitive) to confirm resource destruction"
@@ -131,36 +132,36 @@ jobs:
             echo "::error title=Security Notice::This safety measure prevents accidental resource destruction"
             exit 1
           fi
-          
+
           echo "::warning title=Destruction Confirmed::⚠️ User has provided valid destruction confirmation"
           echo "::notice title=Authorization::✅ Confirmation validation passed - proceeding with safety checks"
           echo "validation-passed=true" >> $GITHUB_OUTPUT
-      
+
       # === INPUT VALIDATION ===
       # Validate configuration and tfvars file existence
       - name: Validate Inputs
         run: |
           config="${{ github.event.inputs.configuration }}"
           tfvars_file="${{ github.event.inputs.tfvars_file }}"
-          
+
           echo "::notice title=Input Validation::📋 Validating destroy inputs..."
-          
+
           # Validate configuration directory
           config_path="configurations/$config"
           if [ ! -d "$config_path" ]; then
             echo "::error title=Configuration Not Found::❌ Configuration directory '$config_path' does not exist"
             exit 1
           fi
-          
+
           # Validate tfvars file
           tfvars_path="$config_path/tfvars/$tfvars_file.tfvars"
           if [ ! -f "$tfvars_path" ]; then
             echo "::error title=tfvars File Not Found::❌ Specified tfvars file '$tfvars_path' does not exist"
             exit 1
           fi
-          
+
           echo "::notice title=Input Validation Complete::✅ All input validation checks passed"
-      
+
       # === AZURE OIDC AUTHENTICATION ===
       - name: Azure Login with OIDC
         uses: azure/login@v2.3.0
@@ -168,7 +169,7 @@ jobs:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      
+
       # === JIT NETWORK ACCESS ===
       - name: Add JIT Network Access
         uses: ./.github/actions/jit-network-access
@@ -176,14 +177,14 @@ jobs:
           action: 'add'
           storage-account-name: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
           resource-group-name: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
-      
+
       # === TERRAFORM SETUP ===
       - name: Setup Terraform CLI
         uses: hashicorp/setup-terraform@v3.1.2
         with:
           terraform_version: ${{ vars.TERRAFORM_VERSION || '1.12.2' }}
           terraform_wrapper: false
-      
+
       # === TERRAFORM INITIALIZATION ===
       - name: Initialize Terraform
         uses: ./.github/actions/terraform-init-with-backend
@@ -200,7 +201,7 @@ jobs:
         with:
           configuration: ${{ github.event.inputs.configuration }}
           tfvars-file: ${{ github.event.inputs.tfvars_file }}
-      
+
       # === GENERATE WORKFLOW METADATA ===
       - name: Generate Workflow Metadata
         uses: ./.github/actions/generate-workflow-metadata
@@ -210,7 +211,7 @@ jobs:
           configuration: ${{ github.event.inputs.configuration }}
           tfvars-file: ${{ github.event.inputs.tfvars_file }}
           phase: 'validation'
-      
+
       # === RESOURCE EXISTENCE CHECK ===
       # Check if resources exist in state before proceeding
       - name: Check Resource Existence
@@ -218,9 +219,9 @@ jobs:
         run: |
           config="${{ github.event.inputs.configuration }}"
           cd "configurations/$config"
-          
+
           echo "::notice title=Resource Check::📊 Checking for resources in Terraform state..."
-          
+
           # Check if state contains any resources
           if terraform show -json > state_output.json 2>/dev/null; then
             # Count managed resources
@@ -230,7 +231,7 @@ jobs:
             else
               resource_count=$(terraform state list 2>/dev/null | wc -l || echo "0")
             fi
-            
+
             if [ "$resource_count" -gt 0 ]; then
               echo "::warning title=Resources Found::⚠️ $resource_count resources found in state"
               echo "resources-exist=true" >> $GITHUB_OUTPUT
@@ -245,7 +246,7 @@ jobs:
             echo "resources-exist=false" >> $GITHUB_OUTPUT
             echo "resource-count=0" >> $GITHUB_OUTPUT
           fi
-      
+
       # === CLEANUP JIT ACCESS ===
       - name: Remove JIT Network Access
         if: always()
@@ -262,7 +263,7 @@ jobs:
     needs: pre-destroy-validation
     # Only run if validation passed and (resources exist OR force destroy is enabled)
     if: |
-      needs.pre-destroy-validation.outputs.validation-passed == 'true' && 
+      needs.pre-destroy-validation.outputs.validation-passed == 'true' &&
       (needs.pre-destroy-validation.outputs.resources-exist == 'true' || github.event.inputs.force_destroy == 'true')
     uses: ./.github/workflows/reusable-terraform-base.yml
     with:

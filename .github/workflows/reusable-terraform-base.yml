@@ -1,3 +1,4 @@
+---
 # ═══════════════════════════════════════════════════════════════════════════════════════════════════════
 # TERRAFORM OPERATIONS WORKFLOW FOR POWER PLATFORM GOVERNANCE
 # ═══════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -42,7 +43,7 @@ on:
         # - destroy: Destroys all managed infrastructure (requires auto-approve)
         # - import: Imports existing resources into Terraform state
         # - output: Extracts and displays Terraform output values
-      
+
       configuration:
         description: 'Target configuration directory name'
         required: true
@@ -51,7 +52,7 @@ on:
         # Examples: 'utl-export-dlp-policies', 'res-dlp-policy', 'ptn-environment'
         # The directory must contain at least one .tf file
         # Used for state key generation and working directory
-      
+
       # === TERRAFORM VARIABLE MANAGEMENT ===
       tfvars-file:
         description: 'tfvars file name (without .tfvars extension)'
@@ -61,7 +62,7 @@ on:
         # Used for environment-specific variable values
         # Examples: 'dev', 'prod', 'dlp-finance', 'env-development'
         # Combined with configuration for unique state keys
-      
+
       additional-options:
         description: 'Additional terraform command options'
         required: false
@@ -70,7 +71,7 @@ on:
         # Allows passing extra CLI flags to terraform commands
         # Examples: '-parallelism=5', '-target=resource.name', '-replace=resource.name'
         # For import operations, must contain resource address and ID
-      
+
       # === EXECUTION CONTROL ===
       timeout-minutes:
         description: 'Job timeout in minutes'
@@ -80,12 +81,12 @@ on:
         # Prevents workflows from running indefinitely
         # Recommended values by operation:
         # - validate: 5-10 minutes
-        # - plan: 10-15 minutes  
+        # - plan: 10-15 minutes
         # - apply: 20-30 minutes
         # - destroy: 15-25 minutes
         # - import: 10-15 minutes
         # - output: 5-10 minutes
-      
+
       state-key-override:
         description: 'Override default state key pattern'
         required: false
@@ -94,7 +95,7 @@ on:
         # Default pattern: {configuration}-{tfvars-file}.tfstate
         # Use cases: output operations, test workflows, temporary states
         # Examples: 'output-{configuration}.tfstate', 'test-integration.tfstate'
-      
+
       environment-name:
         description: 'GitHub environment to use for secrets'
         required: false
@@ -105,7 +106,7 @@ on:
         # Required secrets: AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID,
         #                  POWER_PLATFORM_CLIENT_ID, POWER_PLATFORM_TENANT_ID,
         #                  TERRAFORM_STORAGE_ACCOUNT, TERRAFORM_CONTAINER, TERRAFORM_RESOURCE_GROUP
-      
+
       # === SAFETY AND APPROVAL CONTROLS ===
       auto-approve:
         description: 'Auto-approve apply operations (use with caution)'
@@ -116,7 +117,7 @@ on:
         # When false, apply operations require a pre-existing plan file
         # When true, enables direct apply with -auto-approve flag
         # SECURITY: Should only be set to true for automated deployments with proper approvals
-      
+
       plan-file-name:
         description: 'Name for the plan file (without extension)'
         required: false
@@ -125,7 +126,7 @@ on:
         # Base name for generated plan files (extension .tfplan is added automatically)
         # Used for plan operations to generate files and apply operations to consume them
         # Must be consistent between plan and apply operations in the same workflow
-      
+
       create-state-backup:
         description: 'Create a backup of the state file before operations'
         required: false
@@ -144,14 +145,14 @@ on:
         # Returns 'true' if the operation completed without errors, 'false' otherwise
         # Use this for conditional execution of subsequent jobs
         # Example: if: needs.terraform-plan.outputs.operation-successful == 'true'
-      
+
       operation-metadata:
         description: 'Comprehensive operation execution metadata'
         value: ${{ jobs.terraform-operation.outputs.metadata }}
         # JSON object containing AVM-compliant metadata about the execution
         # Includes: timestamps, workflow info, Terraform version, operation details
         # Useful for audit trails, debugging, and compliance reporting
-      
+
       terraform-output:
         description: 'Terraform command output (if applicable)'
         value: ${{ jobs.terraform-operation.outputs.tf-output }}
@@ -160,14 +161,14 @@ on:
         # For apply operations: includes resource creation/modification details
         # For output operations: includes all output values
         # Large outputs may be truncated by GitHub Actions limits
-      
+
       state-key-used:
         description: 'The state key that was used for the operation'
         value: ${{ jobs.terraform-operation.outputs.state-key }}
         # Returns the exact state key used for this operation
         # Useful for debugging state issues and confirming correct naming
         # Generated by terraform-init-with-backend composite action
-      
+
       has-changes:
         description: 'Whether the plan detected changes (plan operations only)'
         value: ${{ jobs.terraform-operation.outputs.has-changes }}
@@ -181,19 +182,19 @@ jobs:
     # Format: 🔧 {operation} - {configuration}
     # Examples: "🔧 plan - res-dlp-policy", "🔧 apply - ptn-environment"
     name: 🔧 ${{ inputs.operation }} - ${{ inputs.configuration }}
-    
+
     # Use Ubuntu latest for consistency with existing workflows
     # Provides stable, well-tested environment with all required tools
     runs-on: ubuntu-latest
-    
+
     # Configurable timeout to prevent runaway processes
     # Passed through from workflow input with sensible default
     timeout-minutes: ${{ inputs.timeout-minutes }}
-    
+
     # Use specified GitHub environment for secret management
     # Enables environment-specific secrets and protection rules
     environment: ${{ inputs.environment-name }}
-    
+
     # === ENVIRONMENT VARIABLES ===
     # These environment variables configure authentication for both Azure and Power Platform
     # All use OIDC (OpenID Connect) for secure, passwordless authentication
@@ -203,21 +204,21 @@ jobs:
       POWER_PLATFORM_USE_OIDC: true
       POWER_PLATFORM_CLIENT_ID: ${{ secrets.POWER_PLATFORM_CLIENT_ID }}
       POWER_PLATFORM_TENANT_ID: ${{ secrets.POWER_PLATFORM_TENANT_ID }}
-      
+
       # Azure OIDC Configuration
       # Required for Azure provider authentication and resource management
       ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       ARM_USE_OIDC: true
-      
+
       # Terraform Backend Configuration
       # Required for Azure Storage backend where Terraform state is stored
       # Used by terraform-init-with-backend composite action
       ARM_STORAGE_ACCOUNT_NAME: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
       ARM_CONTAINER_NAME: ${{ secrets.TERRAFORM_CONTAINER }}
       ARM_RESOURCE_GROUP_NAME: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
-    
+
     # === JOB OUTPUTS ===
     # These outputs are generated by individual steps and passed to workflow outputs
     # Each step contributes specific information about the operation execution
@@ -227,21 +228,21 @@ jobs:
       tf-output: ${{ steps.execute-operation.outputs.tf-output }}    # Raw Terraform command output
       state-key: ${{ steps.terraform-init.outputs.state-key }}       # State key used for operation
       has-changes: ${{ steps.execute-operation.outputs.has-changes }} # Change detection (plan only)
-    
+
     steps:
       # === STEP 1: SOURCE CODE CHECKOUT ===
       # Retrieves the repository source code including Terraform configurations
       # Uses the latest stable version of the checkout action
       - name: Checkout Repository
         uses: actions/checkout@v4
-      
+
       # === STEP 2: INPUT VALIDATION ===
       # Validates operation type and configuration directory before proceeding
       # This prevents failures later in the workflow and provides clear error messages
       - name: Validate Operation Input
         run: |
           operation="${{ inputs.operation }}"
-          
+
           # Validate that the requested operation is supported
           # This list should be updated if new operations are added to the switch statement
           case "$operation" in
@@ -254,7 +255,7 @@ jobs:
               exit 1
               ;;
           esac
-          
+
           # Validate that the configuration directory exists
           # This catches typos in configuration names early
           config="${{ inputs.configuration }}"
@@ -262,16 +263,16 @@ jobs:
             echo "::error title=Configuration Not Found::❌ Configuration directory 'configurations/$config' does not exist"
             exit 1
           fi
-          
+
           # Ensure the configuration directory contains Terraform files
           # This prevents attempting operations on empty or non-Terraform directories
           if ! find "configurations/$config" -maxdepth 1 -name "*.tf" -type f | grep -q .; then
             echo "::error title=No Terraform Files::❌ No .tf files found in configurations/$config"
             exit 1
           fi
-          
+
           echo "::notice title=Validation Complete::✅ Operation and configuration validated"
-      
+
       # === STEP 3: AZURE AUTHENTICATION ===
       # Authenticates with Azure using OIDC for passwordless, secure authentication
       # This authentication is required for both Azure resources and the Terraform backend
@@ -281,7 +282,7 @@ jobs:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      
+
       # === STEP 4: ENABLE JIT NETWORK ACCESS ===
       # Temporarily adds the GitHub runner's IP to Azure Storage Account firewall rules
       # This is required because the storage account is secured with network restrictions
@@ -292,7 +293,7 @@ jobs:
           action: 'add'
           storage-account-name: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
           resource-group-name: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
-      
+
       # === STEP 5: TERRAFORM SETUP ===
       # Installs the specified version of Terraform
       # Uses terraform_wrapper: false to ensure clean output capture
@@ -301,7 +302,7 @@ jobs:
         with:
           terraform_version: ${{ vars.TERRAFORM_VERSION || '1.12.2' }}  # Uses repository variable with fallback
           terraform_wrapper: false  # Disable wrapper for clean output capture
-      
+
       # === STEP 6: TERRAFORM INITIALIZATION ===
       # Initializes Terraform with Azure backend configuration using proven composite action
       # This action handles retry logic, state key generation, and network propagation
@@ -314,7 +315,7 @@ jobs:
           state-key-override: ${{ inputs.state-key-override }}
           max-retries: '3'          # Number of retry attempts for reliability
           wait-for-propagation: '10' # Seconds to wait for network rules to propagate
-      
+
       # === STEP 7: METADATA GENERATION ===
       # Generates AVM-compliant metadata for audit trails and compliance
       # This metadata is included in outputs and can be used for reporting
@@ -332,7 +333,7 @@ jobs:
               "auto_approve": ${{ inputs.auto-approve }},
               "timeout_minutes": ${{ inputs.timeout-minutes }}
             }
-      
+
       # === STEP 7.5: DOWNLOAD PLAN FILE FOR APPLY OPERATIONS ===
       # Downloads plan file artifact when performing apply operations
       # Only executes for apply operations to avoid unnecessary downloads
@@ -344,7 +345,7 @@ jobs:
           name: terraform-plan-${{ inputs.configuration }}-${{ inputs.tfvars-file || 'default' }}
           path: configurations/${{ inputs.configuration }}
         continue-on-error: true  # Allow fallback to direct apply if no plan file
-      
+
       # === STEP 8: TERRAFORM OPERATION EXECUTION ===
       # This is the core step that executes the requested Terraform operation
       # Each operation has specialized logic while maintaining consistent error handling
@@ -353,21 +354,21 @@ jobs:
         run: |
           # Enable strict error handling - exit immediately on any command failure
           set -e
-          
+
           # Extract input parameters for easier handling
           config="${{ inputs.configuration }}"
           operation="${{ inputs.operation }}"
           additional_options="${{ inputs.additional-options }}"
           tfvars_file="${{ inputs.tfvars-file }}"
           plan_file="${{ inputs.plan-file-name }}.tfplan"
-          
+
           echo "::notice title=Operation Execution::🚀 Executing $operation on $config"
-          
+
           # Change to the configuration directory where Terraform files are located
           # This ensures all relative paths in Terraform configs work correctly
           cd "configurations/$config"
           echo "::notice title=Working Directory::📁 Changed to $(pwd)"
-          
+
           # === TFVARS FILE HANDLING ===
           # Build the -var-file option if a tfvars file is specified
           # This allows environment-specific variable values
@@ -382,13 +383,13 @@ jobs:
               exit 1
             fi
           fi
-          
+
           # === INITIALIZE OUTPUT VARIABLES ===
           # Set default values for all outputs to ensure they're always defined
           echo "success=false" >> $GITHUB_OUTPUT
           echo "has-changes=false" >> $GITHUB_OUTPUT
           echo "tf-output=" >> $GITHUB_OUTPUT
-          
+
           # === OPERATION DISPATCH ===
           # Execute operation-specific logic based on the requested operation
           # Each case handles the specific requirements and outputs for that operation
@@ -398,7 +399,7 @@ jobs:
               # Validates the syntax and internal consistency of Terraform configuration
               # Does not require initialization or state access
               echo "::group::🔍 Terraform Validation"
-              
+
               if eval "terraform validate $additional_options"; then
                 echo "::notice title=Validation Success::✅ Terraform configuration is valid"
                 echo "success=true" >> $GITHUB_OUTPUT
@@ -407,31 +408,31 @@ jobs:
                 echo "::error title=Validation Failed::❌ Terraform configuration validation failed"
                 exit 1
               fi
-              
+
               echo "::endgroup::"
               ;;
-              
+
             "plan")
               # === TERRAFORM PLAN OPERATION ===
               # Creates an execution plan showing what actions Terraform will take
               # Generates a plan file for later apply operations
               # Detects whether infrastructure changes are required
               echo "::group::📋 Terraform Plan"
-              
+
               plan_output_file="plan-output.txt"
-              
+
               # Execute terraform plan with output capture
               # Temporarily disable strict error handling to capture plan exit code
               set +e
               eval "terraform plan $tfvars_option -out=\"$plan_file\" $additional_options" 2>&1 | tee "$plan_output_file"
               plan_exit_code=${PIPESTATUS[0]}
               set -e  # Re-enable strict error handling
-              
+
               # === PLAN RESULT ANALYSIS ===
               # Analyze the plan output to determine success and detect changes
               if [ $plan_exit_code -eq 0 ]; then
                 echo "::notice title=Plan Success::✅ Terraform plan completed successfully"
-                
+
                 # === CHANGE DETECTION LOGIC ===
                 # Parse the plan output to determine if infrastructure changes are required
                 # This drives conditional apply operations in calling workflows
@@ -441,7 +442,7 @@ jobs:
                 elif grep -q "Plan:" "$plan_output_file"; then
                   echo "::notice title=Changes Detected::🔄 Infrastructure changes detected"
                   echo "has-changes=true" >> $GITHUB_OUTPUT
-                  
+
                   # Extract and display the change summary for visibility
                   change_summary=$(grep "Plan:" "$plan_output_file" | head -1 || echo "Changes detected")
                   echo "::notice title=Change Summary::$change_summary"
@@ -450,9 +451,9 @@ jobs:
                   echo "::warning title=Unknown Plan State::⚠️ Could not determine if plan has changes"
                   echo "has-changes=true" >> $GITHUB_OUTPUT
                 fi
-                
+
                 echo "success=true" >> $GITHUB_OUTPUT
-                
+
                 # Capture the full plan output for use by calling workflows
                 {
                   echo "tf-output<<PLAN_OUTPUT_EOF"
@@ -461,7 +462,7 @@ jobs:
                 } >> $GITHUB_OUTPUT
               else
                 echo "::error title=Plan Failed::❌ Terraform plan failed with exit code $plan_exit_code"
-                
+
                 # Capture error output for debugging
                 {
                   echo "tf-output<<PLAN_ERROR_EOF"
@@ -470,16 +471,16 @@ jobs:
                 } >> $GITHUB_OUTPUT
                 exit 1
               fi
-              
+
               echo "::endgroup::"
               ;;
-              
+
             "apply")
               # === TERRAFORM APPLY OPERATION ===
               # Applies infrastructure changes either from a plan file or directly
               # Plan file approach is preferred for safety and predictability
               echo "::group::🚀 Terraform Apply"
-              
+
               # === APPLY STRATEGY SELECTION ===
               # Determine whether to apply from plan file or perform direct apply
               if [ -f "$plan_file" ]; then
@@ -490,7 +491,7 @@ jobs:
                 # FALLBACK: Direct apply (requires auto-approve for safety)
                 echo "::notice title=Direct Apply::⚠️ No plan file found, performing direct apply"
                 apply_args="$tfvars_option $additional_options"
-                
+
                 # Safety check: direct apply requires explicit auto-approval
                 if [ "${{ inputs.auto-approve }}" != "true" ]; then
                   echo "::error title=Manual Approval Required::❌ Direct apply requires auto-approve=true"
@@ -498,13 +499,13 @@ jobs:
                 fi
                 apply_args="$apply_args -auto-approve"
               fi
-              
+
               # Execute the apply operation with full output capture
               apply_output_file="apply-output.txt"
               if terraform apply $apply_args 2>&1 | tee "$apply_output_file"; then
                 echo "::notice title=Apply Success::✅ Terraform apply completed successfully"
                 echo "success=true" >> $GITHUB_OUTPUT
-                
+
                 # Capture apply output showing what resources were changed
                 {
                   echo "tf-output<<APPLY_OUTPUT_EOF"
@@ -513,7 +514,7 @@ jobs:
                 } >> $GITHUB_OUTPUT
               else
                 echo "::error title=Apply Failed::❌ Terraform apply failed"
-                
+
                 # Capture error output for troubleshooting
                 {
                   echo "tf-output<<APPLY_ERROR_EOF"
@@ -522,29 +523,29 @@ jobs:
                 } >> $GITHUB_OUTPUT
                 exit 1
               fi
-              
+
               echo "::endgroup::"
               ;;
-              
+
             "destroy")
               # === TERRAFORM DESTROY OPERATION ===
               # Destroys all resources managed by this Terraform configuration
               # This is a destructive operation that requires explicit approval
               echo "::group::🗑️ Terraform Destroy"
-              
+
               # SAFETY CHECK: Destroy operations always require auto-approval
               # This prevents accidental destruction of infrastructure
               if [ "${{ inputs.auto-approve }}" != "true" ]; then
                 echo "::error title=Manual Approval Required::❌ Destroy operations require auto-approve=true"
                 exit 1
               fi
-              
+
               # Execute destroy with full output capture
               destroy_output_file="destroy-output.txt"
               if eval "terraform destroy $tfvars_option -auto-approve $additional_options" 2>&1 | tee "$destroy_output_file"; then
                 echo "::notice title=Destroy Success::✅ Terraform destroy completed successfully"
                 echo "success=true" >> $GITHUB_OUTPUT
-                
+
                 # Capture destroy output showing what resources were removed
                 delimiter="DESTROY_OUTPUT_${RANDOM}_EOF"
                 {
@@ -554,7 +555,7 @@ jobs:
                 } >> $GITHUB_OUTPUT
               else
                 echo "::error title=Destroy Failed::❌ Terraform destroy failed"
-                
+
                 # Capture error output for troubleshooting
                 {
                   echo "tf-output<<DESTROY_ERROR_EOF"
@@ -563,34 +564,34 @@ jobs:
                 } >> $GITHUB_OUTPUT
                 exit 1
               fi
-              
+
               echo "::endgroup::"
               ;;
-              
+
             "import")
               # === TERRAFORM IMPORT OPERATION ===
               # Imports existing infrastructure resources into Terraform state
               # Requires additional-options to specify resource address and ID
               echo "::group::📥 Terraform Import"
-              
+
               # PARAMETER VALIDATION: Import requires resource address and ID
               if [ -z "$additional_options" ]; then
                 echo "::error title=Import Parameters Missing::❌ Import operation requires additional-options with resource address and ID"
                 echo "::error title=Example::Example: 'powerplatform_environment.example env-id-here'"
                 exit 1
               fi
-              
+
               # === STATE BACKUP (if requested) ===
               # Create a backup of the current state file before import
               if [ "${{ inputs.create-state-backup }}" = "true" ]; then
                 echo "::notice title=Creating State Backup::💾 Creating backup of current state"
                 timestamp=$(date +%Y%m%d-%H%M%S)
-                
+
                 # Check if state exists
                 if terraform state list > /dev/null 2>&1; then
                   mkdir -p backups
                   backup_file="backups/terraform.tfstate.backup-$timestamp"
-                  
+
                   # Pull current state and save as backup
                   if terraform state pull > "$backup_file"; then
                     echo "::notice title=Backup Created::✅ State backup created: $backup_file"
@@ -601,13 +602,13 @@ jobs:
                   echo "::notice title=No State::📄 No existing state found, no backup needed"
                 fi
               fi
-              
+
               # Execute import with full output capture
               import_output_file="import-output.txt"
               if eval "terraform import $tfvars_option $additional_options" 2>&1 | tee "$import_output_file"; then
                 echo "::notice title=Import Success::✅ Terraform import completed successfully"
                 echo "success=true" >> $GITHUB_OUTPUT
-                
+
                 # Capture import output showing what was imported
                 {
                   echo "tf-output<<IMPORT_OUTPUT_EOF"
@@ -616,7 +617,7 @@ jobs:
                 } >> $GITHUB_OUTPUT
               else
                 echo "::error title=Import Failed::❌ Terraform import failed"
-                
+
                 # Capture error output for troubleshooting
                 {
                   echo "tf-output<<IMPORT_ERROR_EOF"
@@ -625,54 +626,54 @@ jobs:
                 } >> $GITHUB_OUTPUT
                 exit 1
               fi
-              
+
               echo "::endgroup::"
               ;;
-              
+
             "output")
               # === TERRAFORM OUTPUT OPERATION ===
               # For large outputs: Apply data sources then save outputs to files only
               echo "::group::📤 Terraform Output"
-              
+
               output_file="terraform-output.txt"
               json_output_file="terraform-output-artifact.json"
               output_args="-json -no-color"
-              
+
               # PHASE 1: Ensure state is populated (apply data sources)
               echo "::notice title=Populating State::🔄 Applying configuration to populate state with data sources"
               apply_output_file="output-apply.txt"
-              
+
               set +e
               eval "terraform apply ${tfvars_option:+$tfvars_option} -auto-approve $additional_options" 2>&1 | tee "$apply_output_file"
               apply_exit_code=${PIPESTATUS[0]}
               set -e
-              
+
               if [ $apply_exit_code -eq 0 ]; then
                 echo "::notice title=Apply Success::✅ Configuration applied successfully"
-                
+
                 # PHASE 2: Extract outputs to files (not GitHub Actions outputs)
                 echo "::notice title=Extracting Outputs::📤 Extracting output values to artifact files"
-                
+
                 # Generate JSON output file for artifacts
                 set +e
                 terraform output -json > "$json_output_file" 2>&1
                 json_exit_code=${PIPESTATUS[0]}
                 set -e
-                
+
                 # Generate plain text output for logs
                 set +e
                 terraform output $output_args 2>&1 | tee "$output_file"
                 output_exit_code=${PIPESTATUS[0]}
                 set -e
-                
+
                 if [ $json_exit_code -eq 0 ] && [ $output_exit_code -eq 0 ]; then
                   echo "::notice title=Output Success::✅ Terraform outputs saved to artifact files"
                   echo "success=true" >> $GITHUB_OUTPUT
-                  
+
                   # Only capture a SUMMARY in GitHub Actions output (not full data)
                   output_summary=$(terraform output --json | jq -r 'keys | "Outputs generated: " + (. | join(", "))')
                   echo "tf-output=$output_summary" >> $GITHUB_OUTPUT
-                  
+
                   # Display file sizes for monitoring
                   if [ -f "$json_output_file" ]; then
                     json_size=$(stat -f%z "$json_output_file" 2>/dev/null || stat -c%s "$json_output_file" 2>/dev/null || echo "unknown")
@@ -685,9 +686,9 @@ jobs:
                 fi
               else
                 echo "tf-output=Apply failed, no outputs available" >> $GITHUB_OUTPUT
-                
+
                 echo "::error title=Apply Failed::❌ Terraform apply failed during output operation"
-                
+
                 # === ENHANCED ERROR ANALYSIS ===
                 # Analyze the apply output to provide specific guidance
                 if grep -q "Value for undeclared variable" "$apply_output_file"; then
@@ -695,23 +696,23 @@ jobs:
                   echo "::error::This often indicates quote escaping issues in variable values"
                   echo "::error::Ensure variables are formatted as: -var='name=value'"
                 fi
-                
+
                 if grep -q "No value for required variable" "$apply_output_file"; then
                   echo "::error title=Missing Variable::📋 Required variable not provided"
                   echo "::error::Check that all required variables are included in terraform_variables input"
                 fi
-                
+
                 # Display the last 20 lines of terraform output for debugging
                 echo "::group::🔍 Terraform Apply Output (Last 20 lines)"
                 tail -n 20 "$apply_output_file"
                 echo "::endgroup::"
-                
+
                 exit 1
               fi
-              
+
               echo "::endgroup::"
               ;;
-              
+
             *)
               # === UNSUPPORTED OPERATION ===
               # This should never be reached due to input validation, but provides safety
@@ -719,12 +720,12 @@ jobs:
               exit 1
               ;;
           esac
-          
+
           echo "::notice title=Operation Complete::✅ $operation operation completed successfully"
-          
+
           # Return to the original directory to avoid affecting subsequent steps
           cd - > /dev/null
-      
+
       # === STEP 9: ARTIFACT MANAGEMENT - PLAN FILES ===
       # Uploads generated plan files as artifacts for later use by apply operations
       # Only executed for successful plan operations
@@ -737,7 +738,7 @@ jobs:
           path: configurations/${{ inputs.configuration }}/${{ inputs.plan-file-name }}.tfplan
           retention-days: 7  # Short retention - plan files are used quickly
           if-no-files-found: warn  # Warn if plan file not found (shouldn't happen)
-      
+
       # === STEP 10: ARTIFACT MANAGEMENT - OUTPUT FILES ===
       # Uploads Terraform output files for later reference and consumption
       # Only executed for successful output operations
@@ -754,7 +755,7 @@ jobs:
           retention-days: 30  # Longer retention - outputs used for reference
           if-no-files-found: warn  # Warn if output file not found
           compression-level: 6  # Good compression for potentially large JSON files
-      
+
       # === STEP 11: FINAL RESULT DETERMINATION ===
       # Sets the final success/failure status for the workflow
       # This step always runs and provides the definitive result
@@ -770,7 +771,7 @@ jobs:
             echo "::error title=Workflow Failed::❌ Terraform ${{ inputs.operation }} failed"
             exit 1
           fi
-      
+
       # === STEP 12: CLEANUP - REMOVE JIT NETWORK ACCESS ===
       # Always removes the JIT network access rule, even if the workflow fails
       # This ensures the storage account firewall rules are properly cleaned up

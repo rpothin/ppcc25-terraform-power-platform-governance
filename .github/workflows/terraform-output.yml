@@ -320,7 +320,7 @@ jobs:
           echo "::notice::• Terraform variables provided: ${{ github.event.inputs.terraform_variables != '' }}"
           echo "::notice::• terraform-output job result: ${{ needs.terraform-output.result }}"
           echo "::notice::• terraform-output-with-variables job result: ${{ needs.terraform-output-with-variables.result }}"
-          
+
           if [ "${{ github.event.inputs.terraform_variables }}" != "" ]; then
             echo "::notice::• Execution path: WITH VARIABLES"
             echo "::notice::• Using artifacts from: terraform-output-with-variables"
@@ -339,7 +339,7 @@ jobs:
             operation_metadata='${{ needs.terraform-output.outputs.operation-metadata }}'
             echo "::debug::Using metadata from terraform-output"
           fi
-          
+
           # Validate metadata is available
           if [ -z "$operation_metadata" ] || [ "$operation_metadata" = "null" ]; then
             echo "::warning title=Metadata Unavailable::⚠️ Operation metadata not available, using minimal context"
@@ -455,12 +455,12 @@ jobs:
           tfvars_files_found=0
           if find "terraform-artifacts" -name "*.tfvars" -type f | head -1 > /dev/null; then
             echo "::notice title=tfvars Discovery::🔍 Scanning for generated .tfvars files..."
-            
+
             find "terraform-artifacts" -name "*.tfvars" -type f | while read -r tfvars_file; do
               # Extract just the filename from the full path
               tfvars_basename=$(basename "$tfvars_file")
               target_path="configurations/$config/$tfvars_basename"
-              
+
               # Copy from artifacts to target location
               cp "$tfvars_file" "$target_path"
               git add "$target_path"
@@ -471,14 +471,14 @@ jobs:
               if [ -f "$target_path" ]; then
                 echo "::warning title=File Exists::⚠️ $tfvars_basename already exists, will be overwritten"
               fi
-              
+
               echo "::notice title=tfvars Staged::📋 Generated tfvars: $tfvars_basename"
             done
 
             # Monitor generated file sizes for governance
             file_size=$(stat -c%s "$tfvars_file" 2>/dev/null || echo "0")
             echo "::notice title=File Size::📊 $tfvars_basename: ${file_size} bytes"
-            
+
             echo "::notice title=tfvars Summary::📊 Staged $tfvars_files_found .tfvars file(s)"
           fi
 
@@ -510,7 +510,7 @@ jobs:
             else
               operation_metadata='${{ needs.terraform-output.outputs.operation-metadata }}'
             fi
-            
+
             if [ -n "$operation_metadata" ] && [ "$operation_metadata" != "null" ]; then
               terraform_version=$(echo "$operation_metadata" | \
                 jq -r '.terraform_version // "unknown"')

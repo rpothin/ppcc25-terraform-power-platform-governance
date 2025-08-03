@@ -51,7 +51,7 @@ jobs:
 
     # Permissions set just for the setup steps
     # Copilot has permissions to its branch
-    
+
     permissions:
       # To allow GitHub to clone the repo for setup
       contents: read
@@ -98,7 +98,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      
+
       # === YAML VALIDATION TOOLS INSTALLATION ===
       # Use modular installation library for consistent tool setup across environments
       # Leverages yaml-tools-installer.sh for reusable installation patterns
@@ -107,7 +107,7 @@ jobs:
           # Source the installation library and install all validation tools
           source scripts/utils/yaml-tools-installer.sh
           install_all_yaml_tools
-          
+
           # Ensure PATH includes user-installed packages for subsequent steps
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
@@ -117,31 +117,31 @@ jobs:
         run: |
           echo "=== Environment Validation ==="
           echo "Validating all tools for Copilot coding agent..."
-          
+
           # Core tools validation
           echo "✓ Terraform: $(terraform version -json | jq -r '.terraform_version')"
           echo "✓ TFLint: $(tflint --version | head -1)"
           echo "✓ Azure CLI: $(az version --query '"azure-cli"' -o tsv)"
           echo "✓ Power Platform CLI: $(pac --version | head -1)"
           echo "✓ NPM: $(npm --version)"
-          
-          # Documentation tools validation  
+
+          # Documentation tools validation
           echo "✓ terraform-docs: $(terraform-docs version)"
           echo "✓ yamllint: $(yamllint --version)"
           echo "✓ actionlint: $(actionlint -version)"
           echo "✓ Python: $(python3 --version)"
           echo "✓ PyYAML: $(python3 -c 'import yaml; print(yaml.__version__)')"
-          
+
           # Repository context validation
           echo "✓ Repository: ${GITHUB_REPOSITORY}"
           echo "✓ Branch: ${GITHUB_REF_NAME}"
           echo "✓ Workspace: ${GITHUB_WORKSPACE}"
-          
+
           # Power Platform governance context
           echo "✓ Configurations directory: $(ls -la configurations/ | wc -l) items"
           echo "✓ Scripts directory: $(ls -la scripts/ | wc -l) items"
           echo "✓ Documentation: $(ls -la docs/ | wc -l) items"
-          
+
           echo "=== Environment Ready ==="
           echo "GitHub Copilot coding agent environment configured successfully!"
           echo "All tools installed and validated for Power Platform governance automation."
