@@ -84,58 +84,171 @@ jobs:
           # Ensure PATH includes user-installed packages for subsequent steps
           echo "$HOME/.local/bin" >> $GITHUB_PATH
       
-      # === COMPREHENSIVE YAML VALIDATION ===
-      # Validate all GitHub Actions YAML files using project validation script
-      # Includes syntax, style, and GitHub Actions-specific structure validation
-      - name: "Validate YAML Files - All GitHub Actions"
+            # === SMART AUTO-FIX STRATEGY WITH LOOP PREVENTION ===
+      # Controls auto-fix behavior with default-on approach and intelligent loop prevention
+      - name: "Determine Auto-Fix Strategy"
+        id: autofix-strategy
         run: |
-          echo "🔍 Validating all GitHub Actions YAML files..."
+          echo "🔍 Analyzing commit context for auto-fix strategy..."
+          
+          # Get the latest commit message for analysis
+          LATEST_COMMIT_MSG="${{ github.event.head_commit.message }}"
+          echo "📝 Latest commit: $LATEST_COMMIT_MSG"
+          
+          # Check for auto-fix skip indicators (prevents infinite loops)
+          if [[ "$LATEST_COMMIT_MSG" =~ \[skip-autofix\] ]] || \
+             [[ "$LATEST_COMMIT_MSG" =~ \[no-autofix\] ]] || \
+             [[ "$LATEST_COMMIT_MSG" =~ "🤖 Auto-fix YAML" ]]; then
+            echo "mode=detect-only" >> $GITHUB_OUTPUT
+            echo "🚫 Auto-fix DISABLED: Skip flag detected or previous auto-fix commit"
+            echo "reason=skip-requested" >> $GITHUB_OUTPUT
+          # Check for explicit disable requests
+          elif [[ "$LATEST_COMMIT_MSG" =~ \[disable-autofix\] ]]; then
+            echo "mode=detect-only" >> $GITHUB_OUTPUT
+            echo "🚫 Auto-fix DISABLED: Explicitly disabled via commit message"
+            echo "reason=explicit-disable" >> $GITHUB_OUTPUT
+          # Default behavior: auto-fix enabled
+          else
+            echo "mode=enabled" >> $GITHUB_OUTPUT
+            echo "🛠️ Auto-fix ENABLED: Default behavior (use [skip-autofix] to disable)"
+            echo "reason=default-enabled" >> $GITHUB_OUTPUT
+          fi
+          
+          # Additional context logging
+          echo "Event type: ${{ github.event_name }}"
+          echo "Branch: ${{ github.ref_name }}"
+      
+      # === ENHANCED YAML VALIDATION WITH DEFAULT AUTO-FIX ===
+      - name: "Validate YAML Files with Default Auto-Fix"
+        id: yaml-validation
+        run: |
+          echo "🔍 Starting YAML validation with default auto-fix..."
           echo "📂 Current working directory: $(pwd)"
           echo "📁 Repository contents:"
           ls -la
           echo "📁 .github directory:"
           ls -la .github/ || echo "No .github directory found"
-          echo "🚀 Running validation script..."
-          ./scripts/utils/validate-yaml.sh --all-github
+          
+          # Run validation based on auto-fix strategy
+          if [[ "${{ steps.autofix-strategy.outputs.mode }}" == "enabled" ]]; then
+            echo "🛠️ Running validation with AUTO-FIX ENABLED (default behavior)..."
+            echo "💡 Tip: Use [skip-autofix] in commit message to disable auto-fix"
+            
+            if ./scripts/utils/validate-yaml.sh --autofix --all-github; then
+              echo "validation-result=success" >> $GITHUB_OUTPUT
+              
+              # Check if any files were modified by auto-fix
+              if ! git diff --quiet; then
+                echo "autofix-applied=true" >> $GITHUB_OUTPUT
+                echo "✨ Auto-fixes were applied to YAML files"
+                echo ""
+                echo "📊 Changes summary:"
+                git diff --stat
+                echo ""
+                echo "🔍 Detailed changes:"
+                git diff --name-only
+              else
+                echo "autofix-applied=false" >> $GITHUB_OUTPUT
+                echo "✅ No auto-fixes needed - all files already compliant"
+              fi
+            else
+              echo "validation-result=failed" >> $GITHUB_OUTPUT
+              echo "❌ Validation failed even with auto-fix enabled"
+              echo "🔧 Some issues may require manual intervention"
+            fi
+          else
+            echo "🔍 Running validation in DETECTION-ONLY mode..."
+            echo "📋 Reason: ${{ steps.autofix-strategy.outputs.reason }}"
+            
+            if ./scripts/utils/validate-yaml.sh --all-github; then
+              echo "validation-result=success" >> $GITHUB_OUTPUT
+              echo "autofix-applied=false" >> $GITHUB_OUTPUT
+              echo "✅ Validation passed in detection-only mode"
+            else
+              echo "validation-result=failed" >> $GITHUB_OUTPUT
+              echo "autofix-applied=false" >> $GITHUB_OUTPUT
+              echo ""
+              echo "❌ Validation failed in detection-only mode"
+              echo "💡 To enable auto-fix for next run, commit without [skip-autofix] flag"
+            fi
+          fi
       
-      # === VALIDATION REPORTING ===
-      # Generate comprehensive validation report for developer feedback
-      # Uses GitHub step summary for enhanced visibility in workflow results
-      - name: "Generate Validation Report"
+      # === SMART AUTO-COMMIT WITH LOOP PREVENTION ===
+      - name: "Commit Auto-Fix Changes with Loop Prevention"
+        if: steps.yaml-validation.outputs.autofix-applied == 'true'
+        uses: stefanzweifel/git-auto-commit-action@v6
+        with:
+          commit_message: |
+            🤖 Auto-fix YAML formatting and compliance issues [skip-autofix]
+            
+            Applied automatic fixes for:
+            - Document start markers (---)
+            - Indentation and spacing
+            - Trailing whitespace
+            - File ending newlines
+            - Style consistency improvements
+            
+            Triggered by: ${{ github.event_name }}
+            Auto-fix reason: ${{ steps.autofix-strategy.outputs.reason }}
+            Commit SHA: ${{ github.sha }}
+            
+            [skip-autofix] prevents infinite auto-fix loops
+            Remove [skip-autofix] from future commits to re-enable auto-fix
+          file_pattern: ".github/**/*.yml .github/**/*.yaml"
+          commit_user_name: "github-actions[bot]"
+          commit_user_email: "41898282+github-actions[bot]@users.noreply.github.com"
+      
+      # === ENHANCED VALIDATION REPORTING WITH AUTO-FIX STATUS ===
+      - name: "Generate Comprehensive Validation Report"
         if: always()
         run: |
           echo "## 📋 YAML Validation Report" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          # Count YAML files validated for scope awareness
+          # Validation results with enhanced context
+          if [[ "${{ steps.yaml-validation.outputs.validation-result }}" == "success" ]]; then
+            echo "✅ **Validation Result**: PASSED" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Validation Result**: FAILED" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Auto-fix strategy and results
+          echo "🛠️ **Auto-fix Mode**: ${{ steps.autofix-strategy.outputs.mode }}" >> $GITHUB_STEP_SUMMARY
+          echo "📋 **Strategy Reason**: ${{ steps.autofix-strategy.outputs.reason }}" >> $GITHUB_STEP_SUMMARY
+          
+          if [[ "${{ steps.yaml-validation.outputs.autofix-applied }}" == "true" ]]; then
+            echo "✨ **Auto-fixes Applied**: YES" >> $GITHUB_STEP_SUMMARY
+            echo "🔄 **Next Run**: Auto-fix will be skipped (loop prevention)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "🔍 **Auto-fixes Applied**: NO" >> $GITHUB_STEP_SUMMARY
+            if [[ "${{ steps.autofix-strategy.outputs.mode }}" == "enabled" ]]; then
+              echo "✅ **Reason**: No fixes needed" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "🚫 **Reason**: Auto-fix was disabled" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+          
+          # File processing summary
           yaml_count=$(find .github -name "*.yml" -o -name "*.yaml" | wc -l)
           echo "- **Files validated:** ${yaml_count}" >> $GITHUB_STEP_SUMMARY
-          
-          # Document validation scope and tools for transparency
           echo "- **Validation scope:** GitHub Actions workflows and composite actions" >> $GITHUB_STEP_SUMMARY
-          echo "- **Tools used:** yamllint, actionlint, Python YAML" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tools used:** yamllint, actionlint, Python YAML, yamlfixer" >> $GITHUB_STEP_SUMMARY
           echo "- **Configuration:** Project-specific .yamllint rules" >> $GITHUB_STEP_SUMMARY
           
-          # Show key files validated for audit trail
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📁 Key Files Validated" >> $GITHUB_STEP_SUMMARY
+          echo "### 🚀 Auto-Fix Control Guide" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "```" >> $GITHUB_STEP_SUMMARY
-          find .github -name "*.yml" -o -name "*.yaml" | head -10 >> $GITHUB_STEP_SUMMARY
-          echo "```" >> $GITHUB_STEP_SUMMARY
-          
-          # Handle large file counts gracefully
-          if [ ${yaml_count} -gt 10 ]; then
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "_...and $((yaml_count - 10)) more files_" >> $GITHUB_STEP_SUMMARY
-          fi
-      
-      # === VALIDATION SUCCESS CONFIRMATION ===
-      # Provide clear success confirmation for workflow completion
-      # Supports automated quality gates and developer confidence
-      - name: "Validation Success"
-        run: |
-          echo "🎉 All YAML files validated successfully!"
-          echo "✅ Syntax validation: Passed"
-          echo "✅ Style validation: Passed" 
-          echo "✅ GitHub Actions validation: Passed"
+          echo "**Default Behavior**: Auto-fix is ENABLED by default" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**To disable auto-fix for next commit:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Add \`[skip-autofix]\` to your commit message" >> $GITHUB_STEP_SUMMARY
+          echo "- Add \`[no-autofix]\` to your commit message" >> $GITHUB_STEP_SUMMARY
+          echo "- Add \`[disable-autofix]\` for explicit disable" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**To re-enable auto-fix:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Simply commit without any skip flags" >> $GITHUB_STEP_SUMMARY
+          echo "- Auto-fix will resume on the next workflow run" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Local testing:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Run \`./scripts/utils/validate-yaml.sh --autofix --all-github\` locally" >> $GITHUB_STEP_SUMMARY
+          echo "- Test changes before committing" >> $GITHUB_STEP_SUMMARY
