@@ -50,7 +50,7 @@ on:
 run-name: "🛠️ YAML validation for ${{ github.event_name }} by @${{ github.actor }}"
 
 permissions:
-  contents: read
+  contents: write  # ✅ FIXED: Enable write access for auto-fix commits
 
 jobs:
   validate-yaml:
@@ -84,7 +84,7 @@ jobs:
           # Ensure PATH includes user-installed packages for subsequent steps
           echo "$HOME/.local/bin" >> $GITHUB_PATH
       
-            # === SMART AUTO-FIX STRATEGY WITH LOOP PREVENTION ===
+      # === SMART AUTO-FIX STRATEGY WITH LOOP PREVENTION ===
       # Controls auto-fix behavior with default-on approach and intelligent loop prevention
       - name: "Determine Auto-Fix Strategy"
         id: autofix-strategy
@@ -194,7 +194,7 @@ jobs:
             
             [skip-autofix] prevents infinite auto-fix loops
             Remove [skip-autofix] from future commits to re-enable auto-fix
-          file_pattern: ".github/**/*.yml"  # ✅ FIXED: Only target .yml files that actually exist
+          file_pattern: ".github/**/*.yml"
           commit_user_name: "github-actions"
           commit_user_email: "github-actions@github.com"
       
