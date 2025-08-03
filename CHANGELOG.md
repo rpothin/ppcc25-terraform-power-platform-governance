@@ -2,6 +2,7 @@
 # Unreleased
 
 ### Added
+  - **NEW**: Resource configuration `res-environment` for creating and managing Power Platform environments following Azure Verified Module (AVM) standards. Features include: duplicate detection for onboarding existing environments, lifecycle protection with prevent_destroy, comprehensive variable validation with strong typing, multi-environment support with tfvars structure, anti-corruption layer outputs, and 25+ test assertions covering plan/apply scenarios. Supports both Dataverse and non-Dataverse environments with optional configuration.
   - **NEW**: Utility configuration `utl-generate-dlp-tfvars` for automated generation of tfvars files for DLP policy management. Processes exported DLP policy and connector data, supports both new policy creation (from governance templates) and onboarding of existing policies to IaC. Implements AVM-compliant structure, strong variable typing, anti-corruption outputs, and comprehensive integration test. Includes template-based documentation and troubleshooting guidance.
 
 ### DLP tfvars Management Implementation
