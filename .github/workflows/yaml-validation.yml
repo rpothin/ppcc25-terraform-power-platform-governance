@@ -195,7 +195,7 @@ jobs:
             
             [skip-autofix] prevents infinite auto-fix loops
             Remove [skip-autofix] from future commits to re-enable auto-fix
-          file_pattern: ".github/**/*.yml"
+          file_pattern: ".github/**/*.yml !.github/workflows/copilot-setup-steps.yml"
           commit_user_name: "github-actions"
           commit_user_email: "github-actions@github.com"
       
