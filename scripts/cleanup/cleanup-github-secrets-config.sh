@@ -3,6 +3,7 @@
 # Cleanup GitHub Secrets for Terraform Power Platform Governance
 # ==============================================================================
 # Configuration-driven version that uses config.env for streamlined cleanup
+# Enhanced with YAML Validation Auto-Fix PAT cleanup
 # ==============================================================================
 
 # Note: Not using set -e here to allow graceful handling of partial failures
@@ -38,38 +39,51 @@ verify_repo_access() {
     verify_repository_access "$GITHUB_OWNER/$GITHUB_REPO" true
 }
 
-# Function to list existing secrets
+# Function to list existing secrets (enhanced to show both environment and repository secrets)
 list_existing_secrets() {
-    print_status "Checking existing environment secrets..."
+    print_status "Checking existing secrets..."
     
     local github_repository="$GITHUB_OWNER/$GITHUB_REPO"
     local environment_name="production"
+    local found_secrets=false
     
-    # Check if production environment exists
-    if ! gh api "repos/$github_repository/environments/$environment_name" &> /dev/null; then
-        print_warning "Production environment not found"
-        return 1
-    fi
-    
-    # Get list of existing environment secrets
-    EXISTING_SECRETS=$(gh secret list --repo "$github_repository" --env "$environment_name" --json name --jq '.[].name' 2>/dev/null)
-    
-    if [[ -z "$EXISTING_SECRETS" ]]; then
-        print_warning "No environment secrets found in production environment"
-        return 1
-    fi
-    
-    print_status "Found environment secrets in production environment:"
-    echo "$EXISTING_SECRETS" | while read -r secret; do
-        if [[ -n "$secret" ]]; then
-            print_status "  - $secret"
+    # Check environment secrets
+    if gh api "repos/$github_repository/environments/$environment_name" &> /dev/null; then
+        EXISTING_ENV_SECRETS=$(gh secret list --repo "$github_repository" --env "$environment_name" --json name --jq '.[].name' 2>/dev/null)
+        if [[ -n "$EXISTING_ENV_SECRETS" ]]; then
+            print_status "Found environment secrets in production environment:"
+            echo "$EXISTING_ENV_SECRETS" | while read -r secret; do
+                if [[ -n "$secret" ]]; then
+                    print_status "  - $secret"
+                fi
+            done
+            found_secrets=true
         fi
-    done
+    else
+        print_warning "Production environment not found"
+    fi
+    
+    # Check repository secrets
+    EXISTING_REPO_SECRETS=$(gh secret list --repo "$github_repository" --json name --jq '.[].name' 2>/dev/null)
+    if [[ -n "$EXISTING_REPO_SECRETS" ]]; then
+        print_status "Found repository secrets:"
+        echo "$EXISTING_REPO_SECRETS" | while read -r secret; do
+            if [[ -n "$secret" ]]; then
+                print_status "  - $secret (repository level)"
+            fi
+        done
+        found_secrets=true
+    fi
+    
+    if [[ "$found_secrets" == "false" ]]; then
+        print_warning "No secrets found"
+        return 1
+    fi
     
     return 0
 }
 
-# Function to remove Power Platform secrets
+# Function to remove Power Platform environment secrets
 remove_secrets() {
     print_status "Removing Power Platform Terraform environment secrets..."
     
@@ -135,6 +149,62 @@ remove_secrets() {
     print_success "Environment secrets cleanup completed successfully"
 }
 
+# Function to remove repository secrets (separate from environment secrets)
+remove_repository_secrets() {
+    print_status "Removing repository secrets..."
+    
+    local github_repository="$GITHUB_OWNER/$GITHUB_REPO"
+    
+    # Array of repository secrets to remove
+    REPO_SECRETS_TO_REMOVE=(
+        "YAML_VALIDATION_AUTOFIX_PAT"
+    )
+    
+    # Track removal results
+    REPO_SECRETS_REMOVED_COUNT=0
+    REPO_SECRETS_NOT_FOUND_COUNT=0
+    REPO_SECRETS_FAILED_COUNT=0
+    
+    # Remove each repository secret
+    for secret_name in "${REPO_SECRETS_TO_REMOVE[@]}"; do
+        print_status "Removing repository secret: $secret_name"
+        
+        # Check if secret exists first
+        if gh secret list --repo "$github_repository" --json name --jq '.[].name' | grep -q "^$secret_name$" 2>/dev/null; then
+            # Secret exists, try to delete it
+            if gh secret delete "$secret_name" --repo "$github_repository" 2>/dev/null; then
+                print_success "✓ Repository secret $secret_name removed successfully"
+                ((REPO_SECRETS_REMOVED_COUNT++))
+            else
+                print_error "✗ Failed to remove repository secret $secret_name"
+                ((REPO_SECRETS_FAILED_COUNT++))
+            fi
+        else
+            print_warning "⚠ Repository secret $secret_name not found"
+            ((REPO_SECRETS_NOT_FOUND_COUNT++))
+        fi
+    done
+    
+    # Summary
+    print_status ""
+    print_status "Repository Secrets Cleanup Summary:"
+    print_status "  ✓ Successfully removed: $REPO_SECRETS_REMOVED_COUNT repository secrets"
+    if [[ $REPO_SECRETS_NOT_FOUND_COUNT -gt 0 ]]; then
+        print_status "  ⚠ Not found: $REPO_SECRETS_NOT_FOUND_COUNT repository secrets"
+    fi
+    if [[ $REPO_SECRETS_FAILED_COUNT -gt 0 ]]; then
+        print_status "  ✗ Failed to remove: $REPO_SECRETS_FAILED_COUNT repository secrets"
+        print_warning "Some repository secrets could not be removed, but continuing with cleanup"
+    fi
+    
+    if [[ $REPO_SECRETS_REMOVED_COUNT -eq 0 && $REPO_SECRETS_NOT_FOUND_COUNT -eq ${#REPO_SECRETS_TO_REMOVE[@]} ]]; then
+        print_warning "No repository secrets were found to remove"
+        return 0
+    fi
+    
+    print_success "Repository secrets cleanup completed successfully"
+}
+
 # Function to remove GitHub repository variables
 remove_repository_variables() {
     print_status "Removing repository variables..."
@@ -194,45 +264,64 @@ remove_repository_variables() {
 
 # Function to verify secrets were removed
 verify_removal() {
-    print_status "Verifying environment secrets were removed..."
+    print_status "Verifying secrets were removed..."
     
     local github_repository="$GITHUB_OWNER/$GITHUB_REPO"
     local environment_name="production"
     
-    # Check if production environment still exists
-    if ! gh api "repos/$github_repository/environments/$environment_name" &> /dev/null; then
-        print_success "Production environment no longer exists - all secrets removed"
-        return 0
+    # Check environment secrets
+    if gh api "repos/$github_repository/environments/$environment_name" &> /dev/null; then
+        # Get current environment secrets
+        CURRENT_ENV_SECRETS=$(gh secret list --repo "$github_repository" --env "$environment_name" --json name --jq '.[].name' 2>/dev/null)
+        
+        # Check if any Power Platform environment secrets still exist
+        REMAINING_ENV_SECRETS=(
+            "AZURE_CLIENT_ID"
+            "AZURE_TENANT_ID"
+            "AZURE_SUBSCRIPTION_ID"
+            "POWER_PLATFORM_CLIENT_ID"
+            "POWER_PLATFORM_TENANT_ID"
+            "TERRAFORM_RESOURCE_GROUP"
+            "TERRAFORM_STORAGE_ACCOUNT"
+            "TERRAFORM_CONTAINER"
+        )
+        
+        FOUND_REMAINING_ENV=false
+        for secret in "${REMAINING_ENV_SECRETS[@]}"; do
+            if echo "$CURRENT_ENV_SECRETS" | grep -q "^$secret$"; then
+                print_warning "⚠ Environment secret $secret still exists"
+                FOUND_REMAINING_ENV=true
+            fi
+        done
+        
+        if [[ "$FOUND_REMAINING_ENV" == "true" ]]; then
+            print_warning "Some environment secrets were not removed successfully"
+        else
+            print_success "All Power Platform environment secrets successfully removed"
+        fi
+    else
+        print_success "Production environment no longer exists - all environment secrets removed"
     fi
     
-    # Get current environment secrets
-    CURRENT_SECRETS=$(gh secret list --repo "$github_repository" --env "$environment_name" --json name --jq '.[].name' 2>/dev/null)
+    # Check repository secrets
+    CURRENT_REPO_SECRETS=$(gh secret list --repo "$github_repository" --json name --jq '.[].name' 2>/dev/null)
     
-    # Check if any Power Platform environment secrets still exist
-    REMAINING_SECRETS=(
-        "AZURE_CLIENT_ID"
-        "AZURE_TENANT_ID"
-        "AZURE_SUBSCRIPTION_ID"
-        "POWER_PLATFORM_CLIENT_ID"
-        "POWER_PLATFORM_TENANT_ID"
-        "TERRAFORM_RESOURCE_GROUP"
-        "TERRAFORM_STORAGE_ACCOUNT"
-        "TERRAFORM_CONTAINER"
+    REMAINING_REPO_SECRETS=(
+        "YAML_VALIDATION_AUTOFIX_PAT"
     )
     
-    FOUND_REMAINING=false
-    for secret in "${REMAINING_SECRETS[@]}"; do
-        if echo "$CURRENT_SECRETS" | grep -q "^$secret$"; then
-            print_warning "⚠ Environment secret $secret still exists"
-            FOUND_REMAINING=true
+    FOUND_REMAINING_REPO=false
+    for secret in "${REMAINING_REPO_SECRETS[@]}"; do
+        if echo "$CURRENT_REPO_SECRETS" | grep -q "^$secret$"; then
+            print_warning "⚠ Repository secret $secret still exists"
+            FOUND_REMAINING_REPO=true
         fi
     done
     
-    if [[ "$FOUND_REMAINING" == "true" ]]; then
-        print_warning "Some environment secrets were not removed successfully"
-        print_status "This may be expected if some secrets were already removed"
+    if [[ "$FOUND_REMAINING_REPO" == "true" ]]; then
+        print_warning "Some repository secrets were not removed successfully"
     else
-        print_success "All Power Platform environment secrets successfully removed"
+        print_success "All repository secrets successfully removed"
     fi
 }
 
@@ -266,7 +355,7 @@ remove_github_environment() {
 output_instructions() {
     print_success "GitHub secrets cleanup completed successfully!"
     print_status ""
-    print_status "Removed Secrets:"
+    print_status "Removed Environment Secrets:"
     print_status "  ✓ AZURE_CLIENT_ID"
     print_status "  ✓ AZURE_TENANT_ID"
     print_status "  ✓ AZURE_SUBSCRIPTION_ID"
@@ -276,20 +365,24 @@ output_instructions() {
     print_status "  ✓ TERRAFORM_STORAGE_ACCOUNT"
     print_status "  ✓ TERRAFORM_CONTAINER"
     print_status ""
+    print_status "Removed Repository Secrets:"
+    print_status "  ✓ YAML_VALIDATION_AUTOFIX_PAT"
+    print_status ""
     print_status "Removed Repository Variables:"
     print_status "  ✓ TERRAFORM_VERSION"
     print_status "  ✓ POWER_PLATFORM_PROVIDER_VERSION"
     print_status ""
     print_status "Repository: $GITHUB_OWNER/$GITHUB_REPO"
     print_status ""
-    print_status "SECURITY NOTICE: All Power Platform Terraform secrets have been"
+    print_status "SECURITY NOTICE: All Power Platform Terraform secrets and PATs have been"
     print_status "permanently removed from the GitHub repository."
     print_status ""
     print_status "Next Steps:"
     print_status "1. If you plan to use this repository again, run: ./setup.sh"
     print_status "2. Any existing GitHub Actions workflows will fail until secrets are recreated"
-    print_status "3. Consider cleaning up the Azure Service Principal if no longer needed"
-    print_status "4. Consider cleaning up the Terraform backend storage if no longer needed"
+    print_status "3. YAML validation auto-fix workflows will fail until PAT is recreated"
+    print_status "4. Consider cleaning up the Azure Service Principal if no longer needed"
+    print_status "5. Consider cleaning up the Terraform backend storage if no longer needed"
     print_status ""
     print_status "Cleanup completed successfully!"
 }
@@ -340,14 +433,14 @@ main() {
     fi
     
     # Confirm cleanup using utility function
-    print_warning "⚠️  This will permanently remove all Power Platform Terraform secrets from the repository!"
+    print_warning "⚠️  This will permanently remove all Power Platform Terraform secrets and PATs from the repository!"
     print_warning "This action cannot be undone. Make sure you have saved any necessary values."
     print_status ""
     
     if [[ "$NON_INTERACTIVE" == "true" ]]; then
         print_status "Non-interactive mode: Proceeding with GitHub secrets cleanup automatically"
     else
-        if ! get_deletion_confirmation "all Power Platform Terraform secrets"; then
+        if ! get_deletion_confirmation "all Power Platform Terraform secrets and PATs"; then
             exit 1
         fi
     fi
@@ -355,14 +448,16 @@ main() {
     # Check if there are any secrets to remove
     if list_existing_secrets; then
         remove_secrets
+        remove_repository_secrets
         verify_removal
         remove_repository_variables
         remove_github_environment
         output_instructions
     else
         print_success "No secrets found to remove"
-        # Still try to clean up repository variables
+        # Still try to clean up repository variables and secrets
         remove_repository_variables
+        remove_repository_secrets
     fi
     
     print_success "Cleanup script completed successfully!"

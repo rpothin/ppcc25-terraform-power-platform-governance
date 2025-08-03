@@ -3,6 +3,7 @@
 # Create GitHub Secrets for Terraform Power Platform Governance
 # ==============================================================================
 # Configuration-driven version that uses config.env for streamlined setup
+# Enhanced with YAML Validation Auto-Fix PAT creation and validation
 # ==============================================================================
 
 set -e  # Exit on any error
@@ -30,7 +31,217 @@ validate_prerequisites() {
     print_success "Prerequisites validated successfully"
 }
 
-# Note: Using utility functions from github.sh for repository access and secrets testing
+# Function to open PAT creation page (simple Python approach)
+open_pat_creation_page() {
+    print_status "Setting up GitHub PAT creation..."
+    
+    local github_repository="$GITHUB_OWNER/$GITHUB_REPO"
+    local pat_description="YAML Validation AutoFix for ${GITHUB_REPO}"
+    
+    # Construct URL with pre-filled settings
+    local pat_url="https://github.com/settings/tokens/new"
+    pat_url+="?scopes=repo,workflow"
+    pat_url+="&description=${pat_description// /+}"
+    
+    print_status ""
+    print_status "🔗 GitHub PAT Creation URL:"
+    print_status "$pat_url"
+    print_status ""
+    
+    # Simple Python webbrowser approach
+    if command -v python3 >/dev/null 2>&1; then
+        print_status "� Opening in browser..."
+        if python3 -m webbrowser "$pat_url" 2>/dev/null; then
+            print_success "✓ Browser opened successfully"
+        else
+            print_warning "⚠️  Auto-open failed - please copy the URL above"
+        fi
+    else
+        print_warning "⚠️  Python3 not available - please copy the URL above"
+    fi
+    
+    print_status ""
+    print_status "📋 Setup Instructions:"
+    print_status "1. Verify these settings are pre-filled:"
+    print_status "   • Description: $pat_description"
+    print_status "   • Scopes: repo, workflow"
+    print_status "2. Set expiration: 90 days (recommended)"
+    print_status "3. Click 'Generate token'"
+    print_status "4. Copy the generated token immediately"
+}
+
+# Function to validate PAT permissions and format
+validate_pat_permissions() {
+    local pat_token="$1"
+    local github_repository="$2"
+    
+    print_status "Validating PAT format and permissions..."
+    
+    # Validate PAT format (flexible for both 36 and 40 character variants)
+    if [[ ! "$pat_token" =~ ^ghp_[A-Za-z0-9]{36,40}$ ]]; then
+        print_warning "⚠️  PAT format doesn't match expected GitHub classic PAT pattern (ghp_...)"
+        print_status "Expected format: ghp_ followed by 36-40 alphanumeric characters"
+        print_status "Your token length: ${#pat_token} total characters"
+        
+        if ! get_user_confirmation "Continue with this token anyway?"; then
+            return 1
+        fi
+    else
+        print_success "✓ PAT format validation passed"
+    fi
+    
+    print_success "🎉 PAT validation completed successfully!"
+    
+    return 0
+}
+
+# Function to create YAML validation auto-fix PAT
+create_yaml_validation_pat() {
+    print_status "Setting up YAML Validation Auto-Fix PAT..."
+    print_status "=============================================="
+    print_status ""
+    
+    print_warning "📝 GitHub Personal Access Token (Classic) Required"
+    print_status ""
+    print_status "The YAML validation workflow requires a Personal Access Token to:"
+    print_status "  • Auto-commit formatting fixes to YAML files"
+    print_status "  • Modify workflow files in .github/workflows/"
+    print_status "  • Prevent permission errors during auto-fix operations"
+    print_status ""
+    print_status "This PAT will be stored as a repository secret (not environment secret)"
+    print_status "and can be used by any workflow in this repository."
+    print_status ""
+    
+    if ! get_user_confirmation "Do you want to set up the YAML validation auto-fix PAT now?"; then
+        print_status "Skipping YAML validation PAT setup"
+        print_warning "⚠️  Without this PAT, YAML auto-fix workflows may fail"
+        print_status "You can create it later by running this script again"
+        return 0
+    fi
+    
+    setup_yaml_validation_pat_interactive
+}
+
+# Function to interactively set up YAML validation PAT
+setup_yaml_validation_pat_interactive() {
+    print_status ""
+    print_status "GitHub PAT Creation Instructions:"
+    print_status "================================"
+    print_status "You need to create a GitHub Personal Access Token (Classic) with specific permissions."
+    print_status ""
+    print_status "Required steps:"
+    print_status "1. 🌐 Open the GitHub PAT creation page"
+    print_status "2. 📝 Set description: 'YAML Validation AutoFix for $GITHUB_REPO'"
+    print_status "3. ⏰ Set expiration: 90 days (recommended for security)"
+    print_status "4. ✅ Select required scopes:"
+    print_status "   ✅ repo (Full control of private repositories)"
+    print_status "   ✅ workflow (Update GitHub Action workflows)"
+    print_status "5. 🔄 Generate token and copy it immediately"
+    print_status ""
+    
+    # Offer to open PAT creation page
+    if get_user_confirmation "🚀 Open GitHub PAT creation page with pre-configured settings?"; then
+        open_pat_creation_page
+        print_status ""
+        print_status "📋 After the page opens:"
+        print_status "1. Verify the description and scopes are correct"
+        print_status "2. Set expiration period (90 days recommended)"
+        print_status "3. Click 'Generate token'"
+        print_status "4. Copy the generated token immediately"
+        print_status "5. Return to this terminal to continue"
+    else
+        print_status "Manual setup instructions:"
+        print_status "1. Go to: https://github.com/settings/tokens"
+        print_status "2. Click 'Generate new token (classic)'"
+        print_status "3. Follow the configuration steps above"
+    fi
+    
+    print_status ""
+    print_warning "🔐 IMPORTANT: Copy the token immediately after generation!"
+    print_warning "GitHub will only show the token once for security reasons."
+    print_status ""
+    
+    # Wait for user to create PAT
+    print_status "After creating your PAT, enter it below for validation and storage."
+    print_status ""
+    
+    local pat_token
+    local attempt=1
+    local max_attempts=3
+    
+    while [[ $attempt -le $max_attempts ]]; do
+        echo -n "🔑 Enter your GitHub PAT (attempt $attempt/$max_attempts): "
+        read -r pat_token
+        echo ""
+        
+        if [[ -z "$pat_token" ]]; then
+            print_error "❌ PAT cannot be empty. Please try again."
+            ((attempt++))
+            continue
+        fi
+        
+        # Validate PAT format and permissions
+        if validate_pat_permissions "$pat_token" "$GITHUB_OWNER/$GITHUB_REPO"; then
+            break
+        else
+            print_error "❌ PAT validation failed"
+            
+            if [[ $attempt -eq $max_attempts ]]; then
+                print_error "Maximum attempts reached. PAT setup failed."
+                print_status "You can run this script again to retry PAT setup"
+                return 1
+            fi
+            
+            print_status ""
+            if get_user_confirmation "🔄 Try again with a different PAT?"; then
+                ((attempt++))
+                continue
+            else
+                print_status "PAT setup cancelled by user"
+                return 1
+            fi
+        fi
+    done
+    
+    # Create repository secret (not environment secret)
+    print_status ""
+    print_status "Creating YAML_VALIDATION_AUTOFIX_PAT repository secret..."
+    
+    local secret_name="YAML_VALIDATION_AUTOFIX_PAT"
+    local github_repository="$GITHUB_OWNER/$GITHUB_REPO"
+    
+    if gh secret set "$secret_name" --body "$pat_token" --repo "$github_repository"; then
+        print_success "✓ $secret_name repository secret created successfully"
+    else
+        print_error "✗ Failed to create $secret_name repository secret"
+        
+        # Clear PAT from memory before returning
+        unset pat_token
+        return 1
+    fi
+    
+    # Verify the secret was created
+    if gh secret list --repo "$github_repository" --json name --jq '.[].name' | grep -q "^$secret_name$"; then
+        print_success "✓ Repository secret verified successfully"
+    else
+        print_warning "⚠️  Could not verify repository secret creation"
+    fi
+    
+    # Clear PAT from memory
+    unset pat_token
+    
+    print_success "🎉 YAML validation PAT setup completed successfully!"
+    print_status ""
+    print_status "✅ The YAML validation workflow can now:"
+    print_status "  • Auto-fix YAML formatting issues"
+    print_status "  • Commit changes to workflow files"
+    print_status "  • Operate without permission errors"
+    print_status ""
+    print_warning "🔐 Security reminder:"
+    print_status "  • Keep your PAT secure and don't share it"
+    print_status "  • Consider regenerating it every 90 days"
+    print_status "  • Revoke it immediately if compromised"
+}
 
 # Function to create GitHub secrets in the production environment
 create_github_secrets() {
@@ -100,10 +311,6 @@ create_github_variables() {
     print_success "Repository variables created successfully"
 }
 
-# Note: Using verify_github_secrets from utility functions
-
-# Note: Using create_github_environment from utility functions
-
 # Function to output final instructions
 output_instructions() {
     print_success "GitHub environment and secrets setup completed successfully!"
@@ -125,6 +332,11 @@ output_instructions() {
     print_status "  ✓ TERRAFORM_VERSION (1.12.2)"
     print_status "  ✓ POWER_PLATFORM_PROVIDER_VERSION (~> 3.8)"
     print_status ""
+    
+    print_status "Created Repository Secrets:"
+    print_status "  ✓ YAML_VALIDATION_AUTOFIX_PAT (for workflow auto-fix)"
+    print_status ""
+    
     print_status "Configuration Summary:"
     print_status "  • GitHub Repository: $GITHUB_OWNER/$GITHUB_REPO"
     print_status "  • Environment: production"
@@ -139,6 +351,11 @@ output_instructions() {
     print_status "4. Select your desired configuration and tfvars file"
     print_status "5. Ensure your workflow uses environment: production"
     print_status ""
+    print_status "YAML Validation Workflow:"
+    print_status "• The YAML validation workflow will now automatically fix formatting issues"
+    print_status "• Auto-fix commits use [skip ci] to prevent infinite loops"
+    print_status "• You can disable auto-fix by adding [skip-autofix] to commit messages"
+    print_status ""
     print_status "To update Terraform version:"
     print_status "1. Go to: https://github.com/$GITHUB_OWNER/$GITHUB_REPO/settings/variables/actions"
     print_status "2. Update TERRAFORM_VERSION repository variable"
@@ -148,7 +365,8 @@ output_instructions() {
     print_status "1. Go to: https://github.com/$GITHUB_OWNER/$GITHUB_REPO/settings/variables/actions"
     print_status "2. Update POWER_PLATFORM_PROVIDER_VERSION repository variable"
     print_status "3. All AVM compliance checks will use the new version"
-    print_status "Repository Setup is now complete!"
+    print_status ""
+    print_success "Repository Setup is now complete!"
 }
 
 # Function to clean up sensitive variables from environment
@@ -169,6 +387,9 @@ cleanup_sensitive_vars() {
     unset CONTAINER_NAME
     unset GITHUB_OWNER
     unset GITHUB_REPO
+    
+    # Clear any PAT tokens that might still be in memory
+    unset pat_token
     
     # Clear bash history of this session (if running interactively)
     if [[ $- == *i* ]]; then
@@ -217,6 +438,9 @@ main() {
     
     # Create GitHub repository variables
     create_github_variables
+    
+    # Create YAML validation PAT (optional but recommended)
+    create_yaml_validation_pat
     
     # Verify secrets were created
     REQUIRED_SECRETS=(
