@@ -23,12 +23,13 @@ variables {
   # Test configuration - adjustable for different environments
   test_timeout_minutes = 10 # Reasonable timeout for permission assignments
 
-  # Test application admin configuration
-  # Note: These are example values for testing - use real IDs in actual deployments
-  environment_application_admin_config = {
-    environment_id = "00000000-0000-0000-0000-000000000001" # Example environment ID
-    application_id = "00000000-0000-0000-0000-000000000002" # Example application ID
-  }
+  # Test environment ID
+  # Note: This is an example value for testing - use real ID in actual deployments
+  environment_id = "00000000-0000-0000-0000-000000000001" # Example environment ID
+
+  # Test application ID
+  # Note: This is an example value for testing - use real ID in actual deployments
+  application_id = "00000000-0000-0000-0000-000000000002" # Example application ID
 }
 
 # Comprehensive plan validation - optimized for CI/CD performance
@@ -72,26 +73,26 @@ run "plan_validation" {
 
   # Environment ID format validation
   assert {
-    condition     = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.environment_application_admin_config.environment_id))
+    condition     = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.environment_id))
     error_message = "Environment ID must be valid GUID format"
   }
 
   # Application ID format validation
   assert {
-    condition     = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.environment_application_admin_config.application_id))
+    condition     = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.application_id))
     error_message = "Application ID must be valid GUID format"
   }
 
-  # Variable type validation
+  # Variable accessibility validation
   assert {
-    condition     = can(var.environment_application_admin_config.environment_id)
-    error_message = "Configuration variable must be accessible"
+    condition     = can(var.environment_id) && can(var.application_id)
+    error_message = "Environment ID and Application ID variables must be accessible"
   }
 
-  # Configuration object structure
+  # Required variables validation
   assert {
-    condition     = can(var.environment_application_admin_config.environment_id) && can(var.environment_application_admin_config.application_id)
-    error_message = "Configuration object must contain all required properties"
+    condition     = length(var.environment_id) > 0 && length(var.application_id) > 0
+    error_message = "Environment ID and Application ID must not be empty"
   }
 
   # Strong typing validation (no 'any' types)
@@ -110,13 +111,13 @@ run "plan_validation" {
 
   # Resource configuration mapping
   assert {
-    condition     = powerplatform_environment_application_admin.this.environment_id == var.environment_application_admin_config.environment_id
+    condition     = powerplatform_environment_application_admin.this.environment_id == var.environment_id
     error_message = "Resource environment_id must match variable input"
   }
 
   # Application assignment mapping
   assert {
-    condition     = powerplatform_environment_application_admin.this.application_id == var.environment_application_admin_config.application_id
+    condition     = powerplatform_environment_application_admin.this.application_id == var.application_id
     error_message = "Resource application_id must match variable input"
   }
 
@@ -168,7 +169,7 @@ run "apply_validation" {
 
   # Resource state consistency
   assert {
-    condition     = powerplatform_environment_application_admin.this.environment_id == var.environment_application_admin_config.environment_id
+    condition     = powerplatform_environment_application_admin.this.environment_id == var.environment_id
     error_message = "Deployed resource must maintain environment ID consistency"
   }
 
