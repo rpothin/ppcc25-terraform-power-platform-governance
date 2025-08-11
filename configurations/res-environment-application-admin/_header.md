@@ -20,6 +20,5 @@ inputs:
   tfvars-file: 'environment_application_admin = {
   environment_id   = "12345678-1234-1234-1234-123456789012"
   application_id   = "87654321-4321-4321-4321-210987654321"
-  security_role_id = "11111111-2222-3333-4444-555555555555"
 }'
 ```
