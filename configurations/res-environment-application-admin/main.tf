@@ -33,10 +33,6 @@ resource "powerplatform_environment_application_admin" "this" {
   # Prevents destruction of critical permission assignments and allows manual modifications
   # via Power Platform admin center without causing Terraform drift
   lifecycle {
-    # Prevent accidental destruction of critical permission assignments
-    # Note: Static value required - lifecycle blocks cannot use variables
-    prevent_destroy = true
-
     # Allow manual modifications via admin center without drift detection
     ignore_changes = [
       # Tags and metadata may be modified outside Terraform
