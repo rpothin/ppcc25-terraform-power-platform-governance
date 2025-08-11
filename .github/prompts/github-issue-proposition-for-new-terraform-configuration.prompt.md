@@ -90,13 +90,13 @@ This configuration supports the **"Enhancing Power Platform Governance Through T
    cd configurations/{CONFIGURATION_NAME}
    
    # Format validation and correction
-   terraform fmt --check  # Must pass
-   terraform fmt         # Auto-fix if needed
-   terraform fmt --check  # Re-verify
-   
+   terraform fmt --check            # Must pass
+   terraform fmt --recursive        # Auto-fix if needed
+   terraform fmt --check            # Re-verify
+
    # Syntax validation
-   terraform validate    # Must pass
-   
+   terraform validate                # Must pass
+
    # Comprehensive validation (if available)
    ../../scripts/utils/terraform-local-validation.sh --autofix {CONFIGURATION_NAME}
    ```
