@@ -56,25 +56,27 @@ The following input variables are required:
 Description: Configuration object for environment application admin permission assignment.
 
 This variable consolidates core settings for granting application admin permissions  
-within a Power Platform environment, enabling programmatic access and management.
+within a Power Platform environment, enabling programmatic access and management.  
+The System Administrator role is automatically assigned to the application user.
 
 Properties:
 - environment\_id: The unique identifier of the target Power Platform environment (GUID format)
 - application\_id: The Azure AD application (client) ID that will receive admin permissions (GUID format)
-- security\_role\_id: The Power Platform security role ID to assign (GUID format, typically System Administrator)
 
 Example:  
 environment\_application\_admin\_config = {  
-  environment\_id   = "12345678-1234-1234-1234-123456789012"  
-  application\_id   = "87654321-4321-4321-4321-210987654321"  
-  security\_role\_id = "11111111-2222-3333-4444-555555555555"
+  environment\_id = "12345678-1234-1234-1234-123456789012"  
+  application\_id = "87654321-4321-4321-4321-210987654321"
 }
 
 Validation Rules:
 - All IDs must be valid GUID format for Power Platform compatibility
 - Environment must exist and be accessible by the service principal
 - Application must be registered in Azure AD with Power Platform service principal
-- Security role must exist within the target environment
+
+Important: The System Administrator role is automatically assigned by Power Platform  
+and cannot be customized. This ensures the application has full administrative  
+permissions required for environment management operations.
 
 Note: Lifecycle protection (prevent\_destroy) is always enabled for production safety.
 
@@ -82,9 +84,8 @@ Type:
 
 ```hcl
 object({
-    environment_id   = string
-    application_id   = string
-    security_role_id = string
+    environment_id = string
+    application_id = string
   })
 ```
 
@@ -128,7 +129,7 @@ Contents:
 - assignment\_id: Unique identifier of the permission assignment
 - environment\_id: Target environment identifier
 - application\_id: Application that received permissions
-- security\_role\_id: Assigned security role identifier
+- security\_role: Security role automatically assigned (System Administrator)
 - resource\_type: Type of resource deployed (for reporting)
 - deployment\_timestamp: When the assignment was created
 - lifecycle\_protection: Whether prevent\_destroy is enabled
