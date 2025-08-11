@@ -18,46 +18,150 @@ This configuration is designed for organizations that need to:
 # GitHub Actions workflow input
 inputs:
   configuration: 'res-environment-application-admin'
-  tfvars-file: 'environment_id = "12345678-1234-1234-1234-123456789012"
-application_id = "87654321-4321-4321-4321-210987654321"'
+  tfvars-file: 'environment_application_admin = {
+  environment_id   = "12345678-1234-1234-1234-123456789012"
+  application_id   = "87654321-4321-4321-4321-210987654321"
+  security_role_id = "11111111-2222-3333-4444-555555555555"
+}'
 ```
 
 <!-- markdownlint-disable MD033 -->
 ## Requirements
 
-| Name | Version |
-|------|---------|
-| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.5.0 |
-| <a name="requirement_powerplatform"></a> [powerplatform](#requirement\_powerplatform) | ~> 3.8 |
+The following requirements are needed by this module:
+
+- <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) (>= 1.5.0)
+
+- <a name="requirement_powerplatform"></a> [powerplatform](#requirement\_powerplatform) (~> 3.8)
 
 ## Providers
 
-| Name | Version |
-|------|---------|
-| <a name="provider_powerplatform"></a> [powerplatform](#provider\_powerplatform) | ~> 3.8 |
+The following providers are used by this module:
+
+- <a name="provider_powerplatform"></a> [powerplatform](#provider\_powerplatform) (~> 3.8)
 
 ## Resources
 
-| Name | Type |
-|------|------|
-| [powerplatform_environment_application_admin.this](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/resources/environment_application_admin) | resource |
+The following resources are used by this module:
+
+- [powerplatform_environment_application_admin.this](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/resources/environment_application_admin) (resource)
 
 <!-- markdownlint-disable MD013 -->
-## Inputs
+## Required Inputs
 
-| Name | Description | Type | Default | Required |
-|------|-------------|------|---------|:--------:|
-| <a name="input_application_id"></a> [application\_id](#input\_application\_id) | The Azure AD application (client) ID that will receive admin permissions in the Power Platform environment.<br/><br/>This GUID identifies the Azure AD application registration that will be granted<br/>System Administrator privileges within the specified Power Platform environment.<br/>The application must be properly registered and configured for Power Platform access.<br/><br/>Format: GUID (e.g., '87654321-4321-4321-4321-210987654321')<br/>Usage: Application that will receive admin permissions<br/>Source: Azure AD App Registration or PowerShell cmdlets<br/><br/>Example:<br/>application\_id = "87654321-4321-4321-4321-210987654321"<br/><br/>Validation Rules:<br/>- Must be valid GUID format for Azure AD compatibility<br/>- Application must be registered in Azure AD<br/>- Application must have Power Platform service principal permissions<br/>- Application must not already have conflicting role assignments<br/><br/>Important: The System Administrator role is automatically assigned by Power Platform<br/>and provides full administrative access to the environment. This is required for<br/>Terraform service principals and automated environment management scenarios.<br/><br/>Note: Lifecycle protection (prevent\_destroy) is always enabled for production safety. | `string` | n/a | yes |
-| <a name="input_environment_id"></a> [environment\_id](#input\_environment\_id) | The unique identifier of the target Power Platform environment where admin permissions will be assigned.<br/><br/>This GUID identifies the specific Power Platform environment that will receive the application<br/>admin assignment. The environment must exist and be accessible by the service principal<br/>executing the Terraform configuration.<br/><br/>Format: GUID (e.g., '12345678-1234-1234-1234-123456789012')<br/>Usage: Target environment for application admin permission assignment<br/>Source: Power Platform Admin Center or PowerShell cmdlets<br/><br/>Example:<br/>environment\_id = "12345678-1234-1234-1234-123456789012"<br/><br/>Validation Rules:<br/>- Must be valid GUID format for Power Platform compatibility<br/>- Environment must exist and be accessible by the service principal<br/>- Environment must allow application user assignments<br/><br/>Note: The System Administrator role is automatically assigned by Power Platform<br/>and cannot be customized. This ensures the application has full administrative<br/>permissions required for environment management operations. | `string` | n/a | yes |
+The following input variables are required:
+
+### <a name="input_application_id"></a> [application\_id](#input\_application\_id)
+
+Description: The Azure AD application (client) ID that will receive admin permissions in the Power Platform environment.
+
+This GUID identifies the Azure AD application registration that will be granted  
+System Administrator privileges within the specified Power Platform environment.  
+The application must be properly registered and configured for Power Platform access.
+
+Format: GUID (e.g., '87654321-4321-4321-4321-210987654321')  
+Usage: Application that will receive admin permissions  
+Source: Azure AD App Registration or PowerShell cmdlets
+
+Example:  
+application\_id = "87654321-4321-4321-4321-210987654321"
+
+Validation Rules:
+- Must be valid GUID format for Azure AD compatibility
+- Application must be registered in Azure AD
+- Application must have Power Platform service principal permissions
+- Application must not already have conflicting role assignments
+
+Important: The System Administrator role is automatically assigned by Power Platform  
+and provides full administrative access to the environment. This is required for  
+Terraform service principals and automated environment management scenarios.
+
+Note: Lifecycle protection (prevent\_destroy) is always enabled for production safety.
+
+Type: `string`
+
+### <a name="input_environment_id"></a> [environment\_id](#input\_environment\_id)
+
+Description: The unique identifier of the target Power Platform environment where admin permissions will be assigned.
+
+This GUID identifies the specific Power Platform environment that will receive the application  
+admin assignment. The environment must exist and be accessible by the service principal  
+executing the Terraform configuration.
+
+Format: GUID (e.g., '12345678-1234-1234-1234-123456789012')  
+Usage: Target environment for application admin permission assignment  
+Source: Power Platform Admin Center or PowerShell cmdlets
+
+Example:  
+environment\_id = "12345678-1234-1234-1234-123456789012"
+
+Validation Rules:
+- Must be valid GUID format for Power Platform compatibility
+- Environment must exist and be accessible by the service principal
+- Environment must allow application user assignments
+
+Note: The System Administrator role is automatically assigned by Power Platform  
+and cannot be customized. This ensures the application has full administrative  
+permissions required for environment management operations.
+
+Type: `string`
+
+## Optional Inputs
+
+No optional inputs.
 
 ## Outputs
 
-| Name | Description |
-|------|-------------|
-| <a name="output_application_id"></a> [application\_id](#output\_application\_id) | The Azure AD application ID that received the admin permissions.<br/><br/>This output identifies which application was granted admin access,<br/>essential for security auditing and permission management workflows.<br/><br/>Format: GUID identifier of the Azure AD application<br/>Usage: Security audits and permission inventory reporting |
-| <a name="output_assignment_id"></a> [assignment\_id](#output\_assignment\_id) | The unique identifier of the environment application admin assignment.<br/><br/>This output provides the primary key for referencing this permission assignment<br/>in other Terraform configurations or external systems. The ID can be used for<br/>dependency management and cross-configuration references.<br/><br/>Format: Resource-specific identifier from Power Platform<br/>Usage: Reference in downstream configurations requiring this assignment |
-| <a name="output_assignment_summary"></a> [assignment\_summary](#output\_assignment\_summary) | Summary of the environment application admin assignment for validation and compliance reporting.<br/><br/>This consolidated output provides key assignment details in a structured format<br/>suitable for governance dashboards, audit reports, and operational monitoring.<br/><br/>Contents:<br/>- assignment\_id: Unique identifier of the permission assignment<br/>- environment\_id: Target environment identifier<br/>- application\_id: Application that received permissions<br/>- security\_role: Security role automatically assigned (System Administrator)<br/>- resource\_type: Type of resource deployed (for reporting)<br/>- deployment\_timestamp: When the assignment was created<br/>- lifecycle\_protection: Whether prevent\_destroy is enabled<br/><br/>Usage: Governance reporting, audit trails, operational dashboards |
-| <a name="output_environment_id"></a> [environment\_id](#output\_environment\_id) | The Power Platform environment ID where the admin assignment was created.<br/><br/>This output confirms the target environment for the permission assignment,<br/>useful for validation and audit trails in multi-environment deployments.<br/><br/>Format: GUID identifier of the Power Platform environment<br/>Usage: Environment validation and cross-reference in governance reports |
+The following outputs are exported:
+
+### <a name="output_application_id"></a> [application\_id](#output\_application\_id)
+
+Description: The Azure AD application ID that received the admin permissions.
+
+This output identifies which application was granted admin access,  
+essential for security auditing and permission management workflows.
+
+Format: GUID identifier of the Azure AD application  
+Usage: Security audits and permission inventory reporting
+
+### <a name="output_assignment_id"></a> [assignment\_id](#output\_assignment\_id)
+
+Description: The unique identifier of the environment application admin assignment.
+
+This output provides the primary key for referencing this permission assignment  
+in other Terraform configurations or external systems. The ID can be used for  
+dependency management and cross-configuration references.
+
+Format: Resource-specific identifier from Power Platform  
+Usage: Reference in downstream configurations requiring this assignment
+
+### <a name="output_assignment_summary"></a> [assignment\_summary](#output\_assignment\_summary)
+
+Description: Summary of the environment application admin assignment for validation and compliance reporting.
+
+This consolidated output provides key assignment details in a structured format  
+suitable for governance dashboards, audit reports, and operational monitoring.
+
+Contents:
+- assignment\_id: Unique identifier of the permission assignment
+- environment\_id: Target environment identifier
+- application\_id: Application that received permissions
+- security\_role: Security role automatically assigned (System Administrator)
+- resource\_type: Type of resource deployed (for reporting)
+- deployment\_timestamp: When the assignment was created
+- lifecycle\_protection: Whether prevent\_destroy is enabled
+
+Usage: Governance reporting, audit trails, operational dashboards
+
+### <a name="output_environment_id"></a> [environment\_id](#output\_environment\_id)
+
+Description: The Power Platform environment ID where the admin assignment was created.
+
+This output confirms the target environment for the permission assignment,  
+useful for validation and audit trails in multi-environment deployments.
+
+Format: GUID identifier of the Power Platform environment  
+Usage: Environment validation and cross-reference in governance reports
 
 ## Modules
 
