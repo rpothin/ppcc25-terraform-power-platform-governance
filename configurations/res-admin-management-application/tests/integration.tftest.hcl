@@ -54,8 +54,8 @@ run "plan_validation" {
   }
 
   assert {
-    condition     = powerplatform_admin_management_application.this.lifecycle != null || true
-    error_message = "Resource should include lifecycle configuration for res-* module compliance"
+    condition     = powerplatform_admin_management_application.this.id != null
+    error_message = "Resource should have a valid ID attribute for client identification"
   }
 
   assert {
