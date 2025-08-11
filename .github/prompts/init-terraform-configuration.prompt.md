@@ -1,5 +1,6 @@
 ---
 mode: agent
+model: Claude Sonnet 4
 description: "Creates new Terraform configurations aligned with Azure Verified Modules (AVM) principles and repository standards using a template-based approach."
 ---
 

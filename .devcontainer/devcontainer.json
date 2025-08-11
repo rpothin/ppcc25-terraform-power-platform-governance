@@ -27,7 +27,8 @@
 				"microsoft-IsvExpTools.powerplatform-vscode",
 				"ms-azuretools.vscode-bicep",
 				"redhat.vscode-yaml",
-				"ms-vscode.vscode-json"
+				"ms-vscode.vscode-json",
+				"github.vscode-github-actions"
 			]
 		}
 	},

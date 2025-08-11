@@ -1,5 +1,6 @@
 ---
-mode: agent
+mode: ask
+model: Claude Sonnet 4
 description: "Conduct a comprehensive assessment of the attached repository folder(s) against established guidelines and standards, ensuring thoroughness, consistency, and actionable recommendations."
 ---
 
