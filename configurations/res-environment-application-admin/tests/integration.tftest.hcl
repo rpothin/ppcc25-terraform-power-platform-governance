@@ -22,7 +22,7 @@
 variables {
   # Test configuration - adjustable for different environments
   test_timeout_minutes = 10 # Reasonable timeout for permission assignments
-  
+
   # Test application admin configuration
   # Note: These are example values for testing - use real IDs in actual deployments
   environment_application_admin_config = {
@@ -37,31 +37,31 @@ run "plan_validation" {
   command = plan
 
   # === FRAMEWORK VALIDATION (5 assertions) ===
-  
+
   # Terraform core functionality
   assert {
     condition     = can(terraform.required_version)
     error_message = "Terraform version constraint must be defined and valid"
   }
-  
+
   # Provider configuration
   assert {
     condition     = can(provider.powerplatform)
     error_message = "Power Platform provider must be properly configured"
   }
-  
+
   # Provider version constraint  
   assert {
     condition     = can(regex("~> 3\\.8", tostring(terraform.required_providers.powerplatform.version)))
     error_message = "Power Platform provider version must use centralized standard ~> 3.8"
   }
-  
+
   # Backend configuration for state management
   assert {
     condition     = terraform.backend.azurerm.use_oidc == true
     error_message = "Azure backend must use OIDC authentication for security"
   }
-  
+
   # Provider OIDC authentication
   assert {
     condition     = provider.powerplatform.use_oidc == true
@@ -69,31 +69,31 @@ run "plan_validation" {
   }
 
   # === VARIABLE VALIDATION (5 assertions) ===
-  
+
   # Environment ID format validation
   assert {
     condition     = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.environment_application_admin_config.environment_id))
     error_message = "Environment ID must be valid GUID format"
   }
-  
+
   # Application ID format validation
   assert {
     condition     = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.environment_application_admin_config.application_id))
     error_message = "Application ID must be valid GUID format"
   }
-  
+
   # Variable type validation
   assert {
     condition     = can(var.environment_application_admin_config.environment_id)
     error_message = "Configuration variable must be accessible"
   }
-  
+
   # Configuration object structure
   assert {
     condition     = can(var.environment_application_admin_config.environment_id) && can(var.environment_application_admin_config.application_id)
     error_message = "Configuration object must contain all required properties"
   }
-  
+
   # Strong typing validation (no 'any' types)
   assert {
     condition     = length([for v in values(var) : v if can(tostring(v)) && tostring(v) == "any"]) == 0
@@ -101,25 +101,25 @@ run "plan_validation" {
   }
 
   # === RESOURCE VALIDATION (4 assertions) ===
-  
+
   # Resource planning succeeds
   assert {
     condition     = powerplatform_environment_application_admin.this != null
     error_message = "Environment application admin resource must be planned successfully"
   }
-  
+
   # Resource configuration mapping
   assert {
     condition     = powerplatform_environment_application_admin.this.environment_id == var.environment_application_admin_config.environment_id
     error_message = "Resource environment_id must match variable input"
   }
-  
+
   # Application assignment mapping
   assert {
     condition     = powerplatform_environment_application_admin.this.application_id == var.environment_application_admin_config.application_id
     error_message = "Resource application_id must match variable input"
   }
-  
+
   # Lifecycle protection configuration (always enabled)
   assert {
     condition     = powerplatform_environment_application_admin.this.lifecycle.prevent_destroy == true
@@ -127,25 +127,25 @@ run "plan_validation" {
   }
 
   # === OUTPUT VALIDATION (4 assertions) ===
-  
+
   # Assignment ID output exists
   assert {
     condition     = can(output.assignment_id)
     error_message = "Assignment ID output must be defined"
   }
-  
+
   # Environment ID output exists  
   assert {
     condition     = can(output.environment_id)
     error_message = "Environment ID output must be defined"
   }
-  
+
   # Application ID output exists
   assert {
-    condition     = can(output.application_id)  
+    condition     = can(output.application_id)
     error_message = "Application ID output must be defined"
   }
-  
+
   # Assignment summary output structure
   assert {
     condition     = can(output.assignment_summary.assignment_id) && can(output.assignment_summary.environment_id) && can(output.assignment_summary.application_id) && can(output.assignment_summary.security_role)
@@ -159,19 +159,19 @@ run "apply_validation" {
   command = apply
 
   # === DEPLOYMENT VALIDATION (3 assertions) ===
-  
+
   # Resource deployment succeeds
   assert {
     condition     = powerplatform_environment_application_admin.this.id != null
     error_message = "Environment application admin assignment must be created successfully"
   }
-  
+
   # Resource state consistency
   assert {
     condition     = powerplatform_environment_application_admin.this.environment_id == var.environment_application_admin_config.environment_id
     error_message = "Deployed resource must maintain environment ID consistency"
   }
-  
+
   # Assignment is active
   assert {
     condition     = length(powerplatform_environment_application_admin.this.id) > 0
@@ -179,13 +179,13 @@ run "apply_validation" {
   }
 
   # === OUTPUT VALIDATION (2 assertions) ===
-  
+
   # Anti-corruption layer integrity
   assert {
     condition     = output.assignment_id == powerplatform_environment_application_admin.this.id
     error_message = "Output assignment_id must match resource ID (anti-corruption layer)"
   }
-  
+
   # Summary output completeness
   assert {
     condition     = output.assignment_summary.resource_type == "powerplatform_environment_application_admin"
