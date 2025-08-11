@@ -26,9 +26,8 @@ variables {
   # Test application admin configuration
   # Note: These are example values for testing - use real IDs in actual deployments
   environment_application_admin_config = {
-    environment_id   = "00000000-0000-0000-0000-000000000001" # Example environment ID
-    application_id   = "00000000-0000-0000-0000-000000000002" # Example application ID  
-    security_role_id = "00000000-0000-0000-0000-000000000003" # Example security role ID
+    environment_id = "00000000-0000-0000-0000-000000000001" # Example environment ID
+    application_id = "00000000-0000-0000-0000-000000000002" # Example application ID
   }
 }
 
@@ -69,7 +68,7 @@ run "plan_validation" {
     error_message = "Power Platform provider must use OIDC authentication"
   }
 
-  # === VARIABLE VALIDATION (6 assertions) ===
+  # === VARIABLE VALIDATION (5 assertions) ===
   
   # Environment ID format validation
   assert {
@@ -83,12 +82,6 @@ run "plan_validation" {
     error_message = "Application ID must be valid GUID format"
   }
   
-  # Security role ID format validation
-  assert {
-    condition     = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.environment_application_admin_config.security_role_id))
-    error_message = "Security role ID must be valid GUID format"
-  }
-  
   # Variable type validation
   assert {
     condition     = can(var.environment_application_admin_config.environment_id)
@@ -97,7 +90,7 @@ run "plan_validation" {
   
   # Configuration object structure
   assert {
-    condition     = can(var.environment_application_admin_config.environment_id) && can(var.environment_application_admin_config.application_id) && can(var.environment_application_admin_config.security_role_id)
+    condition     = can(var.environment_application_admin_config.environment_id) && can(var.environment_application_admin_config.application_id)
     error_message = "Configuration object must contain all required properties"
   }
   
@@ -107,7 +100,7 @@ run "plan_validation" {
     error_message = "Variables must not use 'any' type - all types must be explicit"
   }
 
-  # === RESOURCE VALIDATION (5 assertions) ===
+  # === RESOURCE VALIDATION (4 assertions) ===
   
   # Resource planning succeeds
   assert {
@@ -125,12 +118,6 @@ run "plan_validation" {
   assert {
     condition     = powerplatform_environment_application_admin.this.application_id == var.environment_application_admin_config.application_id
     error_message = "Resource application_id must match variable input"
-  }
-  
-  # Security role assignment mapping
-  assert {
-    condition     = powerplatform_environment_application_admin.this.security_role_id == var.environment_application_admin_config.security_role_id
-    error_message = "Resource security_role_id must match variable input"
   }
   
   # Lifecycle protection configuration (always enabled)
@@ -161,7 +148,7 @@ run "plan_validation" {
   
   # Assignment summary output structure
   assert {
-    condition     = can(output.assignment_summary.assignment_id) && can(output.assignment_summary.environment_id) && can(output.assignment_summary.application_id) && can(output.assignment_summary.security_role_id)
+    condition     = can(output.assignment_summary.assignment_id) && can(output.assignment_summary.environment_id) && can(output.assignment_summary.application_id) && can(output.assignment_summary.security_role)
     error_message = "Assignment summary must contain all required fields"
   }
 }
@@ -206,7 +193,7 @@ run "apply_validation" {
   }
 }
 
-# Total assertions: 25 (exceeds 20+ requirement for res-* modules)
-# Plan validation: 20 assertions (Framework: 5, Variables: 6, Resources: 5, Outputs: 4)  
+# Total assertions: 23 (exceeds 20+ requirement for res-* modules)
+# Plan validation: 18 assertions (Framework: 5, Variables: 5, Resources: 4, Outputs: 4)  
 # Apply validation: 5 assertions (Deployment: 3, Outputs: 2)
 # Coverage areas: Framework, Variables, Resources, Outputs, Deployment, Anti-corruption layer

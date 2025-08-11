@@ -26,9 +26,8 @@
 # granting the specified application administrative permissions through a security role.
 # Essential for Terraform service principals and custom applications requiring environment management capabilities.
 resource "powerplatform_environment_application_admin" "this" {
-  environment_id   = var.environment_application_admin_config.environment_id
-  application_id   = var.environment_application_admin_config.application_id
-  security_role_id = var.environment_application_admin_config.security_role_id
+  environment_id = var.environment_application_admin_config.environment_id
+  application_id = var.environment_application_admin_config.application_id
 
   # Lifecycle management for res-* modules
   # Prevents destruction of critical permission assignments and allows manual modifications

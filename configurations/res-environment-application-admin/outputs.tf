@@ -59,7 +59,7 @@ Contents:
 - assignment_id: Unique identifier of the permission assignment
 - environment_id: Target environment identifier
 - application_id: Application that received permissions
-- security_role_id: Assigned security role identifier
+- security_role: Security role automatically assigned (System Administrator)
 - resource_type: Type of resource deployed (for reporting)
 - deployment_timestamp: When the assignment was created
 - lifecycle_protection: Whether prevent_destroy is enabled
@@ -70,7 +70,7 @@ DESCRIPTION
     assignment_id        = powerplatform_environment_application_admin.this.id
     environment_id       = powerplatform_environment_application_admin.this.environment_id
     application_id       = powerplatform_environment_application_admin.this.application_id
-    security_role_id     = powerplatform_environment_application_admin.this.security_role_id
+    security_role        = "System Administrator" # Automatically assigned by Power Platform
     resource_type        = "powerplatform_environment_application_admin"
     deployment_timestamp = timestamp()
     lifecycle_protection = true # Always enabled for production safety
