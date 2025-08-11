@@ -138,35 +138,6 @@ check "business_connector_ids_exist" {
       
       Or check the Power Platform admin center for valid connector IDs.
     EOT
-}
-}
-
-# Enhanced state-awareness validation
-check "state_awareness_validation" {
-  assert {
-    condition = var.enable_duplicate_protection ? (
-      # If duplicate protection is enabled, validate our state detection logic
-      local.is_managed_resource == try(powerplatform_data_loss_prevention_policy.this.id != null, false)
-    ) : true
-    error_message = <<-EOT
-      ⚠️ STATE AWARENESS VALIDATION FAILED
-      
-      The state-aware duplicate detection logic may not be working correctly.
-      This could indicate a Terraform state synchronization issue.
-      
-      🔍 DIAGNOSTIC INFORMATION:
-      • Managed Resource Detection: ${local.is_managed_resource}
-      • Resource ID Available: ${try(powerplatform_data_loss_prevention_policy.this.id != null, false)}
-      • Duplicate Protection: ${var.enable_duplicate_protection}
-      
-      📝 RECOMMENDED ACTIONS:
-      1. Run 'terraform refresh' to synchronize state
-      2. Verify resource exists: 'terraform state list'
-      3. Check resource details: 'terraform state show powerplatform_data_loss_prevention_policy.this'
-      
-      If issues persist, temporarily disable duplicate protection with:
-      enable_duplicate_protection = false
-    EOT
   }
 }
 
@@ -190,5 +161,34 @@ resource "powerplatform_data_loss_prevention_policy" "this" {
       # Allow manual changes in Power Platform admin center without drift
       # Note: Add specific attributes here if you want to ignore certain manual changes
     ]
+
+    # This runs after the resource is created and the ID is available
+    postcondition {
+      condition = var.enable_duplicate_protection ? (
+        # Validate that our state detection logic is working correctly
+        # Now we can safely reference self.id since the resource has been created
+        local.is_managed_resource == (self.id != null)
+      ) : true
+      error_message = <<-EOT
+        ⚠️ STATE AWARENESS VALIDATION FAILED
+        
+        The state-aware duplicate detection logic may not be working correctly.
+        This could indicate a Terraform state synchronization issue.
+        
+        🔍 DIAGNOSTIC INFORMATION:
+        • Managed Resource Detection: ${local.is_managed_resource}
+        • Resource ID Available: ${self.id != null}
+        • Duplicate Protection: ${var.enable_duplicate_protection}
+        • Resource ID: ${self.id}
+        
+        📝 RECOMMENDED ACTIONS:
+        1. Run 'terraform refresh' to synchronize state
+        2. Verify resource exists: 'terraform state list'
+        3. Check resource details: 'terraform state show powerplatform_data_loss_prevention_policy.this'
+        
+        If issues persist, temporarily disable duplicate protection with:
+        enable_duplicate_protection = false
+      EOT
+    }
   }
 }
