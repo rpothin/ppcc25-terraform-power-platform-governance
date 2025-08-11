@@ -186,7 +186,6 @@ resource "powerplatform_data_loss_prevention_policy" "this" {
   custom_connectors_patterns = var.custom_connectors_patterns
 
   lifecycle {
-    prevent_destroy = true
     ignore_changes = [
       # Allow manual changes in Power Platform admin center without drift
       # Note: Add specific attributes here if you want to ignore certain manual changes
