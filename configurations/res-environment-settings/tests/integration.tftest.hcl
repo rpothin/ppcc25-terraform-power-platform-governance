@@ -69,13 +69,13 @@ run "plan_validation" {
   }
 
   assert {
-    condition = length(regexall("source\\s*=\\s*\"microsoft/power-platform\"\\s*version\\s*=\\s*\"~>\\s*3\\.8\"", 
-      replace(file("${path.module}/versions.tf"), "\n", " "))) > 0
+    condition = length(regexall("source\\s*=\\s*\"microsoft/power-platform\"\\s*version\\s*=\\s*\"~>\\s*3\\.8\"",
+    replace(file("${path.module}/versions.tf"), "\n", " "))) > 0
     error_message = "Provider should use microsoft/power-platform source with version ~> 3.8"
   }
 
   assert {
-    condition = length(regexall("required_version\\s*=\\s*\">=[[:space:]]*1\\.[5-9]\\.[0-9]+\"", file("${path.module}/versions.tf"))) > 0
+    condition     = length(regexall("required_version\\s*=\\s*\">=[[:space:]]*1\\.[5-9]\\.[0-9]+\"", file("${path.module}/versions.tf"))) > 0
     error_message = "Terraform version constraint should be >= 1.5.0 with proper semver format in versions.tf"
   }
 
@@ -224,22 +224,22 @@ run "apply_validation" {
     condition     = output.environment_settings_id != null && output.environment_settings_id != ""
     error_message = "Environment settings ID output should be non-empty after deployment"
   }
-  
+
   assert {
     condition     = output.environment_id == var.test_environment_id
     error_message = "Environment ID output should match input configuration"
   }
-  
+
   assert {
     condition     = output.applied_settings_summary.module_classification == "res-*"
     error_message = "Module classification should be res-* for resource modules"
   }
-  
+
   assert {
     condition     = output.settings_configuration_summary.scope_description != null
     error_message = "Settings configuration summary should include scope description"
   }
-  
+
   assert {
     condition     = can(output.settings_configuration_summary.environment_lifecycle_stage)
     error_message = "Settings configuration summary should include lifecycle stage"
