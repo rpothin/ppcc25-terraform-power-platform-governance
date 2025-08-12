@@ -72,7 +72,7 @@ resource "powerplatform_environment_settings" "this" {
       allow_microsoft_trusted_service_tags        = var.environment_settings_config.product_settings.security.allow_microsoft_trusted_service_tags
       enable_ip_based_firewall_rule               = var.environment_settings_config.product_settings.security.enable_ip_based_firewall_rule
       enable_ip_based_firewall_rule_in_audit_mode = var.environment_settings_config.product_settings.security.enable_ip_based_firewall_rule_in_audit_mode
-      
+
       # Provider bug workaround: Set empty collections instead of null to prevent inconsistency errors
       # Issue: microsoft/terraform-provider-power-platform provider converts null to empty sets after apply
       allowed_ip_range_for_firewall     = var.environment_settings_config.product_settings.security.allowed_ip_range_for_firewall != null ? var.environment_settings_config.product_settings.security.allowed_ip_range_for_firewall : []
