@@ -228,7 +228,7 @@ run "apply_validation" {
   }
 
   assert {
-    condition     = powerplatform_environment_settings.this.product.security.reverse_proxy_ip_addresses != null  
+    condition     = powerplatform_environment_settings.this.product.security.reverse_proxy_ip_addresses != null
     error_message = "Reverse proxy IP addresses should be defined (may be empty due to provider behavior)"
   }
 

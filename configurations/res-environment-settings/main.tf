@@ -66,14 +66,18 @@ resource "powerplatform_environment_settings" "this" {
     } : null
 
     # Security settings for access control and network protection
+    # WORKAROUND: Provider bug fix - explicitly set empty collections for optional attributes
     security = var.environment_settings_config.product_settings.security != null ? {
       allow_application_user_access               = var.environment_settings_config.product_settings.security.allow_application_user_access
       allow_microsoft_trusted_service_tags        = var.environment_settings_config.product_settings.security.allow_microsoft_trusted_service_tags
-      allowed_ip_range_for_firewall               = var.environment_settings_config.product_settings.security.allowed_ip_range_for_firewall
-      allowed_service_tags_for_firewall           = var.environment_settings_config.product_settings.security.allowed_service_tags_for_firewall
       enable_ip_based_firewall_rule               = var.environment_settings_config.product_settings.security.enable_ip_based_firewall_rule
       enable_ip_based_firewall_rule_in_audit_mode = var.environment_settings_config.product_settings.security.enable_ip_based_firewall_rule_in_audit_mode
-      reverse_proxy_ip_addresses                  = var.environment_settings_config.product_settings.security.reverse_proxy_ip_addresses
+      
+      # Provider bug workaround: Set empty collections instead of null to prevent inconsistency errors
+      # Issue: microsoft/terraform-provider-power-platform provider converts null to empty sets after apply
+      allowed_ip_range_for_firewall     = var.environment_settings_config.product_settings.security.allowed_ip_range_for_firewall != null ? var.environment_settings_config.product_settings.security.allowed_ip_range_for_firewall : []
+      allowed_service_tags_for_firewall = var.environment_settings_config.product_settings.security.allowed_service_tags_for_firewall != null ? var.environment_settings_config.product_settings.security.allowed_service_tags_for_firewall : []
+      reverse_proxy_ip_addresses        = var.environment_settings_config.product_settings.security.reverse_proxy_ip_addresses != null ? var.environment_settings_config.product_settings.security.reverse_proxy_ip_addresses : []
     } : null
   } : null
 
