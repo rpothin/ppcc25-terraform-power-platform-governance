@@ -15,7 +15,7 @@
 # - Framework Validation: Basic Terraform and provider functionality
 # - Variable Validation: Input parameter structure and constraints
 # - Resource Validation: Resource-specific structure and configuration
-# - Output Validation: AVM compliance and data integrity
+# - Output Structure Validation: Configuration file validation (plan phase)
 # - Security Validation: Sensitive data handling and access controls
 
 variables {
@@ -105,6 +105,32 @@ run "plan_validation" {
     error_message = "Feature settings should be properly structured"
   }
 
+  # Test Category: Output Structure Validation (5 assertions)
+  assert {
+    condition     = length(regexall("output\\s+\"environment_settings_id\"", file("${path.module}/outputs.tf"))) > 0
+    error_message = "Configuration should define environment_settings_id output"
+  }
+
+  assert {
+    condition     = length(regexall("output\\s+\"environment_id\"", file("${path.module}/outputs.tf"))) > 0
+    error_message = "Configuration should define environment_id output"
+  }
+
+  assert {
+    condition     = length(regexall("output\\s+\"applied_settings_summary\"", file("${path.module}/outputs.tf"))) > 0
+    error_message = "Configuration should define applied_settings_summary output"
+  }
+
+  assert {
+    condition     = length(regexall("output\\s+\"settings_configuration_summary\"", file("${path.module}/outputs.tf"))) > 0
+    error_message = "Configuration should define settings_configuration_summary output"
+  }
+
+  assert {
+    condition     = length(regexall("powerplatform_environment_settings\\.this\\.id", file("${path.module}/outputs.tf"))) > 0
+    error_message = "Environment settings ID output should reference resource ID"
+  }
+
   # Test Category: Resource Configuration Validation (5 assertions)
   assert {
     condition     = powerplatform_environment_settings.this.audit_and_logs != null
@@ -164,10 +190,10 @@ run "apply_validation" {
     }
   }
 
-  # Test Category: Deployment Validation (5+ assertions)
+  # Test Category: Resource Deployment Validation (11 assertions)
   assert {
-    condition     = powerplatform_environment_settings.this.id != null
-    error_message = "Environment settings should have non-null ID after deployment"
+    condition     = powerplatform_environment_settings.this.id != null && powerplatform_environment_settings.this.id != ""
+    error_message = "Environment settings should have a non-empty computed ID after deployment"
   }
 
   assert {
@@ -176,6 +202,43 @@ run "apply_validation" {
   }
 
   assert {
+    condition     = powerplatform_environment_settings.this.email != null
+    error_message = "Email configuration should be applied when email_settings provided"
+  }
+
+  assert {
+    condition     = powerplatform_environment_settings.this.email.email_settings.max_upload_file_size_in_bytes == 5242880
+    error_message = "Email file size limit should match configured value"
+  }
+
+  assert {
+    condition     = powerplatform_environment_settings.this.product.behavior_settings.show_dashboard_cards_in_expanded_state == true
+    error_message = "Dashboard card setting should match configured value"
+  }
+
+  assert {
+    condition     = powerplatform_environment_settings.this.product.security.allow_application_user_access == true
+    error_message = "Application user access setting should match configured value"
+  }
+
+  # Provider bug workaround validations (3 assertions)
+  assert {
+    condition     = powerplatform_environment_settings.this.product.security.allowed_service_tags_for_firewall != null
+    error_message = "Security firewall service tags should be defined (may be empty due to provider behavior)"
+  }
+
+  assert {
+    condition     = powerplatform_environment_settings.this.product.security.reverse_proxy_ip_addresses != null  
+    error_message = "Reverse proxy IP addresses should be defined (may be empty due to provider behavior)"
+  }
+
+  assert {
+    condition     = powerplatform_environment_settings.this.product.security.allowed_ip_range_for_firewall != null
+    error_message = "Firewall IP ranges should be defined (may be empty due to provider behavior)"
+  }
+
+  # Test Category: Output Value Validation (10 assertions)
+  assert {
     condition     = output.environment_settings_id == powerplatform_environment_settings.this.id
     error_message = "Output environment settings ID should match resource ID"
   }
@@ -183,6 +246,16 @@ run "apply_validation" {
   assert {
     condition     = output.environment_id == powerplatform_environment_settings.this.environment_id
     error_message = "Output environment ID should match resource environment ID"
+  }
+
+  assert {
+    condition     = output.environment_settings_id != null && output.environment_settings_id != ""
+    error_message = "Environment settings ID output should be non-empty after deployment"
+  }
+
+  assert {
+    condition     = output.environment_id == var.test_environment_id
+    error_message = "Environment ID output should match input configuration"
   }
 
   assert {
@@ -201,47 +274,17 @@ run "apply_validation" {
   }
 
   assert {
-    condition     = output.applied_settings_summary.deployment_timestamp != null
-    error_message = "Deployment timestamp should be generated in applied settings summary"
-  }
-
-  assert {
-    condition     = output.settings_configuration_summary.scope_description != null
-    error_message = "Configuration summary should include scope description"
-  }
-
-  assert {
-    condition     = output.settings_configuration_summary.environment_lifecycle_stage == "post_creation_configuration"
-    error_message = "Configuration summary should indicate post-creation lifecycle stage"
-  }
-
-  assert {
-    condition     = powerplatform_environment_settings.this.id != null && powerplatform_environment_settings.this.id != ""
-    error_message = "Environment settings should have a non-empty computed ID after deployment"
-  }
-
-  assert {
-    condition     = output.environment_settings_id != null && output.environment_settings_id != ""
-    error_message = "Environment settings ID output should be non-empty after deployment"
-  }
-
-  assert {
-    condition     = output.environment_id == var.test_environment_id
-    error_message = "Environment ID output should match input configuration"
-  }
-
-  assert {
     condition     = output.applied_settings_summary.module_classification == "res-*"
     error_message = "Module classification should be res-* for resource modules"
   }
 
   assert {
-    condition     = output.settings_configuration_summary.scope_description != null
-    error_message = "Settings configuration summary should include scope description"
+    condition     = output.applied_settings_summary.deployment_timestamp != null
+    error_message = "Deployment timestamp should be generated in applied settings summary"
   }
 
   assert {
-    condition     = can(output.settings_configuration_summary.environment_lifecycle_stage)
-    error_message = "Settings configuration summary should include lifecycle stage"
+    condition     = output.settings_configuration_summary.environment_lifecycle_stage == "post_creation_configuration"
+    error_message = "Configuration summary should indicate post-creation lifecycle stage"
   }
 }
