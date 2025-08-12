@@ -64,18 +64,19 @@ run "plan_validation" {
   }
 
   assert {
-    condition     = can(powerplatform_environment_settings.this.id)
-    error_message = "Environment settings should have a computed ID attribute"
+    condition     = length(regexall("version\\s*=\\s*\"~>\\s*3\\.8\"", file("${path.module}/versions.tf"))) > 0
+    error_message = "Provider version should match centralized standard (~> 3.8) in versions.tf"
   }
 
   assert {
-    condition     = terraform.required_providers.powerplatform.version == "~> 3.8"
-    error_message = "Provider version should match centralized standard (~> 3.8)"
+    condition = length(regexall("source\\s*=\\s*\"microsoft/power-platform\"\\s*version\\s*=\\s*\"~>\\s*3\\.8\"", 
+      replace(file("${path.module}/versions.tf"), "\n", " "))) > 0
+    error_message = "Provider should use microsoft/power-platform source with version ~> 3.8"
   }
 
   assert {
-    condition     = terraform.required_version == ">= 1.5.0"
-    error_message = "Terraform version constraint should be >= 1.5.0"
+    condition = length(regexall("required_version\\s*=\\s*\">=[[:space:]]*1\\.[5-9]\\.[0-9]+\"", file("${path.module}/versions.tf"))) > 0
+    error_message = "Terraform version constraint should be >= 1.5.0 with proper semver format in versions.tf"
   }
 
   # Test Category: Variable Validation (5 assertions)  
@@ -104,32 +105,6 @@ run "plan_validation" {
     error_message = "Feature settings should be properly structured"
   }
 
-  # Test Category: Output Validation (5 assertions)
-  assert {
-    condition     = can(output.environment_settings_id)
-    error_message = "Environment settings ID output should be available"
-  }
-
-  assert {
-    condition     = can(output.environment_id)
-    error_message = "Environment ID output should be available"
-  }
-
-  assert {
-    condition     = can(output.applied_settings_summary)
-    error_message = "Applied settings summary output should be available"
-  }
-
-  assert {
-    condition     = can(output.settings_configuration_summary)
-    error_message = "Settings configuration summary output should be available"
-  }
-
-  assert {
-    condition     = output.applied_settings_summary.module_classification == "res-*"
-    error_message = "Module classification should be res-* for resource modules"
-  }
-
   # Test Category: Resource Configuration Validation (5 assertions)
   assert {
     condition     = powerplatform_environment_settings.this.audit_and_logs != null
@@ -142,8 +117,8 @@ run "plan_validation" {
   }
 
   assert {
-    condition     = powerplatform_environment_settings.this.email == null
-    error_message = "Email configuration should be null when not specified in plan test"
+    condition     = var.environment_settings_config.email_settings == null
+    error_message = "Email settings should not be specified in plan test configuration"
   }
 
   assert {
@@ -238,5 +213,35 @@ run "apply_validation" {
   assert {
     condition     = output.settings_configuration_summary.environment_lifecycle_stage == "post_creation_configuration"
     error_message = "Configuration summary should indicate post-creation lifecycle stage"
+  }
+
+  assert {
+    condition     = powerplatform_environment_settings.this.id != null && powerplatform_environment_settings.this.id != ""
+    error_message = "Environment settings should have a non-empty computed ID after deployment"
+  }
+
+  assert {
+    condition     = output.environment_settings_id != null && output.environment_settings_id != ""
+    error_message = "Environment settings ID output should be non-empty after deployment"
+  }
+  
+  assert {
+    condition     = output.environment_id == var.test_environment_id
+    error_message = "Environment ID output should match input configuration"
+  }
+  
+  assert {
+    condition     = output.applied_settings_summary.module_classification == "res-*"
+    error_message = "Module classification should be res-* for resource modules"
+  }
+  
+  assert {
+    condition     = output.settings_configuration_summary.scope_description != null
+    error_message = "Settings configuration summary should include scope description"
+  }
+  
+  assert {
+    condition     = can(output.settings_configuration_summary.environment_lifecycle_stage)
+    error_message = "Settings configuration summary should include lifecycle stage"
   }
 }
