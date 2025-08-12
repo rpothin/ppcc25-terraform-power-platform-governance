@@ -142,17 +142,17 @@ run "plan_validation" {
   }
 
   assert {
-    condition     = contains(keys(powerplatform_environment_settings.this), "lifecycle")
-    error_message = "Resource should include lifecycle configuration for res-* modules"
+    condition     = powerplatform_environment_settings.this.email == null
+    error_message = "Email configuration should be null when not specified in plan test"
   }
 
   assert {
-    condition     = length(powerplatform_environment_settings.this.lifecycle) > 0
-    error_message = "Lifecycle block should contain ignore_changes for manual admin center modifications"
+    condition     = powerplatform_environment_settings.this.audit_and_logs.plugin_trace_log_setting == "Exception"
+    error_message = "Plugin trace log setting should match configured value"
   }
 
   assert {
-    condition     = length(regexall("use_oidc.*=.*true", file("${path.module}/main.tf"))) > 0
+    condition     = length(regexall("use_oidc.*=.*true", file("${path.module}/versions.tf"))) > 0
     error_message = "Provider should use OIDC authentication for security"
   }
 }
