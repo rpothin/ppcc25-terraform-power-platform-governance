@@ -33,73 +33,49 @@ resource "powerplatform_environment_settings" "this" {
 
   # Audit and logging configuration for compliance tracking
   # Controls what activities are logged and for how long
-  dynamic "audit_and_logs" {
-    for_each = var.environment_settings_config.audit_and_logs != null ? [var.environment_settings_config.audit_and_logs] : []
-    content {
-      # Plugin trace logging for troubleshooting and monitoring
-      plugin_trace_log_setting = audit_and_logs.value.plugin_trace_log_setting
+  audit_and_logs = var.environment_settings_config.audit_and_logs != null ? {
+    # Plugin trace logging for troubleshooting and monitoring
+    plugin_trace_log_setting = var.environment_settings_config.audit_and_logs.plugin_trace_log_setting
 
-      # Comprehensive audit settings for compliance and security
-      dynamic "audit_settings" {
-        for_each = audit_and_logs.value.audit_settings != null ? [audit_and_logs.value.audit_settings] : []
-        content {
-          is_audit_enabled             = audit_settings.value.is_audit_enabled
-          is_user_access_audit_enabled = audit_settings.value.is_user_access_audit_enabled
-          is_read_audit_enabled        = audit_settings.value.is_read_audit_enabled
-          log_retention_period_in_days = audit_settings.value.log_retention_period_in_days
-        }
-      }
-    }
-  }
+    # Comprehensive audit settings for compliance and security
+    audit_settings = var.environment_settings_config.audit_and_logs.audit_settings != null ? {
+      is_audit_enabled             = var.environment_settings_config.audit_and_logs.audit_settings.is_audit_enabled
+      is_user_access_audit_enabled = var.environment_settings_config.audit_and_logs.audit_settings.is_user_access_audit_enabled
+      is_read_audit_enabled        = var.environment_settings_config.audit_and_logs.audit_settings.is_read_audit_enabled
+      log_retention_period_in_days = var.environment_settings_config.audit_and_logs.audit_settings.log_retention_period_in_days
+    } : null
+  } : null
 
   # Email configuration for file handling and communication settings
-  dynamic "email" {
-    for_each = var.environment_settings_config.email_settings != null ? [var.environment_settings_config.email_settings] : []
-    content {
-      dynamic "email_settings" {
-        for_each = email.value.email_settings != null ? [email.value.email_settings] : []
-        content {
-          max_upload_file_size_in_bytes = email_settings.value.max_upload_file_size_in_bytes
-        }
-      }
-    }
-  }
+  email = var.environment_settings_config.email_settings != null ? {
+    email_settings = var.environment_settings_config.email_settings.email_settings != null ? {
+      max_upload_file_size_in_bytes = var.environment_settings_config.email_settings.email_settings.max_upload_file_size_in_bytes
+    } : null
+  } : null
 
   # Product-specific configuration controlling Power Platform features and behaviors
-  dynamic "product" {
-    for_each = var.environment_settings_config.product_settings != null ? [var.environment_settings_config.product_settings] : []
-    content {
-      # Behavior settings controlling user interface and experience
-      dynamic "behavior_settings" {
-        for_each = product.value.behavior_settings != null ? [product.value.behavior_settings] : []
-        content {
-          show_dashboard_cards_in_expanded_state = behavior_settings.value.show_dashboard_cards_in_expanded_state
-        }
-      }
+  product = var.environment_settings_config.product_settings != null ? {
+    # Behavior settings controlling user interface and experience
+    behavior_settings = var.environment_settings_config.product_settings.behavior_settings != null ? {
+      show_dashboard_cards_in_expanded_state = var.environment_settings_config.product_settings.behavior_settings.show_dashboard_cards_in_expanded_state
+    } : null
 
-      # Feature enablement controls for Power Platform capabilities
-      dynamic "features" {
-        for_each = product.value.features != null ? [product.value.features] : []
-        content {
-          power_apps_component_framework_for_canvas_apps = features.value.power_apps_component_framework_for_canvas_apps
-        }
-      }
+    # Feature enablement controls for Power Platform capabilities
+    features = var.environment_settings_config.product_settings.features != null ? {
+      power_apps_component_framework_for_canvas_apps = var.environment_settings_config.product_settings.features.power_apps_component_framework_for_canvas_apps
+    } : null
 
-      # Security settings for access control and network protection
-      dynamic "security" {
-        for_each = product.value.security != null ? [product.value.security] : []
-        content {
-          allow_application_user_access               = security.value.allow_application_user_access
-          allow_microsoft_trusted_service_tags        = security.value.allow_microsoft_trusted_service_tags
-          allowed_ip_range_for_firewall               = security.value.allowed_ip_range_for_firewall
-          allowed_service_tags_for_firewall           = security.value.allowed_service_tags_for_firewall
-          enable_ip_based_firewall_rule               = security.value.enable_ip_based_firewall_rule
-          enable_ip_based_firewall_rule_in_audit_mode = security.value.enable_ip_based_firewall_rule_in_audit_mode
-          reverse_proxy_ip_addresses                  = security.value.reverse_proxy_ip_addresses
-        }
-      }
-    }
-  }
+    # Security settings for access control and network protection
+    security = var.environment_settings_config.product_settings.security != null ? {
+      allow_application_user_access               = var.environment_settings_config.product_settings.security.allow_application_user_access
+      allow_microsoft_trusted_service_tags        = var.environment_settings_config.product_settings.security.allow_microsoft_trusted_service_tags
+      allowed_ip_range_for_firewall               = var.environment_settings_config.product_settings.security.allowed_ip_range_for_firewall
+      allowed_service_tags_for_firewall           = var.environment_settings_config.product_settings.security.allowed_service_tags_for_firewall
+      enable_ip_based_firewall_rule               = var.environment_settings_config.product_settings.security.enable_ip_based_firewall_rule
+      enable_ip_based_firewall_rule_in_audit_mode = var.environment_settings_config.product_settings.security.enable_ip_based_firewall_rule_in_audit_mode
+      reverse_proxy_ip_addresses                  = var.environment_settings_config.product_settings.security.reverse_proxy_ip_addresses
+    } : null
+  } : null
 
   # Lifecycle management for manual admin center changes
   # Allows administrators to make manual adjustments without Terraform interference
