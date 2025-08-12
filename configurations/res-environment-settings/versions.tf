@@ -15,7 +15,7 @@ terraform {
   required_providers {
     powerplatform = {
       source  = "microsoft/power-platform"
-      version = "~> 3.8" # Centralized standard for all modules
+      version = "~> 3.8"
     }
   }
 
