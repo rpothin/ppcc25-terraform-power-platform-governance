@@ -20,7 +20,7 @@
 
 variables {
   # Test configuration - adjustable for different environments
-  test_environment_id  = "00000000-0000-0000-0000-000000000001" # Test environment GUID
+  test_environment_id  = "0259c539-0a0a-e12d-b07e-cf0ffaa407f1" # Test environment GUID
   test_timeout_minutes = 10                                     # Extended timeout for environment settings operations
 }
 
