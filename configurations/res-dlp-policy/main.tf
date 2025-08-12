@@ -138,7 +138,7 @@ check "business_connector_ids_exist" {
       
       Or check the Power Platform admin center for valid connector IDs.
     EOT
-  }
+}
 }
 
 # Main DLP Policy Resource
