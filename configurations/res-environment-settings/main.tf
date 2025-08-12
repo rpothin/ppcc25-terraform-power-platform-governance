@@ -25,27 +25,6 @@
 # 2. res-environment-application-admin: Assigns permissions
 # 3. res-environment-settings: Configures environment settings (this module)
 
-# Provider configuration with explicit versioning for reproducibility
-terraform {
-  # Version constraints ensure consistent behavior across environments
-  required_version = ">= 1.5.0"
-  required_providers {
-    powerplatform = {
-      source  = "microsoft/power-platform"
-      version = "~> 3.8" # Centralized standard - all modules must match
-    }
-  }
-
-  # Azure backend with OIDC for secure, keyless authentication
-  backend "azurerm" {
-    use_oidc = true
-  }
-}
-
-# Provider configuration using OIDC for enhanced security
-provider "powerplatform" {
-  use_oidc = true
-}
 
 # Main resource: Power Platform Environment Settings
 # Manages comprehensive environment configuration for governance and compliance
