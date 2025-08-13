@@ -84,6 +84,67 @@ The following resources are used by this module:
 
 The following input variables are required:
 
+### <a name="input_dataverse"></a> [dataverse](#input\_dataverse)
+
+Description: Dataverse database configuration for the Power Platform environment.
+
+**GOVERNANCE REQUIREMENT**: Dataverse is REQUIRED for proper Power Platform governance.  
+This ensures all environments have proper data protection, security controls, and organizational structure.
+
+Required Properties:
+- language\_code: LCID integer (e.g., 1033 for English US)
+- currency\_code: ISO currency code string (e.g., "USD", "EUR", "GBP")
+- security\_group\_id: Azure AD security group GUID (REQUIRED for governance)
+
+Optional Properties:
+- domain: Custom domain name for the Dataverse instance (auto-calculated from display\_name if not provided)
+- administration\_mode\_enabled: Enable admin mode for the environment
+- background\_operation\_enabled: Enable background operations
+- template\_metadata: Additional D365 template metadata as string
+- templates: List of D365 template names
+
+Examples:
+
+# Production Environment with Dataverse (REQUIRED)  
+dataverse = {  
+  language\_code     = 1033  
+  currency\_code     = "USD"  
+  security\_group\_id = "12345678-1234-1234-1234-123456789012"  
+  domain            = "contoso-prod" # Optional: Will auto-calculate if not provided
+}
+
+# Auto-calculated domain (recommended for consistency)  
+dataverse = {  
+  language\_code     = 1033  
+  currency\_code     = "USD"  
+  security\_group\_id = "12345678-1234-1234-1234-123456789012"
+  # domain will be auto-calculated from environment.display\_name
+}
+
+Governance Benefits:
+- Enforces consistent data protection across all environments
+- Ensures proper security group assignment for access control
+- Enables advanced governance features like DLP policies
+- Provides audit trail and compliance capabilities
+
+Type:
+
+```hcl
+object({
+    # Required Arguments when Dataverse is enabled - ✅ REAL
+    language_code     = number # LCID integer, not string!
+    currency_code     = string
+    security_group_id = string # ✅ NOW REQUIRED when dataverse is provided
+
+    # Optional Arguments - ✅ REAL
+    domain                       = optional(string) # Auto-calculated from display_name if null
+    administration_mode_enabled  = optional(bool)
+    background_operation_enabled = optional(bool)
+    template_metadata            = optional(string) # String, not object!
+    templates                    = optional(list(string))
+  })
+```
+
 ### <a name="input_environment"></a> [environment](#input\_environment)
 
 Description: Power Platform environment configuration using ONLY real provider arguments.
@@ -160,73 +221,6 @@ object({
 ## Optional Inputs
 
 The following input variables are optional (have default values):
-
-### <a name="input_dataverse"></a> [dataverse](#input\_dataverse)
-
-Description: Dataverse database configuration for the Power Platform environment.
-
-Required Properties when Dataverse is enabled:
-- language\_code: LCID integer (e.g., 1033 for English US)
-- currency\_code: ISO currency code string (e.g., "USD", "EUR", "GBP")
-- security\_group\_id: Azure AD security group GUID (REQUIRED for governance)
-
-Optional Properties:
-- domain: Custom domain name for the Dataverse instance (auto-calculated from display\_name if not provided)
-- administration\_mode\_enabled: Enable admin mode for the environment
-- background\_operation\_enabled: Enable background operations
-- template\_metadata: Additional D365 template metadata as string
-- templates: List of D365 template names
-
-Examples:
-
-# Production/Sandbox/Trial Dataverse (security\_group\_id REQUIRED)  
-dataverse = {  
-  language\_code     = 1033  
-  currency\_code     = "USD"  
-  security\_group\_id = "12345678-1234-1234-1234-123456789012"  
-  domain            = "contoso-prod" # Optional: Will auto-calculate if not provided
-}
-
-# Auto-calculated domain (recommended)  
-dataverse = {  
-  language\_code     = 1033  
-  currency\_code     = "USD"  
-  security\_group\_id = "12345678-1234-1234-1234-123456789012"
-  # domain will be auto-calculated from environment.display\_name
-}
-
-# No Dataverse  
-dataverse = null
-
-Domain Auto-calculation:  
-When domain is not provided, it will be automatically generated from environment.display\_name:
-- "Production Finance Environment" → "production-finance-environment"
-- "Dev Test 123" → "dev-test-123"
-- Handles special characters, spaces, and length limits correctly
-
-Provider Requirements:
-- security\_group\_id is MANDATORY when dataverse object is provided
-- domain is auto-calculated if not specified (recommended for consistency)
-
-Type:
-
-```hcl
-object({
-    # Required Arguments when Dataverse is enabled - ✅ REAL
-    language_code     = number # LCID integer, not string!
-    currency_code     = string
-    security_group_id = string # ✅ NOW REQUIRED when dataverse is provided
-
-    # Optional Arguments - ✅ REAL
-    domain                       = optional(string) # Auto-calculated from display_name if null
-    administration_mode_enabled  = optional(bool)
-    background_operation_enabled = optional(bool)
-    template_metadata            = optional(string) # String, not object!
-    templates                    = optional(list(string))
-  })
-```
-
-Default: `null`
 
 ### <a name="input_enable_duplicate_protection"></a> [enable\_duplicate\_protection](#input\_enable\_duplicate\_protection)
 
