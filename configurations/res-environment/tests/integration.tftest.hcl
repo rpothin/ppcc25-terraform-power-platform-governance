@@ -597,7 +597,7 @@ run "domain_special_characters_test" {
   }
 
   assert {
-    condition     = local.calculated_domain == "dev-test-123---environment"
+    condition     = local.calculated_domain == "dev-test-123-environment"
     error_message = "Calculated domain should properly handle special characters: '${local.calculated_domain}'"
   }
 

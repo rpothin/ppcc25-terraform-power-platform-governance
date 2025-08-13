@@ -26,13 +26,10 @@ locals {
     substr(
       replace(
         replace(
-          replace(
-            lower(var.environment.display_name),
-            " ", "-" # Replace spaces with hyphens
-          ),
-          "/[^a-z0-9\\-]/", "-" # Replace special chars with hyphens
+          lower(var.environment.display_name),
+          "/[^a-z0-9]+/", "-" # Replace any non-alphanumeric sequence with single hyphen
         ),
-        "/--+/", "-" # Replace multiple consecutive hyphens with single
+        "/^-+|-+$/", "" # Remove leading and trailing hyphens
       ),
       0,
       63 # Truncate to 63 characters maximum
