@@ -25,7 +25,7 @@ variables {
     display_name         = "Test Environment - Integration"
     location             = "unitedstates"
     environment_type     = "Sandbox"
-    environment_group_id = "11111111-1111-1111-1111-111111111111" # Required for governance
+    environment_group_id = "0675a2e2-dd4d-4ab6-8b9f-0d5048f62214" # Required for governance
   }
 
   # Required Dataverse configuration for governance
@@ -109,7 +109,7 @@ run "plan_validation" {
   }
 
   assert {
-    condition     = var.environment.environment_group_id == "11111111-1111-1111-1111-111111111111"
+    condition     = var.environment.environment_group_id == "0675a2e2-dd4d-4ab6-8b9f-0d5048f62214"
     error_message = "Environment group ID should match test configuration."
   }
 
