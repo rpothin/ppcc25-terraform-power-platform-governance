@@ -10,32 +10,24 @@
 # - Change Trackable: Version controlled for audit and rollback capability
 
 # Core environment configuration
-environment_config = {
+environment = {
   # Example naming following organizational standards
-  display_name     = "Example Development Environment" # Follows descriptive naming pattern
-  location         = "unitedstates"                    # Primary region for most organizations
-  environment_type = "Sandbox"                         # Safe default for development/testing
+  display_name         = "Example Development Environment" # Follows descriptive naming pattern
+  location             = "unitedstates"                    # Primary region for most organizations
+  environment_type     = "Sandbox"                         # Safe default for development/testing
+  environment_group_id = "12345678-1234-1234-1234-123456789012" # REQUIRED: Azure AD group for governance
 }
 
 # Dataverse configuration (optional - remove entire block if not needed)
-dataverse_config = {
-  language_code     = 1033  # English (United States)
-  currency_code     = "USD" # US Dollar
-  security_group_id = null  # Optional: Set to Azure AD group ID for access control
-  domain            = null  # Optional: Custom domain (auto-generated if not provided)
+dataverse = {
+  language_code     = 1033                                        # English (United States)
+  currency_code     = "USD"                                       # US Dollar
+  security_group_id = "87654321-4321-4321-4321-210987654321"     # REQUIRED: Azure AD group for Dataverse access
+  domain            = null                                        # Optional: Auto-calculated from display_name if not provided
 }
 
 # Alternatively, to create environment without Dataverse:
-# dataverse_config = null
+# dataverse = null
 
 # Enable duplicate protection for production safety
 enable_duplicate_protection = true
-
-# Optional tags for organization and cost tracking
-tags = {
-  Environment = "Development"
-  Department  = "IT"
-  Owner       = "platform-team@example.com"
-  Project     = "Power Platform Governance"
-  CostCenter  = "IT-001"
-}

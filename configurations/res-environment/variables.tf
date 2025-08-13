@@ -8,9 +8,10 @@
 variable "environment" {
   type = object({
     # Required Arguments - ✅ REAL
-    display_name     = string
-    location         = string
-    environment_type = string
+    display_name         = string
+    location             = string
+    environment_type     = string
+    environment_group_id = string # ✅ NOW REQUIRED for proper governance
 
     # Optional Arguments - ✅ REAL
     description                      = optional(string)
@@ -19,7 +20,6 @@ variable "environment" {
     allow_bing_search                = optional(bool)
     allow_moving_data_across_regions = optional(bool)
     billing_policy_id                = optional(string)
-    environment_group_id             = optional(string)
     release_cycle                    = optional(string)
   })
 
@@ -34,6 +34,7 @@ Required Properties:
 - location: Power Platform region (e.g., "unitedstates", "europe")
 - environment_type: Environment classification (Sandbox, Production, Trial)
   ⚠️  Developer environments are NOT SUPPORTED with service principal authentication
+- environment_group_id: GUID for environment group membership (REQUIRED for governance)
 
 Optional Properties:
 - description: Environment description
@@ -42,7 +43,6 @@ Optional Properties:
 - allow_bing_search: Enable Bing search in the environment
 - allow_moving_data_across_regions: Allow data movement across regions
 - billing_policy_id: GUID for pay-as-you-go billing policy
-- environment_group_id: GUID for environment group membership
 - release_cycle: Early release participation
 
 Examples:
@@ -52,6 +52,7 @@ environment = {
   display_name                     = "Production Finance Environment"
   location                        = "unitedstates"
   environment_type               = "Production"
+  environment_group_id           = "12345678-1234-1234-1234-123456789012"
   description                    = "Production environment for Finance applications"
   azure_region                   = "eastus"
   cadence                        = "Moderate"
@@ -61,15 +62,17 @@ environment = {
 
 # Sandbox Environment
 environment = {
-  display_name     = "Development Sandbox"
-  location         = "unitedstates"
-  environment_type = "Sandbox"
-  cadence          = "Frequent"
+  display_name         = "Development Sandbox"
+  location             = "unitedstates"
+  environment_type     = "Sandbox"
+  environment_group_id = "87654321-4321-4321-4321-210987654321"
+  cadence              = "Frequent"
 }
 
 Limitations:
 - Developer environments require user authentication (not service principal)
 - This module only supports Sandbox, Production, and Trial environment types
+- environment_group_id is now REQUIRED to ensure proper organizational governance
 DESCRIPTION
 
   validation {
@@ -113,22 +116,21 @@ DESCRIPTION
 
   validation {
     condition = (
-      var.environment.environment_group_id == null ? true :
       can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.environment.environment_group_id))
     )
-    error_message = "Environment group ID must be a valid UUID format when provided."
+    error_message = "Environment group ID is REQUIRED and must be a valid UUID format for proper Power Platform governance."
   }
 }
 
 variable "dataverse" {
   type = object({
-    # Required Arguments - ✅ REAL
-    language_code = number # LCID integer, not string!
-    currency_code = string
+    # Required Arguments when Dataverse is enabled - ✅ REAL
+    language_code     = number # LCID integer, not string!
+    currency_code     = string
+    security_group_id = string # ✅ NOW REQUIRED when dataverse is provided
 
     # Optional Arguments - ✅ REAL
-    security_group_id            = string # REQUIRED for all supported environment types
-    domain                       = optional(string)
+    domain                       = optional(string) # Auto-calculated from display_name if null
     administration_mode_enabled  = optional(bool)
     background_operation_enabled = optional(bool)
     template_metadata            = optional(string) # String, not object!
@@ -138,13 +140,13 @@ variable "dataverse" {
   description = <<DESCRIPTION
 Dataverse database configuration for the Power Platform environment.
 
-Required Properties:
+Required Properties when Dataverse is enabled:
 - language_code: LCID integer (e.g., 1033 for English US) 
 - currency_code: ISO currency code string (e.g., "USD", "EUR", "GBP")
-- security_group_id: Azure AD security group GUID (REQUIRED for all environment types)
+- security_group_id: Azure AD security group GUID (REQUIRED for governance)
 
 Optional Properties:
-- domain: Custom domain name for the Dataverse instance
+- domain: Custom domain name for the Dataverse instance (auto-calculated from display_name if not provided)
 - administration_mode_enabled: Enable admin mode for the environment
 - background_operation_enabled: Enable background operations
 - template_metadata: Additional D365 template metadata as string
@@ -157,15 +159,29 @@ dataverse = {
   language_code     = 1033
   currency_code     = "USD"
   security_group_id = "12345678-1234-1234-1234-123456789012"
-  domain            = "contoso-prod"
+  domain            = "contoso-prod" # Optional: Will auto-calculate if not provided
+}
+
+# Auto-calculated domain (recommended)
+dataverse = {
+  language_code     = 1033
+  currency_code     = "USD"
+  security_group_id = "12345678-1234-1234-1234-123456789012"
+  # domain will be auto-calculated from environment.display_name
 }
 
 # No Dataverse
 dataverse = null
 
+Domain Auto-calculation:
+When domain is not provided, it will be automatically generated from environment.display_name:
+- "Production Finance Environment" → "production-finance-environment"
+- "Dev Test 123" → "dev-test-123"
+- Handles special characters, spaces, and length limits correctly
+
 Provider Requirements:
-- security_group_id is MANDATORY for all supported environment types (Sandbox, Production, Trial)
-- All other properties are optional
+- security_group_id is MANDATORY when dataverse object is provided
+- domain is auto-calculated if not specified (recommended for consistency)
 DESCRIPTION
   default     = null
 
@@ -181,10 +197,9 @@ DESCRIPTION
 
   validation {
     condition = var.dataverse == null ? true : (
-      var.dataverse.security_group_id != null &&
       can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.dataverse.security_group_id))
     )
-    error_message = "Security group ID is REQUIRED and must be a valid UUID format for all environment types supported by this module."
+    error_message = "Security group ID is REQUIRED when dataverse is provided and must be a valid UUID format for proper governance."
   }
 
   validation {
@@ -204,13 +219,3 @@ variable "enable_duplicate_protection" {
   default     = true
 }
 
-variable "tags" {
-  type        = map(string)
-  description = "Optional tags for Terraform state organization and governance."
-  default     = {}
-
-  validation {
-    condition     = alltrue([for k, v in var.tags : length(k) > 0 && length(v) > 0])
-    error_message = "All tag keys and values must be non-empty strings."
-  }
-}

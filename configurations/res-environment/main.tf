@@ -19,8 +19,32 @@ data "powerplatform_environments" "all" {
   count = var.enable_duplicate_protection ? 1 : 0
 }
 
-# Duplicate detection logic
+# Domain calculation and duplicate detection logic
 locals {
+  # Calculate domain from display_name when dataverse is enabled and domain is not manually provided
+  calculated_domain = var.dataverse != null && var.dataverse.domain == null ? (
+    substr(
+      replace(
+        replace(
+          replace(
+            lower(var.environment.display_name),
+            " ", "-" # Replace spaces with hyphens
+          ),
+          "/[^a-z0-9\\-]/", "-" # Replace special chars with hyphens
+        ),
+        "/--+/", "-" # Replace multiple consecutive hyphens with single
+      ),
+      0,
+      63 # Truncate to 63 characters maximum
+    )
+  ) : null
+
+  # Use manual domain if provided, otherwise use calculated
+  final_domain = var.dataverse != null ? (
+    var.dataverse.domain != null ? var.dataverse.domain : local.calculated_domain
+  ) : null
+
+  # Duplicate detection logic (unchanged)
   existing_environment_matches = var.enable_duplicate_protection ? [
     for env in try(data.powerplatform_environments.all[0].environments, []) : env
     if env.display_name == var.environment.display_name
@@ -77,12 +101,12 @@ resource "powerplatform_environment" "this" {
   environment_group_id             = var.environment.environment_group_id
   release_cycle                    = var.environment.release_cycle
 
-  # ✅ SIMPLIFIED DATAVERSE BLOCK - NO DEVELOPER ENVIRONMENT HANDLING
+  # ✅ SIMPLIFIED DATAVERSE BLOCK with AUTO-CALCULATED DOMAIN
   dataverse = var.dataverse != null ? {
     language_code                = var.dataverse.language_code
     currency_code                = var.dataverse.currency_code
     security_group_id            = var.dataverse.security_group_id
-    domain                       = var.dataverse.domain
+    domain                       = local.final_domain
     administration_mode_enabled  = var.dataverse.administration_mode_enabled
     background_operation_enabled = var.dataverse.background_operation_enabled
     template_metadata            = var.dataverse.template_metadata
