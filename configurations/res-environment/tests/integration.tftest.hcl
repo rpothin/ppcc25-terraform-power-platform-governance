@@ -229,52 +229,52 @@ run "duplicate_protection_disabled_test" {
   }
 }
 
-# Dataverse configuration test (explicit case) - FIXED with security_group_id
-run "dataverse_explicit_configuration_test" {
+# Advanced dataverse features test
+run "advanced_dataverse_features_test" {
   command = apply
   variables {
     environment = {
-      display_name         = "Test With Dataverse"
+      display_name         = "Test Advanced Dataverse Features"
       location             = "unitedstates"
       environment_type     = "Sandbox"
-      environment_group_id = "12345678-1234-1234-1234-123456789012"
+      environment_group_id = "0675a2e2-dd4d-4ab6-8b9f-0d5048f62214" # Use real ID
     }
     dataverse = {
-      language_code     = 1033
-      currency_code     = "USD"
-      security_group_id = "87654321-4321-4321-4321-210987654321" # REQUIRED
+      language_code                = 1033
+      currency_code                = "USD"
+      security_group_id            = "6a199811-5433-4076-81e8-1ca7ad8ffb67" # Use real ID
+      administration_mode_enabled  = true
+      background_operation_enabled = false
+      domain                       = "test-advanced-features"
     }
     enable_duplicate_protection = false
   }
 
+  # Test advanced features specific to this configuration
   assert {
-    condition     = var.dataverse != null
-    error_message = "Dataverse config should be provided for this test."
+    condition     = var.dataverse.administration_mode_enabled == true
+    error_message = "Administration mode should be enabled for advanced features test."
   }
 
   assert {
-    condition     = var.dataverse.language_code == 1033
-    error_message = "Language code should be integer 1033."
+    condition     = var.dataverse.background_operation_enabled == false
+    error_message = "Background operations should be disabled for this test."
   }
 
   assert {
-    condition     = var.dataverse.currency_code == "USD"
-    error_message = "Currency code should be USD string."
+    condition     = var.dataverse.domain == "test-advanced-features"
+    error_message = "Custom domain should be set for advanced features test."
   }
 
-  assert {
-    condition     = var.dataverse.security_group_id != null
-    error_message = "Security group ID should be provided for all environment types."
-  }
-
+  # Standard dataverse validation (these are now always true)
   assert {
     condition     = powerplatform_environment.this.dataverse != null
-    error_message = "When dataverse is provided, provider should create Dataverse configuration."
+    error_message = "Dataverse should always be configured."
   }
 
   assert {
     condition     = output.dataverse_configuration != null
-    error_message = "Dataverse configuration output should be available when Dataverse is configured."
+    error_message = "Dataverse configuration output should always be available."
   }
 }
 
