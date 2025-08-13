@@ -66,22 +66,22 @@ environment_settings_config = {
 
       # Allowed IP ranges for corporate network access
       allowed_ip_range_for_firewall = [
-        "10.0.0.0/8",       # Internal corporate network
-        "192.168.1.0/24",   # Branch office network
-        "203.0.113.0/24"    # External partner network (example)
+        "10.0.0.0/8",     # Internal corporate network
+        "192.168.1.0/24", # Branch office network
+        "203.0.113.0/24"  # External partner network (example)
       ]
 
       # Allowed Azure service tags for integration
       allowed_service_tags_for_firewall = [
-        "ApiManagement",    # Azure API Management
+        "ApiManagement",        # Azure API Management
         "AzureActiveDirectory", # Azure AD integration
-        "Storage"           # Azure Storage access
+        "Storage"               # Azure Storage access
       ]
 
       # Reverse proxy IP addresses (if using corporate proxy)
       reverse_proxy_ip_addresses = [
-        "203.0.113.100",    # Corporate proxy server 1
-        "203.0.113.101"     # Corporate proxy server 2 (example)
+        "203.0.113.100", # Corporate proxy server 1
+        "203.0.113.101"  # Corporate proxy server 2 (example)
       ]
     }
   }
