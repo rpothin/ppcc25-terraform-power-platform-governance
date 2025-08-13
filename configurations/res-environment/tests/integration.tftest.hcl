@@ -21,12 +21,11 @@ variables {
   expected_minimum_count = 0  # Allow empty tenants in test environments
   test_timeout_minutes   = 10 # Extended timeout for environment operations
 
-  # ✅ UPDATED: Use required variable structure
   environment = {
-    display_name         = "Test Environment - Integration"
-    location             = "unitedstates"
-    environment_type     = "Sandbox"                              # Sandbox only - no Developer support
-    environment_group_id = "12345678-1234-1234-1234-123456789012" # REQUIRED
+    display_name     = "Test Environment - Integration"
+    location         = "unitedstates"
+    environment_type = "Sandbox" # Sandbox only - no Developer support
+    # environment_group_id removed - incompatible with dataverse = null
   }
 
   # Optional Dataverse configuration for testing
