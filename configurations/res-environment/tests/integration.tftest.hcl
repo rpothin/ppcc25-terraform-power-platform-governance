@@ -25,7 +25,7 @@ variables {
   environment = {
     display_name         = "Test Environment - Integration"
     location             = "unitedstates"
-    environment_type     = "Sandbox" # Sandbox only - no Developer support
+    environment_type     = "Sandbox"                              # Sandbox only - no Developer support
     environment_group_id = "12345678-1234-1234-1234-123456789012" # REQUIRED
   }
 

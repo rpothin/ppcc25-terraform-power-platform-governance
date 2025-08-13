@@ -12,18 +12,18 @@
 # Core environment configuration
 environment = {
   # Example naming following organizational standards
-  display_name         = "Example Development Environment" # Follows descriptive naming pattern
-  location             = "unitedstates"                    # Primary region for most organizations
-  environment_type     = "Sandbox"                         # Safe default for development/testing
+  display_name         = "Example Development Environment"      # Follows descriptive naming pattern
+  location             = "unitedstates"                         # Primary region for most organizations
+  environment_type     = "Sandbox"                              # Safe default for development/testing
   environment_group_id = "12345678-1234-1234-1234-123456789012" # REQUIRED: Azure AD group for governance
 }
 
 # Dataverse configuration (optional - remove entire block if not needed)
 dataverse = {
-  language_code     = 1033                                        # English (United States)
-  currency_code     = "USD"                                       # US Dollar
-  security_group_id = "87654321-4321-4321-4321-210987654321"     # REQUIRED: Azure AD group for Dataverse access
-  domain            = null                                        # Optional: Auto-calculated from display_name if not provided
+  language_code     = 1033                                   # English (United States)
+  currency_code     = "USD"                                  # US Dollar
+  security_group_id = "87654321-4321-4321-4321-210987654321" # REQUIRED: Azure AD group for Dataverse access
+  domain            = null                                   # Optional: Auto-calculated from display_name if not provided
 }
 
 # Alternatively, to create environment without Dataverse:
