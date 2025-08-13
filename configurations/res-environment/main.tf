@@ -7,6 +7,7 @@
 # - Developer environments are NOT SUPPORTED with service principal authentication
 # - This module only supports Sandbox, Production, and Trial environment types
 # - Developer environments require user authentication (not service principal)
+# - Environment groups require Dataverse configuration (provider constraint)
 # - See: https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/resources/environment
 #
 # Supported Environment Types:
@@ -19,8 +20,33 @@ data "powerplatform_environments" "all" {
   count = var.enable_duplicate_protection ? 1 : 0
 }
 
-# Duplicate detection logic
+# Domain calculation and duplicate detection logic
 locals {
+  # Always calculate domain from display_name when dataverse is enabled (for transparency and validation)
+  calculated_domain = var.dataverse != null ? (
+    substr(
+      replace(
+        replace(
+          lower(var.environment.display_name),
+          "/[^a-z0-9]+/", "-" # Replace any non-alphanumeric sequence with single hyphen
+        ),
+        "/^-+|-+$/", "" # Remove leading and trailing hyphens
+      ),
+      0,
+      63 # Truncate to 63 characters maximum
+    )
+  ) : null
+
+  # Use manual domain if provided, otherwise use calculated domain
+  final_domain = var.dataverse != null ? (
+    var.dataverse.domain != null ? var.dataverse.domain : local.calculated_domain
+  ) : null
+
+  # Conditional environment group assignment based on Dataverse configuration
+  # Provider constraint: environment_group_id requires dataverse to be specified
+  environment_group_id = var.dataverse != null ? var.environment.environment_group_id : null
+
+  # Duplicate detection logic (unchanged)
   existing_environment_matches = var.enable_duplicate_protection ? [
     for env in try(data.powerplatform_environments.all[0].environments, []) : env
     if env.display_name == var.environment.display_name
@@ -60,9 +86,47 @@ resource "null_resource" "environment_duplicate_guardrail" {
   }
 }
 
+# Governance validation for environment group assignment
+resource "null_resource" "environment_group_validation" {
+  count = var.environment.environment_group_id != null ? 1 : 0
+
+  lifecycle {
+    precondition {
+      condition     = var.dataverse != null
+      error_message = <<-EOT
+      🚨 ENVIRONMENT GROUP REQUIRES DATAVERSE!
+      Environment Group ID: "${var.environment.environment_group_id}"
+      
+      RESOLUTION OPTIONS:
+      1. Add Dataverse configuration:
+         dataverse = {
+           language_code     = 1033
+           currency_code     = "USD"
+           security_group_id = "your-security-group-id"
+         }
+      
+      2. Remove environment_group_id if Dataverse is not needed:
+         Set environment_group_id = null
+      
+      BACKGROUND:
+      The Power Platform provider requires Dataverse configuration when
+      environment_group_id is specified. This is a provider constraint.
+      EOT
+    }
+  }
+
+  triggers = {
+    environment_group_id = var.environment.environment_group_id
+    has_dataverse        = var.dataverse != null
+  }
+}
+
 # Main Power Platform Environment Resource - REAL SCHEMA ONLY
 resource "powerplatform_environment" "this" {
-  depends_on = [null_resource.environment_duplicate_guardrail]
+  depends_on = [
+    null_resource.environment_duplicate_guardrail,
+    null_resource.environment_group_validation
+  ]
 
   # ✅ REAL ARGUMENTS ONLY - NO DEVELOPER ENVIRONMENT SUPPORT
   display_name                     = var.environment.display_name
@@ -74,15 +138,15 @@ resource "powerplatform_environment" "this" {
   allow_bing_search                = var.environment.allow_bing_search
   allow_moving_data_across_regions = var.environment.allow_moving_data_across_regions
   billing_policy_id                = var.environment.billing_policy_id
-  environment_group_id             = var.environment.environment_group_id
+  environment_group_id             = local.environment_group_id # Conditional assignment
   release_cycle                    = var.environment.release_cycle
 
-  # ✅ SIMPLIFIED DATAVERSE BLOCK - NO DEVELOPER ENVIRONMENT HANDLING
+  # ✅ SIMPLIFIED DATAVERSE BLOCK with AUTO-CALCULATED DOMAIN
   dataverse = var.dataverse != null ? {
     language_code                = var.dataverse.language_code
     currency_code                = var.dataverse.currency_code
     security_group_id            = var.dataverse.security_group_id
-    domain                       = var.dataverse.domain
+    domain                       = local.final_domain
     administration_mode_enabled  = var.dataverse.administration_mode_enabled
     background_operation_enabled = var.dataverse.background_operation_enabled
     template_metadata            = var.dataverse.template_metadata
@@ -91,8 +155,10 @@ resource "powerplatform_environment" "this" {
 
   # Lifecycle management
   lifecycle {
+    # Description changes should be managed through Terraform for consistency
+    # Manual changes in admin center will show as drift and require correction
     ignore_changes = [
-      description, # Allow manual updates in admin center
+      # Future: Add other fields here if manual override is needed
     ]
   }
 }

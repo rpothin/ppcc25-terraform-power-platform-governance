@@ -71,7 +71,7 @@ output "environment_summary" {
   }
 }
 
-# Dataverse configuration details (when enabled)
+# Dataverse configuration details (when enabled) with domain calculation info
 output "dataverse_configuration" {
   description = "Dataverse database configuration details when enabled, null otherwise"
   value = var.dataverse != null ? {
@@ -82,7 +82,10 @@ output "dataverse_configuration" {
     language_code                = var.dataverse.language_code
     currency_code                = var.dataverse.currency_code
     security_group_id            = var.dataverse.security_group_id
-    domain                       = var.dataverse.domain
+    domain_requested             = var.dataverse.domain
+    domain_calculated            = local.calculated_domain
+    domain_final                 = local.final_domain
+    domain_source                = var.dataverse.domain != null ? "manual" : "auto-calculated"
     administration_mode_enabled  = var.dataverse.administration_mode_enabled
     background_operation_enabled = var.dataverse.background_operation_enabled
     template_metadata            = var.dataverse.template_metadata
@@ -98,6 +101,19 @@ output "dataverse_configuration" {
 output "enterprise_policies" {
   description = "Enterprise policies applied to the environment (read-only from provider)"
   value       = try(powerplatform_environment.this.enterprise_policies, [])
+}
+
+# Domain calculation details for transparency and validation
+output "domain_calculation_summary" {
+  description = "Summary of domain calculation logic and results for transparency"
+  value = var.dataverse != null ? {
+    display_name_input  = var.environment.display_name
+    domain_requested    = var.dataverse.domain
+    domain_calculated   = local.calculated_domain
+    domain_final        = local.final_domain
+    domain_source       = var.dataverse.domain != null ? "manual" : "auto-calculated"
+    calculation_applied = var.dataverse.domain == null
+  } : null
 }
 
 # Additional outputs for AVM compliance and operational visibility

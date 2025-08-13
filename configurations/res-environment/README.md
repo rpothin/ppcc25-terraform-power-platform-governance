@@ -75,6 +75,7 @@ The following providers are used by this module:
 The following resources are used by this module:
 
 - [null_resource.environment_duplicate_guardrail](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) (resource)
+- [null_resource.environment_group_validation](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) (resource)
 - [powerplatform_environment.this](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/resources/environment) (resource)
 - [powerplatform_environments.all](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/data-sources/environments) (data source)
 
@@ -82,6 +83,67 @@ The following resources are used by this module:
 ## Required Inputs
 
 The following input variables are required:
+
+### <a name="input_dataverse"></a> [dataverse](#input\_dataverse)
+
+Description: Dataverse database configuration for the Power Platform environment.
+
+**GOVERNANCE REQUIREMENT**: Dataverse is REQUIRED for proper Power Platform governance.  
+This ensures all environments have proper data protection, security controls, and organizational structure.
+
+Required Properties:
+- language\_code: LCID integer (e.g., 1033 for English US)
+- currency\_code: ISO currency code string (e.g., "USD", "EUR", "GBP")
+- security\_group\_id: Azure AD security group GUID (REQUIRED for governance)
+
+Optional Properties:
+- domain: Custom domain name for the Dataverse instance (auto-calculated from display\_name if not provided)
+- administration\_mode\_enabled: Enable admin mode for the environment
+- background\_operation\_enabled: Enable background operations
+- template\_metadata: Additional D365 template metadata as string
+- templates: List of D365 template names
+
+Examples:
+
+# Production Environment with Dataverse (REQUIRED)  
+dataverse = {  
+  language\_code     = 1033  
+  currency\_code     = "USD"  
+  security\_group\_id = "12345678-1234-1234-1234-123456789012"  
+  domain            = "contoso-prod" # Optional: Will auto-calculate if not provided
+}
+
+# Auto-calculated domain (recommended for consistency)  
+dataverse = {  
+  language\_code     = 1033  
+  currency\_code     = "USD"  
+  security\_group\_id = "12345678-1234-1234-1234-123456789012"
+  # domain will be auto-calculated from environment.display\_name
+}
+
+Governance Benefits:
+- Enforces consistent data protection across all environments
+- Ensures proper security group assignment for access control
+- Enables advanced governance features like DLP policies
+- Provides audit trail and compliance capabilities
+
+Type:
+
+```hcl
+object({
+    # Required Arguments when Dataverse is enabled - ✅ REAL
+    language_code     = number # LCID integer, not string!
+    currency_code     = string
+    security_group_id = string # ✅ NOW REQUIRED when dataverse is provided
+
+    # Optional Arguments - ✅ REAL
+    domain                       = optional(string) # Auto-calculated from display_name if null
+    administration_mode_enabled  = optional(bool)
+    background_operation_enabled = optional(bool)
+    template_metadata            = optional(string) # String, not object!
+    templates                    = optional(list(string))
+  })
+```
 
 ### <a name="input_environment"></a> [environment](#input\_environment)
 
@@ -95,6 +157,7 @@ Required Properties:
 - location: Power Platform region (e.g., "unitedstates", "europe")
 - environment\_type: Environment classification (Sandbox, Production, Trial)
   ⚠️  Developer environments are NOT SUPPORTED with service principal authentication
+- environment\_group\_id: GUID for environment group membership (REQUIRED for governance)
 
 Optional Properties:
 - description: Environment description
@@ -103,7 +166,6 @@ Optional Properties:
 - allow\_bing\_search: Enable Bing search in the environment
 - allow\_moving\_data\_across\_regions: Allow data movement across regions
 - billing\_policy\_id: GUID for pay-as-you-go billing policy
-- environment\_group\_id: GUID for environment group membership
 - release\_cycle: Early release participation
 
 Examples:
@@ -113,6 +175,7 @@ environment = {
   display\_name                     = "Production Finance Environment"  
   location                        = "unitedstates"  
   environment\_type               = "Production"  
+  environment\_group\_id           = "12345678-1234-1234-1234-123456789012"  
   description                    = "Production environment for Finance applications"  
   azure\_region                   = "eastus"  
   cadence                        = "Moderate"  
@@ -122,24 +185,27 @@ environment = {
 
 # Sandbox Environment  
 environment = {  
-  display\_name     = "Development Sandbox"  
-  location         = "unitedstates"  
-  environment\_type = "Sandbox"  
-  cadence          = "Frequent"
+  display\_name         = "Development Sandbox"  
+  location             = "unitedstates"  
+  environment\_type     = "Sandbox"  
+  environment\_group\_id = "87654321-4321-4321-4321-210987654321"  
+  cadence              = "Frequent"
 }
 
 Limitations:
 - Developer environments require user authentication (not service principal)
 - This module only supports Sandbox, Production, and Trial environment types
+- environment\_group\_id is now REQUIRED to ensure proper organizational governance
 
 Type:
 
 ```hcl
 object({
     # Required Arguments - ✅ REAL
-    display_name     = string
-    location         = string
-    environment_type = string
+    display_name         = string
+    location             = string
+    environment_type     = string
+    environment_group_id = string # ✅ NOW REQUIRED for proper governance
 
     # Optional Arguments - ✅ REAL
     description                      = optional(string)
@@ -148,7 +214,6 @@ object({
     allow_bing_search                = optional(bool)
     allow_moving_data_across_regions = optional(bool)
     billing_policy_id                = optional(string)
-    environment_group_id             = optional(string)
     release_cycle                    = optional(string)
   })
 ```
@@ -157,59 +222,6 @@ object({
 
 The following input variables are optional (have default values):
 
-### <a name="input_dataverse"></a> [dataverse](#input\_dataverse)
-
-Description: Dataverse database configuration for the Power Platform environment.
-
-Required Properties:
-- language\_code: LCID integer (e.g., 1033 for English US)
-- currency\_code: ISO currency code string (e.g., "USD", "EUR", "GBP")
-- security\_group\_id: Azure AD security group GUID (REQUIRED for all environment types)
-
-Optional Properties:
-- domain: Custom domain name for the Dataverse instance
-- administration\_mode\_enabled: Enable admin mode for the environment
-- background\_operation\_enabled: Enable background operations
-- template\_metadata: Additional D365 template metadata as string
-- templates: List of D365 template names
-
-Examples:
-
-# Production/Sandbox/Trial Dataverse (security\_group\_id REQUIRED)  
-dataverse = {  
-  language\_code     = 1033  
-  currency\_code     = "USD"  
-  security\_group\_id = "12345678-1234-1234-1234-123456789012"  
-  domain            = "contoso-prod"
-}
-
-# No Dataverse  
-dataverse = null
-
-Provider Requirements:
-- security\_group\_id is MANDATORY for all supported environment types (Sandbox, Production, Trial)
-- All other properties are optional
-
-Type:
-
-```hcl
-object({
-    # Required Arguments - ✅ REAL
-    language_code = number # LCID integer, not string!
-    currency_code = string
-
-    # Optional Arguments - ✅ REAL
-    security_group_id            = string # REQUIRED for all supported environment types
-    domain                       = optional(string)
-    administration_mode_enabled  = optional(bool)
-    background_operation_enabled = optional(bool)
-    template_metadata            = optional(string) # String, not object!
-    templates                    = optional(list(string))
-  })
-```
-
-Default: `null`
-
 ### <a name="input_enable_duplicate_protection"></a> [enable\_duplicate\_protection](#input\_enable\_duplicate\_protection)
 
 Description: Enable duplicate environment detection and prevention.
@@ -217,14 +229,6 @@ Description: Enable duplicate environment detection and prevention.
 Type: `bool`
 
 Default: `true`
-
-### <a name="input_tags"></a> [tags](#input\_tags)
-
-Description: Optional tags for Terraform state organization and governance.
-
-Type: `map(string)`
-
-Default: `{}`
 
 ## Outputs
 
@@ -240,6 +244,10 @@ Description: The organization URL for the Dataverse database, if enabled.
 
 Returns the base URL for Dataverse API access and application integrations.  
 Will be null if Dataverse is not configured for this environment.
+
+### <a name="output_domain_calculation_summary"></a> [domain\_calculation\_summary](#output\_domain\_calculation\_summary)
+
+Description: Summary of domain calculation logic and results for transparency
 
 ### <a name="output_enterprise_policies"></a> [enterprise\_policies](#output\_enterprise\_policies)
 

@@ -21,25 +21,23 @@ variables {
   expected_minimum_count = 0  # Allow empty tenants in test environments
   test_timeout_minutes   = 10 # Extended timeout for environment operations
 
-  # ✅ CORRECTED: Use actual variable structure - NO DEVELOPER ENVIRONMENTS
   environment = {
-    display_name     = "Test Environment - Integration"
-    location         = "unitedstates"
-    environment_type = "Sandbox" # Sandbox only - no Developer support
+    display_name         = "Test Environment - Integration"
+    location             = "unitedstates"
+    environment_type     = "Sandbox"
+    environment_group_id = "0675a2e2-dd4d-4ab6-8b9f-0d5048f62214" # Required for governance
   }
 
-  # Optional Dataverse configuration for testing
-  dataverse = null
+  # Required Dataverse configuration for governance
+  dataverse = {
+    language_code     = 1033
+    currency_code     = "USD"
+    security_group_id = "6a199811-5433-4076-81e8-1ca7ad8ffb67"
+    # domain will be auto-calculated from display_name
+  }
 
   # Disable duplicate protection for testing to avoid conflicts
   enable_duplicate_protection = false
-
-  # Optional tags for testing
-  tags = {
-    Environment = "Test"
-    Purpose     = "Integration Testing"
-    Owner       = "terraform-ci"
-  }
 }
 
 # --- Plan Validation Tests ---
@@ -111,8 +109,8 @@ run "plan_validation" {
   }
 
   assert {
-    condition     = can(var.tags) && length(var.tags) >= 0
-    error_message = "Tags should be a valid map."
+    condition     = var.environment.environment_group_id == "0675a2e2-dd4d-4ab6-8b9f-0d5048f62214"
+    error_message = "Environment group ID should match test configuration."
   }
 
   # Conditional duplicate protection validation (Assertions 13-15)
@@ -202,13 +200,17 @@ run "duplicate_protection_disabled_test" {
   command = plan
   variables {
     environment = {
-      display_name     = "Test No Duplicate Check"
-      location         = "unitedstates"
-      environment_type = "Sandbox"
+      display_name         = "Test No Duplicate Check"
+      location             = "unitedstates"
+      environment_type     = "Sandbox"
+      environment_group_id = "12345678-1234-1234-1234-123456789012"
     }
-    dataverse                   = null
+    dataverse = {
+      language_code     = 1033
+      currency_code     = "USD"
+      security_group_id = "33333333-3333-3333-3333-333333333333"
+    }
     enable_duplicate_protection = false
-    tags                        = {}
   }
 
   assert {
@@ -227,87 +229,6 @@ run "duplicate_protection_disabled_test" {
   }
 }
 
-# Dataverse configuration test (null case)
-run "dataverse_null_configuration_test" {
-  command = apply
-  variables {
-    environment = {
-      display_name     = "Test No Dataverse"
-      location         = "unitedstates"
-      environment_type = "Sandbox"
-    }
-    dataverse                   = null
-    enable_duplicate_protection = false
-    tags                        = {}
-  }
-
-  assert {
-    condition     = var.dataverse == null
-    error_message = "Dataverse config should be null for this test."
-  }
-
-  assert {
-    condition     = powerplatform_environment.this.dataverse == null
-    error_message = "When dataverse is null, provider should not create Dataverse configuration."
-  }
-
-  assert {
-    condition     = output.dataverse_configuration == null
-    error_message = "Dataverse configuration output should be null when no Dataverse is configured."
-  }
-}
-
-# Dataverse configuration test (explicit case) - FIXED with security_group_id
-run "dataverse_explicit_configuration_test" {
-  command = apply
-  variables {
-    environment = {
-      display_name     = "Test With Dataverse"
-      location         = "unitedstates"
-      environment_type = "Sandbox"
-    }
-    dataverse = {
-      language_code     = 1033
-      currency_code     = "USD"
-      security_group_id = "12345678-1234-1234-1234-123456789012" # REQUIRED
-    }
-    enable_duplicate_protection = false
-    tags = {
-      TestScenario = "ExplicitDataverse"
-    }
-  }
-
-  assert {
-    condition     = var.dataverse != null
-    error_message = "Dataverse config should be provided for this test."
-  }
-
-  assert {
-    condition     = var.dataverse.language_code == 1033
-    error_message = "Language code should be integer 1033."
-  }
-
-  assert {
-    condition     = var.dataverse.currency_code == "USD"
-    error_message = "Currency code should be USD string."
-  }
-
-  assert {
-    condition     = var.dataverse.security_group_id != null
-    error_message = "Security group ID should be provided for all environment types."
-  }
-
-  assert {
-    condition     = powerplatform_environment.this.dataverse != null
-    error_message = "When dataverse is provided, provider should create Dataverse configuration."
-  }
-
-  assert {
-    condition     = output.dataverse_configuration != null
-    error_message = "Dataverse configuration output should be available when Dataverse is configured."
-  }
-}
-
 # New provider properties test
 run "new_provider_properties_test" {
   command = plan
@@ -316,17 +237,19 @@ run "new_provider_properties_test" {
       display_name                     = "Test New Properties"
       location                         = "unitedstates"
       environment_type                 = "Sandbox"
+      environment_group_id             = "12345678-1234-1234-1234-123456789012"
       azure_region                     = "eastus"
       cadence                          = "Moderate"
       allow_bing_search                = false
       allow_moving_data_across_regions = false
       description                      = "Test environment for new provider properties"
     }
-    dataverse                   = null
-    enable_duplicate_protection = false
-    tags = {
-      TestScenario = "NewProperties"
+    dataverse = {
+      language_code     = 1033
+      currency_code     = "USD"
+      security_group_id = "33333333-3333-3333-3333-333333333333"
     }
+    enable_duplicate_protection = false
   }
 
   assert {
@@ -360,17 +283,19 @@ run "production_environment_test" {
   command = plan
   variables {
     environment = {
-      display_name     = "Production Environment Test"
-      location         = "unitedstates"
-      environment_type = "Production"
-      description      = "Production environment for testing"
-      cadence          = "Moderate"
+      display_name         = "Production Environment Test"
+      location             = "unitedstates"
+      environment_type     = "Production"
+      environment_group_id = "12345678-1234-1234-1234-123456789012"
+      description          = "Production environment for testing"
+      cadence              = "Moderate"
     }
-    dataverse                   = null
+    dataverse = {
+      language_code     = 1033
+      currency_code     = "USD"
+      security_group_id = "33333333-3333-3333-3333-333333333333"
+    }
     enable_duplicate_protection = false
-    tags = {
-      EnvironmentType = "Production"
-    }
   }
 
   assert {
@@ -394,16 +319,18 @@ run "trial_environment_test" {
   command = plan
   variables {
     environment = {
-      display_name     = "Trial Environment Test"
-      location         = "unitedstates"
-      environment_type = "Trial"
-      description      = "Trial environment for evaluation"
+      display_name         = "Trial Environment Test"
+      location             = "unitedstates"
+      environment_type     = "Trial"
+      environment_group_id = "12345678-1234-1234-1234-123456789012"
+      description          = "Trial environment for evaluation"
     }
-    dataverse                   = null
+    dataverse = {
+      language_code     = 1033
+      currency_code     = "USD"
+      security_group_id = "33333333-3333-3333-3333-333333333333"
+    }
     enable_duplicate_protection = false
-    tags = {
-      EnvironmentType = "Trial"
-    }
   }
 
   assert {
@@ -422,13 +349,17 @@ run "minimum_display_name_test" {
   command = plan
   variables {
     environment = {
-      display_name     = "Dev" # 3 characters - minimum valid
-      location         = "unitedstates"
-      environment_type = "Sandbox"
+      display_name         = "Dev" # 3 characters - minimum valid
+      location             = "unitedstates"
+      environment_type     = "Sandbox"
+      environment_group_id = "12345678-1234-1234-1234-123456789012"
     }
-    dataverse                   = null
+    dataverse = {
+      language_code     = 1033
+      currency_code     = "USD"
+      security_group_id = "33333333-3333-3333-3333-333333333333"
+    }
     enable_duplicate_protection = false
-    tags                        = {}
   }
 
   assert {
@@ -447,13 +378,17 @@ run "maximum_display_name_test" {
   command = plan
   variables {
     environment = {
-      display_name     = "Very Long Environment Name for Testing Maximum Length Validation" # 64 characters
-      location         = "unitedstates"
-      environment_type = "Sandbox"
+      display_name         = "Very Long Environment Name for Testing Maximum Length Validation" # 64 characters
+      location             = "unitedstates"
+      environment_type     = "Sandbox"
+      environment_group_id = "12345678-1234-1234-1234-123456789012"
     }
-    dataverse                   = null
+    dataverse = {
+      language_code     = 1033
+      currency_code     = "USD"
+      security_group_id = "33333333-3333-3333-3333-333333333333"
+    }
     enable_duplicate_protection = false
-    tags                        = {}
   }
 
   assert {
@@ -472,14 +407,15 @@ run "comprehensive_dataverse_test" {
   command = plan
   variables {
     environment = {
-      display_name     = "Comprehensive Dataverse Test"
-      location         = "unitedstates"
-      environment_type = "Sandbox"
+      display_name         = "Comprehensive Dataverse Test"
+      location             = "unitedstates"
+      environment_type     = "Sandbox"
+      environment_group_id = "12345678-1234-1234-1234-123456789012"
     }
     dataverse = {
       language_code                = 1033
       currency_code                = "USD"
-      security_group_id            = "12345678-1234-1234-1234-123456789012"
+      security_group_id            = "87654321-4321-4321-4321-210987654321"
       domain                       = "test-domain"
       administration_mode_enabled  = true
       background_operation_enabled = false
@@ -487,9 +423,6 @@ run "comprehensive_dataverse_test" {
       templates                    = ["template1", "template2"]
     }
     enable_duplicate_protection = false
-    tags = {
-      TestScenario = "ComprehensiveDataverse"
-    }
   }
 
   assert {
@@ -515,5 +448,115 @@ run "comprehensive_dataverse_test" {
   assert {
     condition     = var.dataverse.security_group_id != null
     error_message = "Security group ID should be required."
+  }
+}
+
+# Domain calculation test - auto-calculated from display_name
+run "domain_auto_calculation_test" {
+  command = plan
+  variables {
+    environment = {
+      display_name         = "Production Finance Environment"
+      location             = "unitedstates"
+      environment_type     = "Sandbox"
+      environment_group_id = "12345678-1234-1234-1234-123456789012"
+    }
+    dataverse = {
+      language_code     = 1033
+      currency_code     = "USD"
+      security_group_id = "87654321-4321-4321-4321-210987654321"
+      domain            = null # Should auto-calculate
+    }
+    enable_duplicate_protection = false
+  }
+
+  assert {
+    condition     = var.dataverse.domain == null
+    error_message = "Domain should be null for auto-calculation test."
+  }
+
+  assert {
+    condition     = local.calculated_domain == "production-finance-environment"
+    error_message = "Calculated domain should be 'production-finance-environment', got '${local.calculated_domain}'"
+  }
+
+  assert {
+    condition     = local.final_domain == local.calculated_domain
+    error_message = "Final domain should match calculated domain when manual domain is null."
+  }
+
+  assert {
+    condition     = can(output.domain_calculation_summary)
+    error_message = "Domain calculation summary output should be available."
+  }
+}
+
+# Domain calculation test - manual override
+run "domain_manual_override_test" {
+  command = plan
+  variables {
+    environment = {
+      display_name         = "Test Environment with Custom Domain"
+      location             = "unitedstates"
+      environment_type     = "Sandbox"
+      environment_group_id = "12345678-1234-1234-1234-123456789012"
+    }
+    dataverse = {
+      language_code     = 1033
+      currency_code     = "USD"
+      security_group_id = "87654321-4321-4321-4321-210987654321"
+      domain            = "custom-domain-override"
+    }
+    enable_duplicate_protection = false
+  }
+
+  assert {
+    condition     = var.dataverse.domain == "custom-domain-override"
+    error_message = "Domain should be manually set for override test."
+  }
+
+  assert {
+    condition     = local.final_domain == "custom-domain-override"
+    error_message = "Final domain should match manual domain when provided."
+  }
+
+  assert {
+    condition     = local.calculated_domain != null
+    error_message = "Calculated domain should still be computed even when manual domain is provided."
+  }
+}
+
+# Domain calculation test - mixed separators and formatting
+run "domain_special_characters_test" {
+  command = plan
+  variables {
+    environment = {
+      display_name         = "Dev Test_123-Environment Name" # Mixed valid separators
+      location             = "unitedstates"
+      environment_type     = "Sandbox"
+      environment_group_id = "12345678-1234-1234-1234-123456789012"
+    }
+    dataverse = {
+      language_code     = 1033
+      currency_code     = "USD"
+      security_group_id = "87654321-4321-4321-4321-210987654321"
+      domain            = null
+    }
+    enable_duplicate_protection = false
+  }
+
+  assert {
+    condition     = local.calculated_domain == "dev-test-123-environment-name"
+    error_message = "Calculated domain should properly normalize mixed separators: '${local.calculated_domain}'"
+  }
+
+  assert {
+    condition     = can(regex("^[a-z0-9\\-]+$", local.calculated_domain))
+    error_message = "Calculated domain should only contain lowercase letters, numbers, and hyphens."
+  }
+
+  assert {
+    condition     = length(local.calculated_domain) <= 63
+    error_message = "Calculated domain should not exceed 63 characters."
   }
 }
