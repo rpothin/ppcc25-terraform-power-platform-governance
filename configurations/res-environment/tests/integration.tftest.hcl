@@ -32,7 +32,7 @@ variables {
   dataverse = {
     language_code     = 1033
     currency_code     = "USD"
-    security_group_id = "22222222-2222-2222-2222-222222222222"
+    security_group_id = "6a199811-5433-4076-81e8-1ca7ad8ffb67"
     # domain will be auto-calculated from display_name
   }
 
