@@ -54,48 +54,237 @@ Use the provided script to automate this process:
 <!-- markdownlint-disable MD033 -->
 ## Requirements
 
-| Name | Version |
-|------|---------|
-| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.5.0 |
-| <a name="requirement_null"></a> [null](#requirement\_null) | ~> 3.0 |
-| <a name="requirement_powerplatform"></a> [powerplatform](#requirement\_powerplatform) | ~> 3.8 |
+The following requirements are needed by this module:
+
+- <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) (>= 1.5.0)
+
+- <a name="requirement_null"></a> [null](#requirement\_null) (~> 3.0)
+
+- <a name="requirement_powerplatform"></a> [powerplatform](#requirement\_powerplatform) (~> 3.8)
 
 ## Providers
 
-| Name | Version |
-|------|---------|
-| <a name="provider_null"></a> [null](#provider\_null) | ~> 3.0 |
-| <a name="provider_powerplatform"></a> [powerplatform](#provider\_powerplatform) | ~> 3.8 |
+The following providers are used by this module:
+
+- <a name="provider_null"></a> [null](#provider\_null) (~> 3.0)
+
+- <a name="provider_powerplatform"></a> [powerplatform](#provider\_powerplatform) (~> 3.8)
 
 ## Resources
 
-| Name | Type |
-|------|------|
-| [null_resource.environment_duplicate_guardrail](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) | resource |
-| [powerplatform_environment.this](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/resources/environment) | resource |
-| [powerplatform_environments.all](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/data-sources/environments) | data source |
+The following resources are used by this module:
+
+- [null_resource.environment_duplicate_guardrail](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) (resource)
+- [powerplatform_environment.this](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/resources/environment) (resource)
+- [powerplatform_environments.all](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/data-sources/environments) (data source)
 
 <!-- markdownlint-disable MD013 -->
-## Inputs
+## Required Inputs
 
-| Name | Description | Type | Default | Required |
-|------|-------------|------|---------|:--------:|
-| <a name="input_environment"></a> [environment](#input\_environment) | Power Platform environment configuration using ONLY real provider arguments.<br/><br/>This variable includes exclusively the arguments that actually exist in the <br/>microsoft/power-platform provider to ensure 100% compatibility.<br/><br/>Required Properties:<br/>- display\_name: Human-readable environment name<br/>- location: Power Platform region (e.g., "unitedstates", "europe")<br/>- environment\_type: Environment classification (Sandbox, Production, Trial)<br/>  ⚠️  Developer environments are NOT SUPPORTED with service principal authentication<br/>- environment\_group\_id: GUID for environment group membership (REQUIRED for governance)<br/><br/>Optional Properties:<br/>- description: Environment description<br/>- azure\_region: Specific Azure region (westeurope, eastus, etc.)<br/>- cadence: Update cadence ("Frequent" or "Moderate")<br/>- allow\_bing\_search: Enable Bing search in the environment<br/>- allow\_moving\_data\_across\_regions: Allow data movement across regions<br/>- billing\_policy\_id: GUID for pay-as-you-go billing policy<br/>- release\_cycle: Early release participation<br/><br/>Examples:<br/><br/># Production Environment<br/>environment = {<br/>  display\_name                     = "Production Finance Environment"<br/>  location                        = "unitedstates"<br/>  environment\_type               = "Production"<br/>  environment\_group\_id           = "12345678-1234-1234-1234-123456789012"<br/>  description                    = "Production environment for Finance applications"<br/>  azure\_region                   = "eastus"<br/>  cadence                        = "Moderate"<br/>  allow\_bing\_search              = false<br/>  allow\_moving\_data\_across\_regions = false<br/>}<br/><br/># Sandbox Environment<br/>environment = {<br/>  display\_name         = "Development Sandbox"<br/>  location             = "unitedstates"<br/>  environment\_type     = "Sandbox"<br/>  environment\_group\_id = "87654321-4321-4321-4321-210987654321"<br/>  cadence              = "Frequent"<br/>}<br/><br/>Limitations:<br/>- Developer environments require user authentication (not service principal)<br/>- This module only supports Sandbox, Production, and Trial environment types<br/>- environment\_group\_id is now REQUIRED to ensure proper organizational governance | <pre>object({<br/>    # Required Arguments - ✅ REAL<br/>    display_name         = string<br/>    location             = string<br/>    environment_type     = string<br/>    environment_group_id = string # ✅ NOW REQUIRED for proper governance<br/><br/>    # Optional Arguments - ✅ REAL<br/>    description                      = optional(string)<br/>    azure_region                     = optional(string)<br/>    cadence                          = optional(string) # "Frequent" or "Moderate" only<br/>    allow_bing_search                = optional(bool)<br/>    allow_moving_data_across_regions = optional(bool)<br/>    billing_policy_id                = optional(string)<br/>    release_cycle                    = optional(string)<br/>  })</pre> | n/a | yes |
-| <a name="input_dataverse"></a> [dataverse](#input\_dataverse) | Dataverse database configuration for the Power Platform environment.<br/><br/>Required Properties when Dataverse is enabled:<br/>- language\_code: LCID integer (e.g., 1033 for English US) <br/>- currency\_code: ISO currency code string (e.g., "USD", "EUR", "GBP")<br/>- security\_group\_id: Azure AD security group GUID (REQUIRED for governance)<br/><br/>Optional Properties:<br/>- domain: Custom domain name for the Dataverse instance (auto-calculated from display\_name if not provided)<br/>- administration\_mode\_enabled: Enable admin mode for the environment<br/>- background\_operation\_enabled: Enable background operations<br/>- template\_metadata: Additional D365 template metadata as string<br/>- templates: List of D365 template names<br/><br/>Examples:<br/><br/># Production/Sandbox/Trial Dataverse (security\_group\_id REQUIRED)<br/>dataverse = {<br/>  language\_code     = 1033<br/>  currency\_code     = "USD"<br/>  security\_group\_id = "12345678-1234-1234-1234-123456789012"<br/>  domain            = "contoso-prod" # Optional: Will auto-calculate if not provided<br/>}<br/><br/># Auto-calculated domain (recommended)<br/>dataverse = {<br/>  language\_code     = 1033<br/>  currency\_code     = "USD"<br/>  security\_group\_id = "12345678-1234-1234-1234-123456789012"<br/>  # domain will be auto-calculated from environment.display\_name<br/>}<br/><br/># No Dataverse<br/>dataverse = null<br/><br/>Domain Auto-calculation:<br/>When domain is not provided, it will be automatically generated from environment.display\_name:<br/>- "Production Finance Environment" → "production-finance-environment"<br/>- "Dev Test 123" → "dev-test-123"<br/>- Handles special characters, spaces, and length limits correctly<br/><br/>Provider Requirements:<br/>- security\_group\_id is MANDATORY when dataverse object is provided<br/>- domain is auto-calculated if not specified (recommended for consistency) | <pre>object({<br/>    # Required Arguments when Dataverse is enabled - ✅ REAL<br/>    language_code     = number # LCID integer, not string!<br/>    currency_code     = string<br/>    security_group_id = string # ✅ NOW REQUIRED when dataverse is provided<br/><br/>    # Optional Arguments - ✅ REAL<br/>    domain                       = optional(string) # Auto-calculated from display_name if null<br/>    administration_mode_enabled  = optional(bool)<br/>    background_operation_enabled = optional(bool)<br/>    template_metadata            = optional(string) # String, not object!<br/>    templates                    = optional(list(string))<br/>  })</pre> | `null` | no |
-| <a name="input_enable_duplicate_protection"></a> [enable\_duplicate\_protection](#input\_enable\_duplicate\_protection) | Enable duplicate environment detection and prevention. | `bool` | `true` | no |
+The following input variables are required:
+
+### <a name="input_environment"></a> [environment](#input\_environment)
+
+Description: Power Platform environment configuration using ONLY real provider arguments.
+
+This variable includes exclusively the arguments that actually exist in the   
+microsoft/power-platform provider to ensure 100% compatibility.
+
+Required Properties:
+- display\_name: Human-readable environment name
+- location: Power Platform region (e.g., "unitedstates", "europe")
+- environment\_type: Environment classification (Sandbox, Production, Trial)
+  ⚠️  Developer environments are NOT SUPPORTED with service principal authentication
+- environment\_group\_id: GUID for environment group membership (REQUIRED for governance)
+
+Optional Properties:
+- description: Environment description
+- azure\_region: Specific Azure region (westeurope, eastus, etc.)
+- cadence: Update cadence ("Frequent" or "Moderate")
+- allow\_bing\_search: Enable Bing search in the environment
+- allow\_moving\_data\_across\_regions: Allow data movement across regions
+- billing\_policy\_id: GUID for pay-as-you-go billing policy
+- release\_cycle: Early release participation
+
+Examples:
+
+# Production Environment  
+environment = {  
+  display\_name                     = "Production Finance Environment"  
+  location                        = "unitedstates"  
+  environment\_type               = "Production"  
+  environment\_group\_id           = "12345678-1234-1234-1234-123456789012"  
+  description                    = "Production environment for Finance applications"  
+  azure\_region                   = "eastus"  
+  cadence                        = "Moderate"  
+  allow\_bing\_search              = false  
+  allow\_moving\_data\_across\_regions = false
+}
+
+# Sandbox Environment  
+environment = {  
+  display\_name         = "Development Sandbox"  
+  location             = "unitedstates"  
+  environment\_type     = "Sandbox"  
+  environment\_group\_id = "87654321-4321-4321-4321-210987654321"  
+  cadence              = "Frequent"
+}
+
+Limitations:
+- Developer environments require user authentication (not service principal)
+- This module only supports Sandbox, Production, and Trial environment types
+- environment\_group\_id is now REQUIRED to ensure proper organizational governance
+
+Type:
+
+```hcl
+object({
+    # Required Arguments - ✅ REAL
+    display_name         = string
+    location             = string
+    environment_type     = string
+    environment_group_id = string # ✅ NOW REQUIRED for proper governance
+
+    # Optional Arguments - ✅ REAL
+    description                      = optional(string)
+    azure_region                     = optional(string)
+    cadence                          = optional(string) # "Frequent" or "Moderate" only
+    allow_bing_search                = optional(bool)
+    allow_moving_data_across_regions = optional(bool)
+    billing_policy_id                = optional(string)
+    release_cycle                    = optional(string)
+  })
+```
+
+## Optional Inputs
+
+The following input variables are optional (have default values):
+
+### <a name="input_dataverse"></a> [dataverse](#input\_dataverse)
+
+Description: Dataverse database configuration for the Power Platform environment.
+
+Required Properties when Dataverse is enabled:
+- language\_code: LCID integer (e.g., 1033 for English US)
+- currency\_code: ISO currency code string (e.g., "USD", "EUR", "GBP")
+- security\_group\_id: Azure AD security group GUID (REQUIRED for governance)
+
+Optional Properties:
+- domain: Custom domain name for the Dataverse instance (auto-calculated from display\_name if not provided)
+- administration\_mode\_enabled: Enable admin mode for the environment
+- background\_operation\_enabled: Enable background operations
+- template\_metadata: Additional D365 template metadata as string
+- templates: List of D365 template names
+
+Examples:
+
+# Production/Sandbox/Trial Dataverse (security\_group\_id REQUIRED)  
+dataverse = {  
+  language\_code     = 1033  
+  currency\_code     = "USD"  
+  security\_group\_id = "12345678-1234-1234-1234-123456789012"  
+  domain            = "contoso-prod" # Optional: Will auto-calculate if not provided
+}
+
+# Auto-calculated domain (recommended)  
+dataverse = {  
+  language\_code     = 1033  
+  currency\_code     = "USD"  
+  security\_group\_id = "12345678-1234-1234-1234-123456789012"
+  # domain will be auto-calculated from environment.display\_name
+}
+
+# No Dataverse  
+dataverse = null
+
+Domain Auto-calculation:  
+When domain is not provided, it will be automatically generated from environment.display\_name:
+- "Production Finance Environment" → "production-finance-environment"
+- "Dev Test 123" → "dev-test-123"
+- Handles special characters, spaces, and length limits correctly
+
+Provider Requirements:
+- security\_group\_id is MANDATORY when dataverse object is provided
+- domain is auto-calculated if not specified (recommended for consistency)
+
+Type:
+
+```hcl
+object({
+    # Required Arguments when Dataverse is enabled - ✅ REAL
+    language_code     = number # LCID integer, not string!
+    currency_code     = string
+    security_group_id = string # ✅ NOW REQUIRED when dataverse is provided
+
+    # Optional Arguments - ✅ REAL
+    domain                       = optional(string) # Auto-calculated from display_name if null
+    administration_mode_enabled  = optional(bool)
+    background_operation_enabled = optional(bool)
+    template_metadata            = optional(string) # String, not object!
+    templates                    = optional(list(string))
+  })
+```
+
+Default: `null`
+
+### <a name="input_enable_duplicate_protection"></a> [enable\_duplicate\_protection](#input\_enable\_duplicate\_protection)
+
+Description: Enable duplicate environment detection and prevention.
+
+Type: `bool`
+
+Default: `true`
 
 ## Outputs
 
-| Name | Description |
-|------|-------------|
-| <a name="output_dataverse_configuration"></a> [dataverse\_configuration](#output\_dataverse\_configuration) | Dataverse database configuration details when enabled, null otherwise |
-| <a name="output_dataverse_organization_url"></a> [dataverse\_organization\_url](#output\_dataverse\_organization\_url) | The organization URL for the Dataverse database, if enabled.<br/><br/>Returns the base URL for Dataverse API access and application integrations.<br/>Will be null if Dataverse is not configured for this environment. |
-| <a name="output_domain_calculation_summary"></a> [domain\_calculation\_summary](#output\_domain\_calculation\_summary) | Summary of domain calculation logic and results for transparency |
-| <a name="output_enterprise_policies"></a> [enterprise\_policies](#output\_enterprise\_policies) | Enterprise policies applied to the environment (read-only from provider) |
-| <a name="output_environment_id"></a> [environment\_id](#output\_environment\_id) | The unique identifier of the Power Platform environment.<br/><br/>This output provides the primary key for referencing this environment<br/>in other Terraform configurations, DLP policies, or external systems.<br/>The ID is stable across environment updates and safe for external consumption. |
-| <a name="output_environment_metadata"></a> [environment\_metadata](#output\_environment\_metadata) | Additional environment metadata for operational monitoring and compliance |
-| <a name="output_environment_summary"></a> [environment\_summary](#output\_environment\_summary) | Summary of deployed environment configuration for validation and compliance reporting |
-| <a name="output_environment_url"></a> [environment\_url](#output\_environment\_url) | The web URL for accessing the Power Platform environment.<br/><br/>This URL can be used for:<br/>- Direct admin center access<br/>- Power Apps maker portal links<br/>- Power Automate environment access<br/>- API endpoint construction<br/><br/>Note: Returns Dataverse URL when Dataverse is enabled, otherwise null. |
+The following outputs are exported:
+
+### <a name="output_dataverse_configuration"></a> [dataverse\_configuration](#output\_dataverse\_configuration)
+
+Description: Dataverse database configuration details when enabled, null otherwise
+
+### <a name="output_dataverse_organization_url"></a> [dataverse\_organization\_url](#output\_dataverse\_organization\_url)
+
+Description: The organization URL for the Dataverse database, if enabled.
+
+Returns the base URL for Dataverse API access and application integrations.  
+Will be null if Dataverse is not configured for this environment.
+
+### <a name="output_domain_calculation_summary"></a> [domain\_calculation\_summary](#output\_domain\_calculation\_summary)
+
+Description: Summary of domain calculation logic and results for transparency
+
+### <a name="output_enterprise_policies"></a> [enterprise\_policies](#output\_enterprise\_policies)
+
+Description: Enterprise policies applied to the environment (read-only from provider)
+
+### <a name="output_environment_id"></a> [environment\_id](#output\_environment\_id)
+
+Description: The unique identifier of the Power Platform environment.
+
+This output provides the primary key for referencing this environment  
+in other Terraform configurations, DLP policies, or external systems.  
+The ID is stable across environment updates and safe for external consumption.
+
+### <a name="output_environment_metadata"></a> [environment\_metadata](#output\_environment\_metadata)
+
+Description: Additional environment metadata for operational monitoring and compliance
+
+### <a name="output_environment_summary"></a> [environment\_summary](#output\_environment\_summary)
+
+Description: Summary of deployed environment configuration for validation and compliance reporting
+
+### <a name="output_environment_url"></a> [environment\_url](#output\_environment\_url)
+
+Description: The web URL for accessing the Power Platform environment.
+
+This URL can be used for:
+- Direct admin center access
+- Power Apps maker portal links
+- Power Automate environment access
+- API endpoint construction
+
+Note: Returns Dataverse URL when Dataverse is enabled, otherwise null.
 
 ## Modules
 
