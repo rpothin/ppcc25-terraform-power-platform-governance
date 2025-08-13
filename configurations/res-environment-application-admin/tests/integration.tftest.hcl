@@ -25,11 +25,11 @@ variables {
 
   # Test environment ID
   # Note: This is an example value for testing - use real ID in actual deployments
-  environment_id = "00000000-0000-0000-0000-000000000001" # Example environment ID
+  environment_id = "0259c539-0a0a-e12d-b07e-cf0ffaa407f1" # Example environment ID
 
   # Test application ID
   # Note: This is an example value for testing - use real ID in actual deployments
-  application_id = "00000000-0000-0000-0000-000000000002" # Example application ID
+  application_id = "b4a04840-2aa7-426a-ba2b-19330b6ae3d2" # Example application ID
 }
 
 # Comprehensive plan validation - optimized for CI/CD performance
