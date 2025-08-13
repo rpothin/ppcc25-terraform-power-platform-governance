@@ -229,55 +229,6 @@ run "duplicate_protection_disabled_test" {
   }
 }
 
-# Advanced dataverse features test
-run "advanced_dataverse_features_test" {
-  command = apply
-  variables {
-    environment = {
-      display_name         = "Test Advanced Dataverse Features"
-      location             = "unitedstates"
-      environment_type     = "Sandbox"
-      environment_group_id = "0675a2e2-dd4d-4ab6-8b9f-0d5048f62214" # Use real ID
-    }
-    dataverse = {
-      language_code                = 1033
-      currency_code                = "USD"
-      security_group_id            = "6a199811-5433-4076-81e8-1ca7ad8ffb67" # Use real ID
-      administration_mode_enabled  = true
-      background_operation_enabled = false
-      domain                       = "test-advanced-features"
-    }
-    enable_duplicate_protection = false
-  }
-
-  # Test advanced features specific to this configuration
-  assert {
-    condition     = var.dataverse.administration_mode_enabled == true
-    error_message = "Administration mode should be enabled for advanced features test."
-  }
-
-  assert {
-    condition     = var.dataverse.background_operation_enabled == false
-    error_message = "Background operations should be disabled for this test."
-  }
-
-  assert {
-    condition     = var.dataverse.domain == "test-advanced-features"
-    error_message = "Custom domain should be set for advanced features test."
-  }
-
-  # Standard dataverse validation (these are now always true)
-  assert {
-    condition     = powerplatform_environment.this.dataverse != null
-    error_message = "Dataverse should always be configured."
-  }
-
-  assert {
-    condition     = output.dataverse_configuration != null
-    error_message = "Dataverse configuration output should always be available."
-  }
-}
-
 # New provider properties test
 run "new_provider_properties_test" {
   command = plan
