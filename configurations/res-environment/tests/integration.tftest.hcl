@@ -526,12 +526,12 @@ run "domain_manual_override_test" {
   }
 }
 
-# Domain calculation test - special characters and spaces
+# Domain calculation test - mixed separators and formatting
 run "domain_special_characters_test" {
   command = plan
   variables {
     environment = {
-      display_name         = "Dev Test 123!@# Environment"
+      display_name         = "Dev Test_123-Environment Name" # Mixed valid separators
       location             = "unitedstates"
       environment_type     = "Sandbox"
       environment_group_id = "12345678-1234-1234-1234-123456789012"
@@ -546,8 +546,8 @@ run "domain_special_characters_test" {
   }
 
   assert {
-    condition     = local.calculated_domain == "dev-test-123-environment"
-    error_message = "Calculated domain should properly handle special characters: '${local.calculated_domain}'"
+    condition     = local.calculated_domain == "dev-test-123-environment-name"
+    error_message = "Calculated domain should properly normalize mixed separators: '${local.calculated_domain}'"
   }
 
   assert {

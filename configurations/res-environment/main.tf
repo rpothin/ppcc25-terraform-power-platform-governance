@@ -22,8 +22,8 @@ data "powerplatform_environments" "all" {
 
 # Domain calculation and duplicate detection logic
 locals {
-  # Calculate domain from display_name when dataverse is enabled and domain is not manually provided
-  calculated_domain = var.dataverse != null && var.dataverse.domain == null ? (
+  # Always calculate domain from display_name when dataverse is enabled (for transparency and validation)
+  calculated_domain = var.dataverse != null ? (
     substr(
       replace(
         replace(
@@ -37,7 +37,7 @@ locals {
     )
   ) : null
 
-  # Use manual domain if provided, otherwise use calculated
+  # Use manual domain if provided, otherwise use calculated domain
   final_domain = var.dataverse != null ? (
     var.dataverse.domain != null ? var.dataverse.domain : local.calculated_domain
   ) : null
@@ -155,8 +155,10 @@ resource "powerplatform_environment" "this" {
 
   # Lifecycle management
   lifecycle {
+    # Description changes should be managed through Terraform for consistency
+    # Manual changes in admin center will show as drift and require correction
     ignore_changes = [
-      description, # Allow manual updates in admin center
+      # Future: Add other fields here if manual override is needed
     ]
   }
 }
