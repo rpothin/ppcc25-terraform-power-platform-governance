@@ -22,14 +22,19 @@ variables {
   test_timeout_minutes   = 10 # Extended timeout for environment operations
 
   environment = {
-    display_name     = "Test Environment - Integration"
-    location         = "unitedstates"
-    environment_type = "Sandbox" # Sandbox only - no Developer support
-    # environment_group_id removed - incompatible with dataverse = null
+    display_name         = "Test Environment - Integration"
+    location             = "unitedstates"
+    environment_type     = "Sandbox"
+    environment_group_id = "11111111-1111-1111-1111-111111111111" # Required for governance
   }
 
-  # Optional Dataverse configuration for testing
-  dataverse = null
+  # Required Dataverse configuration for governance
+  dataverse = {
+    language_code     = 1033
+    currency_code     = "USD"
+    security_group_id = "22222222-2222-2222-2222-222222222222"
+    # domain will be auto-calculated from display_name
+  }
 
   # Disable duplicate protection for testing to avoid conflicts
   enable_duplicate_protection = false
@@ -104,8 +109,8 @@ run "plan_validation" {
   }
 
   assert {
-    condition     = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.environment.environment_group_id))
-    error_message = "Environment group ID should be a valid UUID format."
+    condition     = var.environment.environment_group_id == "11111111-1111-1111-1111-111111111111"
+    error_message = "Environment group ID should match test configuration."
   }
 
   # Conditional duplicate protection validation (Assertions 13-15)
@@ -200,7 +205,11 @@ run "duplicate_protection_disabled_test" {
       environment_type     = "Sandbox"
       environment_group_id = "12345678-1234-1234-1234-123456789012"
     }
-    dataverse                   = null
+    dataverse = {
+      language_code     = 1033
+      currency_code     = "USD"
+      security_group_id = "33333333-3333-3333-3333-333333333333"
+    }
     enable_duplicate_protection = false
   }
 
@@ -217,36 +226,6 @@ run "duplicate_protection_disabled_test" {
   assert {
     condition     = length(data.powerplatform_environments.all) == 0
     error_message = "Environments data source should not be created when duplicate protection is disabled."
-  }
-}
-
-# Dataverse configuration test (null case)
-run "dataverse_null_configuration_test" {
-  command = apply
-  variables {
-    environment = {
-      display_name         = "Test No Dataverse"
-      location             = "unitedstates"
-      environment_type     = "Sandbox"
-      environment_group_id = "12345678-1234-1234-1234-123456789012"
-    }
-    dataverse                   = null
-    enable_duplicate_protection = false
-  }
-
-  assert {
-    condition     = var.dataverse == null
-    error_message = "Dataverse config should be null for this test."
-  }
-
-  assert {
-    condition     = powerplatform_environment.this.dataverse == null
-    error_message = "When dataverse is null, provider should not create Dataverse configuration."
-  }
-
-  assert {
-    condition     = output.dataverse_configuration == null
-    error_message = "Dataverse configuration output should be null when no Dataverse is configured."
   }
 }
 
@@ -314,7 +293,11 @@ run "new_provider_properties_test" {
       allow_moving_data_across_regions = false
       description                      = "Test environment for new provider properties"
     }
-    dataverse                   = null
+    dataverse = {
+      language_code     = 1033
+      currency_code     = "USD"
+      security_group_id = "33333333-3333-3333-3333-333333333333"
+    }
     enable_duplicate_protection = false
   }
 
@@ -356,7 +339,11 @@ run "production_environment_test" {
       description          = "Production environment for testing"
       cadence              = "Moderate"
     }
-    dataverse                   = null
+    dataverse = {
+      language_code     = 1033
+      currency_code     = "USD"
+      security_group_id = "33333333-3333-3333-3333-333333333333"
+    }
     enable_duplicate_protection = false
   }
 
@@ -387,7 +374,11 @@ run "trial_environment_test" {
       environment_group_id = "12345678-1234-1234-1234-123456789012"
       description          = "Trial environment for evaluation"
     }
-    dataverse                   = null
+    dataverse = {
+      language_code     = 1033
+      currency_code     = "USD"
+      security_group_id = "33333333-3333-3333-3333-333333333333"
+    }
     enable_duplicate_protection = false
   }
 
@@ -412,7 +403,11 @@ run "minimum_display_name_test" {
       environment_type     = "Sandbox"
       environment_group_id = "12345678-1234-1234-1234-123456789012"
     }
-    dataverse                   = null
+    dataverse = {
+      language_code     = 1033
+      currency_code     = "USD"
+      security_group_id = "33333333-3333-3333-3333-333333333333"
+    }
     enable_duplicate_protection = false
   }
 
@@ -437,7 +432,11 @@ run "maximum_display_name_test" {
       environment_type     = "Sandbox"
       environment_group_id = "12345678-1234-1234-1234-123456789012"
     }
-    dataverse                   = null
+    dataverse = {
+      language_code     = 1033
+      currency_code     = "USD"
+      security_group_id = "33333333-3333-3333-3333-333333333333"
+    }
     enable_duplicate_protection = false
   }
 

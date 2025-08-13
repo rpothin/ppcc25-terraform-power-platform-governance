@@ -140,7 +140,10 @@ variable "dataverse" {
   description = <<DESCRIPTION
 Dataverse database configuration for the Power Platform environment.
 
-Required Properties when Dataverse is enabled:
+**GOVERNANCE REQUIREMENT**: Dataverse is REQUIRED for proper Power Platform governance.
+This ensures all environments have proper data protection, security controls, and organizational structure.
+
+Required Properties:
 - language_code: LCID integer (e.g., 1033 for English US) 
 - currency_code: ISO currency code string (e.g., "USD", "EUR", "GBP")
 - security_group_id: Azure AD security group GUID (REQUIRED for governance)
@@ -154,7 +157,7 @@ Optional Properties:
 
 Examples:
 
-# Production/Sandbox/Trial Dataverse (security_group_id REQUIRED)
+# Production Environment with Dataverse (REQUIRED)
 dataverse = {
   language_code     = 1033
   currency_code     = "USD"
@@ -162,7 +165,7 @@ dataverse = {
   domain            = "contoso-prod" # Optional: Will auto-calculate if not provided
 }
 
-# Auto-calculated domain (recommended)
+# Auto-calculated domain (recommended for consistency)
 dataverse = {
   language_code     = 1033
   currency_code     = "USD"
@@ -170,40 +173,29 @@ dataverse = {
   # domain will be auto-calculated from environment.display_name
 }
 
-# No Dataverse
-dataverse = null
-
-Domain Auto-calculation:
-When domain is not provided, it will be automatically generated from environment.display_name:
-- "Production Finance Environment" → "production-finance-environment"
-- "Dev Test 123" → "dev-test-123"
-- Handles special characters, spaces, and length limits correctly
-
-Provider Requirements:
-- security_group_id is MANDATORY when dataverse object is provided
-- domain is auto-calculated if not specified (recommended for consistency)
+Governance Benefits:
+- Enforces consistent data protection across all environments
+- Ensures proper security group assignment for access control
+- Enables advanced governance features like DLP policies
+- Provides audit trail and compliance capabilities
 DESCRIPTION
-  default     = null
-
   validation {
-    condition     = var.dataverse == null ? true : (var.dataverse.language_code >= 1 && var.dataverse.language_code <= 9999)
+    condition     = var.dataverse.language_code >= 1 && var.dataverse.language_code <= 9999
     error_message = "Language code must be a valid LCID integer (1-9999). Common values: 1033 (English US), 1036 (French), 1031 (German)."
   }
 
   validation {
-    condition     = var.dataverse == null ? true : can(regex("^[A-Z]{3}$", var.dataverse.currency_code))
+    condition     = can(regex("^[A-Z]{3}$", var.dataverse.currency_code))
     error_message = "Currency code must be a 3-letter ISO currency code (e.g., 'USD', 'EUR', 'GBP')."
   }
 
   validation {
-    condition = var.dataverse == null ? true : (
-      can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.dataverse.security_group_id))
-    )
-    error_message = "Security group ID is REQUIRED when dataverse is provided and must be a valid UUID format for proper governance."
+    condition     = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.dataverse.security_group_id))
+    error_message = "Security group ID is REQUIRED for governance and must be a valid UUID format."
   }
 
   validation {
-    condition = var.dataverse == null ? true : (
+    condition = (
       var.dataverse.domain == null ? true :
       can(regex("^[a-z0-9][a-z0-9\\-]*[a-z0-9]$", var.dataverse.domain)) &&
       length(var.dataverse.domain) >= 3 &&
