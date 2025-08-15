@@ -314,9 +314,9 @@ variable "enable_duplicate_protection" {
 
   validation {
     condition = (
-      var.enable_duplicate_protection == true
+      var.enable_duplicate_protection == true || var.enable_duplicate_protection == false
     )
-    error_message = "GOVERNANCE RECOMMENDATION: enable_duplicate_protection=true is strongly recommended for all environments to prevent accidental duplicates and improve operational safety. Set to false only in testing scenarios."
+    error_message = "Invalid boolean value for enable_duplicate_protection. Must be true or false. GOVERNANCE NOTE: enable_duplicate_protection=true is strongly recommended for production environments to prevent accidental duplicates and improve operational safety. Setting to false is acceptable for testing scenarios."
   }
 }
 
