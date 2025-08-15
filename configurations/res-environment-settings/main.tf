@@ -13,12 +13,14 @@
 # - Strong Typing: All variables use explicit types and validation (no `any`)
 # - Provider Version: Centralized `~> 3.8` for `microsoft/power-platform`
 # - Lifecycle Management: Resource modules include `ignore_changes` for manual admin center changes
+# - Focused Variables: Decomposed object variables following AVM SNFR14 best practices
 #
 # Architecture Decisions:
 # - Provider Choice: Using microsoft/power-platform for native Power Platform integration
 # - Backend Strategy: Azure Storage with OIDC for secure, keyless state management
 # - Resource Organization: Single environment settings resource with comprehensive nested configuration
 # - Post-Creation Management: Designed to configure environments after creation, complementing res-environment
+# - Variable Design: Focused objects instead of monolithic configuration for better user experience
 #
 # Environment Lifecycle Progression:
 # 1. res-environment: Creates the environment 
@@ -29,55 +31,61 @@
 # Main resource: Power Platform Environment Settings
 # Manages comprehensive environment configuration for governance and compliance
 resource "powerplatform_environment_settings" "this" {
-  environment_id = var.environment_settings_config.environment_id
+  environment_id = var.environment_id
 
   # Audit and logging configuration for compliance tracking
   # Controls what activities are logged and for how long
-  audit_and_logs = var.environment_settings_config.audit_and_logs != null ? {
+  audit_and_logs = var.audit_settings != null ? {
     # Plugin trace logging for troubleshooting and monitoring
-    plugin_trace_log_setting = var.environment_settings_config.audit_and_logs.plugin_trace_log_setting
+    plugin_trace_log_setting = var.audit_settings.plugin_trace_log_setting
 
     # Comprehensive audit settings for compliance and security
-    audit_settings = var.environment_settings_config.audit_and_logs.audit_settings != null ? {
-      is_audit_enabled             = var.environment_settings_config.audit_and_logs.audit_settings.is_audit_enabled
-      is_user_access_audit_enabled = var.environment_settings_config.audit_and_logs.audit_settings.is_user_access_audit_enabled
-      is_read_audit_enabled        = var.environment_settings_config.audit_and_logs.audit_settings.is_read_audit_enabled
-      log_retention_period_in_days = var.environment_settings_config.audit_and_logs.audit_settings.log_retention_period_in_days
+    # Convert flat audit_settings to nested structure required by provider
+    audit_settings = (
+      var.audit_settings.is_audit_enabled != null ||
+      var.audit_settings.is_user_access_audit_enabled != null ||
+      var.audit_settings.is_read_audit_enabled != null ||
+      var.audit_settings.log_retention_period_in_days != null
+      ) ? {
+      is_audit_enabled             = var.audit_settings.is_audit_enabled
+      is_user_access_audit_enabled = var.audit_settings.is_user_access_audit_enabled
+      is_read_audit_enabled        = var.audit_settings.is_read_audit_enabled
+      log_retention_period_in_days = var.audit_settings.log_retention_period_in_days
     } : null
   } : null
 
   # Email configuration for file handling and communication settings
-  email = var.environment_settings_config.email_settings != null ? {
-    email_settings = var.environment_settings_config.email_settings.email_settings != null ? {
-      max_upload_file_size_in_bytes = var.environment_settings_config.email_settings.email_settings.max_upload_file_size_in_bytes
+  email = var.email_settings != null ? {
+    email_settings = var.email_settings.max_upload_file_size_in_bytes != null ? {
+      max_upload_file_size_in_bytes = var.email_settings.max_upload_file_size_in_bytes
     } : null
   } : null
 
   # Product-specific configuration controlling Power Platform features and behaviors
-  product = var.environment_settings_config.product_settings != null ? {
+  product = (var.feature_settings != null || var.security_settings != null) ? {
     # Behavior settings controlling user interface and experience
-    behavior_settings = var.environment_settings_config.product_settings.behavior_settings != null ? {
-      show_dashboard_cards_in_expanded_state = var.environment_settings_config.product_settings.behavior_settings.show_dashboard_cards_in_expanded_state
+    behavior_settings = var.feature_settings != null && var.feature_settings.show_dashboard_cards_in_expanded_state != null ? {
+      show_dashboard_cards_in_expanded_state = var.feature_settings.show_dashboard_cards_in_expanded_state
     } : null
 
     # Feature enablement controls for Power Platform capabilities
-    features = var.environment_settings_config.product_settings.features != null ? {
-      power_apps_component_framework_for_canvas_apps = var.environment_settings_config.product_settings.features.power_apps_component_framework_for_canvas_apps
+    features = var.feature_settings != null && var.feature_settings.power_apps_component_framework_for_canvas_apps != null ? {
+      power_apps_component_framework_for_canvas_apps = var.feature_settings.power_apps_component_framework_for_canvas_apps
     } : null
 
     # Security settings for access control and network protection
     # WORKAROUND: Provider bug fix - explicitly set empty collections for optional attributes
-    security = var.environment_settings_config.product_settings.security != null ? {
-      allow_application_user_access               = var.environment_settings_config.product_settings.security.allow_application_user_access
-      allow_microsoft_trusted_service_tags        = var.environment_settings_config.product_settings.security.allow_microsoft_trusted_service_tags
-      enable_ip_based_firewall_rule               = var.environment_settings_config.product_settings.security.enable_ip_based_firewall_rule
-      enable_ip_based_firewall_rule_in_audit_mode = var.environment_settings_config.product_settings.security.enable_ip_based_firewall_rule_in_audit_mode
+    security = var.security_settings != null ? {
+      allow_application_user_access               = var.security_settings.allow_application_user_access
+      allow_microsoft_trusted_service_tags        = var.security_settings.allow_microsoft_trusted_service_tags
+      enable_ip_based_firewall_rule               = var.security_settings.enable_ip_based_firewall_rule
+      enable_ip_based_firewall_rule_in_audit_mode = var.security_settings.enable_ip_based_firewall_rule_in_audit_mode
 
       # Provider bug workaround: Set empty collections instead of null to prevent inconsistency errors
       # Issue: microsoft/terraform-provider-power-platform provider converts null to empty sets after apply
-      allowed_ip_range_for_firewall     = var.environment_settings_config.product_settings.security.allowed_ip_range_for_firewall != null ? var.environment_settings_config.product_settings.security.allowed_ip_range_for_firewall : []
-      allowed_service_tags_for_firewall = var.environment_settings_config.product_settings.security.allowed_service_tags_for_firewall != null ? var.environment_settings_config.product_settings.security.allowed_service_tags_for_firewall : []
-      reverse_proxy_ip_addresses        = var.environment_settings_config.product_settings.security.reverse_proxy_ip_addresses != null ? var.environment_settings_config.product_settings.security.reverse_proxy_ip_addresses : []
+      allowed_ip_range_for_firewall     = var.security_settings.allowed_ip_range_for_firewall != null ? var.security_settings.allowed_ip_range_for_firewall : []
+      allowed_service_tags_for_firewall = var.security_settings.allowed_service_tags_for_firewall != null ? var.security_settings.allowed_service_tags_for_firewall : []
+      reverse_proxy_ip_addresses        = var.security_settings.reverse_proxy_ip_addresses != null ? var.security_settings.reverse_proxy_ip_addresses : []
     } : null
   } : null
 
