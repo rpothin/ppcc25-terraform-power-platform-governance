@@ -23,17 +23,21 @@ variables {
 
   environment = {
     display_name         = "Test Environment - Integration"
-    location             = "unitedstates"
-    environment_type     = "Sandbox"
+    location             = "unitedstates"                         # EXPLICIT CHOICE
     environment_group_id = "0675a2e2-dd4d-4ab6-8b9f-0d5048f62214" # Required for governance
+    # environment_type defaults to "Sandbox" - using secure default
+    # cadence defaults to "Moderate" - using secure default  
+    # AI settings default to false - using secure defaults
   }
 
   # Required Dataverse configuration for governance
   dataverse = {
-    language_code     = 1033
-    currency_code     = "USD"
+    language_code     = 1033  # Using secure default
+    currency_code     = "USD" # EXPLICIT CHOICE
     security_group_id = "6a199811-5433-4076-81e8-1ca7ad8ffb67"
     # domain will be auto-calculated from display_name
+    # administration_mode_enabled defaults to true - using secure default
+    # background_operation_enabled defaults to false - using secure default
   }
 
   # Disable duplicate protection for testing to avoid conflicts
@@ -113,20 +117,20 @@ run "plan_validation" {
     error_message = "Environment group ID should match test configuration."
   }
 
-  # Conditional duplicate protection validation (Assertions 13-15)
+  # Secure defaults validation (Additional assertions 13-15)
   assert {
-    condition     = var.enable_duplicate_protection == false ? true : can(data.powerplatform_environments.all)
-    error_message = "When duplicate protection is enabled, should be able to access environments data source."
+    condition     = powerplatform_environment.this.environment_type == "Sandbox"
+    error_message = "Should use secure default environment_type 'Sandbox' when not explicitly specified."
   }
 
   assert {
-    condition     = var.enable_duplicate_protection == false ? true : length(null_resource.environment_duplicate_guardrail) == 1
-    error_message = "When duplicate protection is enabled, guardrail null_resource should be planned."
+    condition     = powerplatform_environment.this.cadence == "Moderate"
+    error_message = "Should use secure default cadence 'Moderate' when not explicitly specified."
   }
 
   assert {
-    condition     = var.enable_duplicate_protection == false ? length(null_resource.environment_duplicate_guardrail) == 0 : true
-    error_message = "When duplicate protection is disabled, guardrail null_resource should not be created."
+    condition     = powerplatform_environment.this.allow_bing_search == false && powerplatform_environment.this.allow_moving_data_across_regions == false
+    error_message = "Should use secure defaults for AI settings (both false) when not explicitly specified."
   }
 }
 
@@ -201,14 +205,14 @@ run "duplicate_protection_disabled_test" {
   variables {
     environment = {
       display_name         = "Test No Duplicate Check"
-      location             = "unitedstates"
-      environment_type     = "Sandbox"
+      location             = "unitedstates" # EXPLICIT CHOICE
       environment_group_id = "12345678-1234-1234-1234-123456789012"
+      # Using secure defaults: environment_type="Sandbox", cadence="Moderate", AI=false
     }
     dataverse = {
-      language_code     = 1033
-      currency_code     = "USD"
+      currency_code     = "USD" # EXPLICIT CHOICE
       security_group_id = "33333333-3333-3333-3333-333333333333"
+      # Using secure defaults: language_code=1033, admin_mode=true, background=false
     }
     enable_duplicate_protection = false
   }
@@ -235,19 +239,19 @@ run "new_provider_properties_test" {
   variables {
     environment = {
       display_name                     = "Test New Properties"
-      location                         = "unitedstates"
-      environment_type                 = "Sandbox"
+      location                         = "unitedstates" # EXPLICIT CHOICE
       environment_group_id             = "12345678-1234-1234-1234-123456789012"
-      azure_region                     = "eastus"
-      cadence                          = "Moderate"
-      allow_bing_search                = false
-      allow_moving_data_across_regions = false
       description                      = "Test environment for new provider properties"
+      azure_region                     = "eastus"
+      cadence                          = "Frequent" # Override secure default
+      allow_bing_search                = true       # Override secure default
+      allow_moving_data_across_regions = true       # Override secure default
+      # environment_type defaults to "Sandbox" - using secure default
     }
     dataverse = {
-      language_code     = 1033
-      currency_code     = "USD"
+      currency_code     = "USD" # EXPLICIT CHOICE
       security_group_id = "33333333-3333-3333-3333-333333333333"
+      # Using secure defaults for other properties
     }
     enable_duplicate_protection = false
   }
@@ -284,16 +288,17 @@ run "production_environment_test" {
   variables {
     environment = {
       display_name         = "Production Environment Test"
-      location             = "unitedstates"
-      environment_type     = "Production"
+      location             = "unitedstates" # EXPLICIT CHOICE
+      environment_type     = "Production"   # Override secure default
       environment_group_id = "12345678-1234-1234-1234-123456789012"
       description          = "Production environment for testing"
-      cadence              = "Moderate"
+      # cadence defaults to "Moderate" - using secure default
+      # AI settings default to false - using secure defaults
     }
     dataverse = {
-      language_code     = 1033
-      currency_code     = "USD"
+      currency_code     = "USD" # EXPLICIT CHOICE
       security_group_id = "33333333-3333-3333-3333-333333333333"
+      # Using secure defaults for other properties
     }
     enable_duplicate_protection = false
   }
@@ -320,15 +325,16 @@ run "trial_environment_test" {
   variables {
     environment = {
       display_name         = "Trial Environment Test"
-      location             = "unitedstates"
-      environment_type     = "Trial"
+      location             = "unitedstates" # EXPLICIT CHOICE
+      environment_type     = "Trial"        # Override secure default
       environment_group_id = "12345678-1234-1234-1234-123456789012"
       description          = "Trial environment for evaluation"
+      # Using secure defaults for other properties
     }
     dataverse = {
-      language_code     = 1033
-      currency_code     = "USD"
+      currency_code     = "USD" # EXPLICIT CHOICE
       security_group_id = "33333333-3333-3333-3333-333333333333"
+      # Using secure defaults for other properties
     }
     enable_duplicate_protection = false
   }
@@ -349,15 +355,15 @@ run "minimum_display_name_test" {
   command = plan
   variables {
     environment = {
-      display_name         = "Dev" # 3 characters - minimum valid
-      location             = "unitedstates"
-      environment_type     = "Sandbox"
+      display_name         = "Dev"          # 3 characters - minimum valid
+      location             = "unitedstates" # EXPLICIT CHOICE
       environment_group_id = "12345678-1234-1234-1234-123456789012"
+      # Using secure defaults for all other properties
     }
     dataverse = {
-      language_code     = 1033
-      currency_code     = "USD"
+      currency_code     = "USD" # EXPLICIT CHOICE
       security_group_id = "33333333-3333-3333-3333-333333333333"
+      # Using secure defaults for other properties
     }
     enable_duplicate_protection = false
   }
@@ -379,14 +385,14 @@ run "maximum_display_name_test" {
   variables {
     environment = {
       display_name         = "Very Long Environment Name for Testing Maximum Length Validation" # 64 characters
-      location             = "unitedstates"
-      environment_type     = "Sandbox"
+      location             = "unitedstates"                                                     # EXPLICIT CHOICE
       environment_group_id = "12345678-1234-1234-1234-123456789012"
+      # Using secure defaults for all other properties
     }
     dataverse = {
-      language_code     = 1033
-      currency_code     = "USD"
+      currency_code     = "USD" # EXPLICIT CHOICE
       security_group_id = "33333333-3333-3333-3333-333333333333"
+      # Using secure defaults for other properties
     }
     enable_duplicate_protection = false
   }
@@ -408,17 +414,17 @@ run "comprehensive_dataverse_test" {
   variables {
     environment = {
       display_name         = "Comprehensive Dataverse Test"
-      location             = "unitedstates"
-      environment_type     = "Sandbox"
+      location             = "unitedstates" # EXPLICIT CHOICE
       environment_group_id = "12345678-1234-1234-1234-123456789012"
+      # Using secure defaults for all other properties
     }
     dataverse = {
-      language_code                = 1033
-      currency_code                = "USD"
+      currency_code                = "USD" # EXPLICIT CHOICE
+      language_code                = 1033  # Using secure default
       security_group_id            = "87654321-4321-4321-4321-210987654321"
       domain                       = "test-domain"
-      administration_mode_enabled  = true
-      background_operation_enabled = false
+      administration_mode_enabled  = false # Override secure default
+      background_operation_enabled = true  # Override secure default
       template_metadata            = "test-metadata"
       templates                    = ["template1", "template2"]
     }
@@ -431,12 +437,12 @@ run "comprehensive_dataverse_test" {
   }
 
   assert {
-    condition     = var.dataverse.administration_mode_enabled == true
+    condition     = var.dataverse.administration_mode_enabled == false
     error_message = "Administration mode should be configurable."
   }
 
   assert {
-    condition     = var.dataverse.background_operation_enabled == false
+    condition     = var.dataverse.background_operation_enabled == true
     error_message = "Background operations should be configurable."
   }
 
@@ -457,15 +463,15 @@ run "domain_auto_calculation_test" {
   variables {
     environment = {
       display_name         = "Production Finance Environment"
-      location             = "unitedstates"
-      environment_type     = "Sandbox"
+      location             = "unitedstates" # EXPLICIT CHOICE
       environment_group_id = "12345678-1234-1234-1234-123456789012"
+      # Using secure defaults for all other properties
     }
     dataverse = {
-      language_code     = 1033
-      currency_code     = "USD"
+      currency_code     = "USD" # EXPLICIT CHOICE
       security_group_id = "87654321-4321-4321-4321-210987654321"
       domain            = null # Should auto-calculate
+      # Using secure defaults for other properties
     }
     enable_duplicate_protection = false
   }
@@ -497,15 +503,15 @@ run "domain_manual_override_test" {
   variables {
     environment = {
       display_name         = "Test Environment with Custom Domain"
-      location             = "unitedstates"
-      environment_type     = "Sandbox"
+      location             = "unitedstates" # EXPLICIT CHOICE
       environment_group_id = "12345678-1234-1234-1234-123456789012"
+      # Using secure defaults for all other properties
     }
     dataverse = {
-      language_code     = 1033
-      currency_code     = "USD"
+      currency_code     = "USD" # EXPLICIT CHOICE
       security_group_id = "87654321-4321-4321-4321-210987654321"
       domain            = "custom-domain-override"
+      # Using secure defaults for other properties
     }
     enable_duplicate_protection = false
   }
@@ -532,15 +538,15 @@ run "domain_special_characters_test" {
   variables {
     environment = {
       display_name         = "Dev Test_123-Environment Name" # Mixed valid separators
-      location             = "unitedstates"
-      environment_type     = "Sandbox"
+      location             = "unitedstates"                  # EXPLICIT CHOICE
       environment_group_id = "12345678-1234-1234-1234-123456789012"
+      # Using secure defaults for all other properties
     }
     dataverse = {
-      language_code     = 1033
-      currency_code     = "USD"
+      currency_code     = "USD" # EXPLICIT CHOICE
       security_group_id = "87654321-4321-4321-4321-210987654321"
       domain            = null
+      # Using secure defaults for other properties
     }
     enable_duplicate_protection = false
   }

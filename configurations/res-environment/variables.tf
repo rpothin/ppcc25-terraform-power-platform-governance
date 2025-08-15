@@ -9,11 +9,11 @@ variable "environment" {
   type = object({
     # Required Arguments - ✅ REAL
     display_name         = string
-    location             = string
-    environment_type     = optional(string, "Sandbox") # SECURE DEFAULT: Lowest-privilege environment type
-    environment_group_id = string                      # ✅ NOW REQUIRED for proper governance
+    location             = string # EXPLICIT CHOICE: Geographic location must be specified
+    environment_group_id = string # ✅ NOW REQUIRED for proper governance
 
     # Optional Arguments - ✅ REAL with SECURE DEFAULTS
+    environment_type                 = optional(string, "Sandbox") # SECURE DEFAULT: Lowest-privilege environment type
     description                      = optional(string)
     azure_region                     = optional(string)             # Let Power Platform choose optimal region
     cadence                          = optional(string, "Moderate") # SECURE DEFAULT: Stable update cadence
@@ -37,7 +37,7 @@ microsoft/power-platform provider to ensure 100% compatibility.
 
 Required Properties:
 - display_name: Human-readable environment name
-- location: Power Platform region (e.g., "unitedstates", "europe")
+- location: Power Platform region (EXPLICIT CHOICE - e.g., "unitedstates", "europe")
 - environment_group_id: GUID for environment group membership (REQUIRED for governance)
 
 Optional Properties with Secure Defaults:
@@ -85,6 +85,7 @@ environment = {
 # AI-Enabled Development Environment (conscious choice)
 environment = {
   display_name                     = "AI Development Sandbox"
+  location                         = "unitedstates"            # EXPLICIT CHOICE
   environment_group_id             = "87654321-4321-4321-4321-210987654321"
   description                      = "Development environment with AI capabilities enabled"
   allow_bing_search                = true   # Enable Copilot features
@@ -148,20 +149,48 @@ DESCRIPTION
     )
     error_message = "Environment group ID is REQUIRED and must be a valid UUID format for proper Power Platform governance."
   }
+
+  # Security-focused validations for AI capabilities
+  validation {
+    condition = (
+      var.environment.environment_type == "Production" ?
+      (var.environment.allow_bing_search == false && var.environment.allow_moving_data_across_regions == false) :
+      true
+    )
+    error_message = "SECURITY VIOLATION: Production environments should not enable AI external data access. Set allow_bing_search=false and allow_moving_data_across_regions=false for production workloads, or use environment_type='Sandbox' for AI development."
+  }
+
+  validation {
+    condition = (
+      (var.environment.allow_bing_search == true || var.environment.allow_moving_data_across_regions == true) ?
+      var.environment.environment_type != "Production" :
+      true
+    )
+    error_message = "SECURITY WARNING: AI capabilities (allow_bing_search=true or allow_moving_data_across_regions=true) should not be used with environment_type='Production'. Consider using 'Sandbox' or 'Trial' for AI development environments."
+  }
+
+  validation {
+    condition = (
+      var.environment.allow_moving_data_across_regions == true ?
+      contains(["unitedstates", "europe"], var.environment.location) :
+      true
+    )
+    error_message = "DATA SOVEREIGNTY: allow_moving_data_across_regions=true is primarily needed outside US/Europe regions. For location='${var.environment.location}', consider setting this to false unless specifically needed for AI Builder/Power Apps AI features."
+  }
 }
 
 variable "dataverse" {
   type = object({
-    # Required Arguments when Dataverse is enabled - ✅ REAL with SECURE DEFAULTS
-    language_code     = optional(number, 1033) # SECURE DEFAULT: English US (most tested)
-    currency_code     = string
+    # Required Arguments when Dataverse is enabled - ✅ REAL
+    currency_code     = string # EXPLICIT CHOICE: Financial currency must be specified
     security_group_id = string # ✅ NOW REQUIRED when dataverse is provided
 
     # Optional Arguments - ✅ REAL with SECURE DEFAULTS
-    domain                       = optional(string)      # Auto-calculated from display_name if null
-    administration_mode_enabled  = optional(bool, true)  # SECURE DEFAULT: Enable admin mode for secure setup
-    background_operation_enabled = optional(bool, false) # SECURE DEFAULT: Disable for security review
-    template_metadata            = optional(string)      # String, not object!
+    language_code                = optional(number, 1033) # SECURE DEFAULT: English US (most tested)
+    domain                       = optional(string)       # Auto-calculated from display_name if null
+    administration_mode_enabled  = optional(bool, true)   # SECURE DEFAULT: Enable admin mode for secure setup
+    background_operation_enabled = optional(bool, false)  # SECURE DEFAULT: Disable for security review
+    template_metadata            = optional(string)       # String, not object!
     templates                    = optional(list(string))
   })
 
@@ -177,7 +206,7 @@ This ensures all environments have proper data protection, security controls, an
 - background_operation_enabled = false (requires security review before enabling)
 
 Required Properties:
-- currency_code: ISO currency code string (e.g., "USD", "EUR", "GBP")
+- currency_code: ISO currency code string (EXPLICIT CHOICE - e.g., "USD", "EUR", "GBP")
 - security_group_id: Azure AD security group GUID (REQUIRED for governance)
 
 Optional Properties with Secure Defaults:
@@ -190,9 +219,9 @@ Optional Properties with Secure Defaults:
 
 Examples:
 
-# Maximum Security Dataverse (using all secure defaults)
+# Maximum Security Dataverse (explicit choices with secure defaults)
 dataverse = {
-  currency_code     = "USD"
+  currency_code     = "USD"  # EXPLICIT CHOICE
   security_group_id = "12345678-1234-1234-1234-123456789012"
   # All other properties use secure defaults:
   # - language_code = 1033 (English US)
@@ -201,10 +230,10 @@ dataverse = {
   # - domain will be auto-calculated
 }
 
-# European Environment with Localized Secure Defaults
+# European Environment with Localized Choices
 dataverse = {
-  language_code     = 1036  # Override: French
-  currency_code     = "EUR"
+  language_code     = 1036    # Override: French
+  currency_code     = "EUR"   # EXPLICIT CHOICE
   security_group_id = "12345678-1234-1234-1234-123456789012"
   domain            = "contoso-eu"
   # Security defaults maintained:
@@ -214,9 +243,10 @@ dataverse = {
 
 # Operational Environment (background operations enabled after security review)
 dataverse = {
+  currency_code                = "USD"   # EXPLICIT CHOICE
   security_group_id            = "12345678-1234-1234-1234-123456789012"
-  background_operation_enabled = true  # Enabled after security review
-  administration_mode_enabled  = false # Disabled for normal operations
+  background_operation_enabled = true    # Enabled after security review
+  administration_mode_enabled  = false   # Disabled for normal operations
   # Other defaults maintained for consistency
 }
 
@@ -241,6 +271,31 @@ DESCRIPTION
     error_message = "Security group ID is REQUIRED for governance and must be a valid UUID format."
   }
 
+  # Governance and security validations for Dataverse
+  validation {
+    condition = (
+      var.dataverse.background_operation_enabled == true ?
+      var.dataverse.administration_mode_enabled == false :
+      true
+    )
+    error_message = "OPERATIONAL CONFLICT: Cannot enable background_operation_enabled=true while administration_mode_enabled=true. Disable administration mode first, then enable background operations after security review."
+  }
+
+  validation {
+    condition = (
+      var.dataverse.language_code == 1033 ? true :
+      var.dataverse.language_code >= 1000
+    )
+    error_message = "COMPATIBILITY WARNING: Non-English language codes may have limited testing. language_code=${var.dataverse.language_code} - consider using 1033 (English US) for maximum compatibility and security validation coverage."
+  }
+
+  validation {
+    condition = (
+      contains(["USD", "EUR", "GBP", "CAD", "AUD", "JPY"], var.dataverse.currency_code)
+    )
+    error_message = "CURRENCY VALIDATION: '${var.dataverse.currency_code}' - ensure this is the correct 3-letter ISO currency code for your organization. Common codes: USD, EUR, GBP, CAD, AUD, JPY. Check https://en.wikipedia.org/wiki/ISO_4217 for complete list."
+  }
+
   validation {
     condition = (
       var.dataverse.domain == null ? true :
@@ -254,7 +309,39 @@ DESCRIPTION
 
 variable "enable_duplicate_protection" {
   type        = bool
-  description = "Enable duplicate environment detection and prevention."
+  description = "Enable duplicate environment detection and prevention for operational safety."
   default     = true
+
+  validation {
+    condition = (
+      var.enable_duplicate_protection == true
+    )
+    error_message = "GOVERNANCE RECOMMENDATION: enable_duplicate_protection=true is strongly recommended for all environments to prevent accidental duplicates and improve operational safety. Set to false only in testing scenarios."
+  }
 }
+
+# ======================================================================================
+# 🔒 SECURITY VALIDATION SUMMARY
+# ======================================================================================
+# 
+# These validation rules enforce secure-by-default practices:
+# 
+# 1. PRODUCTION ENVIRONMENT PROTECTION:
+#    - Prevents AI external data access in production environments
+#    - Enforces secure defaults for business-critical workloads
+# 
+# 2. AI CAPABILITY WARNINGS:
+#    - Validates appropriate environment types for AI features
+#    - Provides guidance on data sovereignty implications
+# 
+# 3. OPERATIONAL SAFETY:
+#    - Prevents conflicting Dataverse operational modes
+#    - Validates currency and language code compatibility
+# 
+# 4. GOVERNANCE ENFORCEMENT:
+#    - Requires proper Azure AD group assignments
+#    - Recommends duplicate protection for operational safety
+# 
+# All validation error messages include actionable guidance for resolution.
+# ======================================================================================
 
