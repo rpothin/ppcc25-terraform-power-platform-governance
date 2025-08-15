@@ -52,121 +52,191 @@ The following resources are used by this module:
 
 The following input variables are required:
 
-### <a name="input_environment_settings_config"></a> [environment\_settings\_config](#input\_environment\_settings\_config)
+### <a name="input_environment_id"></a> [environment\_id](#input\_environment\_id)
 
-Description: Comprehensive configuration object for Power Platform environment settings.
+Description: GUID of the Power Platform environment to configure with settings.
 
-This variable consolidates all environment settings to reduce complexity while  
-ensuring proper governance and compliance controls are applied consistently.
-
-Required Properties:
-- environment\_id: GUID of the Power Platform environment to configure
-
-Optional Properties:
-- audit\_and\_logs: Audit and logging configuration for compliance tracking
-  - plugin\_trace\_log\_setting: Plugin trace level ("Off", "Exception", "All")
-  - audit\_settings: Detailed audit configuration
-    - is\_audit\_enabled: Enable general auditing
-    - is\_user\_access\_audit\_enabled: Enable user access auditing
-    - is\_read\_audit\_enabled: Enable read operation auditing  
-    - log\_retention\_period\_in\_days: Log retention (31-24855 days, -1 for forever)
-
-- email\_settings: Email and file handling configuration
-  - email\_settings: Email-specific settings
-    - max\_upload\_file\_size\_in\_bytes: Maximum file upload size in bytes
-
-- product\_settings: Power Platform feature and behavior controls
-  - behavior\_settings: User interface behaviors
-    - show\_dashboard\_cards\_in\_expanded\_state: Dashboard card display preference
-  - features: Power Platform feature enablement
-    - power\_apps\_component\_framework\_for\_canvas\_apps: Enable PCF for canvas apps
-  - security: Access control and network protection
-    - allow\_application\_user\_access: Allow service principal access
-    - allow\_microsoft\_trusted\_service\_tags: Allow Microsoft service tags
-    - allowed\_ip\_range\_for\_firewall: Permitted IP ranges for firewall
-    - allowed\_service\_tags\_for\_firewall: Permitted service tags for firewall
-    - enable\_ip\_based\_firewall\_rule: Enable IP-based firewall
-    - enable\_ip\_based\_firewall\_rule\_in\_audit\_mode: Enable firewall audit mode
-    - reverse\_proxy\_ip\_addresses: Reverse proxy IP addresses
+This is the primary identifier that links all environment settings to the  
+specific Power Platform environment instance.
 
 Example:  
-environment\_settings\_config = {  
-  environment\_id = "12345678-1234-1234-1234-123456789012"  
-  audit\_and\_logs = {  
-    plugin\_trace\_log\_setting = "Exception"  
-    audit\_settings = {  
-      is\_audit\_enabled             = true  
-      is\_user\_access\_audit\_enabled = true  
-      is\_read\_audit\_enabled        = false  
-      log\_retention\_period\_in\_days = 90
-    }
-  }  
-  product\_settings = {  
-    security = {  
-      allow\_application\_user\_access     = true  
-      enable\_ip\_based\_firewall\_rule     = true  
-      allowed\_ip\_range\_for\_firewall     = ["10.0.0.0/8", "192.168.1.0/24"]  
-      allowed\_service\_tags\_for\_firewall = ["ApiManagement"]
-    }
-  }
+environment\_id = "12345678-1234-1234-1234-123456789012"
+
+Requirements:
+- Must be a valid GUID format for Power Platform compatibility
+- Environment must exist before applying settings
+- User must have Environment Admin privileges for the specified environment
+
+Type: `string`
+
+## Optional Inputs
+
+The following input variables are optional (have default values):
+
+### <a name="input_audit_settings"></a> [audit\_settings](#input\_audit\_settings)
+
+Description: Audit and logging configuration for compliance tracking and monitoring.
+
+When provided, enables comprehensive audit capabilities for the Power Platform  
+environment to support governance, compliance, and security monitoring requirements.
+
+Properties:
+- plugin\_trace\_log\_setting: Plugin trace level for debugging ("Off", "Exception", "All")
+- is\_audit\_enabled: Enable general auditing for environment operations
+- is\_user\_access\_audit\_enabled: Enable user access auditing for security monitoring
+- is\_read\_audit\_enabled: Enable read operation auditing (high volume, use carefully)
+- log\_retention\_period\_in\_days: Audit log retention period (31-24855 days, -1 for forever)
+
+Example:  
+audit\_settings = {  
+  plugin\_trace\_log\_setting     = "Exception"  
+  is\_audit\_enabled             = true  
+  is\_user\_access\_audit\_enabled = true  
+  is\_read\_audit\_enabled        = false  
+  log\_retention\_period\_in\_days = 90
 }
 
-Validation Rules:
-- Environment ID must be a valid GUID format for Power Platform compatibility
-- Plugin trace log setting must be valid option if specified
-- Log retention period must be within Power Platform limits
-- IP ranges and service tags must follow Azure networking standards
-- File size limits must be within Power Platform constraints
+Compliance Benefits:
+- Supports SOX, GDPR, and other regulatory requirements
+- Enables security incident investigation and forensics
+- Provides audit trail for environment configuration changes
+- Facilitates compliance reporting and evidence collection
 
 Type:
 
 ```hcl
 object({
-    # Required: Environment identifier for settings application
-    environment_id = string
+    # Plugin trace configuration for debugging and monitoring
+    plugin_trace_log_setting = optional(string)
 
-    # Optional: Audit and logging configuration for compliance tracking
-    audit_and_logs = optional(object({
-      plugin_trace_log_setting = optional(string)
-      audit_settings = optional(object({
-        is_audit_enabled             = optional(bool)
-        is_user_access_audit_enabled = optional(bool)
-        is_read_audit_enabled        = optional(bool)
-        log_retention_period_in_days = optional(number)
-      }))
-    }))
-
-    # Optional: Email configuration for file handling
-    email_settings = optional(object({
-      email_settings = optional(object({
-        max_upload_file_size_in_bytes = optional(number)
-      }))
-    }))
-
-    # Optional: Product-specific settings for Power Platform features
-    product_settings = optional(object({
-      behavior_settings = optional(object({
-        show_dashboard_cards_in_expanded_state = optional(bool)
-      }))
-      features = optional(object({
-        power_apps_component_framework_for_canvas_apps = optional(bool)
-      }))
-      security = optional(object({
-        allow_application_user_access               = optional(bool)
-        allow_microsoft_trusted_service_tags        = optional(bool)
-        allowed_ip_range_for_firewall               = optional(set(string))
-        allowed_service_tags_for_firewall           = optional(set(string))
-        enable_ip_based_firewall_rule               = optional(bool)
-        enable_ip_based_firewall_rule_in_audit_mode = optional(bool)
-        reverse_proxy_ip_addresses                  = optional(set(string))
-      }))
-    }))
+    # Comprehensive audit configuration for compliance
+    is_audit_enabled             = optional(bool)
+    is_user_access_audit_enabled = optional(bool)
+    is_read_audit_enabled        = optional(bool)
+    log_retention_period_in_days = optional(number)
   })
 ```
 
-## Optional Inputs
+Default: `null`
 
-No optional inputs.
+### <a name="input_email_settings"></a> [email\_settings](#input\_email\_settings)
+
+Description: Email and file handling configuration for Power Platform environment.
+
+Controls file upload limits and email-related settings to ensure proper  
+resource utilization and prevent abuse while supporting legitimate business needs.
+
+Properties:
+- max\_upload\_file\_size\_in\_bytes: Maximum file upload size in bytes (1 to 131,072,000 bytes / 125 MB)
+
+Example:  
+email\_settings = {  
+  max\_upload\_file\_size\_in\_bytes = 52428800  # 50 MB limit
+}
+
+Business Benefits:
+- Prevents excessive storage consumption from large file uploads
+- Ensures consistent file size policies across environments
+- Supports compliance with data governance policies
+- Optimizes environment performance and resource utilization
+
+Type:
+
+```hcl
+object({
+    max_upload_file_size_in_bytes = optional(number)
+  })
+```
+
+Default: `null`
+
+### <a name="input_feature_settings"></a> [feature\_settings](#input\_feature\_settings)
+
+Description: Power Platform feature enablement and user interface behavior configuration.
+
+Controls advanced Power Platform features and user experience settings to optimize  
+the environment for specific organizational needs and user preferences.
+
+Properties:
+- power\_apps\_component\_framework\_for\_canvas\_apps: Enable Power Apps Component Framework (PCF) for canvas apps
+- show\_dashboard\_cards\_in\_expanded\_state: Display dashboard cards in expanded state by default
+
+Example:  
+feature\_settings = {  
+  power\_apps\_component\_framework\_for\_canvas\_apps = true  
+  show\_dashboard\_cards\_in\_expanded\_state         = false
+}
+
+Feature Benefits:
+- PCF enables advanced custom components in canvas apps
+- Dashboard settings improve user experience and productivity
+- Provides consistent user interface behavior across the organization
+- Supports modern app development patterns and best practices
+
+Type:
+
+```hcl
+object({
+    # Power Apps component framework
+    power_apps_component_framework_for_canvas_apps = optional(bool)
+
+    # User interface behaviors
+    show_dashboard_cards_in_expanded_state = optional(bool)
+  })
+```
+
+Default: `null`
+
+### <a name="input_security_settings"></a> [security\_settings](#input\_security\_settings)
+
+Description: Security and access control configuration for Power Platform environment protection.
+
+Provides comprehensive network security, access control, and firewall capabilities  
+to protect the environment from unauthorized access and ensure compliance with  
+organizational security policies.
+
+Properties:
+- allow\_application\_user\_access: Allow service principal (application) access to environment
+- allow\_microsoft\_trusted\_service\_tags: Allow Microsoft trusted service tags for connectivity
+- enable\_ip\_based\_firewall\_rule: Enable IP-based firewall for network access control
+- enable\_ip\_based\_firewall\_rule\_in\_audit\_mode: Enable firewall in audit mode (log only)
+- allowed\_ip\_range\_for\_firewall: Permitted IP ranges in CIDR format (e.g., "10.0.0.0/8")
+- allowed\_service\_tags\_for\_firewall: Permitted Azure service tags (e.g., "ApiManagement")
+- reverse\_proxy\_ip\_addresses: IP addresses of reverse proxy servers for proper client identification
+
+Example:  
+security\_settings = {  
+  allow\_application\_user\_access     = true  
+  enable\_ip\_based\_firewall\_rule     = true  
+  allowed\_ip\_range\_for\_firewall     = ["10.0.0.0/8", "192.168.1.0/24"]  
+  allowed\_service\_tags\_for\_firewall = ["ApiManagement", "PowerPlatformPlex"]
+}
+
+Security Benefits:
+- Restricts environment access to authorized networks only
+- Enables service principal integration for automation
+- Provides audit trail for access attempts
+- Supports zero-trust security architecture
+- Facilitates compliance with network security policies
+
+Type:
+
+```hcl
+object({
+    # Application access controls
+    allow_application_user_access        = optional(bool)
+    allow_microsoft_trusted_service_tags = optional(bool)
+
+    # Network security and firewall configuration
+    enable_ip_based_firewall_rule               = optional(bool)
+    enable_ip_based_firewall_rule_in_audit_mode = optional(bool)
+    allowed_ip_range_for_firewall               = optional(set(string))
+    allowed_service_tags_for_firewall           = optional(set(string))
+    reverse_proxy_ip_addresses                  = optional(set(string))
+  })
+```
+
+Default: `null`
 
 ## Outputs
 
@@ -179,6 +249,14 @@ Description: Summary of applied environment settings for validation and complian
 This output provides a consolidated view of the settings that were successfully  
 applied to the environment, including which categories were configured and  
 their high-level status. Useful for governance dashboards and audit reports.
+
+### <a name="output_audit_settings_applied"></a> [audit\_settings\_applied](#output\_audit\_settings\_applied)
+
+Description: Confirmation of audit settings application with details
+
+### <a name="output_email_settings_applied"></a> [email\_settings\_applied](#output\_email\_settings\_applied)
+
+Description: Confirmation of email settings application with details
 
 ### <a name="output_environment_id"></a> [environment\_id](#output\_environment\_id)
 
@@ -195,6 +273,14 @@ Description: The unique identifier of the environment settings configuration.
 This output provides the primary key for referencing this environment settings  
 configuration in other Terraform configurations or external systems. This ID  
 represents the computed identifier for the settings applied to the environment.
+
+### <a name="output_feature_settings_applied"></a> [feature\_settings\_applied](#output\_feature\_settings\_applied)
+
+Description: Confirmation of feature settings application with details
+
+### <a name="output_security_settings_applied"></a> [security\_settings\_applied](#output\_security\_settings\_applied)
+
+Description: Confirmation of security settings application with details
 
 ### <a name="output_settings_configuration_summary"></a> [settings\_configuration\_summary](#output\_settings\_configuration\_summary)
 
