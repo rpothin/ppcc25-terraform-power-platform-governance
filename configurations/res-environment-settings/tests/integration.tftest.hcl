@@ -379,19 +379,53 @@ run "null_configuration_validation" {
     error_message = "Environment ID should work with all optional settings null"
   }
 
+  # Provider behavior: Returns default audit configuration instead of null when audit_settings is null
+  # This is expected Power Platform provider behavior - validate the default structure
   assert {
-    condition     = powerplatform_environment_settings.this.audit_and_logs == null
-    error_message = "Audit and logs should be null when audit_settings is null"
+    condition     = powerplatform_environment_settings.this.audit_and_logs != null
+    error_message = "Audit and logs configuration should contain default values when audit_settings is null (provider behavior)"
   }
 
   assert {
-    condition     = powerplatform_environment_settings.this.email == null
-    error_message = "Email configuration should be null when email_settings is null"
+    condition = (
+      powerplatform_environment_settings.this.audit_and_logs.plugin_trace_log_setting == "Exception" &&
+      powerplatform_environment_settings.this.audit_and_logs.audit_settings.is_audit_enabled == true &&
+      powerplatform_environment_settings.this.audit_and_logs.audit_settings.is_read_audit_enabled == false &&
+      powerplatform_environment_settings.this.audit_and_logs.audit_settings.is_user_access_audit_enabled == false &&
+      powerplatform_environment_settings.this.audit_and_logs.audit_settings.log_retention_period_in_days == 31
+    )
+    error_message = "Audit and logs configuration should contain expected default values when audit_settings is null"
+  }
+
+  # Provider behavior: Returns default email configuration instead of null when email_settings is null
+  # This is expected Power Platform provider behavior - validate the default structure
+  assert {
+    condition     = powerplatform_environment_settings.this.email != null
+    error_message = "Email configuration should contain default values when email_settings is null (provider behavior)"
   }
 
   assert {
-    condition     = powerplatform_environment_settings.this.product == null
-    error_message = "Product configuration should be null when feature_settings and security_settings are null"
+    condition     = powerplatform_environment_settings.this.email.email_settings.max_upload_file_size_in_bytes == 5242880
+    error_message = "Email configuration should contain default max upload file size of 5242880 bytes (5MB) when email_settings is null"
+  }
+
+  # Provider behavior: Returns default values instead of null when feature_settings and security_settings are null
+  # This is expected Power Platform provider behavior - validate the default structure
+  assert {
+    condition     = powerplatform_environment_settings.this.product != null
+    error_message = "Product configuration should contain default values when feature_settings and security_settings are null (provider behavior)"
+  }
+
+  assert {
+    condition = (
+      powerplatform_environment_settings.this.product.behavior_settings.show_dashboard_cards_in_expanded_state == true &&
+      powerplatform_environment_settings.this.product.features.power_apps_component_framework_for_canvas_apps == true &&
+      powerplatform_environment_settings.this.product.security.allow_application_user_access == true &&
+      powerplatform_environment_settings.this.product.security.allow_microsoft_trusted_service_tags == false &&
+      powerplatform_environment_settings.this.product.security.enable_ip_based_firewall_rule == false &&
+      powerplatform_environment_settings.this.product.security.enable_ip_based_firewall_rule_in_audit_mode == false
+    )
+    error_message = "Product configuration should contain expected default values when no settings are specified"
   }
 
   assert {
