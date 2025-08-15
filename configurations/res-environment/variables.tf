@@ -10,64 +10,92 @@ variable "environment" {
     # Required Arguments - ✅ REAL
     display_name         = string
     location             = string
-    environment_type     = string
-    environment_group_id = string # ✅ NOW REQUIRED for proper governance
+    environment_type     = optional(string, "Sandbox") # SECURE DEFAULT: Lowest-privilege environment type
+    environment_group_id = string                      # ✅ NOW REQUIRED for proper governance
 
-    # Optional Arguments - ✅ REAL
+    # Optional Arguments - ✅ REAL with SECURE DEFAULTS
     description                      = optional(string)
-    azure_region                     = optional(string)
-    cadence                          = optional(string) # "Frequent" or "Moderate" only
-    allow_bing_search                = optional(bool)
-    allow_moving_data_across_regions = optional(bool)
+    azure_region                     = optional(string)             # Let Power Platform choose optimal region
+    cadence                          = optional(string, "Moderate") # SECURE DEFAULT: Stable update cadence
+    allow_bing_search                = optional(bool, false)        # SECURE DEFAULT: Blocks AI external data access
+    allow_moving_data_across_regions = optional(bool, false)        # SECURE DEFAULT: Data sovereignty compliance
     billing_policy_id                = optional(string)
     release_cycle                    = optional(string)
   })
 
   description = <<DESCRIPTION
-Power Platform environment configuration using ONLY real provider arguments.
+Power Platform environment configuration with SECURE-BY-DEFAULT settings.
 
 This variable includes exclusively the arguments that actually exist in the 
 microsoft/power-platform provider to ensure 100% compatibility.
 
+🔒 SECURE DEFAULTS IMPLEMENTED:
+- environment_type = "Sandbox" (lowest-privilege environment type)
+- cadence = "Moderate" (stable update cadence for production readiness)
+- allow_bing_search = false (prevents external data exposure)
+- allow_moving_data_across_regions = false (data sovereignty compliance)
+
 Required Properties:
 - display_name: Human-readable environment name
 - location: Power Platform region (e.g., "unitedstates", "europe")
-- environment_type: Environment classification (Sandbox, Production, Trial)
-  ⚠️  Developer environments are NOT SUPPORTED with service principal authentication
 - environment_group_id: GUID for environment group membership (REQUIRED for governance)
 
-Optional Properties:
+Optional Properties with Secure Defaults:
+- environment_type: Environment classification (default: "Sandbox" for least privilege)
+  ⚠️  Developer environments are NOT SUPPORTED with service principal authentication
 - description: Environment description
 - azure_region: Specific Azure region (westeurope, eastus, etc.)
-- cadence: Update cadence ("Frequent" or "Moderate")
-- allow_bing_search: Enable Bing search in the environment
-- allow_moving_data_across_regions: Allow data movement across regions
+- cadence: Update cadence (default: "Moderate" for stability)
+- allow_bing_search: Enable Bing search (default: false for security)
+  🤖 REQUIRED FOR: Copilot Studio, Power Pages Copilot, Dynamics 365 AI features
+- allow_moving_data_across_regions: Allow data movement across regions (default: false for sovereignty)
+  🤖 REQUIRED FOR: Power Apps AI, Power Automate Copilot, AI Builder (outside US/Europe)
 - billing_policy_id: GUID for pay-as-you-go billing policy
 - release_cycle: Early release participation
 
 Examples:
 
-# Production Environment
+# Maximum Security Environment (using all secure defaults)
 environment = {
-  display_name                     = "Production Finance Environment"
-  location                        = "unitedstates"
-  environment_type               = "Production"
-  environment_group_id           = "12345678-1234-1234-1234-123456789012"
-  description                    = "Production environment for Finance applications"
-  azure_region                   = "eastus"
-  cadence                        = "Moderate"
-  allow_bing_search              = false
-  allow_moving_data_across_regions = false
+  display_name         = "Secure Finance Environment"
+  location             = "unitedstates"
+  environment_group_id = "12345678-1234-1234-1234-123456789012"
+  description          = "High-security environment with AI features disabled"
+  # All other properties use secure defaults:
+  # - environment_type = "Sandbox"
+  # - cadence = "Moderate"
+  # - allow_bing_search = false
+  # - allow_moving_data_across_regions = false
 }
 
-# Sandbox Environment
+# Production Environment with Explicit Security Settings
 environment = {
-  display_name         = "Development Sandbox"
-  location             = "unitedstates"
-  environment_type     = "Sandbox"
-  environment_group_id = "87654321-4321-4321-4321-210987654321"
-  cadence              = "Frequent"
+  display_name                     = "Production Finance Environment"
+  location                         = "unitedstates"
+  environment_type                 = "Production"  # Override default
+  environment_group_id             = "12345678-1234-1234-1234-123456789012"
+  description                      = "Production environment with strict data governance"
+  azure_region                     = "eastus"
+  # Secure defaults maintained:
+  # - cadence = "Moderate"
+  # - allow_bing_search = false
+  # - allow_moving_data_across_regions = false
 }
+
+# AI-Enabled Development Environment (conscious choice)
+environment = {
+  display_name                     = "AI Development Sandbox"
+  environment_group_id             = "87654321-4321-4321-4321-210987654321"
+  description                      = "Development environment with AI capabilities enabled"
+  allow_bing_search                = true   # Enable Copilot features
+  allow_moving_data_across_regions = true   # Enable AI Builder/Power Apps AI
+  # Other defaults maintained for security
+}
+
+🚨 AI CAPABILITY TRADE-OFFS:
+- allow_bing_search = false DISABLES: Copilot Studio, Power Pages Copilot, Dynamics 365 AI
+- allow_moving_data_across_regions = false DISABLES: Power Apps AI, Power Automate Copilot, AI Builder
+- Set both to true to enable full AI/Copilot capabilities (reduces security posture)
 
 Limitations:
 - Developer environments require user authentication (not service principal)
@@ -124,53 +152,72 @@ DESCRIPTION
 
 variable "dataverse" {
   type = object({
-    # Required Arguments when Dataverse is enabled - ✅ REAL
-    language_code     = number # LCID integer, not string!
+    # Required Arguments when Dataverse is enabled - ✅ REAL with SECURE DEFAULTS
+    language_code     = optional(number, 1033) # SECURE DEFAULT: English US (most tested)
     currency_code     = string
     security_group_id = string # ✅ NOW REQUIRED when dataverse is provided
 
-    # Optional Arguments - ✅ REAL
-    domain                       = optional(string) # Auto-calculated from display_name if null
-    administration_mode_enabled  = optional(bool)
-    background_operation_enabled = optional(bool)
-    template_metadata            = optional(string) # String, not object!
+    # Optional Arguments - ✅ REAL with SECURE DEFAULTS
+    domain                       = optional(string)      # Auto-calculated from display_name if null
+    administration_mode_enabled  = optional(bool, true)  # SECURE DEFAULT: Enable admin mode for secure setup
+    background_operation_enabled = optional(bool, false) # SECURE DEFAULT: Disable for security review
+    template_metadata            = optional(string)      # String, not object!
     templates                    = optional(list(string))
   })
 
   description = <<DESCRIPTION
-Dataverse database configuration for the Power Platform environment.
+Dataverse database configuration with SECURE-BY-DEFAULT settings.
 
 **GOVERNANCE REQUIREMENT**: Dataverse is REQUIRED for proper Power Platform governance.
 This ensures all environments have proper data protection, security controls, and organizational structure.
 
+🔒 SECURE DEFAULTS IMPLEMENTED:
+- language_code = 1033 (English US - most tested and secure)
+- administration_mode_enabled = true (secure initial setup mode)
+- background_operation_enabled = false (requires security review before enabling)
+
 Required Properties:
-- language_code: LCID integer (e.g., 1033 for English US) 
 - currency_code: ISO currency code string (e.g., "USD", "EUR", "GBP")
 - security_group_id: Azure AD security group GUID (REQUIRED for governance)
 
-Optional Properties:
-- domain: Custom domain name for the Dataverse instance (auto-calculated from display_name if not provided)
-- administration_mode_enabled: Enable admin mode for the environment
-- background_operation_enabled: Enable background operations
+Optional Properties with Secure Defaults:
+- language_code: LCID integer (default: 1033 for English US security/testing)
+- domain: Custom domain name (auto-calculated from display_name if not provided)
+- administration_mode_enabled: Enable admin mode (default: true for secure setup)
+- background_operation_enabled: Enable background operations (default: false for security)
 - template_metadata: Additional D365 template metadata as string
 - templates: List of D365 template names
 
 Examples:
 
-# Production Environment with Dataverse (REQUIRED)
+# Maximum Security Dataverse (using all secure defaults)
 dataverse = {
-  language_code     = 1033
   currency_code     = "USD"
   security_group_id = "12345678-1234-1234-1234-123456789012"
-  domain            = "contoso-prod" # Optional: Will auto-calculate if not provided
+  # All other properties use secure defaults:
+  # - language_code = 1033 (English US)
+  # - administration_mode_enabled = true
+  # - background_operation_enabled = false
+  # - domain will be auto-calculated
 }
 
-# Auto-calculated domain (recommended for consistency)
+# European Environment with Localized Secure Defaults
 dataverse = {
-  language_code     = 1033
-  currency_code     = "USD"
+  language_code     = 1036  # Override: French
+  currency_code     = "EUR"
   security_group_id = "12345678-1234-1234-1234-123456789012"
-  # domain will be auto-calculated from environment.display_name
+  domain            = "contoso-eu"
+  # Security defaults maintained:
+  # - administration_mode_enabled = true
+  # - background_operation_enabled = false
+}
+
+# Operational Environment (background operations enabled after security review)
+dataverse = {
+  security_group_id            = "12345678-1234-1234-1234-123456789012"
+  background_operation_enabled = true  # Enabled after security review
+  administration_mode_enabled  = false # Disabled for normal operations
+  # Other defaults maintained for consistency
 }
 
 Governance Benefits:
