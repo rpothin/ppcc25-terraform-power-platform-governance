@@ -1,0 +1,134 @@
+---
+version: ">= 0.18.0"
+
+formatter: markdown table
+
+header-from: _header.md
+footer-from: _footer.md
+
+recursive:
+  enabled: false
+
+sections:
+  show:
+    - header
+    - requirements
+    - providers
+    - modules
+    - resources
+    - inputs
+    - outputs
+    - footer
+
+content: |-
+  {{ .Header }}
+
+  ## Use Cases
+
+  This configuration is designed for organizations that need to:
+
+  1. **Centralized Governance**: Apply consistent policies and rules across multiple environments within an environment group, ensuring standardized governance without manual configuration of each environment
+  2. **Sharing Control**: Enforce sharing limits and modes for apps and flows within environment groups to maintain security boundaries and prevent unauthorized access
+  3. **Solution Quality**: Implement solution checker enforcement to maintain code quality standards and prevent deployment of solutions that don't meet organizational requirements
+  4. **Backup Management**: Configure standardized backup retention policies across environments to ensure data protection and compliance with organizational retention requirements
+  5. **AI Governance**: Control AI features and data movement settings consistently across environments to meet compliance requirements and organizational AI policies
+
+  ## Usage with Resource Deployment Workflows
+
+  ```yaml
+  # GitHub Actions workflow input
+  inputs:
+    configuration: 'res-environment-group-rule-set'
+    tfvars-file: 'environment_group_id = "12345678-1234-1234-1234-123456789012"
+      rules = {
+        sharing_controls = {
+          share_mode = "exclude sharing with security groups"
+          share_max_limit = 25
+        }
+        solution_checker_enforcement = {
+          solution_checker_mode = "block"
+          send_emails_enabled = true
+        }
+      }'
+  ```
+
+  <!-- markdownlint-disable MD033 -->
+  {{ .Requirements }}
+
+  {{ .Providers }}
+
+  {{ .Resources }}
+
+  <!-- markdownlint-disable MD013 -->
+  {{ .Inputs }}
+
+  {{ .Outputs }}
+
+  {{ .Modules }}
+
+  ## Authentication
+
+  This configuration requires authentication to Microsoft Power Platform:
+
+  - **OIDC Authentication**: Uses GitHub Actions OIDC with Azure/Entra ID
+  - **Required Permissions**: Power Platform Service Admin role or Environment Admin role for the target environment group
+  - **State Backend**: Azure Storage with OIDC authentication
+
+  ## Data Collection
+
+  This configuration does not collect telemetry data. All data queried remains within your Power Platform tenant and is only accessible through your authenticated Terraform execution environment.
+
+  ## ⚠️ AVM Compliance
+
+  ### Provider Exception
+
+  This configuration uses the `microsoft/power-platform` provider, which creates an exception to AVM TFFR3 requirements since Power Platform resources are not available through approved Azure providers (`azurerm`/`azapi`).
+
+  **Exception Documentation**: [Power Platform Provider Exception](../../docs/explanations/power-platform-provider-exception.md)
+
+  ### Complementary Details
+
+  - **Anti-Corruption Layer**: Implements TFFR2 compliance by outputting rule set IDs and computed attributes as discrete outputs
+  - **Security-First**: Sensitive data properly marked and segregated in outputs
+  - **AVM-Inspired**: Follows AVM patterns and standards where technically feasible
+  - **Resource Deployment**: Deploys primary Power Platform environment group rule set resources following WAF best practices
+
+  ## Troubleshooting
+
+  ### Common Issues
+
+  1. **Environment Group Not Found**: Ensure the environment group ID exists and is accessible with your current permissions
+  2. **Permission Denied**: Verify you have Power Platform Service Admin or appropriate Environment Admin permissions
+  3. **Rule Conflicts**: Check if rules are already configured at the environment level that conflict with group rules
+  4. **Validation Errors**: Review variable validation messages for specific guidance on acceptable values
+
+  ### Provider Limitations
+
+  - This resource is available as **preview** and may have limited functionality
+  - Service principal authentication is not supported for this resource
+  - Manual changes in the admin center may cause drift (use lifecycle ignore_changes)
+
+  {{ .Footer }}
+
+output:
+  file: README.md
+  mode: replace
+
+sort:
+  enabled: true
+  by: name
+
+settings:
+  anchor: true
+  color: true
+  default: true
+  description: true
+  escape: true
+  hide-empty: false
+  html: true
+  indent: 2
+  lockfile: true
+  read-comments: true
+  required: true
+  sensitive: true
+  type: true
