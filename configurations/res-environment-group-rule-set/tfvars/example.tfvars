@@ -79,9 +79,9 @@ rules = {
 #     insights_enabled = true
 #   }
 # 
-#   # Solution checker in audit mode for learning
+#   # Solution checker in warn mode for learning
 #   solution_checker_enforcement = {
-#     solution_checker_mode = "audit"  # Allow deployment with warnings
+#     solution_checker_mode = "warn"   # Allow deployment with warnings
 #     send_emails_enabled   = false   # Reduce noise in development
 #   }
 # 

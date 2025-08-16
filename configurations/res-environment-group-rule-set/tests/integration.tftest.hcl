@@ -31,7 +31,7 @@ variables {
       insights_enabled = true
     }
     solution_checker_enforcement = {
-      solution_checker_mode = "audit"
+      solution_checker_mode = "warn"
       send_emails_enabled   = false
     }
     backup_retention = {

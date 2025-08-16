@@ -106,7 +106,7 @@ Validation Rules:
 - sharing_controls.share_mode: Must be valid sharing mode string
 - sharing_controls.share_max_limit: Must be positive integer
 - backup_retention.period_in_days: Must be 7, 14, 21, or 28 days
-- solution_checker_enforcement.solution_checker_mode: Must be "block" or "audit"
+- solution_checker_enforcement.solution_checker_mode: Must be "none", "warn", or "block"
 - All boolean values must be explicitly set (no implicit conversions)
 DESCRIPTION
   default     = {}
@@ -133,10 +133,10 @@ DESCRIPTION
 
   validation {
     condition = var.rules.solution_checker_enforcement == null ? true : contains(
-      ["block", "audit"],
+      ["none", "warn", "block"],
       var.rules.solution_checker_enforcement.solution_checker_mode
     )
-    error_message = "Solution checker enforcement mode must be either 'block' or 'audit'. Current value: '${var.rules.solution_checker_enforcement != null ? var.rules.solution_checker_enforcement.solution_checker_mode : "null"}'. Choose appropriate enforcement level."
+    error_message = "Solution checker enforcement mode must be one of: 'none', 'warn', or 'block'. Current value: '${var.rules.solution_checker_enforcement != null ? var.rules.solution_checker_enforcement.solution_checker_mode : "null"}'. Valid options: 'none' (no enforcement), 'warn' (show warnings but allow), 'block' (prevent deployment)."
   }
 
   validation {
