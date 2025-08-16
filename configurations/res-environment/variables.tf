@@ -13,14 +13,15 @@ variable "environment" {
     environment_group_id = string # ✅ NOW REQUIRED for proper governance
 
     # Optional Arguments - ✅ REAL with SECURE DEFAULTS
-    environment_type                 = optional(string, "Sandbox") # SECURE DEFAULT: Lowest-privilege environment type
-    description                      = optional(string)
-    azure_region                     = optional(string)             # Let Power Platform choose optimal region
-    cadence                          = optional(string, "Moderate") # SECURE DEFAULT: Stable update cadence
-    allow_bing_search                = optional(bool, false)        # SECURE DEFAULT: Blocks AI external data access
-    allow_moving_data_across_regions = optional(bool, false)        # SECURE DEFAULT: Data sovereignty compliance
-    billing_policy_id                = optional(string)
-    release_cycle                    = optional(string)
+    environment_type = optional(string, "Sandbox") # SECURE DEFAULT: Lowest-privilege environment type
+    description      = optional(string)
+    azure_region     = optional(string)             # Let Power Platform choose optimal region
+    cadence          = optional(string, "Moderate") # SECURE DEFAULT: Stable update cadence
+    # AI settings removed - controlled by environment group rules when environment_group_id is required
+    # allow_bing_search                = optional(bool, false)        # CONTROLLED BY ENVIRONMENT GROUP
+    # allow_moving_data_across_regions = optional(bool, false)        # CONTROLLED BY ENVIRONMENT GROUP
+    billing_policy_id = optional(string)
+    release_cycle     = optional(string)
   })
 
   description = <<DESCRIPTION
@@ -32,8 +33,7 @@ microsoft/power-platform provider to ensure 100% compatibility.
 🔒 SECURE DEFAULTS IMPLEMENTED:
 - environment_type = "Sandbox" (lowest-privilege environment type)
 - cadence = "Moderate" (stable update cadence for production readiness)
-- allow_bing_search = false (prevents external data exposure)
-- allow_moving_data_across_regions = false (data sovereignty compliance)
+- AI settings (Bing search, cross-region data) controlled by environment group rules
 
 Required Properties:
 - display_name: Human-readable environment name
@@ -46,12 +46,12 @@ Optional Properties with Secure Defaults:
 - description: Environment description
 - azure_region: Specific Azure region (westeurope, eastus, etc.)
 - cadence: Update cadence (default: "Moderate" for stability)
-- allow_bing_search: Enable Bing search (default: false for security)
-  🤖 REQUIRED FOR: Copilot Studio, Power Pages Copilot, Dynamics 365 AI features
-- allow_moving_data_across_regions: Allow data movement across regions (default: false for sovereignty)
-  🤖 REQUIRED FOR: Power Apps AI, Power Automate Copilot, AI Builder (outside US/Europe)
 - billing_policy_id: GUID for pay-as-you-go billing policy
 - release_cycle: Early release participation
+
+🤖 AI SETTINGS GOVERNANCE:
+Bing search and cross-region data movement are controlled by environment group rules.
+Configure these settings through the environment group's ai_generative_settings rules.
 
 Examples:
 
@@ -60,12 +60,11 @@ environment = {
   display_name         = "Secure Finance Environment"
   location             = "unitedstates"
   environment_group_id = "12345678-1234-1234-1234-123456789012"
-  description          = "High-security environment with AI features disabled"
+  description          = "High-security environment with AI governance via group rules"
   # All other properties use secure defaults:
   # - environment_type = "Sandbox"
   # - cadence = "Moderate"
-  # - allow_bing_search = false
-  # - allow_moving_data_across_regions = false
+  # AI settings controlled by environment group rules
 }
 
 # Production Environment with Explicit Security Settings
@@ -78,25 +77,25 @@ environment = {
   azure_region                     = "eastus"
   # Secure defaults maintained:
   # - cadence = "Moderate"
-  # - allow_bing_search = false
-  # - allow_moving_data_across_regions = false
+  # AI settings controlled by environment group governance rules
 }
 
-# AI-Enabled Development Environment (conscious choice)
+# AI-Enabled Development Environment (via environment group)
 environment = {
   display_name                     = "AI Development Sandbox"
   location                         = "unitedstates"            # EXPLICIT CHOICE
   environment_group_id             = "87654321-4321-4321-4321-210987654321"
-  description                      = "Development environment with AI capabilities enabled"
-  allow_bing_search                = true   # Enable Copilot features
-  allow_moving_data_across_regions = true   # Enable AI Builder/Power Apps AI
-  # Other defaults maintained for security
+  description                      = "Development environment with AI capabilities via group rules"
+  # AI settings configured through environment group's ai_generative_settings:
+  # - Environment group rule: bing_search_enabled = true
+  # - Environment group rule: move_data_across_regions_enabled = true
 }
 
-🚨 AI CAPABILITY TRADE-OFFS:
-- allow_bing_search = false DISABLES: Copilot Studio, Power Pages Copilot, Dynamics 365 AI
-- allow_moving_data_across_regions = false DISABLES: Power Apps AI, Power Automate Copilot, AI Builder
-- Set both to true to enable full AI/Copilot capabilities (reduces security posture)
+🚨 AI CAPABILITY GOVERNANCE:
+AI capabilities are controlled by environment group rules, not individual environment settings.
+Configure ai_generative_settings in your environment group to enable/disable:
+- bing_search_enabled: Controls Copilot Studio, Power Pages Copilot, Dynamics 365 AI
+- move_data_across_regions_enabled: Controls Power Apps AI, Power Automate Copilot, AI Builder
 
 Limitations:
 - Developer environments require user authentication (not service principal)
@@ -143,39 +142,12 @@ DESCRIPTION
     error_message = "Billing policy ID must be a valid UUID format when provided."
   }
 
+  # Environment group governance validation
   validation {
     condition = (
       can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.environment.environment_group_id))
     )
-    error_message = "Environment group ID is REQUIRED and must be a valid UUID format for proper Power Platform governance."
-  }
-
-  # Security-focused validations for AI capabilities
-  validation {
-    condition = (
-      var.environment.environment_type == "Production" ?
-      (var.environment.allow_bing_search == false && var.environment.allow_moving_data_across_regions == false) :
-      true
-    )
-    error_message = "SECURITY VIOLATION: Production environments should not enable AI external data access. Set allow_bing_search=false and allow_moving_data_across_regions=false for production workloads, or use environment_type='Sandbox' for AI development."
-  }
-
-  validation {
-    condition = (
-      (var.environment.allow_bing_search == true || var.environment.allow_moving_data_across_regions == true) ?
-      var.environment.environment_type != "Production" :
-      true
-    )
-    error_message = "SECURITY WARNING: AI capabilities (allow_bing_search=true or allow_moving_data_across_regions=true) should not be used with environment_type='Production'. Consider using 'Sandbox' or 'Trial' for AI development environments."
-  }
-
-  validation {
-    condition = (
-      var.environment.allow_moving_data_across_regions == true ?
-      contains(["unitedstates", "europe"], var.environment.location) :
-      true
-    )
-    error_message = "DATA SOVEREIGNTY: allow_moving_data_across_regions=true is primarily needed outside US/Europe regions. For location='${var.environment.location}', consider setting this to false unless specifically needed for AI Builder/Power Apps AI features."
+    error_message = "Environment group ID is REQUIRED and must be a valid UUID format for proper Power Platform governance. AI settings are controlled through environment group rules."
   }
 }
 
@@ -326,21 +298,21 @@ variable "enable_duplicate_protection" {
 # 
 # These validation rules enforce secure-by-default practices:
 # 
-# 1. PRODUCTION ENVIRONMENT PROTECTION:
-#    - Prevents AI external data access in production environments
-#    - Enforces secure defaults for business-critical workloads
+# 1. GOVERNANCE ENFORCEMENT:
+#    - Requires valid environment group ID for organizational governance
+#    - AI settings controlled through environment group rules (not individual environments)
 # 
-# 2. AI CAPABILITY WARNINGS:
-#    - Validates appropriate environment types for AI features
-#    - Provides guidance on data sovereignty implications
-# 
-# 3. OPERATIONAL SAFETY:
+# 2. OPERATIONAL SAFETY:
 #    - Prevents conflicting Dataverse operational modes
 #    - Validates currency and language code compatibility
 # 
-# 4. GOVERNANCE ENFORCEMENT:
+# 3. DATAVERSE GOVERNANCE:
 #    - Requires proper Azure AD group assignments
 #    - Recommends duplicate protection for operational safety
+# 
+# 4. ENVIRONMENT GROUP INTEGRATION:
+#    - AI capabilities managed centrally through environment group policies
+#    - Eliminates conflicts between individual and group settings
 # 
 # All validation error messages include actionable guidance for resolution.
 # ======================================================================================

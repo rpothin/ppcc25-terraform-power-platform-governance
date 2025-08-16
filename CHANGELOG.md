@@ -12,7 +12,9 @@
 - **Documentation and Usage Guides**: Added step-by-step guides in `docs/guides/` for onboarding existing policies and creating new ones, clarifying when to use the generator utility versus the template.
 - **Validation**: Both onboarding and template flows tested end-to-end with real data to ensure reliability and usability.
 - **Communication**: Announced new approach in project documentation for clear separation of onboarding and new policy creation flows.
+
 ### Changed
+- **BREAKING**: `res-environment` module - Removed individual AI settings (`allow_bing_search`, `allow_moving_data_across_regions`) from environment variable since these are controlled by environment group governance rules. Environment groups now manage AI capabilities centrally through `ai_generative_settings` rules, eliminating conflicts between individual and group policies. Update your tfvars files to remove these settings and configure AI capabilities through environment group rules instead. This change resolves provider errors when environment groups have AI governance configured and aligns with Power Platform's governance-first architecture.
 - **Terraform Configurations**
   - **BREAKING**: Refactored `res-dlp-policy` to expose all connector bucket variables as full provider schema objects (no longer accepts list of strings for business_connectors). All configuration, logic, and tests updated for AVM compliance. Users must now provide connector objects for all buckets. See plan/avm-dlp-policy-full-schema-exposure.md for migration details.
   - **res-dlp-policy**: Removed lifecycle `prevent_destroy` safeguard to enable intentional refactors and controlled teardown operations. Duplicate protection and state-aware guardrails remain for safety. Adopt manual review and workflow dispatch protections instead of hard prevention.

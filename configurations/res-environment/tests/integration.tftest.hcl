@@ -27,7 +27,7 @@ variables {
     environment_group_id = "0675a2e2-dd4d-4ab6-8b9f-0d5048f62214" # Required for governance
     # environment_type defaults to "Sandbox" - using secure default
     # cadence defaults to "Moderate" - using secure default  
-    # AI settings default to false - using secure defaults
+    # AI settings controlled by environment group rules
   }
 
   # Required Dataverse configuration for governance
@@ -129,8 +129,8 @@ run "plan_validation" {
   }
 
   assert {
-    condition     = powerplatform_environment.this.allow_bing_search == false && powerplatform_environment.this.allow_moving_data_across_regions == false
-    error_message = "Should use secure defaults for AI settings (both false) when not explicitly specified."
+    condition     = var.environment.environment_group_id != null
+    error_message = "Environment group ID should be required for governance (AI settings controlled by group)."
   }
 }
 
@@ -238,14 +238,13 @@ run "new_provider_properties_test" {
   command = plan
   variables {
     environment = {
-      display_name                     = "Test New Properties"
-      location                         = "unitedstates" # EXPLICIT CHOICE
-      environment_group_id             = "12345678-1234-1234-1234-123456789012"
-      description                      = "Test environment for new provider properties"
-      azure_region                     = "eastus"
-      cadence                          = "Frequent" # Override secure default
-      allow_bing_search                = true       # Override secure default
-      allow_moving_data_across_regions = true       # Override secure default
+      display_name         = "Test New Properties"
+      location             = "unitedstates" # EXPLICIT CHOICE
+      environment_group_id = "12345678-1234-1234-1234-123456789012"
+      description          = "Test environment for new provider properties"
+      azure_region         = "eastus"
+      cadence              = "Frequent" # Override secure default
+      # AI settings controlled by environment group rules
       # environment_type defaults to "Sandbox" - using secure default
     }
     dataverse = {
@@ -267,8 +266,8 @@ run "new_provider_properties_test" {
   }
 
   assert {
-    condition     = var.environment.allow_bing_search == false
-    error_message = "Bing search should be configurable."
+    condition     = var.environment.environment_group_id != null
+    error_message = "Environment group should be required (controls AI settings via governance)."
   }
 
   assert {

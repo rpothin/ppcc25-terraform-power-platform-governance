@@ -129,17 +129,18 @@ resource "powerplatform_environment" "this" {
   ]
 
   # ✅ REAL ARGUMENTS ONLY - NO DEVELOPER ENVIRONMENT SUPPORT
-  display_name                     = var.environment.display_name
-  location                         = var.environment.location
-  environment_type                 = var.environment.environment_type
-  description                      = var.environment.description
-  azure_region                     = var.environment.azure_region
-  cadence                          = var.environment.cadence
-  allow_bing_search                = var.environment.allow_bing_search
-  allow_moving_data_across_regions = var.environment.allow_moving_data_across_regions
-  billing_policy_id                = var.environment.billing_policy_id
-  environment_group_id             = local.environment_group_id # Conditional assignment
-  release_cycle                    = var.environment.release_cycle
+  display_name     = var.environment.display_name
+  location         = var.environment.location
+  environment_type = var.environment.environment_type
+  description      = var.environment.description
+  azure_region     = var.environment.azure_region
+  cadence          = var.environment.cadence
+  # AI settings removed - controlled by environment group rules
+  # allow_bing_search                = var.environment.allow_bing_search
+  # allow_moving_data_across_regions = var.environment.allow_moving_data_across_regions
+  billing_policy_id    = var.environment.billing_policy_id
+  environment_group_id = local.environment_group_id # Conditional assignment
+  release_cycle        = var.environment.release_cycle
 
   # ✅ SIMPLIFIED DATAVERSE BLOCK with AUTO-CALCULATED DOMAIN
   dataverse = var.dataverse != null ? {
