@@ -86,38 +86,45 @@ The following input variables are required:
 
 ### <a name="input_dataverse"></a> [dataverse](#input\_dataverse)
 
-Description: Dataverse database configuration with SECURE-BY-DEFAULT settings.
+Description: Dataverse database configuration with opinionated default values.
 
 **GOVERNANCE REQUIREMENT**: Dataverse is REQUIRED for proper Power Platform governance.  
 This ensures all environments have proper data protection, security controls, and organizational structure.
 
-🔒 SECURE DEFAULTS IMPLEMENTED:
+⚙️ DEFAULT VALUES APPLIED:
 - language\_code = 1033 (English US - most tested and secure)
-- administration\_mode\_enabled = true (secure initial setup mode)
-- background\_operation\_enabled = false (requires security review before enabling)
+- administration\_mode\_enabled = false (Power Platform creates operational environments)
+- background\_operation\_enabled = true (Power Platform enables background ops for initialization)
+
+⚠️  POWER PLATFORM BEHAVIOR NOTE:  
+These defaults reflect actual Power Platform creation behavior, not idealized security settings.  
+Power Platform has opinionated defaults for environment lifecycle management:
+- New environments start in operational mode (admin\_mode = false)
+- Background operations are enabled to support environment initialization
+- These settings can be adjusted post-creation if needed for enhanced security
 
 Required Properties:
 - currency\_code: ISO currency code string (EXPLICIT CHOICE - e.g., "USD", "EUR", "GBP")
 - security\_group\_id: Azure AD security group GUID (REQUIRED for governance)
 
-Optional Properties with Secure Defaults:
-- language\_code: LCID integer (default: 1033 for English US security/testing)
+Optional Properties with Default Values:
+- language\_code: LCID integer (default: 1033 for English US)
 - domain: Custom domain name (auto-calculated from display\_name if not provided)
-- administration\_mode\_enabled: Enable admin mode (default: true for secure setup)
-- background\_operation\_enabled: Enable background operations (default: false for security)
+- administration\_mode\_enabled: Admin mode state (default: false - operational)
+- background\_operation\_enabled: Background operations (default: true - enabled)
 - template\_metadata: Additional D365 template metadata as string
 - templates: List of D365 template names
 
 Examples:
 
-# Maximum Security Dataverse (explicit choices with secure defaults)  
+# Standard Environment (using default values)  
 dataverse = {  
   currency\_code     = "USD"  # EXPLICIT CHOICE  
   security\_group\_id = "12345678-1234-1234-1234-123456789012"
-  # All other properties use secure defaults:
+  # All other properties use default values:
   # - language\_code = 1033 (English US)
-  # - administration\_mode\_enabled = true
-  # - background\_operation\_enabled = false
+  # - administration\_mode\_enabled = false (operational)
+  # - background\_operation\_enabled = true (enabled)
   # - domain will be auto-calculated
 }
 
@@ -127,18 +134,19 @@ dataverse = {
   currency\_code     = "EUR"   # EXPLICIT CHOICE  
   security\_group\_id = "12345678-1234-1234-1234-123456789012"  
   domain            = "contoso-eu"
-  # Security defaults maintained:
-  # - administration\_mode\_enabled = true
-  # - background\_operation\_enabled = false
+  # Default values maintained:
+  # - administration\_mode\_enabled = false (operational)
+  # - background\_operation\_enabled = true (enabled)
 }
 
-# Operational Environment (background operations enabled after security review)  
+# High-Security Environment (explicit overrides for enhanced security)  
 dataverse = {  
   currency\_code                = "USD"   # EXPLICIT CHOICE  
   security\_group\_id            = "12345678-1234-1234-1234-123456789012"  
-  background\_operation\_enabled = true    # Enabled after security review  
-  administration\_mode\_enabled  = false   # Disabled for normal operations
-  # Other defaults maintained for consistency
+  administration\_mode\_enabled  = true    # Override: Enable admin mode for security  
+  background\_operation\_enabled = false   # Override: Disable background ops for review
+  # Note: Power Platform may adjust these values during environment creation
+  # Use lifecycle.ignore\_changes if state drift occurs
 }
 
 Governance Benefits:
@@ -158,8 +166,8 @@ object({
     # Optional Arguments - ✅ REAL with SECURE DEFAULTS
     language_code                = optional(number, 1033) # SECURE DEFAULT: English US (most tested)
     domain                       = optional(string)       # Auto-calculated from display_name if null
-    administration_mode_enabled  = optional(bool, true)   # SECURE DEFAULT: Enable admin mode for secure setup
-    background_operation_enabled = optional(bool, false)  # SECURE DEFAULT: Disable for security review
+    administration_mode_enabled  = optional(bool, false)  # POWER PLATFORM DEFAULT: New environments start operational
+    background_operation_enabled = optional(bool, true)   # POWER PLATFORM DEFAULT: Background ops enabled for initialization
     template_metadata            = optional(string)       # String, not object!
     templates                    = optional(list(string))
   })
@@ -167,12 +175,12 @@ object({
 
 ### <a name="input_environment"></a> [environment](#input\_environment)
 
-Description: Power Platform environment configuration with SECURE-BY-DEFAULT settings.
+Description: Power Platform environment configuration with opinionated default values.
 
 This variable includes exclusively the arguments that actually exist in the   
 microsoft/power-platform provider to ensure 100% compatibility.
 
-🔒 SECURE DEFAULTS IMPLEMENTED:
+⚙️ DEFAULT VARIABLE VALUES:
 - environment\_type = "Sandbox" (lowest-privilege environment type)
 - cadence = "Moderate" (stable update cadence for production readiness)
 - AI settings (Bing search, cross-region data) controlled by environment group rules
@@ -182,7 +190,7 @@ Required Properties:
 - location: Power Platform region (EXPLICIT CHOICE - e.g., "unitedstates", "europe")
 - environment\_group\_id: GUID for environment group membership (REQUIRED for governance)
 
-Optional Properties with Secure Defaults:
+Optional Properties with Default Values:
 - environment\_type: Environment classification (default: "Sandbox" for least privilege)
   ⚠️  Developer environments are NOT SUPPORTED with service principal authentication
 - description: Environment description
@@ -197,13 +205,13 @@ Configure these settings through the environment group's ai\_generative\_setting
 
 Examples:
 
-# Maximum Security Environment (using all secure defaults)  
+# Standard Environment (using default variable values)  
 environment = {  
   display\_name         = "Secure Finance Environment"  
   location             = "unitedstates"  
   environment\_group\_id = "12345678-1234-1234-1234-123456789012"  
   description          = "High-security environment with AI governance via group rules"
-  # All other properties use secure defaults:
+  # All other properties use default values:
   # - environment\_type = "Sandbox"
   # - cadence = "Moderate"
   # AI settings controlled by environment group rules
@@ -217,7 +225,7 @@ environment = {
   environment\_group\_id             = "12345678-1234-1234-1234-123456789012"  
   description                      = "Production environment with strict data governance"  
   azure\_region                     = "eastus"
-  # Secure defaults maintained:
+  # Default values maintained:
   # - cadence = "Moderate"
   # AI settings controlled by environment group governance rules
 }
