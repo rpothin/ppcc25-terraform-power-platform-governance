@@ -50,36 +50,39 @@ The following resources are used by this module:
 
 The following input variables are required:
 
-### <a name="input_environment_group_config"></a> [environment\_group\_config](#input\_environment\_group\_config)
+### <a name="input_description"></a> [description](#input\_description)
 
-Description: Configuration for Power Platform Environment Group creation.
+Description: Detailed description of the environment group purpose and scope.
 
-This variable consolidates core environment group settings to reduce complexity while  
-ensuring all requirements are validated at plan time.
+This description provides context about what environments belong to this group,  
+what governance policies apply, and how it fits into the organization's Power  
+Platform strategy.
 
-Properties:
-- display\_name: Human-readable name for the environment group (max 100 chars)
-- description: Detailed description of the environment group purpose and scope
-
-Example:
-{  
-  display\_name = "Development Environment Group"  
-  description  = "Centralized group for all development environments with standardized governance policies"
-}
+Example: "Centralized group for all development environments with standardized governance policies"
 
 Validation Rules:
-- Display name must be 1-100 characters for Power Platform compatibility
-- Description must be provided to ensure clear group purpose documentation
-- Both fields must not contain only whitespace characters
+- Must be 1-500 characters to provide meaningful context
+- Cannot be empty or contain only whitespace characters  
+- Should explain the group's purpose and governance approach
 
-Type:
+Type: `string`
 
-```hcl
-object({
-    display_name = string
-    description  = string
-  })
-```
+### <a name="input_display_name"></a> [display\_name](#input\_display\_name)
+
+Description: Human-readable name for the Power Platform Environment Group.
+
+This name appears in the Power Platform admin center and is used for identification  
+and management purposes. It should clearly indicate the purpose and scope of the  
+environment group.
+
+Example: "Development Environment Group"
+
+Validation Rules:
+- Must be 1-100 characters for Power Platform compatibility  
+- Cannot be empty or contain only whitespace characters
+- Should be descriptive and follow organizational naming conventions
+
+Type: `string`
 
 ## Optional Inputs
 
