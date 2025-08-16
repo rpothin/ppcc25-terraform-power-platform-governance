@@ -31,16 +31,16 @@ run "plan_validation" {
 
   # === FRAMEWORK VALIDATION (5 assertions) ===
 
-  # Terraform provider functionality
+  # Terraform provider functionality - file-based validation
   assert {
-    condition     = can(terraform.required_providers.powerplatform)
-    error_message = "Power Platform provider must be configured in required_providers"
+    condition     = length(regexall("powerplatform\\s*=\\s*\\{", file("${path.module}/versions.tf"))) > 0
+    error_message = "Power Platform provider must be configured in required_providers block"
   }
 
   # Provider version compliance with centralized standard
   assert {
-    condition     = terraform.required_providers.powerplatform.version == "~> 3.8"
-    error_message = "Provider version must match centralized standard ~> 3.8. Current: ${terraform.required_providers.powerplatform.version}"
+    condition     = length(regexall("version\\s*=\\s*\"~> 3\\.8\"", file("${path.module}/versions.tf"))) > 0
+    error_message = "Provider version must match centralized standard ~> 3.8 in versions.tf"
   }
 
   # OIDC authentication configuration in provider block
@@ -51,14 +51,14 @@ run "plan_validation" {
 
   # Azure backend OIDC configuration  
   assert {
-    condition     = length(regexall("backend\\s+\"azurerm\".*use_oidc\\s*=\\s*true", file("${path.module}/versions.tf"))) > 0
+    condition     = length(regexall("backend\\s+\"azurerm\"[\\s\\S]*?use_oidc\\s*=\\s*true", file("${path.module}/versions.tf"))) > 0
     error_message = "Backend must use OIDC for keyless authentication"
   }
 
   # Terraform version compliance
   assert {
-    condition     = can(regex("^>= 1\\.5\\.0", terraform.required_version))
-    error_message = "Terraform version constraint must be >= 1.5.0 for AVM compliance"
+    condition     = length(regexall("required_version\\s*=\\s*\">= 1\\.5\\.0\"", file("${path.module}/versions.tf"))) > 0
+    error_message = "Terraform version constraint must be >= 1.5.0 for AVM compliance in versions.tf"
   }
 
   # === VARIABLE VALIDATION (5 assertions) ===
@@ -125,24 +125,25 @@ run "plan_validation" {
     error_message = "Resource must include ignore_changes for manual admin center modifications"
   }
 
-  # === OUTPUT VALIDATION (5 assertions) ===
+  # === OUTPUT DEFINITION VALIDATION (5 assertions) ===
+  # Note: Testing output definitions in files, not output values (unavailable during plan)
 
-  # Primary output availability
+  # Primary output definition exists
   assert {
-    condition     = can(output.environment_group_id)
-    error_message = "Environment group ID output must be available"
+    condition     = length(regexall("output\\s+\"environment_group_id\"", file("${path.module}/outputs.tf"))) > 0
+    error_message = "Environment group ID output must be defined in outputs.tf"
   }
 
-  # Name output availability
+  # Name output definition exists
   assert {
-    condition     = can(output.environment_group_name)
-    error_message = "Environment group name output must be available"
+    condition     = length(regexall("output\\s+\"environment_group_name\"", file("${path.module}/outputs.tf"))) > 0
+    error_message = "Environment group name output must be defined in outputs.tf"
   }
 
-  # Summary output structure
+  # Summary output definition exists
   assert {
-    condition     = can(output.environment_group_summary.id) && can(output.environment_group_summary.name) && can(output.environment_group_summary.resource_type)
-    error_message = "Environment group summary must contain core identification fields"
+    condition     = length(regexall("output\\s+\"environment_group_summary\"", file("${path.module}/outputs.tf"))) > 0
+    error_message = "Environment group summary output must be defined in outputs.tf"
   }
 
   # Anti-corruption layer compliance
@@ -151,9 +152,9 @@ run "plan_validation" {
     error_message = "Outputs must reference discrete resource attributes (anti-corruption layer)"
   }
 
-  # Output schema version presence
+  # Output schema version definition exists
   assert {
-    condition     = can(output.output_schema_version)
+    condition     = length(regexall("output\\s+\"output_schema_version\"", file("${path.module}/outputs.tf"))) > 0
     error_message = "Output schema version must be defined for interface stability"
   }
 }
@@ -195,7 +196,14 @@ run "apply_validation" {
     error_message = "Environment group must have valid ID and name for downstream integration"
   }
 
-  # === OUTPUT VALIDATION (5 assertions) ===
+  # === OUTPUT VALUE VALIDATION (10 assertions) ===
+  # Note: Testing actual output values after resource creation
+
+  # Primary output availability and integrity
+  assert {
+    condition     = can(output.environment_group_id) && output.environment_group_id != null
+    error_message = "Environment group ID output must be available and not null"
+  }
 
   # Anti-corruption layer integrity
   assert {
@@ -203,13 +211,25 @@ run "apply_validation" {
     error_message = "Output environment_group_id must match resource ID (anti-corruption layer)"
   }
 
-  # Name output integrity
+  # Name output availability and integrity
   assert {
-    condition     = output.environment_group_name == powerplatform_environment_group.this.display_name
+    condition     = can(output.environment_group_name) && output.environment_group_name == powerplatform_environment_group.this.display_name
     error_message = "Output environment_group_name must match resource display_name"
   }
 
-  # Summary output completeness
+  # Summary output availability
+  assert {
+    condition     = can(output.environment_group_summary) && output.environment_group_summary != null
+    error_message = "Environment group summary output must be available and populated"
+  }
+
+  # Summary output structure completeness
+  assert {
+    condition     = can(output.environment_group_summary.id) && can(output.environment_group_summary.name) && can(output.environment_group_summary.resource_type)
+    error_message = "Environment group summary must contain core identification fields (id, name, resource_type)"
+  }
+
+  # Summary output resource type accuracy
   assert {
     condition     = output.environment_group_summary.resource_type == "powerplatform_environment_group"
     error_message = "Environment group summary must identify correct resource type"
@@ -226,9 +246,21 @@ run "apply_validation" {
     condition     = output.environment_group_summary.ready_for_routing == true && output.environment_group_summary.ready_for_rules == true
     error_message = "Environment group summary must indicate readiness for routing and rules integration"
   }
+
+  # Output schema version validation
+  assert {
+    condition     = can(output.output_schema_version) && output.output_schema_version != null
+    error_message = "Output schema version must be available for interface stability"
+  }
+
+  # Summary consistency with resource state
+  assert {
+    condition     = output.environment_group_summary.id == powerplatform_environment_group.this.id && output.environment_group_summary.name == powerplatform_environment_group.this.display_name
+    error_message = "Environment group summary must maintain consistency with resource state"
+  }
 }
 
-# Total assertions: 25 (exceeds 20+ requirement for res-* modules)
-# Plan validation: 20 assertions (Framework: 5, Variables: 5, Resources: 5, Outputs: 5)
-# Apply validation: 10 assertions (Deployment: 5, Outputs: 5)
-# Coverage areas: Framework, Variables, Resources, Outputs, Deployment, Anti-corruption layer, Lifecycle management
+# Total assertions: 30 (exceeds 20+ requirement for res-* modules)
+# Plan validation: 20 assertions (Framework: 5, Variables: 5, Resources: 5, Output Definitions: 5)
+# Apply validation: 15 assertions (Deployment: 5, Output Values: 10)
+# Coverage areas: Framework, Variables, Resources, Output Definitions, Deployment, Output Values, Anti-corruption layer, Lifecycle management
