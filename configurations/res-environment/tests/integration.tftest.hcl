@@ -25,19 +25,19 @@ variables {
     display_name         = "Test Environment - Integration"
     location             = "unitedstates"                         # EXPLICIT CHOICE
     environment_group_id = "0675a2e2-dd4d-4ab6-8b9f-0d5048f62214" # Required for governance
-    # environment_type defaults to "Sandbox" - using secure default
-    # cadence defaults to "Moderate" - using secure default  
+    # environment_type defaults to "Sandbox" - using default value
+    # cadence defaults to "Moderate" - using default value  
     # AI settings controlled by environment group rules
   }
 
   # Required Dataverse configuration for governance
   dataverse = {
-    language_code     = 1033  # Using secure default
+    language_code     = 1033  # Using default value
     currency_code     = "USD" # EXPLICIT CHOICE
     security_group_id = "6a199811-5433-4076-81e8-1ca7ad8ffb67"
     # domain will be auto-calculated from display_name
-    # administration_mode_enabled defaults to true - using secure default
-    # background_operation_enabled defaults to false - using secure default
+    # administration_mode_enabled defaults to true - using default value
+    # background_operation_enabled defaults to false - using default value
   }
 
   # Disable duplicate protection for testing to avoid conflicts
@@ -117,15 +117,15 @@ run "plan_validation" {
     error_message = "Environment group ID should match test configuration."
   }
 
-  # Secure defaults validation (Additional assertions 13-15)
+  # Default values validation (Additional assertions 13-15)
   assert {
     condition     = powerplatform_environment.this.environment_type == "Sandbox"
-    error_message = "Should use secure default environment_type 'Sandbox' when not explicitly specified."
+    error_message = "Should use default environment_type 'Sandbox' when not explicitly specified."
   }
 
   assert {
     condition     = powerplatform_environment.this.cadence == "Moderate"
-    error_message = "Should use secure default cadence 'Moderate' when not explicitly specified."
+    error_message = "Should use default cadence 'Moderate' when not explicitly specified."
   }
 
   assert {
@@ -207,12 +207,12 @@ run "duplicate_protection_disabled_test" {
       display_name         = "Test No Duplicate Check"
       location             = "unitedstates" # EXPLICIT CHOICE
       environment_group_id = "12345678-1234-1234-1234-123456789012"
-      # Using secure defaults: environment_type="Sandbox", cadence="Moderate", AI=false
+      # Using default values: environment_type="Sandbox", cadence="Moderate", AI=false
     }
     dataverse = {
       currency_code     = "USD" # EXPLICIT CHOICE
       security_group_id = "33333333-3333-3333-3333-333333333333"
-      # Using secure defaults: language_code=1033, admin_mode=true, background=false
+      # Using default values: language_code=1033, admin_mode=true, background=false
     }
     enable_duplicate_protection = false
   }
@@ -243,9 +243,9 @@ run "new_provider_properties_test" {
       environment_group_id = "12345678-1234-1234-1234-123456789012"
       description          = "Test environment for new provider properties"
       azure_region         = "eastus"
-      cadence              = "Frequent" # Override secure default
+      cadence              = "Frequent" # Override default value
       # AI settings controlled by environment group rules
-      # environment_type defaults to "Sandbox" - using secure default
+      # environment_type defaults to "Sandbox" - using default value
     }
     dataverse = {
       currency_code     = "USD" # EXPLICIT CHOICE
@@ -288,11 +288,11 @@ run "production_environment_test" {
     environment = {
       display_name         = "Production Environment Test"
       location             = "unitedstates" # EXPLICIT CHOICE
-      environment_type     = "Production"   # Override secure default
+      environment_type     = "Production"   # Override default value
       environment_group_id = "12345678-1234-1234-1234-123456789012"
       description          = "Production environment for testing"
-      # cadence defaults to "Moderate" - using secure default
-      # AI settings default to false - using secure defaults
+      # cadence defaults to "Moderate" - using default value
+      # AI settings default to false - using default values
     }
     dataverse = {
       currency_code     = "USD" # EXPLICIT CHOICE
@@ -325,7 +325,7 @@ run "trial_environment_test" {
     environment = {
       display_name         = "Trial Environment Test"
       location             = "unitedstates" # EXPLICIT CHOICE
-      environment_type     = "Trial"        # Override secure default
+      environment_type     = "Trial"        # Override default value
       environment_group_id = "12345678-1234-1234-1234-123456789012"
       description          = "Trial environment for evaluation"
       # Using secure defaults for other properties
@@ -419,11 +419,11 @@ run "comprehensive_dataverse_test" {
     }
     dataverse = {
       currency_code                = "USD" # EXPLICIT CHOICE
-      language_code                = 1033  # Using secure default
+      language_code                = 1033  # Using default value
       security_group_id            = "87654321-4321-4321-4321-210987654321"
       domain                       = "test-domain"
-      administration_mode_enabled  = false # Override secure default
-      background_operation_enabled = true  # Override secure default
+      administration_mode_enabled  = false # Override default value
+      background_operation_enabled = true  # Override default value
       template_metadata            = "test-metadata"
       templates                    = ["template1", "template2"]
     }

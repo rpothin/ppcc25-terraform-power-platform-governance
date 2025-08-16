@@ -1,25 +1,25 @@
 # Example Environment Configuration for Power Platform Environment
 #
-# This file demonstrates the SECURE-BY-DEFAULT approach with multiple configuration patterns.
+# This file demonstrates the opinionated default values approach with multiple configuration patterns.
 # Choose the example that best matches your use case and customize accordingly.
 #
-# 🔒 SECURE DEFAULTS PHILOSOPHY:
+# ⚙️ OPINIONATED DEFAULT VALUES PHILOSOPHY:
 # - Minimal explicit configuration required
-# - Security-focused defaults for production readiness
+# - Defaults align with Power Platform's actual behavior
 # - Explicit choices for geographic/financial decisions
 # - AI capabilities controlled by environment group governance
 
 # ======================================================================================
-# Example 1: MINIMAL SECURE CONFIGURATION (Recommended Starting Point)
+# Example 1: MINIMAL CONFIGURATION (Recommended Starting Point)
 # ======================================================================================
-# This example uses maximum secure defaults - only requires explicit geographic choices
+# This example uses opinionated default values - only requires explicit geographic choices
 
 environment = {
   display_name         = "Secure Development Environment"       # Descriptive name
   location             = "unitedstates"                         # EXPLICIT CHOICE: Your geographic region
   environment_group_id = "12345678-1234-1234-1234-123456789012" # REQUIRED: Azure AD group for governance
 
-  # 🔒 SECURE DEFAULTS AUTOMATICALLY APPLIED:
+  # ⚙️ DEFAULT VALUES AUTOMATICALLY APPLIED:
   # environment_type = "Sandbox"        (lowest-privilege environment)
   # cadence = "Moderate"                (stable update cadence)
   # AI settings controlled by environment group rules
@@ -29,10 +29,10 @@ dataverse = {
   currency_code     = "USD"                                  # EXPLICIT CHOICE: Your organizational currency
   security_group_id = "87654321-4321-4321-4321-210987654321" # REQUIRED: Azure AD group for data access
 
-  # 🔒 SECURE DEFAULTS AUTOMATICALLY APPLIED:
+  # ⚙️ DEFAULT VALUES AUTOMATICALLY APPLIED:
   # language_code = 1033                (English US - most tested)
-  # administration_mode_enabled = true  (secure setup mode)
-  # background_operation_enabled = false (requires security review)
+  # administration_mode_enabled = false (operational environments)
+  # background_operation_enabled = true (enabled for initialization)
   # domain = auto-calculated from display_name
 }
 
@@ -59,7 +59,7 @@ enable_duplicate_protection = true # Recommended for all environments
 #   # Individual environments inherit AI settings from their environment group
 #   # Configure ai_generative_settings in the environment group resource
 #   
-#   # Other secure defaults maintained:
+#   # Other default values maintained:
 #   # environment_type = "Sandbox"
 #   # cadence = "Moderate"
 # }
@@ -67,7 +67,7 @@ enable_duplicate_protection = true # Recommended for all environments
 # dataverse = {
 #   currency_code     = "USD"                                  # EXPLICIT CHOICE
 #   security_group_id = "87654321-4321-4321-4321-210987654321"
-#   # Secure defaults maintained for data protection
+#   # Default values maintained for data protection
 # }
 # 
 # enable_duplicate_protection = true
@@ -85,7 +85,7 @@ enable_duplicate_protection = true # Recommended for all environments
 #   description                      = "Production environment with strict governance"
 #   azure_region                     = "eastus"                 # Specific Azure region for compliance
 #   
-#   # 🔒 EXPLICIT SECURITY SETTINGS (Documenting secure choices):
+#   # 🔒 EXPLICIT SECURITY SETTINGS (Overriding platform defaults for enhanced security):
 #   cadence                          = "Moderate"               # Stable updates for production
 #   # AI settings controlled by environment group governance
 # }
@@ -94,8 +94,8 @@ enable_duplicate_protection = true # Recommended for all environments
 #   currency_code                = "USD"                        # EXPLICIT CHOICE
 #   security_group_id            = "87654321-4321-4321-4321-210987654321"
 #   domain                       = "contoso-prod"               # Custom domain for branding
-#   administration_mode_enabled  = false                       # Override: Normal operations mode
-#   background_operation_enabled = true                        # Override: Enabled after security review
+#   administration_mode_enabled  = false                       # Using Power Platform default (operational)
+#   background_operation_enabled = true                        # Using Power Platform default (enabled)
 # }
 # 
 # enable_duplicate_protection = true  # Critical for production environments
@@ -112,7 +112,7 @@ enable_duplicate_protection = true # Recommended for all environments
 #   description          = "European environment with GDPR compliance"
 #   azure_region         = "westeurope"                       # Specific European region
 #   
-#   # Secure defaults maintained for European compliance:
+#   # Default values maintained for European compliance:
 #   # environment_type = "Sandbox"
 #   # cadence = "Moderate"
 #   # AI settings controlled by environment group governance (GDPR-compliant)
@@ -124,9 +124,9 @@ enable_duplicate_protection = true # Recommended for all environments
 #   security_group_id = "87654321-4321-4321-4321-210987654321"
 #   domain            = "contoso-eu"                          # European domain naming
 #   
-#   # Secure defaults maintained:
-#   # administration_mode_enabled = true
-#   # background_operation_enabled = false
+#   # Default values maintained:
+#   # administration_mode_enabled = false
+#   # background_operation_enabled = true
 # }
 # 
 # enable_duplicate_protection = true

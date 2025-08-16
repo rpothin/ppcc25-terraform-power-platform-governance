@@ -1,4 +1,4 @@
-# Input Variables for Power Platform Environment Configuration
+# Input Variab    # Optional Arguments - ✓ REAL with DEFAULT VALUESes for Power Platform Environment Configuration
 #
 # This file defines input parameters that align with the ACTUAL Power Platform provider schema.
 # All fictional arguments have been removed to ensure 100% compatibility.
@@ -25,12 +25,12 @@ variable "environment" {
   })
 
   description = <<DESCRIPTION
-Power Platform environment configuration with SECURE-BY-DEFAULT settings.
+Power Platform environment configuration with opinionated default values.
 
 This variable includes exclusively the arguments that actually exist in the 
 microsoft/power-platform provider to ensure 100% compatibility.
 
-🔒 SECURE DEFAULTS IMPLEMENTED:
+⚙️ DEFAULT VARIABLE VALUES:
 - environment_type = "Sandbox" (lowest-privilege environment type)
 - cadence = "Moderate" (stable update cadence for production readiness)
 - AI settings (Bing search, cross-region data) controlled by environment group rules
@@ -40,7 +40,7 @@ Required Properties:
 - location: Power Platform region (EXPLICIT CHOICE - e.g., "unitedstates", "europe")
 - environment_group_id: GUID for environment group membership (REQUIRED for governance)
 
-Optional Properties with Secure Defaults:
+Optional Properties with Default Values:
 - environment_type: Environment classification (default: "Sandbox" for least privilege)
   ⚠️  Developer environments are NOT SUPPORTED with service principal authentication
 - description: Environment description
@@ -55,13 +55,13 @@ Configure these settings through the environment group's ai_generative_settings 
 
 Examples:
 
-# Maximum Security Environment (using all secure defaults)
+# Standard Environment (using default variable values)
 environment = {
   display_name         = "Secure Finance Environment"
   location             = "unitedstates"
   environment_group_id = "12345678-1234-1234-1234-123456789012"
   description          = "High-security environment with AI governance via group rules"
-  # All other properties use secure defaults:
+  # All other properties use default values:
   # - environment_type = "Sandbox"
   # - cadence = "Moderate"
   # AI settings controlled by environment group rules
@@ -75,7 +75,7 @@ environment = {
   environment_group_id             = "12345678-1234-1234-1234-123456789012"
   description                      = "Production environment with strict data governance"
   azure_region                     = "eastus"
-  # Secure defaults maintained:
+  # Default values maintained:
   # - cadence = "Moderate"
   # AI settings controlled by environment group governance rules
 }
@@ -160,45 +160,52 @@ variable "dataverse" {
     # Optional Arguments - ✅ REAL with SECURE DEFAULTS
     language_code                = optional(number, 1033) # SECURE DEFAULT: English US (most tested)
     domain                       = optional(string)       # Auto-calculated from display_name if null
-    administration_mode_enabled  = optional(bool, true)   # SECURE DEFAULT: Enable admin mode for secure setup
-    background_operation_enabled = optional(bool, false)  # SECURE DEFAULT: Disable for security review
+    administration_mode_enabled  = optional(bool, false)  # POWER PLATFORM DEFAULT: New environments start operational
+    background_operation_enabled = optional(bool, true)   # POWER PLATFORM DEFAULT: Background ops enabled for initialization
     template_metadata            = optional(string)       # String, not object!
     templates                    = optional(list(string))
   })
 
   description = <<DESCRIPTION
-Dataverse database configuration with SECURE-BY-DEFAULT settings.
+Dataverse database configuration with opinionated default values.
 
 **GOVERNANCE REQUIREMENT**: Dataverse is REQUIRED for proper Power Platform governance.
 This ensures all environments have proper data protection, security controls, and organizational structure.
 
-🔒 SECURE DEFAULTS IMPLEMENTED:
+⚙️ DEFAULT VALUES APPLIED:
 - language_code = 1033 (English US - most tested and secure)
-- administration_mode_enabled = true (secure initial setup mode)
-- background_operation_enabled = false (requires security review before enabling)
+- administration_mode_enabled = false (Power Platform creates operational environments)
+- background_operation_enabled = true (Power Platform enables background ops for initialization)
+
+⚠️  POWER PLATFORM BEHAVIOR NOTE:
+These defaults reflect actual Power Platform creation behavior, not idealized security settings.
+Power Platform has opinionated defaults for environment lifecycle management:
+- New environments start in operational mode (admin_mode = false)
+- Background operations are enabled to support environment initialization
+- These settings can be adjusted post-creation if needed for enhanced security
 
 Required Properties:
 - currency_code: ISO currency code string (EXPLICIT CHOICE - e.g., "USD", "EUR", "GBP")
 - security_group_id: Azure AD security group GUID (REQUIRED for governance)
 
-Optional Properties with Secure Defaults:
-- language_code: LCID integer (default: 1033 for English US security/testing)
+Optional Properties with Default Values:
+- language_code: LCID integer (default: 1033 for English US)
 - domain: Custom domain name (auto-calculated from display_name if not provided)
-- administration_mode_enabled: Enable admin mode (default: true for secure setup)
-- background_operation_enabled: Enable background operations (default: false for security)
+- administration_mode_enabled: Admin mode state (default: false - operational)
+- background_operation_enabled: Background operations (default: true - enabled)
 - template_metadata: Additional D365 template metadata as string
 - templates: List of D365 template names
 
 Examples:
 
-# Maximum Security Dataverse (explicit choices with secure defaults)
+# Standard Environment (using default values)
 dataverse = {
   currency_code     = "USD"  # EXPLICIT CHOICE
   security_group_id = "12345678-1234-1234-1234-123456789012"
-  # All other properties use secure defaults:
+  # All other properties use default values:
   # - language_code = 1033 (English US)
-  # - administration_mode_enabled = true
-  # - background_operation_enabled = false
+  # - administration_mode_enabled = false (operational)
+  # - background_operation_enabled = true (enabled)
   # - domain will be auto-calculated
 }
 
@@ -208,18 +215,19 @@ dataverse = {
   currency_code     = "EUR"   # EXPLICIT CHOICE
   security_group_id = "12345678-1234-1234-1234-123456789012"
   domain            = "contoso-eu"
-  # Security defaults maintained:
-  # - administration_mode_enabled = true
-  # - background_operation_enabled = false
+  # Default values maintained:
+  # - administration_mode_enabled = false (operational)
+  # - background_operation_enabled = true (enabled)
 }
 
-# Operational Environment (background operations enabled after security review)
+# High-Security Environment (explicit overrides for enhanced security)
 dataverse = {
   currency_code                = "USD"   # EXPLICIT CHOICE
   security_group_id            = "12345678-1234-1234-1234-123456789012"
-  background_operation_enabled = true    # Enabled after security review
-  administration_mode_enabled  = false   # Disabled for normal operations
-  # Other defaults maintained for consistency
+  administration_mode_enabled  = true    # Override: Enable admin mode for security
+  background_operation_enabled = false   # Override: Disable background ops for review
+  # Note: Power Platform may adjust these values during environment creation
+  # Use lifecycle.ignore_changes if state drift occurs
 }
 
 Governance Benefits:
@@ -250,7 +258,7 @@ DESCRIPTION
       var.dataverse.administration_mode_enabled == false :
       true
     )
-    error_message = "OPERATIONAL CONFLICT: Cannot enable background_operation_enabled=true while administration_mode_enabled=true. Disable administration mode first, then enable background operations after security review."
+    error_message = "OPERATIONAL CONFLICT: Cannot enable background_operation_enabled=true while administration_mode_enabled=true. Power Platform requires administration mode to be disabled before enabling background operations. This combination is not supported by the platform."
   }
 
   validation {
@@ -296,7 +304,7 @@ variable "enable_duplicate_protection" {
 # 🔒 SECURITY VALIDATION SUMMARY
 # ======================================================================================
 # 
-# These validation rules enforce secure-by-default practices:
+# These validation rules enforce opinionated default practices:
 # 
 # 1. GOVERNANCE ENFORCEMENT:
 #    - Requires valid environment group ID for organizational governance
