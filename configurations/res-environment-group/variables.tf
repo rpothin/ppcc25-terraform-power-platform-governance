@@ -2,59 +2,59 @@
 #
 # This file defines all input parameters for the configuration following
 # AVM variable standards with comprehensive validation and documentation.
-#
-# Variable Categories:
-# - Core Configuration: Primary environment group settings
-# - Governance Settings: Policy and rule configuration parameters
-# - Security Settings: Authentication and access controls
-# - Feature Flags: Optional functionality toggles
-#
-# CRITICAL: Forbid use of `any` type. All complex variables must use explicit object types with property-level validation.
 
-variable "environment_group_config" {
-  type = object({
-    display_name = string
-    description  = string
-  })
+variable "display_name" {
+  type        = string
   description = <<DESCRIPTION
-Configuration for Power Platform Environment Group creation.
+Human-readable name for the Power Platform Environment Group.
 
-This variable consolidates core environment group settings to reduce complexity while
-ensuring all requirements are validated at plan time.
+This name appears in the Power Platform admin center and is used for identification
+and management purposes. It should clearly indicate the purpose and scope of the
+environment group.
 
-Properties:
-- display_name: Human-readable name for the environment group (max 100 chars)
-- description: Detailed description of the environment group purpose and scope
-
-Example:
-{
-  display_name = "Development Environment Group"
-  description  = "Centralized group for all development environments with standardized governance policies"
-}
+Example: "Development Environment Group"
 
 Validation Rules:
-- Display name must be 1-100 characters for Power Platform compatibility
-- Description must be provided to ensure clear group purpose documentation
-- Both fields must not contain only whitespace characters
+- Must be 1-100 characters for Power Platform compatibility  
+- Cannot be empty or contain only whitespace characters
+- Should be descriptive and follow organizational naming conventions
 DESCRIPTION
 
   validation {
-    condition     = length(var.environment_group_config.display_name) >= 1 && length(var.environment_group_config.display_name) <= 100
-    error_message = "Display name must be 1-100 characters. Current length: ${length(var.environment_group_config.display_name)}. Adjust name to meet Power Platform limits."
+    condition     = length(var.display_name) >= 1 && length(var.display_name) <= 100
+    error_message = "Display name must be 1-100 characters. Current length: ${length(var.display_name)}. Adjust name to meet Power Platform limits."
   }
 
   validation {
-    condition     = length(trimspace(var.environment_group_config.display_name)) > 0
+    condition     = length(trimspace(var.display_name)) > 0
     error_message = "Display name cannot be empty or contain only whitespace. Provide a meaningful name for the environment group."
   }
+}
+
+variable "description" {
+  type        = string
+  description = <<DESCRIPTION
+Detailed description of the environment group purpose and scope.
+
+This description provides context about what environments belong to this group,
+what governance policies apply, and how it fits into the organization's Power
+Platform strategy.
+
+Example: "Centralized group for all development environments with standardized governance policies"
+
+Validation Rules:
+- Must be 1-500 characters to provide meaningful context
+- Cannot be empty or contain only whitespace characters  
+- Should explain the group's purpose and governance approach
+DESCRIPTION
 
   validation {
-    condition     = length(var.environment_group_config.description) >= 1 && length(var.environment_group_config.description) <= 500
-    error_message = "Description must be 1-500 characters. Current length: ${length(var.environment_group_config.description)}. Provide a clear, concise description."
+    condition     = length(var.description) >= 1 && length(var.description) <= 500
+    error_message = "Description must be 1-500 characters. Current length: ${length(var.description)}. Provide a clear, concise description."
   }
 
   validation {
-    condition     = length(trimspace(var.environment_group_config.description)) > 0
+    condition     = length(trimspace(var.description)) > 0
     error_message = "Description cannot be empty or contain only whitespace. Provide a meaningful description of the environment group purpose."
   }
 }

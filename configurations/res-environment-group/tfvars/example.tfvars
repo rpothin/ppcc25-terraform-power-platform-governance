@@ -13,50 +13,40 @@
 # =============================================================================
 # This example creates a basic environment group for development environments
 
-environment_group_config = {
-  display_name = "Development Environment Group"
-  description  = "Centralized group for all development environments with standardized governance policies and automated routing for developer-created environments"
-}
+display_name = "Development Environment Group"
+description  = "Centralized group for all development environments with standardized governance policies and automated routing for developer-created environments"
 
 # =============================================================================
 # Example 2: PRODUCTION ENVIRONMENT GROUP
 # =============================================================================
 # Use this pattern for production workloads with strict governance
 
-# environment_group_config = {
-#   display_name = "Production Environment Group"
-#   description  = "Production-grade environment group with enhanced security policies, compliance monitoring, and strict access controls for business-critical workloads"
-# }
+# display_name = "Production Environment Group"
+# description  = "Production-grade environment group with enhanced security policies, compliance monitoring, and strict access controls for business-critical workloads"
 
 # =============================================================================
 # Example 3: DEPARTMENT-SPECIFIC ENVIRONMENT GROUP
 # =============================================================================
 # Use this pattern for organizing environments by business unit or department
 
-# environment_group_config = {
-#   display_name = "Finance Department Environment Group"
-#   description  = "Dedicated environment group for Finance department with specialized compliance requirements, data residency rules, and department-specific governance policies"
-# }
+# display_name = "Finance Department Environment Group"
+# description  = "Dedicated environment group for Finance department with specialized compliance requirements, data residency rules, and department-specific governance policies"
 
 # =============================================================================
 # Example 4: PROJECT-BASED ENVIRONMENT GROUP
 # =============================================================================
 # Use this pattern for organizing environments by project or initiative
 
-# environment_group_config = {
-#   display_name = "Customer Portal Project Group"
-#   description  = "Project-specific environment group for customer portal initiative including development, testing, and production environments with coordinated ALM processes"
-# }
+# display_name = "Customer Portal Project Group"
+# description  = "Project-specific environment group for customer portal initiative including development, testing, and production environments with coordinated ALM processes"
 
 # =============================================================================
 # Example 5: GEOGRAPHIC ENVIRONMENT GROUP
 # =============================================================================
 # Use this pattern for organizing environments by geographic region or compliance zone
 
-# environment_group_config = {
-#   display_name = "European Union Environment Group"
-#   description  = "Geographic environment group for EU operations ensuring GDPR compliance, data residency within EU boundaries, and region-specific governance policies"
-# }
+# display_name = "European Union Environment Group"
+# description  = "Geographic environment group for EU operations ensuring GDPR compliance, data residency within EU boundaries, and region-specific governance policies"
 
 # =============================================================================
 # Configuration Guidelines

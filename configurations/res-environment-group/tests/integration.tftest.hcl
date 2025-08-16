@@ -21,10 +21,8 @@
 
 variables {
   # Test configuration for environment group
-  environment_group_config = {
-    display_name = "Test Environment Group"
-    description  = "Test environment group for Terraform validation"
-  }
+  display_name = "Test Environment Group"
+  description  = "Test environment group for Terraform validation"
 }
 
 # Comprehensive plan validation - optimized for CI/CD performance
@@ -67,31 +65,31 @@ run "plan_validation" {
 
   # Variable structure integrity
   assert {
-    condition     = can(var.environment_group_config.display_name) && can(var.environment_group_config.description)
-    error_message = "Environment group config must contain display_name and description properties"
+    condition     = can(var.display_name) && can(var.description)
+    error_message = "Environment group variables must contain display_name and description"
   }
 
   # Display name validation
   assert {
-    condition     = length(var.environment_group_config.display_name) >= 1 && length(var.environment_group_config.display_name) <= 100
-    error_message = "Display name must be 1-100 characters. Current: ${length(var.environment_group_config.display_name)}"
+    condition     = length(var.display_name) >= 1 && length(var.display_name) <= 100
+    error_message = "Display name must be 1-100 characters. Current: ${length(var.display_name)}"
   }
 
   # Description validation
   assert {
-    condition     = length(var.environment_group_config.description) >= 1 && length(var.environment_group_config.description) <= 500
-    error_message = "Description must be 1-500 characters. Current: ${length(var.environment_group_config.description)}"
+    condition     = length(var.description) >= 1 && length(var.description) <= 500
+    error_message = "Description must be 1-500 characters. Current: ${length(var.description)}"
   }
 
-  # Strong typing validation (no 'any' types)
+  # Strong typing validation (explicit types used)
   assert {
-    condition     = length([for v in values(var) : v if can(tostring(v)) && tostring(v) == "any"]) == 0
-    error_message = "Variables must not use 'any' type - all types must be explicit"
+    condition     = can(tostring(var.display_name)) && can(tostring(var.description))
+    error_message = "Variables must use explicit string types"
   }
 
   # Variable content validation (no empty/whitespace)
   assert {
-    condition     = length(trimspace(var.environment_group_config.display_name)) > 0 && length(trimspace(var.environment_group_config.description)) > 0
+    condition     = length(trimspace(var.display_name)) > 0 && length(trimspace(var.description)) > 0
     error_message = "Display name and description must not be empty or contain only whitespace"
   }
 
@@ -105,13 +103,13 @@ run "plan_validation" {
 
   # Resource configuration mapping
   assert {
-    condition     = powerplatform_environment_group.this.display_name == var.environment_group_config.display_name
+    condition     = powerplatform_environment_group.this.display_name == var.display_name
     error_message = "Resource display_name must match variable input"
   }
 
   # Resource description mapping
   assert {
-    condition     = powerplatform_environment_group.this.description == var.environment_group_config.description
+    condition     = powerplatform_environment_group.this.description == var.description
     error_message = "Resource description must match variable input"
   }
 
@@ -175,13 +173,13 @@ run "apply_validation" {
 
   # Resource state consistency
   assert {
-    condition     = powerplatform_environment_group.this.display_name == var.environment_group_config.display_name
+    condition     = powerplatform_environment_group.this.display_name == var.display_name
     error_message = "Deployed resource must maintain display name consistency"
   }
 
   # Resource description consistency
   assert {
-    condition     = powerplatform_environment_group.this.description == var.environment_group_config.description
+    condition     = powerplatform_environment_group.this.description == var.description
     error_message = "Deployed resource must maintain description consistency"
   }
 

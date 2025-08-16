@@ -22,8 +22,8 @@
 # Primary environment group resource with lifecycle protection
 # Environment groups organize environments into logical units for governance and management
 resource "powerplatform_environment_group" "this" {
-  display_name = var.environment_group_config.display_name
-  description  = var.environment_group_config.description
+  display_name = var.display_name
+  description  = var.description
 
   # Lifecycle management for resource modules
   # Allows manual admin center changes without Terraform drift detection
