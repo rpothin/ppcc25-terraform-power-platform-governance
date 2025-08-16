@@ -1,12 +1,66 @@
 # Next Steps After Holidays
 
-![How-to Guide](https://img.shields.io/badge/Diataxis-How--to%20Guide-green?style=for-the-badge&logo=tools)
+!### **REVISED DIRE## 🚀 Strategic Pivot: Hybrid Automation Governance Architecture
 
-> **Purpose:** This plan documents the prioritized next steps for Power Platform governance automation, **strategically repositioned for future-oriented governance** with Environment Groups and Advanced Connectors rules.
+### **HYBRID DIRECTION**: Environment Groups + Automated & Manual Governance
+
+**Strategic Shift**: Moving from DLP-policy-centric approach to **Environment Group-centric governance** with **hybrid automation** (Terraform + guided manual configuration).
+
+#### **Legacy vs. Current vs. Future Governance**:
+- **Legacy Approach**: Tenant-wide DLP policies with complex administration
+- **Current Approach** ✅: Environment Groups + Hybrid governance (automated infrastructure + guided manual rules)
+- **Future Approach** 🚀: Environment Groups + Full automation (when provider supports OIDC)
+
+#### **Demonstration Focus**:
+> **"One TFVars File → Complete Team Workspace + Configuration Guide"**
+> 
+> Show how single configuration creates: Environment Group + Environments + Generated manual configuration guide with specific valuesonment Groups +#### 🔄 REVISED IMMEDIATE NEXT STEPS (Week of August 16, 2025) 
+- [x] **res-environment-group**: Development completed *(COMPLETED - 35 test assertions)*
+- [ ] **Hybrid environment-group-rule-set approach**: Terraform automation + manual configuration integration *(4-6 hours estimated)*
+- **NEW PRIORITY**: ptn-environment-group with integrated manual step documentation
+- **Critical Path**: Complete workspace orchestration with hybrid governance approachronment-Level Governance
+
+**Strategic Shift**: Moving from DLP-policy-centric approach to **Environment Group-centric governance** with **environment-level settings** for automation compatibility.
+
+#### **Legacy vs. Current vs. Future Governance**:
+- **Legacy Approach**: Tenant-wide DLP policies with complex administration
+- **Current Approach** ✅: Environment Groups + Environment-level settings (automation-compatible)
+- **Future Approach** 🔄: Environment Groups + Rule Sets (when provider supports service principals)
+
+#### **Demonstration Focus**:
+> **"One TFVars File → Complete Team Workspace"**
+> 
+> Show how single configuration creates: Environment Group + Environment Settings + Dev/Test/Prod Environments + Governancee](https://img.shields.io/badge/Diataxis-How--to%20Guide-green?style=for-the-badge&logo=tools)
+
+> **Purpose:** This plan documents the prioritized next steps for Power Platform governance automation, **strategically repositioned for automation-first governance** with Environment Groups and environment-level settings.
 
 ---
 
-## 🚀 Strategic Pivot: Future-Oriented Governance Architecture
+## 🚨 **CRITICAL STRATEGIC DECISION - August 16, 2025**
+
+### **🔄 res-environment-group-rule-set Hybrid Implementation Approach**
+
+**Decision**: Implement hybrid automation approach for `res-environment-group-rule-set` due to provider authentication limitations.
+
+**Challenge**: 
+- Microsoft's `powerplatform_environment_group_rule_set` resource **does not support service principal authentication**
+- Cannot be automated in CI/CD pipelines without breaking OIDC principles
+
+**Hybrid Solution**: 
+- **✅ Terraform Automation**: Environment Group creation, environment provisioning, and base configuration
+- **📋 Manual Step**: Environment Group Rule Set configuration through Power Platform admin center
+- **📚 Integrated Process**: Single `ptn-environment-group` configuration orchestrates automation + provides manual guidance
+- **🚀 Future-Ready**: Designed for seamless migration to full automation when provider supports OIDC
+
+**Strategic Value**: 
+- **Maintains IaC Principles**: Automates everything technically possible
+- **Enterprise Compatible**: Works within OIDC/service principal constraints
+- **Complete Governance**: Achieves full environment group governance through guided process
+- **Demonstration Ready**: Shows sophisticated automation + practical manual integration
+
+---
+
+## 🚀 Strategic Pivot: Automation-First Governance Architecture
 
 ### **NEW DIRECTION**: Environment Groups as Modern Governance Foundation
 
@@ -39,21 +93,24 @@
   - ✅ Provider schema compliance and multi-environment testing
   - ✅ Documentation and troubleshooting guides complete
 
-#### 🔥 IMMEDIATE NEXT STEPS (Week of August 16, 2025)
-- **res-environment-group**: Begin development immediately *(6-8 hours estimated)*
-- **res-environment-group-rule-set**: Follow-up development *(8-10 hours estimated)*
-- **Critical Path**: These modules block ptn-environment-group completion
+#### � REVISED IMMEDIATE NEXT STEPS (Week of August 16, 2025) 
+- [x] **res-environment-group**: Development completed *(COMPLETED - 35 test assertions)*
+- ❌ **~~res-environment-group-rule-set~~**: **IMPLEMENTATION ABORTED** *(Authentication limitations incompatible with automation)*
+- **NEW PRIORITY**: Alternative governance approach through environment-level settings
+- **Critical Path**: Focus shifts to ptn-environment-group with environment-settings integration
 
-#### 🎯 STRATEGIC PRIORITIES (Future-Oriented Architecture)
-- **res-environment-group**: Environment governance container *(Ready to start)*
-- **res-environment-group-rule-set**: Advanced governance rules with future Advanced Connectors support *(Next in sequence)*
-- **ptn-environment-group**: Complete workspace orchestration *(Critical - workflows reference but doesn't exist)*
+#### 🎯 REVISED STRATEGIC PRIORITIES (Hybrid Automation Architecture)
+- [x] **res-environment-group**: Environment governance container *(COMPLETED)*
+- [ ] **Hybrid rule-set governance**: Terraform automation + guided manual configuration *(In Development)*
+- **ptn-environment-group**: Complete workspace orchestration with hybrid governance approach *(Critical priority)*
+- **Future Automation**: Ready for seamless upgrade when provider supports OIDC authentication
 
-### Critical Gap Analysis for Future Architecture
-- **Missing Environment Group Modules**: Foundation for modern governance - immediate development priority
-- **Workflow Mismatch**: Multiple workflows reference non-existent `ptn-environment-group` - primary blocker
-- **Strategic Architecture Gap**: No complete workspace provisioning capability - depends on Environment Group modules
-- **Future-Readiness Gap**: No Advanced Connectors rule structure prepared - template system needed
+### Revised Critical Gap Analysis for Automation-First Architecture
+- [x] **~~Missing Environment Group Modules~~**: *(RESOLVED - res-environment-group completed)*
+- **Workflow Mismatch**: Multiple workflows reference non-existent `ptn-environment-group` - primary blocker  
+- **Strategic Architecture Gap**: No complete workspace provisioning capability - now depends on environment-settings integration
+- **🔄 Governance Approach Pivot**: Shift from group-level rules to environment-level settings due to provider limitations
+- **NEW PRIORITY**: res-environment-settings module for automation-compatible governance
 
 ---
 
@@ -82,18 +139,45 @@
   - [x] Integration with Entra ID security groups ✅ *OIDC authentication with Azure/Entra ID*
   - [x] Validation framework (minimum 20 assertions) ✅ *35 assertions implemented (175% of requirement)*
   - [x] Documentation and examples ✅ *Comprehensive README + 5 use case examples*
-- [ ] **Create res-environment-group-rule-set module** *(8-10 hours) - NEXT PRIORITY*
-  - [ ] Current available governance rules implementation
-  - [ ] Future-ready Advanced Connectors structure (commented/prepared)
-  - [ ] Template system for governance patterns
-  - [ ] Comprehensive testing and validation
+- [x] **~~Create res-environment-group-rule-set module~~** 🔄 **HYBRID APPROACH: Terraform + Manual Configuration**
+  
+  **🔄 DECISION: Hybrid Implementation Due to Provider Limitations**
+  
+  **Root Cause**: Microsoft Power Platform provider has authentication limitations for this preview resource:
+  
+  > **Known Limitations:** This resource is not supported with service principal authentication.
+  > — *Microsoft Terraform Power Platform Provider Documentation*
+  
+  **Hybrid Solution Strategy**:
+  - ✅ **Terraform Automation**: Environment Group creation and base configuration
+  - 📋 **Manual Configuration**: Environment Group Rule Set configuration through admin center
+  - 📚 **Integrated Documentation**: Clear step-by-step manual configuration guide
+  - 🎯 **Single ptn-* Configuration**: Orchestrates automated deployment + manual step guidance
+  
+  **Implementation Approach**:
+  - ✅ **Phase 1**: `ptn-environment-group` deploys Environment Group via Terraform
+  - 📋 **Phase 2**: Generated documentation guides manual rule configuration
+  - 🔄 **Phase 3**: Configuration validation and compliance checking
+  - 🚀 **Future**: Automatic migration when provider supports OIDC authentication
+  
+  **Manual Configuration Integration**:
+  - **Post-Deployment Guide**: Auto-generated instructions with specific Environment Group ID
+  - **Configuration Templates**: Pre-defined rule sets for different governance patterns
+  - **Validation Scripts**: PowerShell/CLI tools to verify manual configuration matches intent
+  - **Documentation Output**: Terraform outputs provide all necessary values for manual steps
+  
+  **Demonstration Value**: 
+  - Shows complete governance setup (automated + guided manual)
+  - Positions as "ready for full automation" when provider matures
+  - Demonstrates enterprise-ready process integration
+  - Maintains Infrastructure as Code principles where technically possible
 
 **Phase 1 Success Criteria:**
 - [x] res-environment module production-ready and tested *(COMPLETED)*
 - [x] res-environment-group module operational *(COMPLETED - 35 test assertions, comprehensive documentation)*
-- [ ] res-environment-group-rule-set module operational *(IN PROGRESS - Next priority)*
-- [ ] Future Advanced Connectors structure prepared
-- [ ] Documentation complete for all modules
+- [ ] **Hybrid environment-group-rule-set approach implemented** (Terraform automation + manual configuration guidance)
+- [ ] Manual configuration documentation and templates prepared
+- [ ] Integration with ptn-environment-group configuration completed
 
 ---
 
@@ -102,20 +186,21 @@
 
 #### Complete Workspace Orchestration
 - [ ] **Create ptn-environment-group configuration** *(10-12 hours)*
-  - [ ] Orchestrate Environment Group + Rules + Multiple Environments
+  - [ ] Orchestrate Environment Group + Multiple Environments via Terraform
+  - [ ] Generate manual configuration guide with specific Environment Group ID and values
   - [ ] Template system implementation (governance + environment templates)
-  - [ ] One-TFVars complete workspace provisioning
+  - [ ] One-TFVars complete workspace provisioning + manual step integration
   - [ ] Pattern-specific validation (minimum 25 assertions)
-- [ ] **Implement governance template system** *(4-6 hours)*
-  - [ ] Enterprise-managed governance template
-  - [ ] Development-flexible governance template
-  - [ ] Future Advanced Connectors rule templates
-  - [ ] Environment-specific templates (dev/test/prod)
+- [ ] **Implement hybrid governance system** *(4-6 hours)*
+  - [ ] Manual configuration templates (enterprise-managed, development-flexible)
+  - [ ] Post-deployment documentation generation
+  - [ ] Validation scripts for manual configuration verification
+  - [ ] Future automation migration planning
 - [ ] **Create demonstration tfvars examples** *(2-3 hours)*
-  - [ ] team-alpha-modern-workspace.tfvars
-  - [ ] startup-flexible-workspace.tfvars
-  - [ ] enterprise-secure-workspace.tfvars
-  - [ ] Document template selection guidance
+  - [ ] team-alpha-modern-workspace.tfvars (with governance guide)
+  - [ ] startup-flexible-workspace.tfvars (with governance guide)
+  - [ ] enterprise-secure-workspace.tfvars (with governance guide)
+  - [ ] Document hybrid process selection guidance
 
 #### Workflow Integration
 - [ ] **Update all workflow references** *(2-3 hours)*
@@ -125,10 +210,10 @@
   - [ ] Validate end-to-end automation
 
 **Phase 2 Success Criteria:**
-- [ ] Complete workspace provisioning operational (one TFVars → full workspace)
-- [ ] Template system enables easy customization
-- [ ] All workflows reference correct configurations
-- [ ] End-to-end demonstration ready
+- [ ] Complete workspace provisioning operational (one TFVars → full workspace + manual guide)
+- [ ] Hybrid governance system enables both automation and guided manual configuration
+- [ ] All workflows reference correct configurations and include manual step documentation
+- [ ] End-to-end demonstration ready with integrated manual configuration process
 
 ---
 
