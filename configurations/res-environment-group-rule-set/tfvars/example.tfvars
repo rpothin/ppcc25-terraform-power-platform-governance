@@ -35,8 +35,8 @@ rules = {
 
   # Solution checker enforcement for quality assurance
   solution_checker_enforcement = {
-    solution_checker_mode = "block"      # Block deployment of non-compliant solutions
-    send_emails_enabled   = true        # Notify makers of checker results
+    solution_checker_mode = "block" # Block deployment of non-compliant solutions
+    send_emails_enabled   = true    # Notify makers of checker results
   }
 
   # Backup retention for data protection
