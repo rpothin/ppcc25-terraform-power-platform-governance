@@ -175,8 +175,7 @@ microsoft/power-platform provider to ensure 100% compatibility.
 🔒 SECURE DEFAULTS IMPLEMENTED:
 - environment\_type = "Sandbox" (lowest-privilege environment type)
 - cadence = "Moderate" (stable update cadence for production readiness)
-- allow\_bing\_search = false (prevents external data exposure)
-- allow\_moving\_data\_across\_regions = false (data sovereignty compliance)
+- AI settings (Bing search, cross-region data) controlled by environment group rules
 
 Required Properties:
 - display\_name: Human-readable environment name
@@ -189,12 +188,12 @@ Optional Properties with Secure Defaults:
 - description: Environment description
 - azure\_region: Specific Azure region (westeurope, eastus, etc.)
 - cadence: Update cadence (default: "Moderate" for stability)
-- allow\_bing\_search: Enable Bing search (default: false for security)
-  🤖 REQUIRED FOR: Copilot Studio, Power Pages Copilot, Dynamics 365 AI features
-- allow\_moving\_data\_across\_regions: Allow data movement across regions (default: false for sovereignty)
-  🤖 REQUIRED FOR: Power Apps AI, Power Automate Copilot, AI Builder (outside US/Europe)
 - billing\_policy\_id: GUID for pay-as-you-go billing policy
 - release\_cycle: Early release participation
+
+🤖 AI SETTINGS GOVERNANCE:  
+Bing search and cross-region data movement are controlled by environment group rules.  
+Configure these settings through the environment group's ai\_generative\_settings rules.
 
 Examples:
 
@@ -203,12 +202,11 @@ environment = {
   display\_name         = "Secure Finance Environment"  
   location             = "unitedstates"  
   environment\_group\_id = "12345678-1234-1234-1234-123456789012"  
-  description          = "High-security environment with AI features disabled"
+  description          = "High-security environment with AI governance via group rules"
   # All other properties use secure defaults:
   # - environment\_type = "Sandbox"
   # - cadence = "Moderate"
-  # - allow\_bing\_search = false
-  # - allow\_moving\_data\_across\_regions = false
+  # AI settings controlled by environment group rules
 }
 
 # Production Environment with Explicit Security Settings  
@@ -221,25 +219,25 @@ environment = {
   azure\_region                     = "eastus"
   # Secure defaults maintained:
   # - cadence = "Moderate"
-  # - allow\_bing\_search = false
-  # - allow\_moving\_data\_across\_regions = false
+  # AI settings controlled by environment group governance rules
 }
 
-# AI-Enabled Development Environment (conscious choice)  
+# AI-Enabled Development Environment (via environment group)  
 environment = {  
   display\_name                     = "AI Development Sandbox"  
   location                         = "unitedstates"            # EXPLICIT CHOICE  
   environment\_group\_id             = "87654321-4321-4321-4321-210987654321"  
-  description                      = "Development environment with AI capabilities enabled"  
-  allow\_bing\_search                = true   # Enable Copilot features  
-  allow\_moving\_data\_across\_regions = true   # Enable AI Builder/Power Apps AI
-  # Other defaults maintained for security
+  description                      = "Development environment with AI capabilities via group rules"
+  # AI settings configured through environment group's ai\_generative\_settings:
+  # - Environment group rule: bing\_search\_enabled = true
+  # - Environment group rule: move\_data\_across\_regions\_enabled = true
 }
 
-🚨 AI CAPABILITY TRADE-OFFS:
-- allow\_bing\_search = false DISABLES: Copilot Studio, Power Pages Copilot, Dynamics 365 AI
-- allow\_moving\_data\_across\_regions = false DISABLES: Power Apps AI, Power Automate Copilot, AI Builder
-- Set both to true to enable full AI/Copilot capabilities (reduces security posture)
+🚨 AI CAPABILITY GOVERNANCE:  
+AI capabilities are controlled by environment group rules, not individual environment settings.  
+Configure ai\_generative\_settings in your environment group to enable/disable:
+- bing\_search\_enabled: Controls Copilot Studio, Power Pages Copilot, Dynamics 365 AI
+- move\_data\_across\_regions\_enabled: Controls Power Apps AI, Power Automate Copilot, AI Builder
 
 Limitations:
 - Developer environments require user authentication (not service principal)
@@ -256,14 +254,15 @@ object({
     environment_group_id = string # ✅ NOW REQUIRED for proper governance
 
     # Optional Arguments - ✅ REAL with SECURE DEFAULTS
-    environment_type                 = optional(string, "Sandbox") # SECURE DEFAULT: Lowest-privilege environment type
-    description                      = optional(string)
-    azure_region                     = optional(string)             # Let Power Platform choose optimal region
-    cadence                          = optional(string, "Moderate") # SECURE DEFAULT: Stable update cadence
-    allow_bing_search                = optional(bool, false)        # SECURE DEFAULT: Blocks AI external data access
-    allow_moving_data_across_regions = optional(bool, false)        # SECURE DEFAULT: Data sovereignty compliance
-    billing_policy_id                = optional(string)
-    release_cycle                    = optional(string)
+    environment_type = optional(string, "Sandbox") # SECURE DEFAULT: Lowest-privilege environment type
+    description      = optional(string)
+    azure_region     = optional(string)             # Let Power Platform choose optimal region
+    cadence          = optional(string, "Moderate") # SECURE DEFAULT: Stable update cadence
+    # AI settings removed - controlled by environment group rules when environment_group_id is required
+    # allow_bing_search                = optional(bool, false)        # CONTROLLED BY ENVIRONMENT GROUP
+    # allow_moving_data_across_regions = optional(bool, false)        # CONTROLLED BY ENVIRONMENT GROUP
+    billing_policy_id = optional(string)
+    release_cycle     = optional(string)
   })
 ```
 
