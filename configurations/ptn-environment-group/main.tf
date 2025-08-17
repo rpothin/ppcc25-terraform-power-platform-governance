@@ -25,18 +25,7 @@
 # - Dependency Chain: Environment group → Template processing → Environment creation
 # - Governance Integration: Built for DLP policies and environment routing
 
-# ============================================================================
-# TERRAFORM CONFIGURATION
-# ============================================================================
 
-terraform {
-  required_providers {
-    powerplatform = {
-      source  = "microsoft/power-platform"
-      version = "~> 3.8"
-    }
-  }
-}
 
 # ============================================================================
 # ENVIRONMENT GROUP MODULE ORCHESTRATION
@@ -76,30 +65,3 @@ module "environments" {
   depends_on = [module.environment_group]
 }
 
-# ============================================================================
-# PATTERN SUMMARY AND METADATA
-# ============================================================================
-
-# Pattern deployment summary for validation and outputs
-locals {
-  # Deployment validation
-  deployment_validation = {
-    template_valid           = contains(keys(local.workspace_templates), var.workspace_template)
-    location_valid           = local.location_validation
-    all_environments_created = length(module.environments) == local.pattern_metadata.environment_count
-    group_assignment_valid   = module.environment_group.environment_group_id != null
-    pattern_complete         = local.pattern_metadata.environment_count > 0
-  }
-
-  # Environment deployment results
-  environment_results = {
-    for idx, env in local.environment_summary : idx => {
-      display_name     = env.display_name
-      environment_type = env.environment_type
-      location         = env.location
-      environment_id   = module.environments[idx].environment_id
-      group_assignment = "automatic" # Assigned via pattern orchestration
-      template_suffix  = env.suffix
-    }
-  }
-}

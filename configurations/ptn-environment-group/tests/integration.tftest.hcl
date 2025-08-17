@@ -55,9 +55,9 @@ run "plan_validation" {
     error_message = "Provider version must match centralized standard ~> 3.8 in versions.tf"
   }
 
-  # OIDC authentication configuration in main.tf provider block
+  # OIDC authentication configuration in versions.tf provider block
   assert {
-    condition     = length(regexall("use_oidc\\s*=\\s*true", file("${path.module}/main.tf"))) > 0
+    condition     = length(regexall("use_oidc\\s*=\\s*true", file("${path.module}/versions.tf"))) > 0
     error_message = "Provider must be configured with use_oidc = true for secure authentication"
   }
 
