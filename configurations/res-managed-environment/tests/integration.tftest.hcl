@@ -99,8 +99,8 @@ run "plan_validation" {
   }
 
   assert {
-    condition     = powerplatform_managed_environment.this.solution_checker_rule_overrides == var.test_solution_checker.rule_overrides
-    error_message = "Solution checker rule overrides should match input configuration"
+    condition     = toset(powerplatform_managed_environment.this.solution_checker_rule_overrides) == toset(var.test_solution_checker.rule_overrides)
+    error_message = "Solution checker rule overrides should match input configuration (order-independent comparison)"
   }
 
   assert {
