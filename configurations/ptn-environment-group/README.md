@@ -59,6 +59,8 @@ The following requirements are needed by this module:
 
 - <a name="requirement_powerplatform"></a> [powerplatform](#requirement\_powerplatform) (~> 3.8)
 
+- <a name="requirement_powerplatform"></a> [powerplatform](#requirement\_powerplatform) (~> 3.8)
+
 ## Providers
 
 No providers.
@@ -88,131 +90,92 @@ No resources.
 
 The following input variables are required:
 
-### <a name="input_environment_group_config"></a> [environment\_group\_config](#input\_environment\_group\_config)
+### <a name="input_description"></a> [description](#input\_description)
 
-Description: Configuration for the Power Platform Environment Group creation.
+Description: Description of the workspace and its purpose.
 
-This object defines the environment group that will serve as the container  
-for organizing multiple environments with consistent governance policies.
-
-Properties:
-- display\_name: Human-readable name for the environment group (1-100 chars)
-- description: Detailed description of the group purpose and scope (1-500 chars)
+This description will be used for the environment group and provides  
+context for the workspace's governance and business purpose.
 
 Example:  
-environment\_group\_config = {  
-  display\_name = "Development Environment Group"  
-  description  = "Centralized group for all development environments with standardized governance policies"
-}
+description = "Project workspace for customer portal development"
 
 Validation Rules:
-- Display name must be unique within tenant and follow naming conventions
-- Description should explain group purpose and governance approach
-- Both fields are required and cannot be empty or whitespace-only
+- Must be 1-200 characters
+- Cannot be empty or contain only whitespace
+- Should describe business purpose and governance approach
 
-Type:
+Type: `string`
 
-```hcl
-object({
-    display_name = string
-    description  = string
-  })
-```
+### <a name="input_location"></a> [location](#input\_location)
 
-### <a name="input_environments"></a> [environments](#input\_environments)
+Description: Power Platform geographic region for all environments in this workspace.
 
-Description: List of environments to create and assign to the environment group.
-
-Each environment object represents a Power Platform environment that will be  
-created and automatically assigned to the environment group for consistent  
-governance and policy application.
-
-Properties:
-- display\_name: Human-readable name for the environment (required, 1-100 chars)
-- location: Azure region for the environment (required, valid Azure region)
-- environment\_type: Type of environment - "Sandbox", "Production", or "Trial" (required)
-- dataverse\_language: Language code for Dataverse database (optional, default: "en")
-- dataverse\_currency: Currency code for Dataverse database (optional, default: "USD")
-- domain: Custom domain name for the environment (optional, auto-generated if not provided)
+All environments created by the template will be deployed to this region.  
+The location must be supported by the selected workspace template.
 
 Example:  
-environments = [
-  {  
-    display\_name     = "Development Environment"  
-    location         = "unitedstates"  
-    environment\_type = "Sandbox"  
-    domain           = "dev-environment"
-  },
-  {  
-    display\_name     = "Testing Environment"  
-    location         = "unitedstates"  
-    environment\_type = "Sandbox"  
-    dataverse\_language = "en"  
-    dataverse\_currency = "USD"
-  }
-]
+location = "unitedstates"
+
+Supported locations:
+- unitedstates, europe, asia, australia, unitedkingdom, india
+- canada, southamerica, france, unitedarabemirates, southafrica
+- germany, switzerland, norway, korea, japan
 
 Validation Rules:
-- At least one environment must be provided for the pattern to be meaningful
-- Display names must be unique across the tenant
-- Environment types are restricted to supported values for service principal authentication
-- Locations must be valid Power Platform geographic regions
+- Must be a valid Power Platform geographic region
+- Will be validated against template-specific allowed locations
+- Cannot be changed after workspace creation without recreation
 
-Type:
+Type: `string`
 
-```hcl
-list(object({
-    display_name       = string
-    location           = string
-    environment_type   = string
-    dataverse_language = optional(string, "en")
-    dataverse_currency = optional(string, "USD")
-    domain             = optional(string)
-  }))
-```
+### <a name="input_name"></a> [name](#input\_name)
 
-### <a name="input_security_group_id"></a> [security\_group\_id](#input\_security\_group\_id)
+Description: Workspace name used as the base for all environment names.
 
-Description: Azure AD Security Group ID for Dataverse access control across all environments.
-
-This security group will be assigned to all environments created by this pattern  
-to ensure consistent access control and governance. The group should contain  
-users and service principals that need access to the environments.
-
-Format: UUID (e.g., 12345678-1234-1234-1234-123456789012)
+This name will be combined with environment suffixes defined in the  
+selected workspace template to create individual environment names.
 
 Example:  
-security\_group\_id = "12345678-1234-1234-1234-123456789012"
+name = "MyProject"
+
+With "basic" template, this creates:
+- "MyProject - Dev"
+- "MyProject - Test"
+- "MyProject - Prod"
 
 Validation Rules:
-- Must be a valid UUID format
-- Security group must exist in Azure AD before applying this configuration
-- Group should follow organizational access control policies
+- Must be 1-50 characters to allow for suffixes
+- Cannot be empty or contain only whitespace
+- Should follow organizational naming conventions
+
+Type: `string`
+
+### <a name="input_workspace_template"></a> [workspace\_template](#input\_workspace\_template)
+
+Description: Workspace template that defines the environments to create.
+
+Predefined templates provide standardized environment configurations  
+for different use cases and governance requirements.
+
+Available templates:
+- "basic": Creates Dev, Test, and Prod environments
+- "simple": Creates Dev and Prod environments only  
+- "enterprise": Creates Dev, Staging, Test, and Prod environments
+
+Example:  
+workspace\_template = "basic"
+
+Validation Rules:
+- Must be one of the supported template names
+- Template definitions are managed in locals.tf
+- Each template includes environment types and naming conventions
 
 Type: `string`
 
 ## Optional Inputs
 
-The following input variables are optional (have default values):
-
-### <a name="input_enable_duplicate_protection"></a> [enable\_duplicate\_protection](#input\_enable\_duplicate\_protection)
-
-Description: Enable duplicate protection to prevent creation of environments with duplicate names.
-
-This setting controls whether the pattern validates against existing environments  
-to prevent naming conflicts. In production scenarios, this should typically be  
-enabled to maintain environment naming consistency.
-
-Default: true (recommended for production use)
-
-Validation Rules:
-- When true: Validates environment names against existing tenant environments
-- When false: Allows potential duplicate names (useful for testing scenarios)
-- Always validates that environments within the pattern have unique names
-
-Type: `bool`
-
-Default: `true`
+No optional inputs.
 
 ## Outputs
 
@@ -223,7 +186,7 @@ The following outputs are exported:
 Description: The unique identifier of the created Power Platform Environment Group.
 
 This output provides the primary key for referencing the environment group  
-created by this pattern. Use this ID to:
+created by this template-driven pattern. Use this ID to:
 - Configure additional governance policies targeting this group
 - Reference the group in external configuration management systems
 - Set up environment routing rules and rule sets
@@ -235,33 +198,39 @@ Format: GUID (e.g., 12345678-1234-1234-1234-123456789012)
 
 Description: The display name of the created environment group.
 
-This output provides the human-readable name for validation and reporting purposes.  
-Useful for:
-- Confirming successful pattern deployment with expected naming
-- Integration with external documentation and governance systems
-- Validation in CI/CD pipelines and automated testing
-- User-facing reports and operational dashboards
+Generated from workspace name with " - Environment Group" suffix.  
+Useful for validation, reporting, and cross-reference with environment IDs.
 
 ### <a name="output_environment_ids"></a> [environment\_ids](#output\_environment\_ids)
 
-Description: Map of environment identifiers created by this pattern.
+Description: Map of environment identifiers created by the template.
 
-This output provides the unique identifiers for all environments created  
-and assigned to the environment group. The map uses the array index as the  
-key and the environment ID as the value.
+Provides unique identifiers for all environments created based on the  
+selected workspace template. Map keys correspond to template environment  
+indices, values are the Power Platform environment GUIDs.
 
-Format: Map where each value is a GUID  
-Usage: Reference specific environments by index for additional configuration
+Usage: Reference specific environments for additional configuration
 
 ### <a name="output_environment_names"></a> [environment\_names](#output\_environment\_names)
 
-Description: Map of environment display names created by this pattern.
+Description: Map of environment display names generated by the template.
 
-This output provides the human-readable names for all environments  
-created as part of this pattern, useful for validation and reporting.
+Shows the actual environment names created by combining the workspace  
+name with template-defined suffixes (e.g., " - Dev", " - Test", " - Prod").
 
-Format: Map where each value is the environment display name  
-Usage: Validation, reporting, and cross-reference with environment IDs
+### <a name="output_environment_suffixes"></a> [environment\_suffixes](#output\_environment\_suffixes)
+
+Description: Map of environment name suffixes used by the template.
+
+Shows the suffixes (e.g., " - Dev", " - Test", " - Prod") that were  
+applied to the workspace name to generate environment names.
+
+### <a name="output_environment_types"></a> [environment\_types](#output\_environment\_types)
+
+Description: Map of environment types as defined by the template.
+
+Shows the environment types (Sandbox, Production, Trial) for each  
+environment as specified in the workspace template configuration.
 
 ### <a name="output_governance_ready_resources"></a> [governance\_ready\_resources](#output\_governance\_ready\_resources)
 
@@ -269,15 +238,33 @@ Description: Map of resources ready for governance configuration and policy appl
 
 ### <a name="output_orchestration_summary"></a> [orchestration\_summary](#output\_orchestration\_summary)
 
-Description: Summary of pattern deployment status and multi-resource orchestration results
+Description: Summary of template-driven pattern deployment status and results
 
 ### <a name="output_output_schema_version"></a> [output\_schema\_version](#output\_output\_schema\_version)
 
-Description: The version of the output schema for this pattern module.
+Description: The version of the output schema for this template-driven pattern module.
 
 ### <a name="output_pattern_configuration_summary"></a> [pattern\_configuration\_summary](#output\_pattern\_configuration\_summary)
 
-Description: Comprehensive summary of pattern configuration for audit and compliance reporting
+Description: Comprehensive summary of template-driven pattern configuration
+
+### <a name="output_template_metadata"></a> [template\_metadata](#output\_template\_metadata)
+
+Description: Metadata about the workspace template and its configuration
+
+### <a name="output_workspace_name"></a> [workspace\_name](#output\_workspace\_name)
+
+Description: The workspace name used as the base for environment naming.
+
+This is the user-provided workspace name that gets combined with  
+template-defined suffixes to create individual environment names.
+
+### <a name="output_workspace_template"></a> [workspace\_template](#output\_workspace\_template)
+
+Description: The workspace template used for this deployment.
+
+Indicates which predefined template was used to create the environment  
+structure. Available templates: basic, simple, enterprise.
 
 ## Authentication
 
