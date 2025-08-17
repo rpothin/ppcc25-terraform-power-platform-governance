@@ -24,7 +24,7 @@ provider "powerplatform" {
 
 variables {
   # Test configuration - production-ready example values
-  test_environment_id = "0259c539-0a0a-e12d-b07e-cf0ffaa407f1" # Test environment GUID
+  test_environment_id = "7bd6b68b-e4a4-e058-aeb6-7f7820ba6ff5" # Test environment GUID
 
   test_sharing_settings = {
     is_group_sharing_disabled = true
