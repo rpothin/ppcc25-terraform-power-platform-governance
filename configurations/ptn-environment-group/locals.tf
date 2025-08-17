@@ -131,9 +131,8 @@ locals {
       }
 
       # Dataverse configuration object
-      dataverse = merge(local.default_dataverse_config, {
-        domain = lower(replace("${var.name}${env_config.suffix}", " ", "-"))
-      })
+      # Note: Domain will be auto-calculated by res-environment module from display_name
+      dataverse = local.default_dataverse_config
     }
   }
 
