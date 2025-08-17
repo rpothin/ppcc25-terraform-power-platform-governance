@@ -65,3 +65,26 @@ module "environments" {
   depends_on = [module.environment_group]
 }
 
+# ============================================================================
+# ENVIRONMENT SETTINGS MODULE ORCHESTRATION
+# ============================================================================
+
+# Configure environment settings using template-processed configurations
+# Applies workspace-level defaults with environment-specific overrides
+module "environment_settings" {
+  source   = "../res-environment-settings"
+  for_each = local.template_environments
+
+  # Environment ID from created environments
+  environment_id = module.environments[each.key].environment_id
+
+  # Apply processed settings from template configuration
+  audit_settings    = each.value.settings.audit_settings
+  security_settings = each.value.settings.security_settings
+  feature_settings  = each.value.settings.feature_settings
+  email_settings    = each.value.settings.email_settings
+
+  # Explicit dependency chain: group → environments → settings
+  depends_on = [module.environments]
+}
+

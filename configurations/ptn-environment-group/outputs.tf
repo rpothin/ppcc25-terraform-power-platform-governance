@@ -123,6 +123,79 @@ DESCRIPTION
 }
 
 # ============================================================================
+# ENVIRONMENT SETTINGS OUTPUTS - Template-Driven Settings Configuration
+# ============================================================================
+
+output "environment_settings_summary" {
+  description = <<DESCRIPTION
+Comprehensive summary of environment settings applied by template configuration.
+
+Shows how workspace-level defaults and environment-specific overrides were
+processed and applied to each environment. Useful for governance validation
+and compliance reporting.
+DESCRIPTION
+  value = {
+    workspace_settings = {
+      global_features = local.selected_template.workspace_settings.global_features
+      global_email    = local.selected_template.workspace_settings.global_email
+      global_security = local.selected_template.workspace_settings.global_security
+    }
+
+    environment_specific_settings = {
+      for idx, env in local.environment_summary : env.display_name => {
+        environment_type  = env.environment_type
+        audit_settings    = local.template_environment_settings[idx].merged_settings.audit_settings
+        security_settings = local.template_environment_settings[idx].merged_settings.security_settings
+        feature_settings  = local.template_environment_settings[idx].merged_settings.feature_settings
+        email_settings    = local.template_environment_settings[idx].merged_settings.email_settings
+        settings_source   = "template_${var.workspace_template}"
+      }
+    }
+
+    configuration_approach = {
+      type                  = "hybrid"
+      workspace_defaults    = "applied_to_all"
+      environment_overrides = "per_environment_type"
+      template_driven       = true
+    }
+  }
+}
+
+output "settings_deployment_status" {
+  description = <<DESCRIPTION
+Deployment status and validation of environment settings modules.
+
+Provides detailed information about the successful deployment of settings
+to each environment, including module references and configuration status.
+DESCRIPTION
+  value = {
+    settings_modules_deployed = length(module.environment_settings)
+    deployment_success = alltrue([
+      for idx, settings_module in module.environment_settings :
+      settings_module.deployment_summary.settings_applied == true
+    ])
+
+    per_environment_status = {
+      for idx, env in local.environment_summary : env.display_name => {
+        environment_id     = module.environments[idx].environment_id
+        settings_module_id = idx
+        deployment_status  = module.environment_settings[idx].deployment_summary.deployment_status
+        settings_applied   = module.environment_settings[idx].deployment_summary.settings_applied
+        configuration_items = {
+          audit_configured    = module.environment_settings[idx].deployment_summary.configuration_summary.audit_configured
+          security_configured = module.environment_settings[idx].deployment_summary.configuration_summary.security_configured
+          features_configured = module.environment_settings[idx].deployment_summary.configuration_summary.features_configured
+          email_configured    = module.environment_settings[idx].deployment_summary.configuration_summary.email_configured
+        }
+      }
+    }
+
+    template_source = var.workspace_template
+    last_updated    = timestamp()
+  }
+}
+
+# ============================================================================
 # TEMPLATE METADATA - Template Configuration and Validation Summary
 # ============================================================================
 
@@ -154,7 +227,7 @@ output "template_metadata" {
 # ============================================================================
 
 output "orchestration_summary" {
-  description = "Summary of template-driven pattern deployment status and results"
+  description = "Summary of template-driven pattern deployment status and results including environment settings"
   value = {
     # Deployment status
     deployment_status      = "deployed"
@@ -162,17 +235,34 @@ output "orchestration_summary" {
     all_environments_ready = local.deployment_validation.all_environments_created
     group_assignment_valid = local.deployment_validation.group_assignment_valid
 
-    # Resource metrics
-    total_resources_created = 1 + local.pattern_metadata.environment_count # Group + environments
-    environment_group_id    = module.environment_group.environment_group_id
-    environments_created    = local.pattern_metadata.environment_count
+    # Resource metrics (including settings modules)
+    total_resources_created    = 1 + local.pattern_metadata.environment_count + length(module.environment_settings) # Group + environments + settings
+    environment_group_id       = module.environment_group.environment_group_id
+    environments_created       = local.pattern_metadata.environment_count
+    environment_settings_count = length(module.environment_settings)
 
     # Template processing results
     template_processing = {
       template_loaded        = true
       location_validated     = local.deployment_validation.location_valid
       environments_generated = length(local.template_environments)
+      settings_processed     = length(local.template_environment_settings)
       naming_convention      = "workspace_name + template_suffix"
+    }
+
+    # Environment settings deployment summary
+    settings_deployment = {
+      settings_configured  = length(module.environment_settings)
+      workspace_settings   = local.selected_template.workspace_settings
+      hybrid_configuration = true # Workspace defaults + environment overrides
+      settings_per_environment = {
+        for idx, env in local.environment_summary : env.display_name => {
+          audit_configured    = local.template_environment_settings[idx].merged_settings.audit_settings != null
+          security_configured = length(local.template_environment_settings[idx].merged_settings.security_settings) > 0
+          features_configured = length(local.template_environment_settings[idx].merged_settings.feature_settings) > 0
+          email_configured    = length(local.template_environment_settings[idx].merged_settings.email_settings) > 0
+        }
+      }
     }
 
     # Environment details from template
@@ -182,6 +272,7 @@ output "orchestration_summary" {
     ready_for_governance = true
     ready_for_policies   = true
     ready_for_routing    = true
+    settings_applied     = true
 
     # Timestamps
     deployment_timestamp = timestamp()
@@ -193,7 +284,7 @@ output "orchestration_summary" {
 # ============================================================================
 
 output "governance_ready_resources" {
-  description = "Map of resources ready for governance configuration and policy application"
+  description = "Map of resources ready for governance configuration and policy application including environment settings"
   value = {
     environment_group = {
       id               = module.environment_group.environment_group_id
@@ -216,6 +307,28 @@ output "governance_ready_resources" {
         policy_inheritance = "from_group"
         template_suffix    = local.environment_summary[idx].suffix
         workspace_name     = var.name
+
+        # Settings configuration for governance
+        settings_applied = {
+          audit_configured    = local.template_environment_settings[idx].merged_settings.audit_settings != null
+          security_configured = length(local.template_environment_settings[idx].merged_settings.security_settings) > 0
+          features_configured = length(local.template_environment_settings[idx].merged_settings.feature_settings) > 0
+          email_configured    = length(local.template_environment_settings[idx].merged_settings.email_settings) > 0
+          template_source     = var.workspace_template
+        }
+      }
+    }
+
+    environment_settings = {
+      for idx, settings_module in module.environment_settings : idx => {
+        environment_id     = module.environments[idx].environment_id
+        environment_name   = local.environment_summary[idx].display_name
+        resource_type      = "powerplatform_environment_settings"
+        governance_ready   = true
+        settings_deployed  = true
+        template_driven    = true
+        workspace_name     = var.name
+        configuration_type = "hybrid_template_driven"
       }
     }
   }

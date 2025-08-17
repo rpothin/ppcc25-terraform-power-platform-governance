@@ -141,6 +141,38 @@ run "plan_validation" {
     error_message = "Monitoring service principal must be configured in locals.tf"
   }
 
+  # === SETTINGS TEMPLATE STRUCTURE VALIDATION (5 assertions) ===
+
+  # Workspace settings structure validation
+  assert {
+    condition     = length(regexall("workspace_settings\\s*=\\s*\\{", file("${path.module}/locals.tf"))) > 0
+    error_message = "All templates must define workspace_settings with global configuration"
+  }
+
+  # Environment-specific settings validation
+  assert {
+    condition     = length(regexall("environment_settings\\s*=\\s*\\{", file("${path.module}/locals.tf"))) > 0
+    error_message = "Templates must define environment-specific settings for environments"
+  }
+
+  # Settings processing logic validation
+  assert {
+    condition     = length(regexall("template_environment_settings\\s*=\\s*\\{", file("${path.module}/locals.tf"))) > 0
+    error_message = "Settings processing logic must be defined in locals.tf"
+  }
+
+  # Settings module orchestration validation
+  assert {
+    condition     = length(regexall("module\\s+\"environment_settings\"", file("${path.module}/main.tf"))) > 0
+    error_message = "Pattern must orchestrate environment_settings module"
+  }
+
+  # Settings dependency chain validation
+  assert {
+    condition     = length(regexall("depends_on.*module\\.environments", file("${path.module}/main.tf"))) > 0
+    error_message = "Environment settings should depend on environments module"
+  }
+
   # === PATTERN ORCHESTRATION VALIDATION (5 assertions) ===
 
   # Dependency validation - environments modules depend on environment group
@@ -248,6 +280,47 @@ run "apply_validation" {
     error_message = "Location should be validated against template allowed locations"
   }
 
+  # === SETTINGS PROCESSING VALIDATION (5 assertions) ===
+
+  # Settings processing structure validation
+  assert {
+    condition     = can(local.template_environment_settings)
+    error_message = "Settings processing must generate template_environment_settings"
+  }
+
+  # Settings merge logic validation
+  assert {
+    condition = alltrue([
+      for idx, settings in local.template_environment_settings :
+      can(settings.merged_settings)
+    ])
+    error_message = "All environment settings must have merged_settings structure"
+  }
+
+  # Environment-specific settings validation
+  assert {
+    condition = alltrue([
+      for idx, settings in local.template_environment_settings :
+      can(settings.merged_settings.security_settings)
+    ])
+    error_message = "All environments must have processed security settings"
+  }
+
+  # Template environments settings integration validation
+  assert {
+    condition = alltrue([
+      for idx, env in local.template_environments :
+      can(env.settings)
+    ])
+    error_message = "All template environments must include processed settings"
+  }
+
+  # Settings count validation
+  assert {
+    condition     = length(local.template_environment_settings) == length(local.template_environments)
+    error_message = "Settings processing count must match environment count"
+  }
+
   # === MODULE ORCHESTRATION VALIDATION (5 assertions) ===
 
   # Module composition validation - environment group module
@@ -281,6 +354,47 @@ run "apply_validation" {
       module.environments[idx].environment_summary.environment_group_id == module.environment_group.environment_group_id
     ])
     error_message = "All environments should be assigned to the created environment group"
+  }
+
+  # === SETTINGS MODULE ORCHESTRATION VALIDATION (5 assertions) ===
+
+  # Settings modules deployment validation
+  assert {
+    condition     = can(module.environment_settings)
+    error_message = "Environment settings modules must be deployed and accessible"
+  }
+
+  # Settings modules count validation
+  assert {
+    condition     = length(module.environment_settings) == length(local.template_environments)
+    error_message = "Should create one settings module per template environment"
+  }
+
+  # Settings configuration validation
+  assert {
+    condition = alltrue([
+      for idx, settings_module in module.environment_settings :
+      can(settings_module.deployment_summary)
+    ])
+    error_message = "All environment settings modules must deploy successfully"
+  }
+
+  # Settings dependency validation (environment ID assignment)
+  assert {
+    condition = alltrue([
+      for idx, settings_module in module.environment_settings :
+      can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", settings_module.deployment_summary.environment_id))
+    ])
+    error_message = "All settings modules should be linked to valid environment IDs"
+  }
+
+  # Environment-specific settings application validation
+  assert {
+    condition = alltrue([
+      for idx, settings_module in module.environment_settings :
+      settings_module.deployment_summary.settings_applied == true
+    ])
+    error_message = "All environment settings should be applied successfully"
   }
 
   # === PATTERN METADATA VALIDATION (5 assertions) ===
