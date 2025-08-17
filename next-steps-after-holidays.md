@@ -2,7 +2,7 @@
 
 ![How-to Guide](https://img.shields.io/badge/Diataxis-How--to%20Guide-green?style=for-the-badge&logo=tools)
 
-**Last Updated**: August 16, 2025  
+**Last Updated**: August 17, 2025  
 **Status**: 🔄 Active Development - Phase 1 Complete, Phase 2 In Progress  
 **Focus**: Hybrid automation approach for Power Platform governance
 
@@ -40,11 +40,12 @@ Due to Microsoft Power Platform provider limitations (no service principal suppo
 | **res-environment-group Module** | ✅ Exceeds Requirements | 35 test assertions (175% of target)                 |
 
 ### 🔄 In Progress Components
-| Component                    | Status        | Est. Completion |
-| ---------------------------- | ------------- | --------------- |
-| **Hybrid Rule Set Approach** | 🔄 Development | 4-6 hours       |
-| **ptn-environment-group**    | 🔄 Priority    | 10-12 hours     |
-| **Manual Config Templates**  | 📋 Planning    | 2-3 hours       |
+| Component                    | Status        | Est. Completion              |
+| ---------------------------- | ------------- | ---------------------------- |
+| **res-managed-environment**  | ❌ **Missing** | 6-8 hours                    |
+| **ptn-environment-group**    | ⏸️ **Blocked** | 4-6 hours (after dependency) |
+| **Hybrid Rule Set Approach** | 🔄 Development | 4-6 hours                    |
+| **Manual Config Templates**  | 📋 Planning    | 2-3 hours                    |
 
 ### ❌ Blocked/Changed Components
 | Component                          | Status     | Reason                         |
@@ -68,17 +69,38 @@ Due to Microsoft Power Platform provider limitations (no service principal suppo
 ---
 
 ### Phase 2: Hybrid Governance Patterns 🔄 **IN PROGRESS**
-**Duration**: 3-4 days | **Progress**: 25% Complete
+**Duration**: 3-4 days | **Progress**: 15% Complete (Blocked by Missing Dependency)
 
-#### Current Sprint (Week of August 16, 2025):
-- [ ] **ptn-environment-group Module** *(10-12 hours)*
-  - [ ] Terraform automation for group + environments
-  - [ ] Integrated manual step documentation
-  - [ ] Template system (governance patterns)
-  - [ ] One-TFVars → Complete workspace
+#### **CURRENT STATUS (August 17, 2025):**
+✅ **Completed:**
+- `ptn-environment-group` configuration structure initialized
+- Template system foundation established  
+- Basic orchestration framework in place
 
+❌ **BLOCKED:**
+- Integration tests failing due to missing `res-managed-environment` dependency
+- Cannot complete full pattern validation until dependency resolved
+
+#### **REVISED SPRINT PRIORITIES (Week of August 17, 2025):**
+
+##### **CRITICAL PATH - Dependency Resolution:**
+- [ ] **res-managed-environment Module** *(6-8 hours)* **[NEW PRIORITY #1]**
+  - [ ] Create missing `res-managed-environment` resource module
+  - [ ] Implement `powerplatform_managed_environment` resource wrapper
+  - [ ] Add comprehensive integration tests (20+ assertions)
+  - [ ] Follow AVM compliance patterns from existing modules
+  - [ ] Document premium managed environment capabilities
+
+##### **CONTINUATION - ptn-environment-group Completion:**
+- [ ] **ptn-environment-group Integration** *(4-6 hours)* **[UNBLOCKED AFTER #1]**
+  - [x] ~~Terraform automation for group + environments~~ (Initialized)
+  - [ ] Fix integration tests with `res-managed-environment` dependency
+  - [ ] Complete template system validation
+  - [ ] Finalize one-TFVars → Complete workspace flow
+
+##### **SUPPORTING TASKS:**
 - [ ] **Hybrid Rule Set Implementation** *(4-6 hours)*
-  - [ ] Design manual configuration templates
+  - [ ] Design manual configuration templates for Environment Group Rule Sets
   - [ ] Create post-deployment guide generator
   - [ ] Build validation scripts for manual steps
   - [ ] Document migration path to full automation
