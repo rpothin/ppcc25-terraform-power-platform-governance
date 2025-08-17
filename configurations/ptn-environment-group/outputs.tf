@@ -172,20 +172,20 @@ DESCRIPTION
     settings_modules_deployed = length(module.environment_settings)
     deployment_success = alltrue([
       for idx, settings_module in module.environment_settings :
-      settings_module.deployment_summary.settings_applied == true
+      settings_module.applied_settings_summary.configuration_applied == "environment_settings"
     ])
 
     per_environment_status = {
       for idx, env in local.environment_summary : env.display_name => {
         environment_id     = module.environments[idx].environment_id
         settings_module_id = idx
-        deployment_status  = module.environment_settings[idx].deployment_summary.deployment_status
-        settings_applied   = module.environment_settings[idx].deployment_summary.settings_applied
+        deployment_status  = "applied"
+        settings_applied   = module.environment_settings[idx].applied_settings_summary.configuration_applied == "environment_settings"
         configuration_items = {
-          audit_configured    = module.environment_settings[idx].deployment_summary.configuration_summary.audit_configured
-          security_configured = module.environment_settings[idx].deployment_summary.configuration_summary.security_configured
-          features_configured = module.environment_settings[idx].deployment_summary.configuration_summary.features_configured
-          email_configured    = module.environment_settings[idx].deployment_summary.configuration_summary.email_configured
+          audit_configured    = module.environment_settings[idx].applied_settings_summary.audit_settings_configured
+          security_configured = module.environment_settings[idx].applied_settings_summary.security_settings_configured
+          features_configured = module.environment_settings[idx].applied_settings_summary.feature_settings_configured
+          email_configured    = module.environment_settings[idx].applied_settings_summary.email_settings_configured
         }
       }
     }
