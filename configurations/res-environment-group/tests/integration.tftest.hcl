@@ -19,6 +19,11 @@
 # - Security Validation: Sensitive data handling and access controls
 # - Deployment Validation: Actual resource creation and state management
 
+# Provider configuration required for testing child modules
+provider "powerplatform" {
+  use_oidc = true
+}
+
 variables {
   # Test configuration for environment group
   display_name = "Test Environment Group"
@@ -29,12 +34,12 @@ variables {
 run "plan_validation" {
   command = plan
 
-  # === FRAMEWORK VALIDATION (5 assertions) ===
+  # === FRAMEWORK VALIDATION (6 assertions) ===
 
-  # Terraform provider functionality - file-based validation
+  # Terraform provider functionality - module requirements validation
   assert {
     condition     = length(regexall("powerplatform\\s*=\\s*\\{", file("${path.module}/versions.tf"))) > 0
-    error_message = "Power Platform provider must be configured in required_providers block"
+    error_message = "Power Platform provider must be declared in required_providers block"
   }
 
   # Provider version compliance with centralized standard
@@ -43,22 +48,28 @@ run "plan_validation" {
     error_message = "Provider version must match centralized standard ~> 3.8 in versions.tf"
   }
 
-  # OIDC authentication configuration in provider block
+  # Child module architecture validation - no provider block in module
   assert {
-    condition     = length(regexall("use_oidc\\s*=\\s*true", file("${path.module}/versions.tf"))) > 0
-    error_message = "Provider configuration must include use_oidc = true for security compliance"
+    condition     = length(regexall("provider\\s+\"powerplatform\"", file("${path.module}/versions.tf"))) == 0
+    error_message = "Child module should not have provider block - provider configuration handled by parent"
   }
 
-  # Azure backend OIDC configuration  
+  # Child module architecture validation - no backend block in module
   assert {
-    condition     = length(regexall("backend\\s+\"azurerm\"[\\s\\S]*?use_oidc\\s*=\\s*true", file("${path.module}/versions.tf"))) > 0
-    error_message = "Backend must use OIDC for keyless authentication"
+    condition     = length(regexall("backend\\s+\"azurerm\"", file("${path.module}/versions.tf"))) == 0
+    error_message = "Child module should not have backend block - state management handled by parent"
   }
 
   # Terraform version compliance
   assert {
     condition     = length(regexall("required_version\\s*=\\s*\">= 1\\.5\\.0\"", file("${path.module}/versions.tf"))) > 0
     error_message = "Terraform version constraint must be >= 1.5.0 for AVM compliance in versions.tf"
+  }
+
+  # Child module only declares required_providers (no provider/backend blocks)
+  assert {
+    condition     = length(split("\n", file("${path.module}/versions.tf"))) < 20
+    error_message = "Child module versions.tf should be minimal - only terraform block with required_providers"
   }
 
   # === VARIABLE VALIDATION (5 assertions) ===

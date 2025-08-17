@@ -2,6 +2,10 @@
 #
 # These integration tests validate the DLP policy deployment against a real Power Platform tenant.
 # Tests require authentication via OIDC and are designed for CI/CD environments like GitHub Actions.
+
+provider "powerplatform" {
+  use_oidc = true
+}
 #
 # Test Philosophy:
 # - Performance Optimized: Consolidated assertions minimize plan/apply cycles

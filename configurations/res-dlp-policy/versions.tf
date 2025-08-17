@@ -1,6 +1,5 @@
-# Version and Provider Requirements for res-dlp-policy
-#
-# This file pins the Terraform and provider versions for reproducibility and AVM compliance.
+# Provider and version constraints for res-dlp-policy module
+# Child module - provider configuration handled by parent
 
 terraform {
   required_version = ">= 1.5.0"
@@ -10,9 +9,4 @@ terraform {
       version = "~> 3.8"
     }
   }
-  backend "azurerm" {}
-}
-
-provider "powerplatform" {
-  use_oidc = true
 }

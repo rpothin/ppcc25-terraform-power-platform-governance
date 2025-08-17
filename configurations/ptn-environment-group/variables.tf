@@ -1,0 +1,126 @@
+# Input Variables for Power Platform Environment Group Pattern Configuration
+#
+# Template-driven pattern for creating environment groups with predefined
+# workspace templates. Follows convention over configuration principles
+# for PPCC25 demonstration scenarios.
+
+variable "workspace_template" {
+  type        = string
+  description = <<DESCRIPTION
+Workspace template that defines the environments to create.
+
+Predefined templates provide standardized environment configurations
+for different use cases and governance requirements.
+
+Available templates:
+- "basic": Creates Dev, Test, and Prod environments
+- "simple": Creates Dev and Prod environments only  
+- "enterprise": Creates Dev, Staging, Test, and Prod environments
+
+Example:
+workspace_template = "basic"
+
+Validation Rules:
+- Must be one of the supported template names
+- Template definitions are managed in locals.tf
+- Each template includes environment types and naming conventions
+DESCRIPTION
+
+  validation {
+    condition     = contains(["basic", "simple", "enterprise"], var.workspace_template)
+    error_message = "Workspace template must be one of: basic, simple, enterprise. Check available templates in locals.tf."
+  }
+}
+
+variable "name" {
+  type        = string
+  description = <<DESCRIPTION
+Workspace name used as the base for all environment names.
+
+This name will be combined with environment suffixes defined in the
+selected workspace template to create individual environment names.
+
+Example:
+name = "MyProject"
+
+With "basic" template, this creates:
+- "MyProject - Dev"
+- "MyProject - Test" 
+- "MyProject - Prod"
+
+Validation Rules:
+- Must be 1-50 characters to allow for suffixes
+- Cannot be empty or contain only whitespace
+- Should follow organizational naming conventions
+DESCRIPTION
+
+  validation {
+    condition     = length(var.name) >= 1 && length(var.name) <= 50
+    error_message = "Workspace name must be 1-50 characters to accommodate environment suffixes. Current length: ${length(var.name)}."
+  }
+
+  validation {
+    condition     = length(trimspace(var.name)) > 0
+    error_message = "Workspace name cannot be empty or contain only whitespace. Provide a meaningful workspace name."
+  }
+}
+
+variable "description" {
+  type        = string
+  description = <<DESCRIPTION
+Description of the workspace and its purpose.
+
+This description will be used for the environment group and provides
+context for the workspace's governance and business purpose.
+
+Example:
+description = "Project workspace for customer portal development"
+
+Validation Rules:
+- Must be 1-200 characters
+- Cannot be empty or contain only whitespace
+- Should describe business purpose and governance approach
+DESCRIPTION
+
+  validation {
+    condition     = length(var.description) >= 1 && length(var.description) <= 200
+    error_message = "Description must be 1-200 characters. Current length: ${length(var.description)}. Provide a clear, concise description."
+  }
+
+  validation {
+    condition     = length(trimspace(var.description)) > 0
+    error_message = "Description cannot be empty or contain only whitespace. Provide a meaningful description of the workspace purpose."
+  }
+}
+
+variable "location" {
+  type        = string
+  description = <<DESCRIPTION
+Power Platform geographic region for all environments in this workspace.
+
+All environments created by the template will be deployed to this region.
+The location must be supported by the selected workspace template.
+
+Example:
+location = "unitedstates"
+
+Supported locations:
+- unitedstates, europe, asia, australia, unitedkingdom, india
+- canada, southamerica, france, unitedarabemirates, southafrica
+- germany, switzerland, norway, korea, japan
+
+Validation Rules:
+- Must be a valid Power Platform geographic region
+- Will be validated against template-specific allowed locations
+- Cannot be changed after workspace creation without recreation
+DESCRIPTION
+
+  validation {
+    condition = contains([
+      "unitedstates", "europe", "asia", "australia", "unitedkingdom", "india",
+      "canada", "southamerica", "france", "unitedarabemirates", "southafrica",
+      "germany", "switzerland", "norway", "korea", "japan"
+    ], var.location)
+    error_message = "Location must be a valid Power Platform geographic region. Supported: unitedstates, europe, asia, australia, unitedkingdom, india, canada, southamerica, france, unitedarabemirates, southafrica, germany, switzerland, norway, korea, japan."
+  }
+}

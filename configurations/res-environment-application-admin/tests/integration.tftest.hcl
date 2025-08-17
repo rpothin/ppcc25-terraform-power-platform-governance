@@ -19,6 +19,11 @@
 # - Output Validation: Anti-corruption layer and data integrity
 # - Security Validation: Sensitive data handling and access controls
 
+# Provider configuration required for testing child modules
+provider "powerplatform" {
+  use_oidc = true
+}
+
 variables {
   # Test configuration - adjustable for different environments
   test_timeout_minutes = 10 # Reasonable timeout for permission assignments
@@ -37,7 +42,7 @@ variables {
 run "plan_validation" {
   command = plan
 
-  # === FRAMEWORK VALIDATION (5 assertions) ===
+  # === FRAMEWORK VALIDATION (4 assertions) ===
 
   # Terraform core functionality
   assert {
@@ -51,19 +56,13 @@ run "plan_validation" {
     error_message = "Power Platform provider must be properly configured"
   }
 
-  # Provider version constraint  
+  # Provider version constraint in child module  
   assert {
     condition     = can(regex("~> 3\\.8", tostring(terraform.required_providers.powerplatform.version)))
     error_message = "Power Platform provider version must use centralized standard ~> 3.8"
   }
 
-  # Backend configuration for state management
-  assert {
-    condition     = terraform.backend.azurerm.use_oidc == true
-    error_message = "Azure backend must use OIDC authentication for security"
-  }
-
-  # Provider OIDC authentication
+  # Provider OIDC authentication (runtime check)
   assert {
     condition     = provider.powerplatform.use_oidc == true
     error_message = "Power Platform provider must use OIDC authentication"
