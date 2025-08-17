@@ -78,16 +78,16 @@ run "plan_validation" {
     error_message = "Provider must be configured with use_oidc = true for secure authentication"
   }
 
-  # Module composition validation - environment group module
+  # Module orchestration structure validation (file-based)
   assert {
-    condition     = can(module.environment_group)
-    error_message = "Environment group module must be planned and accessible"
+    condition     = length(regexall("module\\s+\"environment_group\"", file("${path.module}/main.tf"))) > 0
+    error_message = "Pattern must orchestrate environment_group module"
   }
 
-  # Module composition validation - environments modules
+  # Module orchestration structure validation (file-based)
   assert {
-    condition     = can(module.environments)
-    error_message = "Environments modules must be planned and accessible"
+    condition     = length(regexall("module\\s+\"environments\"", file("${path.module}/main.tf"))) > 0
+    error_message = "Pattern must orchestrate environments module with for_each"
   }
 
   # === VARIABLE VALIDATION (5 assertions) ===
@@ -126,18 +126,61 @@ run "plan_validation" {
     error_message = "Enable duplicate protection must be a boolean value"
   }
 
-  # === MODULE ORCHESTRATION VALIDATION (5 assertions) ===
-
-  # Environment group module input validation
-  assert {
-    condition     = module.environment_group.environment_group_name == var.environment_group_config.display_name
-    error_message = "Environment group module should receive correct display_name input"
-  }
+  # === STATIC CONFIGURATION VALIDATION (5 assertions) ===
 
   # Security group ID validation
   assert {
     condition     = can(var.security_group_id) && length(var.security_group_id) > 0
     error_message = "Security group ID must be provided for Dataverse configuration"
+  }
+
+  # Dependency validation - environments modules depend on environment group module
+  assert {
+    condition     = length(regexall("depends_on.*module\\.environment_group", file("${path.module}/main.tf"))) > 0
+    error_message = "Environments modules should explicitly depend on environment group module"
+  }
+
+  # Pattern structure validation - for_each usage
+  assert {
+    condition     = length(regexall("for_each\\s*=\\s*local\\.transformed_environments", file("${path.module}/main.tf"))) > 0
+    error_message = "Environments module should use for_each with transformed_environments"
+  }
+
+  # Output definitions validation - file-based check
+  assert {
+    condition     = length(regexall("output\\s+\"environment_group_id\"", file("${path.module}/outputs.tf"))) > 0
+    error_message = "Pattern must define environment_group_id output"
+  }
+
+  # Output definitions validation - orchestration summary
+  assert {
+    condition     = length(regexall("output\\s+\"orchestration_summary\"", file("${path.module}/outputs.tf"))) > 0
+    error_message = "Pattern must define orchestration_summary output"
+  }
+}
+
+# Comprehensive apply validation - validates actual resource deployment
+run "apply_validation" {
+  command = apply
+
+  # === MODULE ORCHESTRATION VALIDATION (5 assertions) ===
+
+  # Module composition validation - environment group module
+  assert {
+    condition     = can(module.environment_group)
+    error_message = "Environment group module must be deployed and accessible"
+  }
+
+  # Module composition validation - environments modules
+  assert {
+    condition     = can(module.environments)
+    error_message = "Environments modules must be deployed and accessible"
+  }
+
+  # Environment group module input validation
+  assert {
+    condition     = module.environment_group.environment_group_name == var.environment_group_config.display_name
+    error_message = "Environment group module should receive correct display_name input"
   }
 
   # Environments modules count validation
@@ -152,44 +195,6 @@ run "plan_validation" {
       for idx, env_config in local.transformed_environments : env_config.environment.environment_group_id == module.environment_group.environment_group_id
     ])
     error_message = "All environments should be assigned to the created environment group via transformation"
-  }
-
-  # Dependency validation - environments modules depend on environment group module
-  assert {
-    condition     = length(regexall("depends_on.*module\\.environment_group", file("${path.module}/main.tf"))) > 0
-    error_message = "Environments modules should explicitly depend on environment group module"
-  }
-
-  # === OUTPUT VALIDATION (5 assertions) ===
-
-  # Primary outputs availability
-  assert {
-    condition     = can(output.environment_group_id) && can(output.environment_group_name)
-    error_message = "Primary outputs (environment_group_id, environment_group_name) must be available"
-  }
-
-  # Environment collection outputs
-  assert {
-    condition     = can(output.environment_ids) && can(output.environment_names)
-    error_message = "Environment collection outputs (environment_ids, environment_names) must be available"
-  }
-
-  # Orchestration summary output
-  assert {
-    condition     = can(output.orchestration_summary)
-    error_message = "Orchestration summary output must be available for pattern validation"
-  }
-
-  # Governance integration outputs
-  assert {
-    condition     = can(output.governance_ready_resources)
-    error_message = "Governance ready resources output must be available for downstream configuration"
-  }
-
-  # Pattern configuration summary
-  assert {
-    condition     = can(output.pattern_configuration_summary)
-    error_message = "Pattern configuration summary must be available for compliance reporting"
   }
 
   # === PATTERN LOGIC VALIDATION (5 assertions) ===
@@ -225,11 +230,38 @@ run "plan_validation" {
     ])
     error_message = "All environments should have Dataverse configured for environment group assignment via module transformation"
   }
-}
 
-# Comprehensive apply validation - validates actual resource deployment
-run "apply_validation" {
-  command = apply
+  # === OUTPUT VALIDATION (5 assertions) ===
+
+  # Primary outputs availability
+  assert {
+    condition     = can(output.environment_group_id) && can(output.environment_group_name)
+    error_message = "Primary outputs (environment_group_id, environment_group_name) must be available"
+  }
+
+  # Environment collection outputs
+  assert {
+    condition     = can(output.environment_ids) && can(output.environment_names)
+    error_message = "Environment collection outputs (environment_ids, environment_names) must be available"
+  }
+
+  # Orchestration summary output
+  assert {
+    condition     = can(output.orchestration_summary)
+    error_message = "Orchestration summary output must be available for pattern validation"
+  }
+
+  # Governance integration outputs
+  assert {
+    condition     = can(output.governance_ready_resources)
+    error_message = "Governance ready resources output must be available for downstream configuration"
+  }
+
+  # Pattern configuration summary
+  assert {
+    condition     = can(output.pattern_configuration_summary)
+    error_message = "Pattern configuration summary must be available for compliance reporting"
+  }
 
   # === RESOURCE DEPLOYMENT VALIDATION (5+ assertions) ===
 
