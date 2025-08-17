@@ -30,27 +30,27 @@ Due to Microsoft Power Platform provider limitations (no service principal suppo
 ## 📊 Repository Status Dashboard
 
 ### ✅ Completed Components
-| Component | Status | Details |
-|-----------|--------|---------|
-| **Terraform Destroy Workflow** | ✅ Production Ready | Comprehensive safety guards, OIDC auth, audit trail |
-| **DLP Policy Automation** | ✅ Legacy Support | 86+ validation rules, maintained for migration |
-| **res-dlp-policy Module** | ✅ Complete | Legacy governance pattern with full validation |
-| **GitHub Copilot Agent** | ✅ Operational | copilot-setup-steps.yml workflow integrated |
-| **res-environment Module** | ✅ Production Ready | 25+ test assertions, security defaults |
-| **res-environment-group Module** | ✅ Exceeds Requirements | 35 test assertions (175% of target) |
+| Component                        | Status                 | Details                                             |
+| -------------------------------- | ---------------------- | --------------------------------------------------- |
+| **Terraform Destroy Workflow**   | ✅ Production Ready     | Comprehensive safety guards, OIDC auth, audit trail |
+| **DLP Policy Automation**        | ✅ Legacy Support       | 86+ validation rules, maintained for migration      |
+| **res-dlp-policy Module**        | ✅ Complete             | Legacy governance pattern with full validation      |
+| **GitHub Copilot Agent**         | ✅ Operational          | copilot-setup-steps.yml workflow integrated         |
+| **res-environment Module**       | ✅ Production Ready     | 25+ test assertions, security defaults              |
+| **res-environment-group Module** | ✅ Exceeds Requirements | 35 test assertions (175% of target)                 |
 
 ### 🔄 In Progress Components
-| Component | Status | Est. Completion |
-|-----------|--------|-----------------|
-| **Hybrid Rule Set Approach** | 🔄 Development | 4-6 hours |
-| **ptn-environment-group** | 🔄 Priority | 10-12 hours |
-| **Manual Config Templates** | 📋 Planning | 2-3 hours |
+| Component                    | Status        | Est. Completion |
+| ---------------------------- | ------------- | --------------- |
+| **Hybrid Rule Set Approach** | 🔄 Development | 4-6 hours       |
+| **ptn-environment-group**    | 🔄 Priority    | 10-12 hours     |
+| **Manual Config Templates**  | 📋 Planning    | 2-3 hours       |
 
 ### ❌ Blocked/Changed Components
-| Component | Status | Reason |
-|-----------|--------|--------|
-| **res-environment-group-rule-set** | ❌ Aborted | No service principal support |
-| **Full Automation** | ⏸️ Deferred | Awaiting provider OIDC support |
+| Component                          | Status     | Reason                         |
+| ---------------------------------- | ---------- | ------------------------------ |
+| **res-environment-group-rule-set** | ❌ Aborted  | No service principal support   |
+| **Full Automation**                | ⏸️ Deferred | Awaiting provider OIDC support |
 
 ---
 
