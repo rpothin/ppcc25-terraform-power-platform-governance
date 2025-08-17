@@ -71,17 +71,17 @@ Due to Microsoft Power Platform provider limitations (no service principal suppo
 **Duration**: 3-4 days | **Progress**: 25% Complete
 
 #### Current Sprint (Week of August 16, 2025):
-- [ ] **Hybrid Rule Set Implementation** *(4-6 hours)*
-  - [ ] Design manual configuration templates
-  - [ ] Create post-deployment guide generator
-  - [ ] Build validation scripts for manual steps
-  - [ ] Document migration path to full automation
-
 - [ ] **ptn-environment-group Module** *(10-12 hours)*
   - [ ] Terraform automation for group + environments
   - [ ] Integrated manual step documentation
   - [ ] Template system (governance patterns)
   - [ ] One-TFVars → Complete workspace
+
+- [ ] **Hybrid Rule Set Implementation** *(4-6 hours)*
+  - [ ] Design manual configuration templates
+  - [ ] Create post-deployment guide generator
+  - [ ] Build validation scripts for manual steps
+  - [ ] Document migration path to full automation
 
 - [ ] **Demonstration Examples** *(2-3 hours)*
   - [ ] team-alpha-modern-workspace.tfvars
