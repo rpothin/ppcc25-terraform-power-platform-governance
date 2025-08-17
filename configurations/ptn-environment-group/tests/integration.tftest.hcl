@@ -278,7 +278,7 @@ run "apply_validation" {
   assert {
     condition = alltrue([
       for idx, env_config in local.template_environments :
-      module.environments[idx].environment_group_id == module.environment_group.environment_group_id
+      module.environments[idx].environment_summary.environment_group_id == module.environment_group.environment_group_id
     ])
     error_message = "All environments should be assigned to the created environment group"
   }
@@ -357,7 +357,7 @@ run "apply_validation" {
 
   # Environment group naming validation
   assert {
-    condition     = contains(module.environment_group.environment_group_name, var.name)
+    condition     = strcontains(module.environment_group.environment_group_name, var.name)
     error_message = "Environment group name should contain workspace name"
   }
 
@@ -381,9 +381,9 @@ run "apply_validation" {
   # Environment suffixes validation (basic template specific)
   assert {
     condition = var.workspace_template != "basic" || (
-      contains(output.environment_suffixes[0], "Dev") &&
-      contains(output.environment_suffixes[1], "Test") &&
-      contains(output.environment_suffixes[2], "Prod")
+      strcontains(output.environment_suffixes[0], "Dev") &&
+      strcontains(output.environment_suffixes[1], "Test") &&
+      strcontains(output.environment_suffixes[2], "Prod")
     )
     error_message = "Basic template should generate Dev, Test, and Prod environment suffixes"
   }
