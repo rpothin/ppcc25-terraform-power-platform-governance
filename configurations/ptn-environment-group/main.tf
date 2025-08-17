@@ -1,28 +1,42 @@
 # Power Platform Environment Group Pattern Configuration
 #
-# This pattern creates a complete environment group setup with multiple environments
-# for demonstrating Power Platform governance through Infrastructure as Code.
+# Template-driven pattern for creating environment groups with predefined
+# workspace templates. Provides standardized environment configurations
+# for PPCC25 demonstration scenarios.
 # 
 # Pattern Components:
 # - Environment Group: Central container for organizing environments (via res-environment-group)
-# - Multiple Environments: Demonstration of environment lifecycle management (via res-environment)
-# - Governance Integration: Environments are automatically assigned to the group
+# - Multiple Environments: Template-defined environments (via res-environment)
+# - Template System: Predefined configurations in locals.tf
 #
 # Key Features:
-# - AVM Module Orchestration: Uses res-* modules instead of direct resource creation
-# - Dependency Management: Ensures environment group exists before environment assignment
-# - AVM-Compliant Structure: Following true AVM patterns with proper module composition
-# - Anti-Corruption Layer: Leverages res-* module outputs for interface stability
-# - Security-First: OIDC authentication, no hardcoded secrets, controlled access patterns
-# - Pattern Module: Orchestrates multiple resource modules for governance demonstrations
-# - Strong Typing: All variables use explicit types and validation (no `any`)
-# - Provider Version: Centralized `~> 3.8` for `microsoft/power-platform` consistency
+# - Template-Driven: Uses workspace templates (basic, simple, enterprise)
+# - AVM Module Orchestration: Uses res-* modules for resource creation
+# - Convention over Configuration: Predefined templates reduce complexity
+# - Security-First: OIDC authentication, service principal monitoring
+# - Pattern Module: Orchestrates multiple resource modules for governance
+# - Location Validation: Template-specific allowed locations
+# - Strong Typing: Explicit types and validation throughout
 #
 # Architecture Decisions:
+# - Template System: Predefined configurations in locals.tf
+# - Variable Simplification: Only 4 user inputs (template, name, description, location)
 # - Module Orchestration: Uses res-environment-group and res-environment modules
-# - Dependency Chain: Environment group module → Environment modules (proper module dependencies)
-# - Variable Transformation: Maps pattern variables to res-* module interfaces
-# - Governance Integration: Designed to work with environment routing and DLP policies
+# - Dependency Chain: Environment group → Template processing → Environment creation
+# - Governance Integration: Built for DLP policies and environment routing
+
+# ============================================================================
+# TERRAFORM CONFIGURATION
+# ============================================================================
+
+terraform {
+  required_providers {
+    powerplatform = {
+      source  = "microsoft/power-platform"
+      version = "~> 3.8"
+    }
+  }
+}
 
 # ============================================================================
 # ENVIRONMENT GROUP MODULE ORCHESTRATION
@@ -33,95 +47,59 @@
 module "environment_group" {
   source = "../res-environment-group"
 
-  # Direct mapping from pattern variables to module interface
-  display_name = var.environment_group_config.display_name
-  description  = var.environment_group_config.description
+  # Simple mapping from pattern variables to module interface
+  display_name = "${var.name} - Environment Group"
+  description  = "${var.description} (${local.selected_template.description})"
 }
 
 # ============================================================================
 # ENVIRONMENT MODULE ORCHESTRATION
 # ============================================================================
 
-# Local computations for variable transformation
-locals {
-  # Language code mapping from string to LCID
-  language_code_mapping = {
-    "en" = 1033 # English (United States)
-    "fr" = 1036 # French (France)
-    "de" = 1031 # German (Germany)
-    "es" = 1034 # Spanish (Spain)
-    "it" = 1040 # Italian (Italy)
-    "pt" = 1046 # Portuguese (Brazil)
-    "ja" = 1041 # Japanese (Japan)
-    "ko" = 1042 # Korean (Korea)
-    "zh" = 2052 # Chinese (China)
-  }
-
-  # Transform pattern variables to res-environment module interface
-  transformed_environments = {
-    for idx, env in var.environments : idx => {
-      # Environment configuration object
-      environment = {
-        display_name         = env.display_name
-        location             = env.location
-        environment_type     = env.environment_type
-        environment_group_id = module.environment_group.environment_group_id
-        description          = "Environment created by ptn-environment-group pattern"
-      }
-
-      # Dataverse configuration object
-      dataverse = {
-        language_code     = lookup(local.language_code_mapping, env.dataverse_language, 1033)
-        currency_code     = env.dataverse_currency
-        security_group_id = var.security_group_id
-        domain            = env.domain
-      }
-    }
-  }
-}
-
-# Create environments using the res-environment module
+# Create environments using the template-driven configuration
 module "environments" {
   source   = "../res-environment"
-  for_each = local.transformed_environments
+  for_each = local.template_environments
 
-  # Pass transformed variables to res-environment module
-  environment                 = each.value.environment
-  dataverse                   = each.value.dataverse
-  enable_duplicate_protection = var.enable_duplicate_protection
+  # Environment configuration from template
+  environment = merge(each.value.environment, {
+    environment_group_id = module.environment_group.environment_group_id
+  })
+
+  # Dataverse configuration with monitoring service principal
+  dataverse = each.value.dataverse
+
+  # Enable duplicate protection for production workspaces
+  enable_duplicate_protection = true
 
   # Explicit dependency on environment group module
   depends_on = [module.environment_group]
 }
 
 # ============================================================================
-# LOCAL COMPUTATIONS FOR PATTERN SUMMARY
+# PATTERN SUMMARY AND METADATA
 # ============================================================================
 
+# Pattern deployment summary for validation and outputs
 locals {
-  # Pattern metadata for tracking and validation
-  pattern_metadata = {
-    pattern_type         = "ptn-environment-group"
-    resource_count       = 1 + length(var.environments) # Group + environments
-    environment_group_id = module.environment_group.environment_group_id
-    created_environments = length(var.environments)
+  # Deployment validation
+  deployment_validation = {
+    template_valid           = contains(keys(local.workspace_templates), var.workspace_template)
+    location_valid           = local.location_validation
+    all_environments_created = length(module.environments) == local.pattern_metadata.environment_count
+    group_assignment_valid   = module.environment_group.environment_group_id != null
+    pattern_complete         = local.pattern_metadata.environment_count > 0
   }
 
-  # Environment summary for governance reporting
-  environment_summary = {
-    for idx, env in var.environments : idx => {
+  # Environment deployment results
+  environment_results = {
+    for idx, env in local.environment_summary : idx => {
       display_name     = env.display_name
       environment_type = env.environment_type
       location         = env.location
       environment_id   = module.environments[idx].environment_id
       group_assignment = "automatic" # Assigned via pattern orchestration
+      template_suffix  = env.suffix
     }
-  }
-
-  # Deployment validation
-  deployment_validation = {
-    all_environments_created = length(module.environments) == length(var.environments)
-    group_assignment_valid   = module.environment_group.environment_group_id != null
-    pattern_complete         = local.pattern_metadata.resource_count > 1
   }
 }
