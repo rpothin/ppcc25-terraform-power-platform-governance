@@ -61,24 +61,27 @@ The following requirements are needed by this module:
 
 ## Providers
 
-The following providers are used by this module:
-
-- <a name="provider_null"></a> [null](#provider\_null) (~> 3.0)
-
-- <a name="provider_powerplatform"></a> [powerplatform](#provider\_powerplatform) (~> 3.8)
+No providers.
 
 ## Modules
 
-No modules.
+The following Modules are called:
+
+### <a name="module_environment_group"></a> [environment\_group](#module\_environment\_group)
+
+Source: ../res-environment-group
+
+Version:
+
+### <a name="module_environments"></a> [environments](#module\_environments)
+
+Source: ../res-environment
+
+Version:
 
 ## Resources
 
-The following resources are used by this module:
-
-- [null_resource.environment_duplicate_guardrail](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) (resource)
-- [powerplatform_environment.environments](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/resources/environment) (resource)
-- [powerplatform_environment_group.this](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/resources/environment_group) (resource)
-- [powerplatform_environments.all](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/data-sources/environments) (data source)
+No resources.
 
 <!-- markdownlint-disable MD013 -->
 ## Required Inputs
@@ -167,6 +170,26 @@ list(object({
     domain             = optional(string)
   }))
 ```
+
+### <a name="input_security_group_id"></a> [security\_group\_id](#input\_security\_group\_id)
+
+Description: Azure AD Security Group ID for Dataverse access control across all environments.
+
+This security group will be assigned to all environments created by this pattern  
+to ensure consistent access control and governance. The group should contain  
+users and service principals that need access to the environments.
+
+Format: UUID (e.g., 12345678-1234-1234-1234-123456789012)
+
+Example:  
+security\_group\_id = "12345678-1234-1234-1234-123456789012"
+
+Validation Rules:
+- Must be a valid UUID format
+- Security group must exist in Azure AD before applying this configuration
+- Group should follow organizational access control policies
+
+Type: `string`
 
 ## Optional Inputs
 
