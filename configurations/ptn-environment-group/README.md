@@ -1,49 +1,93 @@
 <!-- BEGIN_TF_DOCS -->
-# Power Platform Environment Group Pattern
+# Power Platform Environment Group Pattern with Settings Management
 
-This pattern creates a complete environment group setup with multiple environments for demonstrating Power Platform governance through Infrastructure as Code. It orchestrates the creation of an environment group and multiple environments that are automatically assigned to the group.
+This pattern creates a complete environment group setup with multiple environments and comprehensive environment settings management for demonstrating Power Platform governance through Infrastructure as Code. It orchestrates the creation of an environment group, multiple environments, and applies template-driven settings configuration that balances workspace-level defaults with environment-specific requirements.
+
+## Key Features
+
+- **Template-Driven**: Workspace templates (basic, simple, enterprise) with predefined environment configurations
+- **Hybrid Settings Management**: Workspace-level defaults with environment-specific overrides
+- **AVM Module Orchestration**: Uses res-environment-group, res-environment, and res-environment-settings modules
+- **Multi-Resource Orchestration**: Coordinated deployment of environment groups, environments, and settings
+- **Settings Governance**: Comprehensive audit, security, feature, and email configuration per environment
+- **Template Flexibility**: Different templates support different organizational workflows
 
 ## Use Cases
 
 This pattern is designed for organizations that need to:
 
-1. **Governance at Scale**: Implement consistent governance policies across multiple environments through centralized environment group management
-2. **Environment Lifecycle**: Demonstrate complete environment provisioning patterns with automatic group assignment and policy inheritance
-3. **Multi-Resource Orchestration**: Show how to coordinate multiple Power Platform resources with proper dependency management
-4. **Development Team Organization**: Set up structured environment groups for different teams, projects, or application lifecycles
-5. **Compliance Automation**: Automate the creation of governable environment structures that support audit and compliance requirements
+1. **Governance at Scale**: Implement consistent governance policies across multiple environments through centralized environment group management with standardized settings
+2. **Environment Lifecycle**: Demonstrate complete environment provisioning patterns with template-driven settings that vary by environment purpose (Dev/Test/Prod)
+3. **Settings Standardization**: Apply workspace-level defaults while allowing environment-specific security, audit, and feature configurations
+4. **Multi-Resource Orchestration**: Show how to coordinate multiple Power Platform resources with proper dependency management and settings application
+5. **Development Team Organization**: Set up structured environment groups with appropriate settings for different environments in the development lifecycle
+6. **Compliance Automation**: Automate the creation of governable environment structures with comprehensive audit and security settings
 
 ## Pattern Components
 
 - **Environment Group**: Central governance container for organizing environments
-- **Multiple Environments**: Demonstration environments with Dataverse enabled for group membership
+- **Template-Driven Environments**: Environments created based on workspace templates (basic: 3 envs, simple: 2 envs, enterprise: 4 envs)
+- **Workspace Settings**: Global settings applied to all environments (features, email, security baseline)
+- **Environment-Specific Settings**: Targeted settings that vary by environment purpose (audit levels, security restrictions, file limits)
 - **Automatic Assignment**: Environments are automatically assigned to the group during creation
-- **Dependency Management**: Proper orchestration ensures environment group exists before environment creation
+- **Settings Application**: Environment settings are applied after environment creation with proper dependency management
+- **Dependency Management**: Proper orchestration ensures environment group → environments → settings deployment order
 
-## Usage with Resource Deployment Workflows
+## Template-Driven Configuration
+
+### Available Templates
+
+- **basic**: Standard three-tier lifecycle (Dev, Test, Prod) with balanced settings
+- **simple**: Minimal two-tier lifecycle (Dev, Prod) with conservative settings
+- **enterprise**: Four-tier lifecycle (Dev, Staging, Test, Prod) with comprehensive security
+
+### Settings Management Approach
+
+1. **Workspace Settings**: Common configurations applied to all environments
+   - Global feature enablement
+   - Default email settings
+   - Security baseline
+
+2. **Environment-Specific Settings**: Overrides that vary by environment:
+   - **Dev**: Full debugging, open access, larger file limits
+   - **Test**: Balanced security, moderate auditing
+   - **Prod**: Strict security, comprehensive auditing, compliance focus
+
+## Usage with Template Selection
+
+```hcl
+# Template-driven configuration
+workspace_template = "basic"
+name               = "ProjectAlpha"
+description        = "Project Alpha development workspace"
+location           = "unitedstates"
+
+# Results in:
+# - ProjectAlpha - Environment Group
+# - ProjectAlpha - Dev (Sandbox, full debugging, open access)
+# - ProjectAlpha - Test (Sandbox, moderate security, balanced auditing)
+# - ProjectAlpha - Prod (Production, strict security, comprehensive audit)
+```
+
+## Usage with GitHub Actions Workflows
 
 ```yaml
-# GitHub Actions workflow input
+# GitHub Actions workflow input for template-driven deployment
 inputs:
   configuration: 'ptn-environment-group'
-  tfvars-file: 'environment_group_config = {
-    display_name = "Development Team Environment Group"
-    description  = "Centralized group for development team environments with standardized governance"
-  }
-  environments = [
-    {
-      display_name     = "Development Environment"
-      location         = "unitedstates"
-      environment_type = "Sandbox"
-      domain           = "dev-env"
-    },
-    {
-      display_name     = "Testing Environment"
-      location         = "unitedstates"
-      environment_type = "Sandbox"
-      domain           = "test-env"
-    }
-  ]'
+  tfvars-file: 'basic-example.tfvars'  # Or simple-example.tfvars, enterprise-example.tfvars
+# Example tfvars content:
+# workspace_template = "enterprise"
+# name               = "CriticalBusinessApp"
+# description        = "Critical business application with full enterprise governance"
+# location           = "unitedstates"
+#
+# Results in:
+# - CriticalBusinessApp - Environment Group
+# - CriticalBusinessApp - Dev (Sandbox, full debugging, comprehensive settings)
+# - CriticalBusinessApp - Staging (Sandbox, pre-prod validation, controlled access)
+# - CriticalBusinessApp - Test (Sandbox, UAT focused, moderate security)
+# - CriticalBusinessApp - Prod (Production, maximum security, full compliance)
 ```
 
 <!-- markdownlint-disable MD033 -->
@@ -70,6 +114,12 @@ The following Modules are called:
 ### <a name="module_environment_group"></a> [environment\_group](#module\_environment\_group)
 
 Source: ../res-environment-group
+
+Version:
+
+### <a name="module_environment_settings"></a> [environment\_settings](#module\_environment\_settings)
+
+Source: ../res-environment-settings
 
 Version:
 
@@ -216,6 +266,14 @@ Description: Map of environment display names generated by the template.
 Shows the actual environment names created by combining the workspace  
 name with template-defined suffixes (e.g., " - Dev", " - Test", " - Prod").
 
+### <a name="output_environment_settings_summary"></a> [environment\_settings\_summary](#output\_environment\_settings\_summary)
+
+Description: Comprehensive summary of environment settings applied by template configuration.
+
+Shows how workspace-level defaults and environment-specific overrides were  
+processed and applied to each environment. Useful for governance validation  
+and compliance reporting.
+
 ### <a name="output_environment_suffixes"></a> [environment\_suffixes](#output\_environment\_suffixes)
 
 Description: Map of environment name suffixes used by the template.
@@ -232,11 +290,11 @@ environment as specified in the workspace template configuration.
 
 ### <a name="output_governance_ready_resources"></a> [governance\_ready\_resources](#output\_governance\_ready\_resources)
 
-Description: Map of resources ready for governance configuration and policy application
+Description: Map of resources ready for governance configuration and policy application including environment settings
 
 ### <a name="output_orchestration_summary"></a> [orchestration\_summary](#output\_orchestration\_summary)
 
-Description: Summary of template-driven pattern deployment status and results
+Description: Summary of template-driven pattern deployment status and results including environment settings
 
 ### <a name="output_output_schema_version"></a> [output\_schema\_version](#output\_output\_schema\_version)
 
@@ -245,6 +303,13 @@ Description: The version of the output schema for this template-driven pattern m
 ### <a name="output_pattern_configuration_summary"></a> [pattern\_configuration\_summary](#output\_pattern\_configuration\_summary)
 
 Description: Comprehensive summary of template-driven pattern configuration
+
+### <a name="output_settings_deployment_status"></a> [settings\_deployment\_status](#output\_settings\_deployment\_status)
+
+Description: Deployment status and validation of environment settings modules.
+
+Provides detailed information about the successful deployment of settings  
+to each environment, including module references and configuration status.
 
 ### <a name="output_template_metadata"></a> [template\_metadata](#output\_template\_metadata)
 
