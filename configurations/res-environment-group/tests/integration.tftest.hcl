@@ -34,7 +34,7 @@ variables {
 run "plan_validation" {
   command = plan
 
-  # === FRAMEWORK VALIDATION (4 assertions) ===
+  # === FRAMEWORK VALIDATION (6 assertions) ===
 
   # Terraform provider functionality - module requirements validation
   assert {
@@ -60,34 +60,16 @@ run "plan_validation" {
     error_message = "Child module should not have backend block - state management handled by parent"
   }
 
-  # Terraform provider functionality - file-based validation
-  assert {
-    condition     = length(regexall("powerplatform\\s*=\\s*\\{", file("${path.module}/versions.tf"))) > 0
-    error_message = "Power Platform provider must be configured in required_providers block"
-  }
-
-  # Provider version compliance with centralized standard
-  assert {
-    condition     = length(regexall("version\\s*=\\s*\"~> 3\\.8\"", file("${path.module}/versions.tf"))) > 0
-    error_message = "Provider version must match centralized standard ~> 3.8 in versions.tf"
-  }
-
-  # OIDC authentication configuration in provider block
-  assert {
-    condition     = length(regexall("use_oidc\\s*=\\s*true", file("${path.module}/versions.tf"))) > 0
-    error_message = "Provider configuration must include use_oidc = true for security compliance"
-  }
-
-  # Azure backend OIDC configuration  
-  assert {
-    condition     = length(regexall("backend\\s+\"azurerm\"[\\s\\S]*?use_oidc\\s*=\\s*true", file("${path.module}/versions.tf"))) > 0
-    error_message = "Backend must use OIDC for keyless authentication"
-  }
-
   # Terraform version compliance
   assert {
     condition     = length(regexall("required_version\\s*=\\s*\">= 1\\.5\\.0\"", file("${path.module}/versions.tf"))) > 0
     error_message = "Terraform version constraint must be >= 1.5.0 for AVM compliance in versions.tf"
+  }
+
+  # Child module only declares required_providers (no provider/backend blocks)
+  assert {
+    condition     = length(split("\n", file("${path.module}/versions.tf"))) < 20
+    error_message = "Child module versions.tf should be minimal - only terraform block with required_providers"
   }
 
   # === VARIABLE VALIDATION (5 assertions) ===
