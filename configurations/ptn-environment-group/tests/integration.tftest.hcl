@@ -33,16 +33,20 @@ variables {
 
   environments = [
     {
-      display_name     = "Test Pattern Environment 1"
-      location         = "unitedstates"
-      environment_type = "Sandbox"
-      domain           = "test-pattern-env1"
+      display_name       = "Test Pattern Environment 1"
+      location           = "unitedstates"
+      environment_type   = "Sandbox"
+      dataverse_language = "en"
+      dataverse_currency = "USD"
+      domain             = "test-pattern-env1"
     },
     {
-      display_name     = "Test Pattern Environment 2"
-      location         = "unitedstates"
-      environment_type = "Sandbox"
-      domain           = "test-pattern-env2"
+      display_name       = "Test Pattern Environment 2"
+      location           = "unitedstates"
+      environment_type   = "Sandbox"
+      dataverse_language = "en"
+      dataverse_currency = "USD"
+      domain             = "test-pattern-env2"
     }
   ]
 
