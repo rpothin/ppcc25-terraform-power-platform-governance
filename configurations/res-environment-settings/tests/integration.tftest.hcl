@@ -3,6 +3,10 @@
 # These integration tests validate the Power Platform environment settings management
 # against a real Power Platform tenant. Tests require authentication via OIDC
 # and are designed for CI/CD environments like GitHub Actions.
+
+provider "powerplatform" {
+  use_oidc = true
+}
 #
 # Test Philosophy:
 # - Performance Optimized: Consolidated assertions minimize plan/apply cycles

@@ -2,6 +2,10 @@
 #
 # These integration tests validate the pattern deployment against a real Power Platform tenant.
 # Tests require authentication via OIDC and are designed for CI/CD environments like GitHub Actions.
+
+provider "powerplatform" {
+  use_oidc = true
+}
 #
 # Test Philosophy:
 # - Performance Optimized: Consolidated assertions minimize plan/apply cycles
@@ -23,6 +27,9 @@ variables {
     display_name = "Test Environment Group Pattern"
     description  = "Test environment group pattern for Terraform validation and CI/CD"
   }
+
+  # Security group ID for Dataverse access control (test value)
+  security_group_id = "00000000-0000-0000-0000-000000000000"
 
   environments = [
     {
@@ -67,16 +74,16 @@ run "plan_validation" {
     error_message = "Provider must be configured with use_oidc = true for secure authentication"
   }
 
-  # Module composition validation - environment group resource
+  # Module composition validation - environment group module
   assert {
-    condition     = can(powerplatform_environment_group.this)
-    error_message = "Environment group resource must be planned and accessible"
+    condition     = can(module.environment_group)
+    error_message = "Environment group module must be planned and accessible"
   }
 
-  # Module composition validation - environments resource
+  # Module composition validation - environments modules
   assert {
-    condition     = can(powerplatform_environment.environments)
-    error_message = "Environments resource must be planned and accessible"
+    condition     = can(module.environments)
+    error_message = "Environments modules must be planned and accessible"
   }
 
   # === VARIABLE VALIDATION (5 assertions) ===
@@ -117,36 +124,36 @@ run "plan_validation" {
 
   # === MODULE ORCHESTRATION VALIDATION (5 assertions) ===
 
-  # Environment group resource input validation
+  # Environment group module input validation
   assert {
-    condition     = powerplatform_environment_group.this.display_name == var.environment_group_config.display_name
-    error_message = "Environment group resource should receive correct display_name input"
+    condition     = module.environment_group.environment_group_name == var.environment_group_config.display_name
+    error_message = "Environment group module should receive correct display_name input"
   }
 
-  # Environment group resource description validation
+  # Security group ID validation
   assert {
-    condition     = powerplatform_environment_group.this.description == var.environment_group_config.description
-    error_message = "Environment group resource should receive correct description input"
+    condition     = can(var.security_group_id) && length(var.security_group_id) > 0
+    error_message = "Security group ID must be provided for Dataverse configuration"
   }
 
-  # Environments resource count validation
+  # Environments modules count validation
   assert {
-    condition     = length(powerplatform_environment.environments) == length(var.environments)
-    error_message = "Should create one environment resource per environment config"
+    condition     = length(module.environments) == length(var.environments)
+    error_message = "Should create one environment module per environment config"
   }
 
-  # Environment group ID assignment validation
+  # Environment group ID assignment validation via local transformation
   assert {
     condition = alltrue([
-      for idx, env_resource in powerplatform_environment.environments : env_resource.dataverse[0].environment_group_id == powerplatform_environment_group.this.id
+      for idx, env_config in local.transformed_environments : env_config.environment.environment_group_id == module.environment_group.environment_group_id
     ])
-    error_message = "All environments should be assigned to the created environment group"
+    error_message = "All environments should be assigned to the created environment group via transformation"
   }
 
-  # Dependency validation - environments depend on environment group
+  # Dependency validation - environments modules depend on environment group module
   assert {
-    condition     = length(regexall("depends_on.*environment_group", file("${path.module}/main.tf"))) > 0
-    error_message = "Environments should explicitly depend on environment group creation"
+    condition     = length(regexall("depends_on.*module\\.environment_group", file("${path.module}/main.tf"))) > 0
+    error_message = "Environments modules should explicitly depend on environment group module"
   }
 
   # === OUTPUT VALIDATION (5 assertions) ===
@@ -207,12 +214,12 @@ run "plan_validation" {
     error_message = "Pattern should validate as complete with multiple resources"
   }
 
-  # Dataverse configuration validation
+  # Dataverse configuration validation via module interface
   assert {
     condition = alltrue([
-      for idx, env_resource in powerplatform_environment.environments : env_resource.dataverse != null
+      for idx, env_config in local.transformed_environments : env_config.dataverse != null
     ])
-    error_message = "All environments should have Dataverse configured for environment group assignment"
+    error_message = "All environments should have Dataverse configured for environment group assignment via module transformation"
   }
 }
 
@@ -222,40 +229,40 @@ run "apply_validation" {
 
   # === RESOURCE DEPLOYMENT VALIDATION (5+ assertions) ===
 
-  # Environment group resource creation
+  # Environment group module deployment
   assert {
-    condition     = powerplatform_environment_group.this.id != null && powerplatform_environment_group.this.id != ""
-    error_message = "Environment group must be created successfully with valid ID"
+    condition     = module.environment_group.environment_group_id != null && module.environment_group.environment_group_id != ""
+    error_message = "Environment group must be created successfully with valid ID via module"
   }
 
-  # Environment group resource properties
+  # Environment group module properties
   assert {
-    condition     = powerplatform_environment_group.this.display_name == var.environment_group_config.display_name
-    error_message = "Environment group must maintain correct display name after deployment"
+    condition     = module.environment_group.environment_group_name == var.environment_group_config.display_name
+    error_message = "Environment group must maintain correct display name after deployment via module"
   }
 
-  # Environment resources creation
+  # Environment modules deployment
   assert {
     condition = alltrue([
-      for idx, env_resource in powerplatform_environment.environments : env_resource.id != null && env_resource.id != ""
+      for idx, env_module in module.environments : env_module.environment_id != null && env_module.environment_id != ""
     ])
-    error_message = "All environments must be created successfully with valid IDs"
+    error_message = "All environments must be created successfully with valid IDs via modules"
   }
 
-  # Environment group assignment verification
+  # Environment group assignment verification via outputs
   assert {
     condition = alltrue([
-      for idx, env_resource in powerplatform_environment.environments : env_resource.dataverse[0].environment_group_id == powerplatform_environment_group.this.id
+      for idx, env_module in module.environments : output.governance_ready_resources.environments[idx].group_membership == module.environment_group.environment_group_id
     ])
-    error_message = "All environments must be properly assigned to the environment group"
+    error_message = "All environments must be properly assigned to the environment group via modules"
   }
 
-  # Environment names consistency
+  # Environment names consistency via module outputs
   assert {
     condition = alltrue([
-      for idx, env_resource in powerplatform_environment.environments : env_resource.display_name == var.environments[idx].display_name
+      for idx, env_module in module.environments : output.environment_names[idx] == var.environments[idx].display_name
     ])
-    error_message = "Environment names must match input configuration after deployment"
+    error_message = "Environment names must match input configuration after deployment via modules"
   }
 
   # Pattern orchestration output validation

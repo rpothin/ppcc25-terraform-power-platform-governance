@@ -19,6 +19,11 @@
 # - Security Validation: Sensitive data handling and access controls
 # - Deployment Validation: Actual resource creation and state management
 
+# Provider configuration required for testing child modules
+provider "powerplatform" {
+  use_oidc = true
+}
+
 variables {
   # Test configuration for environment group
   display_name = "Test Environment Group"
@@ -29,7 +34,31 @@ variables {
 run "plan_validation" {
   command = plan
 
-  # === FRAMEWORK VALIDATION (5 assertions) ===
+  # === FRAMEWORK VALIDATION (4 assertions) ===
+
+  # Terraform provider functionality - module requirements validation
+  assert {
+    condition     = length(regexall("powerplatform\\s*=\\s*\\{", file("${path.module}/versions.tf"))) > 0
+    error_message = "Power Platform provider must be declared in required_providers block"
+  }
+
+  # Provider version compliance with centralized standard
+  assert {
+    condition     = length(regexall("version\\s*=\\s*\"~> 3\\.8\"", file("${path.module}/versions.tf"))) > 0
+    error_message = "Provider version must match centralized standard ~> 3.8 in versions.tf"
+  }
+
+  # Child module architecture validation - no provider block in module
+  assert {
+    condition     = length(regexall("provider\\s+\"powerplatform\"", file("${path.module}/versions.tf"))) == 0
+    error_message = "Child module should not have provider block - provider configuration handled by parent"
+  }
+
+  # Child module architecture validation - no backend block in module
+  assert {
+    condition     = length(regexall("backend\\s+\"azurerm\"", file("${path.module}/versions.tf"))) == 0
+    error_message = "Child module should not have backend block - state management handled by parent"
+  }
 
   # Terraform provider functionality - file-based validation
   assert {

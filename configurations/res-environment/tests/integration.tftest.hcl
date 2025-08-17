@@ -16,6 +16,11 @@
 # - Failure Isolation: Clear error messages for rapid troubleshooting
 # - Minimum Assertion Coverage: 20+ for res-* modules (plan and apply tests)
 
+# Provider configuration required for testing child modules
+provider "powerplatform" {
+  use_oidc = true
+}
+
 variables {
   # Test configuration - adjustable for different environments
   expected_minimum_count = 0  # Allow empty tenants in test environments

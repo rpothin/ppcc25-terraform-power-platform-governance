@@ -1,3 +1,13 @@
+# Provider and version constraints for res-environment module
+#
+# This module is designed to be called from parent configurations.
+# Provider configuration should be handled by the calling module.
+#
+# Key Requirements:
+# - Provider Version: Using centralized standard ~> 3.8 for microsoft/power-platform
+# - No Provider Block: Child modules receive provider configuration from parent
+# - No Backend Block: State management handled by calling configuration
+
 terraform {
   required_version = ">= 1.5.0"
   required_providers {
@@ -10,12 +20,4 @@ terraform {
       version = "~> 3.0"
     }
   }
-  # Azure backend with OIDC for secure, keyless authentication
-  backend "azurerm" {
-    use_oidc = true
-  }
-}
-
-provider "powerplatform" {
-  use_oidc = true # Enhanced security over client secrets (baseline: security by design)
 }

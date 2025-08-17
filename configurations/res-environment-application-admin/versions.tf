@@ -1,12 +1,12 @@
-# Provider and version constraints for res-environment-application-admin
+# Provider and version constraints for res-environment-application-admin module
 #
-# This file defines the required Terraform and provider versions for the configuration
-# following AVM standards with Power Platform provider adaptations.
+# This module is designed to be called from parent configurations.
+# Provider configuration should be handled by the calling module.
 #
 # Key Requirements:
 # - Provider Version: Using centralized standard ~> 3.8 for microsoft/power-platform
-# - OIDC Authentication: Secure, keyless authentication for both provider and backend
-# - State Backend: Azure Storage with OIDC for secure, centralized state management
+# - No Provider Block: Child modules receive provider configuration from parent
+# - No Backend Block: State management handled by calling configuration
 
 terraform {
   # Version constraints ensure consistent behavior across environments
@@ -18,14 +18,4 @@ terraform {
       version = "~> 3.8" # Centralized standard for all modules
     }
   }
-
-  # Azure backend with OIDC for secure, keyless authentication
-  backend "azurerm" {
-    use_oidc = true
-  }
-}
-
-# Provider configuration using OIDC for enhanced security
-provider "powerplatform" {
-  use_oidc = true
 }

@@ -19,6 +19,11 @@
 # - Output Validation: Anti-corruption layer and data integrity
 # - Security Validation: Sensitive data handling and access controls
 
+# Provider configuration required for testing child modules
+provider "powerplatform" {
+  use_oidc = true
+}
+
 variables {
   # Test configuration - adjustable for different environments
   test_timeout_minutes = 10 # Reasonable timeout for permission assignments

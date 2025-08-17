@@ -34,7 +34,7 @@ created by this pattern. Use this ID to:
 
 Format: GUID (e.g., 12345678-1234-1234-1234-123456789012)
 DESCRIPTION
-  value       = powerplatform_environment_group.this.id
+  value       = module.environment_group.environment_group_id
 }
 
 output "environment_group_name" {
@@ -48,7 +48,7 @@ Useful for:
 - Validation in CI/CD pipelines and automated testing
 - User-facing reports and operational dashboards
 DESCRIPTION
-  value       = powerplatform_environment_group.this.display_name
+  value       = module.environment_group.environment_group_name
 }
 
 output "environment_ids" {
@@ -63,7 +63,7 @@ Format: Map where each value is a GUID
 Usage: Reference specific environments by index for additional configuration
 DESCRIPTION
   value = {
-    for idx, env_resource in powerplatform_environment.environments : idx => env_resource.id
+    for idx, env_module in module.environments : idx => env_module.environment_id
   }
 }
 
@@ -126,20 +126,20 @@ output "governance_ready_resources" {
   description = "Map of resources ready for governance configuration and policy application"
   value = {
     environment_group = {
-      id               = powerplatform_environment_group.this.id
-      name             = powerplatform_environment_group.this.display_name
+      id               = module.environment_group.environment_group_id
+      name             = module.environment_group.environment_group_name
       resource_type    = "powerplatform_environment_group"
       governance_ready = true
       policy_targets   = ["dlp_policies", "routing_rules", "environment_rules"]
     }
 
     environments = {
-      for idx, env_resource in powerplatform_environment.environments : idx => {
-        id                 = env_resource.id
-        name               = env_resource.display_name
+      for idx, env_module in module.environments : idx => {
+        id                 = env_module.environment_id
+        name               = var.environments[idx].display_name
         resource_type      = "powerplatform_environment"
         environment_type   = var.environments[idx].environment_type
-        group_membership   = powerplatform_environment_group.this.id
+        group_membership   = module.environment_group.environment_group_id
         governance_ready   = true
         policy_inheritance = "from_group" # Inherits policies from environment group
       }

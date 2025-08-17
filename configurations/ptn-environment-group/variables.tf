@@ -52,6 +52,32 @@ DESCRIPTION
   }
 }
 
+variable "security_group_id" {
+  type        = string
+  description = <<DESCRIPTION
+Azure AD Security Group ID for Dataverse access control across all environments.
+
+This security group will be assigned to all environments created by this pattern
+to ensure consistent access control and governance. The group should contain
+users and service principals that need access to the environments.
+
+Format: UUID (e.g., 12345678-1234-1234-1234-123456789012)
+
+Example:
+security_group_id = "12345678-1234-1234-1234-123456789012"
+
+Validation Rules:
+- Must be a valid UUID format
+- Security group must exist in Azure AD before applying this configuration
+- Group should follow organizational access control policies
+DESCRIPTION
+
+  validation {
+    condition     = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.security_group_id))
+    error_message = "Security group ID must be a valid UUID format (e.g., 12345678-1234-1234-1234-123456789012). Verify the Azure AD security group exists."
+  }
+}
+
 variable "environments" {
   type = list(object({
     display_name       = string
