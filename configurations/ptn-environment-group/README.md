@@ -59,8 +59,6 @@ The following requirements are needed by this module:
 
 - <a name="requirement_powerplatform"></a> [powerplatform](#requirement\_powerplatform) (~> 3.8)
 
-- <a name="requirement_powerplatform"></a> [powerplatform](#requirement\_powerplatform) (~> 3.8)
-
 ## Providers
 
 No providers.
