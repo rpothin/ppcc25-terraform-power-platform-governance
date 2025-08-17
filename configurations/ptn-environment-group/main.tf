@@ -119,13 +119,15 @@ resource "powerplatform_environment" "environments" {
   location         = each.value.location
   environment_type = each.value.environment_type
 
-  # Dataverse configuration is required for environment group assignment
-  # Provider constraint: environment_group_id requires dataverse to be specified
+  # Environment group assignment
+  environment_group_id = powerplatform_environment_group.this.id
+
+  # Dataverse configuration is required for environments with environment group assignment
+  # Provider constraint: Dataverse must be enabled for environment group functionality
   dataverse = {
-    language_code        = each.value.dataverse_language
-    currency_code        = each.value.dataverse_currency
-    domain               = local.environment_domains[each.key]
-    environment_group_id = powerplatform_environment_group.this.id
+    language_code = each.value.dataverse_language
+    currency_code = each.value.dataverse_currency
+    domain        = local.environment_domains[each.key]
   }
 
   # Lifecycle management for resource modules
@@ -133,6 +135,8 @@ resource "powerplatform_environment" "environments" {
     ignore_changes = [
       # Allow manual changes to display_name through admin center
       display_name,
+      # Allow manual changes to environment group assignment
+      environment_group_id,
       # Allow manual changes to dataverse domain
       dataverse[0].domain
     ]
