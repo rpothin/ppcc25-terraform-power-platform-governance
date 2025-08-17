@@ -1,15 +1,7 @@
 # Provider and version constraints for res-environment-settings module
-#
-# This module is designed to be called from parent configurations.
-# Provider configuration should be handled by the calling module.
-#
-# Key Requirements:
-# - Provider Version: Using centralized standard ~> 3.8 for microsoft/power-platform
-# - No Provider Block: Child modules receive provider configuration from parent
-# - No Backend Block: State management handled by calling configuration
+# Child module - provider configuration handled by parent
 
 terraform {
-  # Version constraints ensure consistent behavior across environments
   required_version = ">= 1.5.0"
 
   required_providers {
