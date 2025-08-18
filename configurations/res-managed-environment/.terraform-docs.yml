@@ -1,12 +1,18 @@
-version: ">= 0.16"
+---
+### To generate the output file to partially incorporate in the README.md,
+### Execute this command in the Terraform configuration's folder:
+# terraform-docs -c .terraform-docs.yml .
 
-formatter: markdown table
+formatter: "markdown document" # this is required
 
-header-from: _header.md
-footer-from: _footer.md
+version: "0.20.0"
+
+header-from: "_header.md"
+footer-from: "_footer.md"
 
 recursive:
   enabled: false
+  path: modules
 
 sections:
   hide: []
@@ -15,132 +21,48 @@ sections:
 content: |-
   {{ .Header }}
 
-  ## Use Cases
-
-  This module enables managed environment capabilities for Power Platform environments, providing:
-
-  - **Enhanced Governance**: Sharing controls, usage insights, and solution validation
-  - **Quality Assurance**: Automated solution checker enforcement with configurable rules
-  - **Maker Support**: Customizable onboarding content and learning resources
-  - **Compliance**: Advanced security features and administrative controls
-
-  ## Usage with Resource Deployment Workflows
-
-  ```hcl
-  module "managed_environment" {
-    source = "./configurations/res-managed-environment"
-
-    environment_id          = "12345678-1234-1234-1234-123456789012"
-    usage_insights_disabled = false
-
-    sharing_settings = {
-      is_group_sharing_disabled = true
-      limit_sharing_mode        = "ExcludeSharingToSecurityGroups"
-      max_limit_user_sharing    = 10
-    }
-
-    solution_checker = {
-      mode                      = "Warn"
-      suppress_validation_emails = true
-      rule_overrides            = ["meta-avoid-reg-no-attribute"]
-    }
-
-    maker_onboarding = {
-      markdown_content = "## Welcome\\n\\nPlease follow our guidelines."
-      learn_more_url   = "https://company.com/power-platform-resources"
-    }
-  }
-  ```
-
+  <!-- markdownlint-disable MD033 -->
   {{ .Requirements }}
 
   {{ .Providers }}
 
   {{ .Resources }}
 
+  <!-- markdownlint-disable MD013 -->
   {{ .Inputs }}
 
   {{ .Outputs }}
 
   {{ .Modules }}
 
-  ## Authentication
-
-  This module requires authentication to Power Platform with appropriate permissions:
-
-  - **Environment Admin** role for the target environment
-  - **Power Platform Administrator** role for managed environment features
-  - **Premium licensing** for managed environment capabilities
-
-  ## Data Collection
-
-  When using this configuration, Microsoft may collect usage data for:
-  - Environment governance and compliance reporting
-  - Solution validation and quality metrics
-  - Maker adoption and usage insights
-  - Administrative audit and security logs
-
-  ## ⚠️ AVM Compliance
-
-  ### Provider Exception
-
-  This module uses the `microsoft/power-platform` provider, which creates an exception to AVM TFFR3 requirements since Power Platform resources are not available through approved Azure providers (`azurerm`/`azapi`).
-
-  **Exception Documentation**: [Power Platform Provider Exception](../../docs/explanations/power-platform-provider-exception.md)
-
-  ### Complementary Details
-
-  - **Anti-Corruption Layer**: Implements TFFR2 compliance by outputting resource IDs and computed attributes as discrete outputs
-  - **Security-First**: Sensitive data properly marked and segregated in outputs
-  - **AVM-Inspired**: Follows AVM patterns and standards where technically feasible
-  - **Child Module**: Designed for composition and orchestration by pattern modules
-
-  ## Troubleshooting
-
-  ### Common Issues
-
-  **Issue**: "Environment does not support managed environment features"
-  **Solution**: Verify the environment has the required premium licensing and is not a developer environment.
-
-  **Issue**: "Invalid sharing configuration"
-  **Solution**: Ensure max_limit_user_sharing is -1 when group sharing is enabled, or > 0 when disabled.
-
-  **Issue**: "Solution checker rule overrides not applied"
-  **Solution**: Verify rule names match the exact solution checker rule identifiers from Microsoft documentation.
-
-  ### Performance Considerations
-
-  - Managed environment configuration changes may take several minutes to propagate
-  - Solution checker enforcement applies to future solution imports, not existing solutions
-  - Usage insights data is updated weekly, not in real-time
-
-  ## Additional Links
-
-  - [Power Platform Managed Environments Documentation](https://learn.microsoft.com/power-platform/admin/managed-environment-overview)
-  - [Solution Checker Rule Reference](https://learn.microsoft.com/power-platform/admin/managed-environment-solution-checker)
-  - [Sharing Limits Configuration](https://learn.microsoft.com/power-platform/admin/managed-environment-sharing-limits)
-  - [Maker Welcome Content](https://learn.microsoft.com/power-platform/admin/welcome-content)
-
   {{ .Footer }}
 
 output:
   file: README.md
   mode: replace
+  template: |-
+    <!-- BEGIN_TF_DOCS -->
+    {{ .Content }}
+    <!-- END_TF_DOCS -->
+
+output-values:
+  enabled: false
+  from: ""
 
 sort:
   enabled: true
-  by: name
+  by: required
 
 settings:
   anchor: true
-  color: false
+  color: true
   default: true
-  description: true
-  escape: false
+  description: false
+  escape: true
   hide-empty: false
   html: true
   indent: 2
-  lockfile: false
+  lockfile: true
   read-comments: true
   required: true
   sensitive: true
