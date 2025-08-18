@@ -48,9 +48,9 @@ variable "sharing_settings" {
   })
 
   default = {
-    is_group_sharing_disabled = false      # Enable group sharing (better practice than individual sharing)
-    limit_sharing_mode        = "No limit" # Allow unrestricted sharing with security groups
-    max_limit_user_sharing    = -1         # Unlimited when group sharing is enabled
+    is_group_sharing_disabled = false     # Enable group sharing (better practice than individual sharing)
+    limit_sharing_mode        = "NoLimit" # Allow unrestricted sharing with security groups
+    max_limit_user_sharing    = -1        # Unlimited when group sharing is enabled
   }
 
   description = <<DESCRIPTION
@@ -61,19 +61,19 @@ providing governance controls to prevent data exposure and maintain compliance.
 
 Properties:
 - is_group_sharing_disabled: Prevents sharing with security groups when true
-- limit_sharing_mode: Controls sharing scope ("No limit", "Exclude sharing with security groups")
+- limit_sharing_mode: Controls sharing scope ("NoLimit", "ExcludeSharingToSecurityGroups")
 - max_limit_user_sharing: Maximum users for individual sharing (-1 if group sharing enabled)
 
 Example:
 sharing_settings = {
   is_group_sharing_disabled = false
-  limit_sharing_mode        = "No limit"
+  limit_sharing_mode        = "NoLimit"
   max_limit_user_sharing    = -1
 }
 
 Default Configuration (Governance Best Practice):
 - Enables group sharing (is_group_sharing_disabled = false)
-- Allows unrestricted sharing (limit_sharing_mode = "No limit")
+- Allows unrestricted sharing (limit_sharing_mode = "NoLimit")
 - Sets unlimited user sharing (max_limit_user_sharing = -1)
 - Encourages security group usage over individual user sharing
 
@@ -91,8 +91,8 @@ DESCRIPTION
   }
 
   validation {
-    condition     = contains(["No limit", "Exclude sharing with security groups"], var.sharing_settings.limit_sharing_mode)
-    error_message = "limit_sharing_mode must be one of: 'No limit', 'Exclude sharing with security groups'. Current value: '${var.sharing_settings.limit_sharing_mode}'. Please use a valid sharing mode as documented in the Power Platform provider."
+    condition     = contains(["NoLimit", "ExcludeSharingToSecurityGroups"], var.sharing_settings.limit_sharing_mode)
+    error_message = "limit_sharing_mode must be one of: 'NoLimit', 'ExcludeSharingToSecurityGroups'. Current value: '${var.sharing_settings.limit_sharing_mode}'. Please use a valid sharing mode as documented in the Power Platform provider."
   }
 }
 

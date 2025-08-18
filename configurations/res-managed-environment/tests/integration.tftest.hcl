@@ -29,7 +29,7 @@ variables {
   # Custom configuration for testing overrides
   test_custom_sharing_settings = {
     is_group_sharing_disabled = true
-    limit_sharing_mode        = "Exclude sharing with security groups"
+    limit_sharing_mode        = "ExcludeSharingToSecurityGroups"
     max_limit_user_sharing    = 10
   }
 
@@ -186,7 +186,7 @@ run "default_configuration_validation" {
   }
 
   assert {
-    condition     = powerplatform_managed_environment.this.limit_sharing_mode == "No limit"
+    condition     = powerplatform_managed_environment.this.limit_sharing_mode == "NoLimit"
     error_message = "Default should allow unrestricted sharing with security groups"
   }
 
