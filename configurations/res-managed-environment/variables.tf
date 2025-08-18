@@ -47,6 +47,12 @@ variable "sharing_settings" {
     max_limit_user_sharing = number
   })
 
+  default = {
+    is_group_sharing_disabled = false      # Enable group sharing (better practice than individual sharing)
+    limit_sharing_mode        = "No limit" # Allow unrestricted sharing with security groups
+    max_limit_user_sharing    = -1         # Unlimited when group sharing is enabled
+  }
+
   description = <<DESCRIPTION
 Canvas app sharing controls and limitations for the managed environment.
 
@@ -55,15 +61,21 @@ providing governance controls to prevent data exposure and maintain compliance.
 
 Properties:
 - is_group_sharing_disabled: Prevents sharing with security groups when true
-- limit_sharing_mode: Controls sharing scope (ExcludeSharingToSecurityGroups, etc.)
+- limit_sharing_mode: Controls sharing scope ("No limit", "Exclude sharing with security groups")
 - max_limit_user_sharing: Maximum users for individual sharing (-1 if group sharing enabled)
 
 Example:
 sharing_settings = {
-  is_group_sharing_disabled = true
-  limit_sharing_mode        = "ExcludeSharingToSecurityGroups"
-  max_limit_user_sharing    = 10
+  is_group_sharing_disabled = false
+  limit_sharing_mode        = "No limit"
+  max_limit_user_sharing    = -1
 }
+
+Default Configuration (Governance Best Practice):
+- Enables group sharing (is_group_sharing_disabled = false)
+- Allows unrestricted sharing (limit_sharing_mode = "No limit")
+- Sets unlimited user sharing (max_limit_user_sharing = -1)
+- Encourages security group usage over individual user sharing
 
 Validation Rules:
 - If group sharing is disabled, max_limit_user_sharing must be > 0
@@ -79,25 +91,29 @@ DESCRIPTION
   }
 
   validation {
-    condition     = contains(["ExcludeSharingToSecurityGroups", "TenantIsolation"], var.sharing_settings.limit_sharing_mode)
-    error_message = "limit_sharing_mode must be one of: 'ExcludeSharingToSecurityGroups', 'TenantIsolation'. Current value: '${var.sharing_settings.limit_sharing_mode}'. Please use a valid sharing mode."
+    condition     = contains(["No limit", "Exclude sharing with security groups"], var.sharing_settings.limit_sharing_mode)
+    error_message = "limit_sharing_mode must be one of: 'No limit', 'Exclude sharing with security groups'. Current value: '${var.sharing_settings.limit_sharing_mode}'. Please use a valid sharing mode as documented in the Power Platform provider."
   }
 }
 
 variable "usage_insights_disabled" {
   type        = bool
-  default     = false
+  default     = true
   description = <<DESCRIPTION
 Controls whether weekly usage insights digest is disabled for the managed environment.
 
-When set to false (default), administrators receive weekly email digests with usage
-insights for the environment. When set to true, these insights are disabled.
+When set to false, administrators receive weekly email digests with usage
+insights for the environment. When set to true (default), these insights are disabled.
 
 Example:
-usage_insights_disabled = false  # Enable weekly insights (recommended)
-usage_insights_disabled = true   # Disable weekly insights
+usage_insights_disabled = false  # Enable weekly insights
+usage_insights_disabled = true   # Disable weekly insights (default)
 
-Default: false (insights enabled for better governance visibility)
+Default: true (insights disabled to avoid spamming tenant administrators)
+
+Note: While insights can provide governance visibility, they often generate excessive
+email volume. Consider enabling only for critical production environments or using
+alternative monitoring approaches.
 
 See: https://learn.microsoft.com/power-platform/admin/managed-environment-usage-insights
 DESCRIPTION
@@ -114,6 +130,12 @@ variable "solution_checker" {
     # Override specific solution checker rules
     rule_overrides = optional(set(string), [])
   })
+
+  default = {
+    mode                      = "Warn"  # Balanced approach: validate but don't block
+    suppress_validation_emails = true   # Reduce email noise, only send for blocked solutions
+    rule_overrides            = []      # No rule overrides by default
+  }
 
   description = <<DESCRIPTION
 Solution checker configuration for automated validation and quality control.
@@ -133,6 +155,11 @@ solution_checker = {
   suppress_validation_emails = true
   rule_overrides            = ["meta-avoid-reg-no-attribute", "app-use-delayoutput-text-input"]
 }
+
+Default Configuration (Balanced Governance):
+- Uses "Warn" mode for validation without blocking imports
+- Suppresses validation emails to reduce noise
+- No rule overrides (full validation suite)
 
 Validation Rules:
 - mode must be one of: None, Warn, Block
@@ -156,6 +183,11 @@ variable "maker_onboarding" {
     learn_more_url = string
   })
 
+  default = {
+    markdown_content = "Welcome to our Power Platform environment. Please follow organizational guidelines when developing solutions."
+    learn_more_url   = "https://learn.microsoft.com/power-platform/"
+  }
+
   description = <<DESCRIPTION
 Maker onboarding configuration to provide guidance and resources for new Power Platform makers.
 
@@ -171,6 +203,14 @@ maker_onboarding = {
   markdown_content = "## Welcome to Our Power Platform Environment\\n\\nPlease review our development guidelines before creating apps."
   learn_more_url   = "https://company.com/power-platform-guidance"
 }
+
+Default Configuration:
+- Provides basic welcome message with governance reminder
+- Links to official Microsoft Power Platform documentation
+- Can be customized for organization-specific guidance
+
+Note: While maker onboarding can provide value, many organizations prefer to handle
+user guidance through separate training programs and documentation systems.
 
 Validation Rules:
 - markdown_content must not be empty
