@@ -132,9 +132,9 @@ variable "solution_checker" {
   })
 
   default = {
-    mode                      = "Warn"  # Balanced approach: validate but don't block
+    mode                       = "Warn" # Balanced approach: validate but don't block
     suppress_validation_emails = true   # Reduce email noise, only send for blocked solutions
-    rule_overrides            = []      # No rule overrides by default
+    rule_overrides             = []     # No rule overrides by default
   }
 
   description = <<DESCRIPTION

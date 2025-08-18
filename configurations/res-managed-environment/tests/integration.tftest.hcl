@@ -33,7 +33,7 @@ variables {
     max_limit_user_sharing    = 10
   }
 
-  test_custom_usage_insights_disabled = false  # Override default to test customization
+  test_custom_usage_insights_disabled = false # Override default to test customization
 
   test_custom_solution_checker = {
     mode                       = "Block"
