@@ -107,28 +107,6 @@ The following requirements are needed by this module:
 
 No providers.
 
-## Modules
-
-The following Modules are called:
-
-### <a name="module_environment_group"></a> [environment\_group](#module\_environment\_group)
-
-Source: ../res-environment-group
-
-Version:
-
-### <a name="module_environment_settings"></a> [environment\_settings](#module\_environment\_settings)
-
-Source: ../res-environment-settings
-
-Version:
-
-### <a name="module_environments"></a> [environments](#module\_environments)
-
-Source: ../res-environment
-
-Version:
-
 ## Resources
 
 No resources.
@@ -329,6 +307,28 @@ Description: The workspace template used for this deployment.
 Indicates which predefined template was used to create the environment  
 structure. Available templates: basic, simple, enterprise.
 
+## Modules
+
+The following Modules are called:
+
+### <a name="module_environment_group"></a> [environment\_group](#module\_environment\_group)
+
+Source: ../res-environment-group
+
+Version:
+
+### <a name="module_environment_settings"></a> [environment\_settings](#module\_environment\_settings)
+
+Source: ../res-environment-settings
+
+Version:
+
+### <a name="module_environments"></a> [environments](#module\_environments)
+
+Source: ../res-environment
+
+Version:
+
 ## Authentication
 
 This pattern uses OIDC authentication for both the Power Platform provider and the Azure backend. Ensure the following environment variables are configured:
@@ -339,6 +339,16 @@ This pattern uses OIDC authentication for both the Power Platform provider and t
 - `AZURE_TENANT_ID`
 - `AZURE_SUBSCRIPTION_ID`
 
+### Service Principal Permission Requirements
+
+This pattern creates multiple resources requiring comprehensive permissions:
+
+**Recommended Setup:**
+```bash
+# Ensure service principal has permissions for all created environments
+./scripts/utils/assign-sp-power-platform-envs.sh --auto-approve
+```
+
 ## Pattern Orchestration
 
 The pattern implements the following orchestration sequence:
@@ -346,7 +356,25 @@ The pattern implements the following orchestration sequence:
 1. **Environment Group Creation**: Creates the central governance container
 2. **Environment Provisioning**: Creates multiple environments with Dataverse enabled
 3. **Automatic Group Assignment**: Environments are automatically assigned to the group
-4. **Validation**: Confirms all resources are created and properly linked
+4. **Settings Application**: Environment-specific settings applied based on template
+5. **Validation**: Confirms all resources are created and properly linked
+
+### Template-Driven Deployment Patterns
+
+**Basic Template (3 environments):**
+- Development → Testing → Production lifecycle
+- Balanced security and audit settings
+- Standard compliance requirements
+
+**Simple Template (2 environments):**
+- Development → Production lifecycle
+- Minimal overhead, faster deployment
+- Cost-optimized for smaller projects
+
+**Enterprise Template (4 environments):**
+- Development → Staging → Testing → Production
+- Maximum security and audit controls
+- Comprehensive compliance automation
 
 ## Data Collection
 
