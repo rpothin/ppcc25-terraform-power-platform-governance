@@ -11,7 +11,6 @@
 # - Resource Module: Deploys primary Power Platform environment group resource
 # - Strong Typing: All variables use explicit types and validation (no `any`)
 # - Provider Version: Centralized `~> 3.8` for `microsoft/power-platform` consistency
-# - Lifecycle Management: Resource modules include `ignore_changes` for operational flexibility
 #
 # Architecture Decisions:
 # - Provider Choice: Using microsoft/power-platform for native Power Platform integration
@@ -28,16 +27,9 @@ resource "powerplatform_environment_group" "this" {
   # Lifecycle management for resource modules
   # Allows manual admin center changes without Terraform drift detection
   lifecycle {
-    ignore_changes = [
-      # Allow administrators to modify display_name through admin center
-      # This prevents Terraform from overriding manual naming adjustments
-      # Common in enterprise scenarios where naming conventions evolve
-      display_name,
-
-      # Allow administrators to update descriptions through admin center
-      # Supports operational documentation updates without Terraform changes
-      # Maintains flexibility for dynamic organizational requirements
-      description
-    ]
+    # No lifecycle ignore_changes block - enforces "no touch prod" governance
+    # All configuration changes must be made through Infrastructure as Code
+    # Terraform will detect and report any manual changes as configuration drift
+    ignore_changes = []
   }
 }

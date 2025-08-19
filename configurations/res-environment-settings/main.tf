@@ -12,7 +12,6 @@
 # - Resource Deployment: Deploys primary Power Platform resources with lifecycle management
 # - Strong Typing: All variables use explicit types and validation (no `any`)
 # - Provider Version: Centralized `~> 3.8` for `microsoft/power-platform`
-# - Lifecycle Management: Resource modules include `ignore_changes` for manual admin center changes
 # - Focused Variables: Decomposed object variables following AVM SNFR14 best practices
 #
 # Architecture Decisions:
@@ -92,13 +91,9 @@ resource "powerplatform_environment_settings" "this" {
   # Lifecycle management for manual admin center changes
   # Allows administrators to make manual adjustments without Terraform interference
   lifecycle {
-    ignore_changes = [
-      # Allow manual changes to audit settings in admin center
-      audit_and_logs,
-      # Allow manual changes to email settings
-      email,
-      # Allow manual changes to product configurations
-      product
-    ]
+    # No lifecycle ignore_changes block - enforces "no touch prod" governance
+    # All configuration changes must be made through Infrastructure as Code
+    # Terraform will detect and report any manual changes as configuration drift
+    ignore_changes = []
   }
 }

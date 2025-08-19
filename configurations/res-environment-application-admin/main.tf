@@ -12,7 +12,6 @@
 # - res-* Specific: Resource deployment module with lifecycle management for stability
 # - Strong Typing: All variables use explicit types with comprehensive validation (no `any`)
 # - Provider Version: Centralized `~> 3.8` for `microsoft/power-platform` across all modules
-# - Lifecycle Management: Includes ignore_changes for manual admin center modifications
 #
 # Architecture Decisions:
 # - Provider Choice: Using microsoft/power-platform for native Power Platform integration
@@ -33,10 +32,9 @@ resource "powerplatform_environment_application_admin" "this" {
   # Prevents destruction of critical permission assignments and allows manual modifications
   # via Power Platform admin center without causing Terraform drift
   lifecycle {
-    # Allow manual modifications via admin center without drift detection
-    ignore_changes = [
-      # Tags and metadata may be modified outside Terraform
-      # Application assignments may be temporarily modified for troubleshooting
-    ]
+    # No lifecycle ignore_changes block - enforces "no touch prod" governance
+    # All configuration changes must be made through Infrastructure as Code
+    # Terraform will detect and report any manual changes as configuration drift
+    ignore_changes = []
   }
 }

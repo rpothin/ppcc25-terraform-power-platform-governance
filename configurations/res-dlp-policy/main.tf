@@ -157,10 +157,10 @@ resource "powerplatform_data_loss_prevention_policy" "this" {
   custom_connectors_patterns = var.custom_connectors_patterns
 
   lifecycle {
-    ignore_changes = [
-      # Allow manual changes in Power Platform admin center without drift
-      # Note: Add specific attributes here if you want to ignore certain manual changes
-    ]
+    # No lifecycle ignore_changes block - enforces "no touch prod" governance
+    # All configuration changes must be made through Infrastructure as Code
+    # Terraform will detect and report any manual changes as configuration drift
+    ignore_changes = []
 
     # This runs after the resource is created and the ID is available
     postcondition {
