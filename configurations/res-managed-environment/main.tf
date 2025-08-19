@@ -11,13 +11,14 @@
 # - Resource Module: Deploys primary Power Platform managed environment resource
 # - Strong Typing: All variables use explicit types and validation (no `any`)
 # - Provider Version: Centralized `~> 3.8` for `microsoft/power-platform` consistency
-# - Lifecycle Management: Resource modules include `ignore_changes` for operational flexibility
+# - "No Touch Prod" Governance: All changes enforced through Infrastructure as Code only
 #
 # Architecture Decisions:
 # - Provider Choice: Using microsoft/power-platform for native Power Platform integration
 # - Backend Strategy: Azure Storage with OIDC for secure, keyless state management
 # - Resource Organization: Single resource focused on managed environment configuration
 # - Governance Integration: Designed to work with environment groups and DLP policies
+# - Drift Detection: Terraform enforces configuration compliance and detects manual changes
 #
 # Managed Environment Capabilities:
 # - Enhanced sharing controls and limits
@@ -27,6 +28,8 @@
 
 # Primary managed environment resource with comprehensive governance controls
 # Managed environments provide premium capabilities for Power Platform governance at scale
+# All configuration changes must be made through Infrastructure as Code to maintain
+# strict governance compliance and operational consistency
 resource "powerplatform_managed_environment" "this" {
   environment_id = var.environment_id
 
@@ -48,29 +51,10 @@ resource "powerplatform_managed_environment" "this" {
   maker_onboarding_url      = var.maker_onboarding.learn_more_url
 
   # Lifecycle management for resource modules
-  # Allows manual admin center changes without Terraform drift detection
   lifecycle {
-    ignore_changes = [
-      # Allow administrators to modify sharing settings through admin center
-      # This supports dynamic organizational policy adjustments
-      is_group_sharing_disabled,
-      limit_sharing_mode,
-      max_limit_user_sharing,
-
-      # Allow administrators to toggle usage insights through admin center
-      # Supports compliance and reporting requirement changes
-      is_usage_insights_disabled,
-
-      # Allow administrators to adjust solution checker policies through admin center
-      # Enables operational flexibility for quality control processes
-      solution_checker_mode,
-      suppress_validation_emails,
-      solution_checker_rule_overrides,
-
-      # Allow administrators to update maker guidance through admin center
-      # Supports dynamic onboarding content updates
-      maker_onboarding_markdown,
-      maker_onboarding_url
-    ]
+    # No lifecycle ignore_changes block - enforces "no touch prod" governance
+    # All configuration changes must be made through Infrastructure as Code
+    # Terraform will detect and report any manual changes as configuration drift
+    ignore_changes = []
   }
 }
