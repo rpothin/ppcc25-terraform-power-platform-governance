@@ -151,7 +151,13 @@ provider "powerplatform" {
 # resource "powerplatform_resource" "example" {
 #   # ... resource arguments ...
 #   lifecycle {
-#     ignore_changes  = [display_name, tags]    # Allow manual admin center changes
+#     # 🔒 GOVERNANCE POLICY: "No Touch Prod"
+#     #
+#     # ENFORCEMENT: All configuration changes MUST go through Infrastructure as Code
+#     # DETECTION: Terraform detects and reports ANY manual changes as drift
+#     # COMPLIANCE: AVM TFNFR8 compliant lifecycle block positioning
+#     # EXCEPTION: Contact Platform Team for emergency change procedures
+#     ignore_changes = []
 #   }
 # }
 ```
@@ -381,7 +387,7 @@ run "deployment_validation" {
 
 **For `res-*` (Resource Modules):**
 ```markdown
-- **Lifecycle Protection**: Manual admin center changes preserved through lifecycle ignore_changes patterns
+- **Lifecycle Protection**: Lifecycle management to ignore all manual changes and consider them as drift
 - **Security-First Design**: OIDC authentication, no hardcoded secrets, principle of least privilege
 - **Environment-Specific Configuration**: Template-driven configurations for Dev, Test, Prod environments
 - **Compliance Automation**: Built-in support for governance policies and regulatory requirements
@@ -610,14 +616,20 @@ terraform {
 ```
 
 ### 3. Mandate Lifecycle Management for Resource Modules (`res-*`)
-- **MANDATORY:** All `res-*` modules must include a `lifecycle` block with `ignore_changes` for critical attributes.
+- **MANDATORY:** All `res-*` modules must include a `lifecycle` block with and empty `ignore_changes` to prevent manual changes.
 - **MANDATORY:** Document lifecycle behavior in the module README.
 - **EXAMPLE:**
 ```hcl
 resource "powerplatform_resource" "example" {
   # ... resource arguments ...
   lifecycle {
-    ignore_changes  = [display_name, tags]
+    # 🔒 GOVERNANCE POLICY: "No Touch Prod"
+    # 
+    # ENFORCEMENT: All configuration changes MUST go through Infrastructure as Code
+    # DETECTION: Terraform detects and reports ANY manual changes as drift
+    # COMPLIANCE: AVM TFNFR8 compliant lifecycle block positioning
+    # EXCEPTION: Contact Platform Team for emergency change procedures
+    ignore_changes = []
   }
 }
 ```
@@ -742,7 +754,6 @@ DESCRIPTION
 # - {Classification}-Specific: {classification-specific benefits}
 # - Strong Typing: All variables use explicit types and validation (no `any`)
 # - Provider Version: All modules use `~> 3.8` for `microsoft/power-platform`
-# - Lifecycle Management: Resource modules include `ignore_changes` (see below)
 #
 # Architecture Decisions:
 # - Provider Choice: Using microsoft/power-platform due to {reasoning}
@@ -778,7 +789,13 @@ provider "powerplatform" {
 # resource "powerplatform_resource" "example" {
 #   # ... resource arguments ...
 #   lifecycle {
-#     ignore_changes  = [display_name, tags]
+#     # 🔒 GOVERNANCE POLICY: "No Touch Prod"
+#     #
+#     # ENFORCEMENT: All configuration changes MUST go through Infrastructure as Code
+#     # DETECTION: Terraform detects and reports ANY manual changes as drift
+#     # COMPLIANCE: AVM TFNFR8 compliant lifecycle block positioning
+#     # EXCEPTION: Contact Platform Team for emergency change procedures
+#     ignore_changes = []
 #   }
 # }
 ```

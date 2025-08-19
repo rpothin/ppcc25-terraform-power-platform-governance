@@ -32,9 +32,12 @@ resource "powerplatform_environment_application_admin" "this" {
   # Prevents destruction of critical permission assignments and allows manual modifications
   # via Power Platform admin center without causing Terraform drift
   lifecycle {
-    # No lifecycle ignore_changes block - enforces "no touch prod" governance
-    # All configuration changes must be made through Infrastructure as Code
-    # Terraform will detect and report any manual changes as configuration drift
+    # 🔒 GOVERNANCE POLICY: "No Touch Prod"
+    # 
+    # ENFORCEMENT: All configuration changes MUST go through Infrastructure as Code
+    # DETECTION: Terraform detects and reports ANY manual changes as drift
+    # COMPLIANCE: AVM TFNFR8 compliant lifecycle block positioning
+    # EXCEPTION: Contact Platform Team for emergency change procedures
     ignore_changes = []
   }
 }

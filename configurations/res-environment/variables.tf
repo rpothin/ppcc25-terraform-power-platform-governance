@@ -226,8 +226,6 @@ dataverse = {
   security_group_id            = "12345678-1234-1234-1234-123456789012"
   administration_mode_enabled  = true    # Override: Enable admin mode for security
   background_operation_enabled = false   # Override: Disable background ops for review
-  # Note: Power Platform may adjust these values during environment creation
-  # Use lifecycle.ignore_changes if state drift occurs
 }
 
 Governance Benefits:

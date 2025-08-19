@@ -157,9 +157,12 @@ resource "powerplatform_data_loss_prevention_policy" "this" {
   custom_connectors_patterns = var.custom_connectors_patterns
 
   lifecycle {
-    # No lifecycle ignore_changes block - enforces "no touch prod" governance
-    # All configuration changes must be made through Infrastructure as Code
-    # Terraform will detect and report any manual changes as configuration drift
+    # 🔒 GOVERNANCE POLICY: "No Touch Prod"
+    # 
+    # ENFORCEMENT: All configuration changes MUST go through Infrastructure as Code
+    # DETECTION: Terraform detects and reports ANY manual changes as drift
+    # COMPLIANCE: AVM TFNFR8 compliant lifecycle block positioning
+    # EXCEPTION: Contact Platform Team for emergency change procedures
     ignore_changes = []
 
     # This runs after the resource is created and the ID is available
