@@ -10,7 +10,6 @@ This configuration manages Power Platform environment settings to control variou
 - **Compliance Automation**: SOX, GDPR, and regulatory compliance support with configurable audit retention and logging levels
 - **Environment-Specific Governance**: Template-driven configurations for different environment types (Dev, Test, Prod) with appropriate security levels
 - **Network Security**: CIDR-based IP filtering, Azure service tag integration, and reverse proxy support
-- **Lifecycle Protection**: Manual admin center changes preserved through lifecycle ignore\_changes patterns
 
 ## Configuration Categories
 
