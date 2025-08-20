@@ -70,7 +70,7 @@ The following requirements are needed by this module:
 
 The following providers are used by this module:
 
-- <a name="provider_local"></a> [local](#provider\_local) (~> 2.4)
+- <a name="provider_local"></a> [local](#provider\_local) (2.5.3)
 
 - <a name="provider_powerplatform"></a> [powerplatform](#provider\_powerplatform) (~> 3.8)
 

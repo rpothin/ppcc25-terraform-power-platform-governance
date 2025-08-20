@@ -130,12 +130,6 @@ run "plan_validation" {
     error_message = "Resource module must include lifecycle management configuration"
   }
 
-  # Ignore changes configuration for operational flexibility
-  assert {
-    condition     = length(regexall("ignore_changes", file("${path.module}/main.tf"))) > 0
-    error_message = "Resource must include ignore_changes for manual admin center modifications"
-  }
-
   # === OUTPUT DEFINITION VALIDATION (5 assertions) ===
   # Note: Testing output definitions in files, not output values (unavailable during plan)
 

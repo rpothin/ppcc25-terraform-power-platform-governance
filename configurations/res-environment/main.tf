@@ -144,10 +144,12 @@ resource "powerplatform_environment" "this" {
       EOT
     }
 
-    # Description changes should be managed through Terraform for consistency
-    # Manual changes in admin center will show as drift and require correction
-    ignore_changes = [
-      # Future: Add other fields here if manual override is needed
-    ]
+    # 🔒 GOVERNANCE POLICY: "No Touch Prod"
+    # 
+    # ENFORCEMENT: All configuration changes MUST go through Infrastructure as Code
+    # DETECTION: Terraform detects and reports ANY manual changes as drift
+    # COMPLIANCE: AVM TFNFR8 compliant lifecycle block positioning
+    # EXCEPTION: Contact Platform Team for emergency change procedures
+    ignore_changes = []
   }
 }

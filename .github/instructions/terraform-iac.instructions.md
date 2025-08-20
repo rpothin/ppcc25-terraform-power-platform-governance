@@ -349,7 +349,13 @@ resource "powerplatform_data_loss_prevention_policy" "this" {
   # ... other arguments ...
 
   lifecycle {
-   ignore_changes  = [display_name, tags]    # Allow manual changes without drift
+    # 🔒 GOVERNANCE POLICY: "No Touch Prod"
+    # 
+    # ENFORCEMENT: All configuration changes MUST go through Infrastructure as Code
+    # DETECTION: Terraform detects and reports ANY manual changes as drift
+    # COMPLIANCE: AVM TFNFR8 compliant lifecycle block positioning
+    # EXCEPTION: Contact Platform Team for emergency change procedures
+    ignore_changes = []
   }
 }
 ```

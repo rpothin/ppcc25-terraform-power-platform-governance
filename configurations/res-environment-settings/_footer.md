@@ -6,6 +6,20 @@ This configuration requires authentication to Microsoft Power Platform:
 - **Required Permissions**: Power Platform Service Admin role
 - **State Backend**: Azure Storage with OIDC authentication
 
+### Service Principal Permission Requirements
+
+Environment settings management requires **System Administrator** or **Environment Admin** permissions in the target Power Platform environment. The service principal must have appropriate permissions assigned via:
+
+- **Automated Assignment**: Use `res-environment-application-admin` configuration for Infrastructure as Code permission management
+- **Manual Assignment**: Run the permission assignment script: `./scripts/utils/assign-sp-power-platform-envs.sh --auto-approve`
+- **Admin Center**: Manually assign permissions through Power Platform Admin Center
+
+**Prerequisites Script:**
+```bash
+# Assign service principal as System Administrator on target environment
+./scripts/utils/assign-sp-power-platform-envs.sh --environment "<environment-id>" --auto-approve
+```
+
 ## Data Collection
 
 This configuration does not collect telemetry data. All data queried remains within your Power Platform tenant and is only accessible through your authenticated Terraform execution environment.

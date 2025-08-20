@@ -66,7 +66,7 @@ The following requirements are needed by this module:
 
 The following providers are used by this module:
 
-- <a name="provider_null"></a> [null](#provider\_null) (~> 3.0)
+- <a name="provider_null"></a> [null](#provider\_null) (3.2.4)
 
 - <a name="provider_powerplatform"></a> [powerplatform](#provider\_powerplatform) (~> 3.8)
 
@@ -144,8 +144,6 @@ dataverse = {
   security\_group\_id            = "12345678-1234-1234-1234-123456789012"  
   administration\_mode\_enabled  = true    # Override: Enable admin mode for security  
   background\_operation\_enabled = false   # Override: Disable background ops for review
-  # Note: Power Platform may adjust these values during environment creation
-  # Use lifecycle.ignore\_changes if state drift occurs
 }
 
 Governance Benefits:

@@ -60,8 +60,40 @@ Use `list_dir` to confirm all template files were copied successfully.
 #### Step 3: Process Template Placeholders
 1. **Read copied template files** from new configuration directory (NOT from template source)
 2. **Inventory ALL placeholders** - scan `_header.md` and `_footer.md` for `{{PLACEHOLDER}}` variables
-3. **Replace placeholders systematically** using user input and classification logic
-4. **Validate replacement** - ensure no placeholders remain and `.terraform-docs.yml` references are correct
+3. **Determine conditional content requirements** based on:
+   - Configuration classification (res-*, ptn-*, utl-*)
+   - Configuration complexity (simple, standard, comprehensive)
+   - User-specified enhancement requirements
+4. **Replace placeholders systematically** using user input and classification logic
+5. **Process conditional sections** - include/exclude enhanced sections based on requirements:
+   
+   **Always Include** (All Configurations):
+   - Basic metadata: CONFIGURATION_TITLE, PRIMARY_PURPOSE, CONFIGURATION_NAME
+   - Core use cases: USE_CASE_1 through USE_CASE_4 with descriptions
+   - AVM compliance: TFFR2_IMPLEMENTATION, CLASSIFICATION_PURPOSE
+   - Basic troubleshooting: TROUBLESHOOTING_SPECIFIC, PERMISSION_CONTEXT
+   
+   **Include for Complex Configurations** (res-* and ptn-* with multiple features):
+   - KEY_FEATURES section with detailed capability descriptions
+   - ADDITIONAL_USE_CASES (USE_CASE_5, USE_CASE_6) for comprehensive scenarios
+   - CONFIGURATION_CATEGORIES for configurations with multiple setting types
+   - ENVIRONMENT_EXAMPLES for configurations supporting multiple environments
+   - SP_PERMISSIONS for configurations requiring specific service principal permissions
+   
+   **Include for Pattern Configurations** (ptn-* only):
+   - ADVANCED_USAGE with orchestration patterns and template selection
+   - Enhanced troubleshooting with dependency management guidance
+   
+   **Include Based on User Requirements:**
+   - ENHANCED_TROUBLESHOOTING for configurations with known complex scenarios
+
+6. **Generate classification-specific content**:
+   - **utl-***: Focus on data export patterns, output descriptions, integration examples
+   - **res-***: Emphasize resource deployment, lifecycle management, security patterns
+   - **ptn-***: Highlight orchestration patterns, dependency management, multi-resource coordination
+
+7. **Validate replacement** - ensure no placeholders remain and `.terraform-docs.yml` references are correct
+8. **Remove unused conditional sections** - clean up any `{{#SECTION}}...{{/SECTION}}` blocks not populated
 
 *Why template-based: Ensures consistent documentation, metadata, and structure across all configurations while preventing manual errors.*
 
@@ -119,7 +151,13 @@ provider "powerplatform" {
 # resource "powerplatform_resource" "example" {
 #   # ... resource arguments ...
 #   lifecycle {
-#     ignore_changes  = [display_name, tags]    # Allow manual admin center changes
+#     # 🔒 GOVERNANCE POLICY: "No Touch Prod"
+#     #
+#     # ENFORCEMENT: All configuration changes MUST go through Infrastructure as Code
+#     # DETECTION: Terraform detects and reports ANY manual changes as drift
+#     # COMPLIANCE: AVM TFNFR8 compliant lifecycle block positioning
+#     # EXCEPTION: Contact Platform Team for emergency change procedures
+#     ignore_changes = []
 #   }
 # }
 ```
@@ -288,29 +326,137 @@ run "deployment_validation" {
 - `{{PRIMARY_PURPOSE}}` - Brief purpose description
 
 **Use Cases & Integration:**
-- `{{USE_CASE_1}}` through `{{USE_CASE_4}}` - Four primary use cases
-- `{{USE_CASE_1_DESCRIPTION}}` through `{{USE_CASE_4_DESCRIPTION}}` - Detailed descriptions
+- `{{USE_CASE_1}}` through `{{USE_CASE_4}}` - Four primary use cases (required)
+- `{{USE_CASE_1_DESCRIPTION}}` through `{{USE_CASE_4_DESCRIPTION}}` - Detailed descriptions (required)
+- `{{USE_CASE_5}}`, `{{USE_CASE_6}}` - Additional use cases (conditional: ADDITIONAL_USE_CASES)
+- `{{USE_CASE_5_DESCRIPTION}}`, `{{USE_CASE_6_DESCRIPTION}}` - Additional descriptions (conditional)
 - `{{WORKFLOW_TYPE}}` - Type of workflow integration
 - `{{TFVARS_EXAMPLE}}` - Example tfvars configuration
+
+**Enhanced Content Sections (Conditional):**
+- `{{KEY_FEATURES_CONTENT}}` - Comprehensive feature list with detailed descriptions (conditional: KEY_FEATURES)
+- `{{CONFIGURATION_CATEGORIES_TITLE}}` - Title for configuration categories section (conditional: CONFIGURATION_CATEGORIES)
+- `{{CONFIGURATION_CATEGORIES_CONTENT}}` - Detailed configuration categories content (conditional)
+- `{{ENVIRONMENT_EXAMPLES_CONTENT}}` - Environment-specific configuration patterns (conditional: ENVIRONMENT_EXAMPLES)
+- `{{ADVANCED_USAGE_CONTENT}}` - Advanced usage patterns and examples (conditional: ADVANCED_USAGE)
 
 **AVM Compliance:**
 - `{{TFFR2_IMPLEMENTATION}}` - Anti-corruption layer implementation
 - `{{CLASSIFICATION_PURPOSE}}` - Purpose based on classification
 - `{{CLASSIFICATION_DESCRIPTION}}` - Classification-specific description
 
-**Documentation & Troubleshooting:**
+**Authentication & Permissions:**
 - `{{PERMISSION_CONTEXT}}` - Permission context for the resource type
+- `{{SP_PERMISSIONS_CONTENT}}` - Service principal permission requirements with scripts (conditional: SP_PERMISSIONS)
+
+**Documentation & Troubleshooting:**
 - `{{TROUBLESHOOTING_SPECIFIC}}` - Configuration-specific troubleshooting
+- `{{ENHANCED_TROUBLESHOOTING_TITLE}}` - Title for enhanced troubleshooting section (conditional: ENHANCED_TROUBLESHOOTING)
+- `{{ENHANCED_TROUBLESHOOTING_CONTENT}}` - Additional troubleshooting content (conditional)
 - `{{RESOURCE_DOCUMENTATION_TITLE}}` - Official docs title
 - `{{RESOURCE_DOCUMENTATION_URL}}` - Official docs URL
 
-### Classification-Specific Values
+**Conditional Section Flags:**
+- `{{#KEY_FEATURES}}...{{/KEY_FEATURES}}` - Include Key Features section
+- `{{#ADDITIONAL_USE_CASES}}...{{/ADDITIONAL_USE_CASES}}` - Include use cases 5-6
+- `{{#CONFIGURATION_CATEGORIES}}...{{/CONFIGURATION_CATEGORIES}}` - Include configuration categories
+- `{{#ENVIRONMENT_EXAMPLES}}...{{/ENVIRONMENT_EXAMPLES}}` - Include environment-specific examples
+- `{{#ADVANCED_USAGE}}...{{/ADVANCED_USAGE}}` - Include advanced usage patterns
+- `{{#SP_PERMISSIONS}}...{{/SP_PERMISSIONS}}` - Include service principal permission requirements
+- `{{#ENHANCED_TROUBLESHOOTING}}...{{/ENHANCED_TROUBLESHOOTING}}` - Include enhanced troubleshooting section
+
+### Classification-Specific Values and Enhanced Content Patterns
 
 | Classification | Purpose | Description | Anti-Corruption Layer | Workflow Type |
 |----------------|---------|-------------|----------------------|---------------|
 | `utl-*` | Data Export and Analysis | Provides reusable data sources without deploying resources | Outputting discrete computed attributes instead of full resource objects | Data Export Workflows |
 | `res-*` | Resource Deployment | Deploys primary Power Platform resources following WAF best practices | Outputting resource IDs and computed attributes as discrete outputs | Resource Deployment Workflows |
 | `ptn-*` | Pattern Implementation | Deploys multiple resources using composable patterns | Outputting key resource identifiers and computed values from the pattern | Pattern Deployment Workflows |
+
+### Enhanced Content Patterns by Classification
+
+#### Key Features Content Patterns
+
+**For `utl-*` (Utility Modules):**
+```markdown
+- **Live Data Access**: Direct integration with Power Platform APIs for real-time data retrieval
+- **Multiple Output Formats**: JSON, CSV, and structured Terraform outputs for downstream processing
+- **Zero Resource Deployment**: Pure data extraction without modifying tenant resources
+- **Integration Patterns**: Designed for CI/CD pipelines and automated reporting workflows
+```
+
+**For `res-*` (Resource Modules):**
+```markdown
+- **Lifecycle Protection**: Lifecycle management to ignore all manual changes and consider them as drift
+- **Security-First Design**: OIDC authentication, no hardcoded secrets, principle of least privilege
+- **Environment-Specific Configuration**: Template-driven configurations for Dev, Test, Prod environments
+- **Compliance Automation**: Built-in support for governance policies and regulatory requirements
+```
+
+**For `ptn-*` (Pattern Modules):**
+```markdown
+- **Multi-Resource Orchestration**: Coordinated deployment with proper dependency management
+- **Template-Driven Architecture**: Predefined patterns (basic, simple, enterprise) for different organizational needs
+- **Hybrid Configuration Management**: Workspace-level defaults with environment-specific overrides
+- **Pattern Composition**: Combines multiple AVM-compliant modules for end-to-end scenarios
+```
+
+#### Service Principal Permission Content Patterns
+
+**For Environment Management (res-environment*, ptn-environment*):**
+```markdown
+Environment creation and management requires **Power Platform Service Admin** permissions. The service principal must have appropriate tenant-level permissions assigned via:
+
+- **Automated Assignment**: Use the automated permission assignment script
+- **Manual Assignment**: Assign through Power Platform Admin Center
+- **Verification**: Confirm permissions before deployment
+
+**Prerequisites Script:**
+```bash
+# Verify and assign required permissions
+./scripts/utils/verify-sp-power-platform-permissions.sh --auto-approve
+```
+
+**For Environment Settings (res-environment-settings):**
+```markdown
+Environment settings management requires **System Administrator** or **Environment Admin** permissions in the target Power Platform environment. The service principal must have appropriate permissions assigned via:
+
+- **Automated Assignment**: Use `res-environment-application-admin` configuration for Infrastructure as Code permission management
+- **Manual Assignment**: Run the permission assignment script: `./scripts/utils/assign-sp-power-platform-envs.sh --auto-approve`
+- **Admin Center**: Manually assign permissions through Power Platform Admin Center
+
+**Prerequisites Script:**
+```bash
+# Assign service principal as System Administrator on target environment
+./scripts/utils/assign-sp-power-platform-envs.sh --environment "<environment-id>" --auto-approve
+```
+
+#### Advanced Usage Patterns
+
+**For Pattern Configurations:**
+```markdown
+## Template Selection and Orchestration
+
+### Available Templates
+
+- **basic**: Standard three-tier lifecycle (Dev, Test, Prod) with balanced settings
+- **simple**: Minimal two-tier lifecycle (Dev, Prod) with conservative settings  
+- **enterprise**: Four-tier lifecycle (Dev, Staging, Test, Prod) with comprehensive security
+
+### Orchestration Examples
+
+```yaml
+# Complete workflow orchestration
+steps:
+  - name: Deploy Environment Group
+    uses: ./.github/actions/terraform-apply
+    with:
+      configuration: 'ptn-environment-group'
+      tfvars-content: |
+        workspace_template = "enterprise"
+        name               = "CriticalApp"
+        location           = "unitedstates"
+```
 
 ### Final Directory Structure
 ```
@@ -333,16 +479,28 @@ configurations/{configuration-name}/
 
 ---
 
-## ⚡ Execution Checklist
+## ⚡ Enhanced Execution Checklist
 
 **Before starting:**
 - [ ] User has provided module classification, configuration name, and primary purpose
 - [ ] Naming convention follows `{classification}-{descriptive-name}` pattern
-- [ ] Template directory exists and contains required files
+- [ ] Template directory exists and contains required files (_header.md, _footer.md, .terraform-docs.yml)
+- [ ] Determined enhancement level based on configuration complexity
 
 **During execution:**
 - [ ] Template copied using `cp -r` command (not manual creation)
-- [ ] All placeholders inventoried and replaced systematically
+- [ ] All placeholders inventoried from both header and footer templates
+- [ ] Conditional content requirements determined based on classification and complexity
+- [ ] Core placeholders replaced systematically (metadata, use cases, AVM compliance)
+- [ ] Enhanced sections processed based on requirements:
+  - [ ] KEY_FEATURES section for complex configurations
+  - [ ] ADDITIONAL_USE_CASES for comprehensive scenarios
+  - [ ] CONFIGURATION_CATEGORIES for multi-setting configurations
+  - [ ] ENVIRONMENT_EXAMPLES for multi-environment support
+  - [ ] SP_PERMISSIONS for configurations requiring specific permissions
+  - [ ] ADVANCED_USAGE for pattern configurations
+  - [ ] ENHANCED_TROUBLESHOOTING for complex scenarios
+- [ ] Unused conditional sections removed from final templates
 - [ ] Classification-specific files generated based on module type
 - [ ] Quality requirements applied (strong typing, lifecycle management, test coverage)
 
@@ -351,6 +509,9 @@ configurations/{configuration-name}/
 - [ ] `terraform validate` passes syntax validation
 - [ ] All required files exist in configuration directory
 - [ ] Template structure preserved (only placeholders modified)
+- [ ] No remaining `{{PLACEHOLDER}}` or `{{#SECTION}}...{{/SECTION}}` markers in templates
+- [ ] Enhanced content appropriate for configuration classification and complexity
+- [ ] Documentation generates correctly with `terraform-docs`
 - [ ] CHANGELOG.md updated with new configuration entry
 
 ---
@@ -455,14 +616,20 @@ terraform {
 ```
 
 ### 3. Mandate Lifecycle Management for Resource Modules (`res-*`)
-- **MANDATORY:** All `res-*` modules must include a `lifecycle` block with `ignore_changes` for critical attributes.
+- **MANDATORY:** All `res-*` modules must include a `lifecycle` block with and empty `ignore_changes` to prevent manual changes.
 - **MANDATORY:** Document lifecycle behavior in the module README.
 - **EXAMPLE:**
 ```hcl
 resource "powerplatform_resource" "example" {
   # ... resource arguments ...
   lifecycle {
-    ignore_changes  = [display_name, tags]
+    # 🔒 GOVERNANCE POLICY: "No Touch Prod"
+    # 
+    # ENFORCEMENT: All configuration changes MUST go through Infrastructure as Code
+    # DETECTION: Terraform detects and reports ANY manual changes as drift
+    # COMPLIANCE: AVM TFNFR8 compliant lifecycle block positioning
+    # EXCEPTION: Contact Platform Team for emergency change procedures
+    ignore_changes = []
   }
 }
 ```
@@ -587,7 +754,6 @@ DESCRIPTION
 # - {Classification}-Specific: {classification-specific benefits}
 # - Strong Typing: All variables use explicit types and validation (no `any`)
 # - Provider Version: All modules use `~> 3.8` for `microsoft/power-platform`
-# - Lifecycle Management: Resource modules include `ignore_changes` (see below)
 #
 # Architecture Decisions:
 # - Provider Choice: Using microsoft/power-platform due to {reasoning}
@@ -623,7 +789,13 @@ provider "powerplatform" {
 # resource "powerplatform_resource" "example" {
 #   # ... resource arguments ...
 #   lifecycle {
-#     ignore_changes  = [display_name, tags]
+#     # 🔒 GOVERNANCE POLICY: "No Touch Prod"
+#     #
+#     # ENFORCEMENT: All configuration changes MUST go through Infrastructure as Code
+#     # DETECTION: Terraform detects and reports ANY manual changes as drift
+#     # COMPLIANCE: AVM TFNFR8 compliant lifecycle block positioning
+#     # EXCEPTION: Contact Platform Team for emergency change procedures
+#     ignore_changes = []
 #   }
 # }
 ```

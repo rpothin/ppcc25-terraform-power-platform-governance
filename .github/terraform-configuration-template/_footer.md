@@ -6,6 +6,12 @@ This configuration requires authentication to Microsoft Power Platform:
 - **Required Permissions**: Power Platform Service Admin role
 - **State Backend**: Azure Storage with OIDC authentication
 
+{{#SP_PERMISSIONS}}
+### Service Principal Permission Requirements
+
+{{SP_PERMISSIONS_CONTENT}}
+{{/SP_PERMISSIONS}}
+
 ## Data Collection
 
 This configuration does not collect telemetry data. All data queried remains within your Power Platform tenant and is only accessible through your authenticated Terraform execution environment.
@@ -40,6 +46,12 @@ This configuration uses the `microsoft/power-platform` provider, which creates a
 - Check for tenant-level restrictions on automation
 
 {{TROUBLESHOOTING_SPECIFIC}}
+
+{{#ENHANCED_TROUBLESHOOTING}}
+### {{ENHANCED_TROUBLESHOOTING_TITLE}}
+
+{{ENHANCED_TROUBLESHOOTING_CONTENT}}
+{{/ENHANCED_TROUBLESHOOTING}}
 
 ## Additional Links
 
