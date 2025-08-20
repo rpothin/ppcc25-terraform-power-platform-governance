@@ -1,744 +1,507 @@
 ---
-description: "GitHub Actions workflows and automation standards"
-applyTo: ".github/*.yml,.github/*.yaml"
+description: "GitHub Actions workflows and automation standards for Power Platform governance"
+applyTo: ".github/**/*.yml,.github/**/*.yaml"
 ---
 
 # GitHub Automation Guidelines
 
-## Workflow Structure and Organization
+## 🎯 Purpose and Context
 
-      - name: Azure Login via OIDC
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+**Repository Mission**: Demonstrate Power Platform governance through Infrastructure as Code using Terraform and GitHub Actions.
 
-Permission Standards:
-
-Always declare explicit permissions (avoid permissions: write-all)
-Use minimal required permissions for each workflow
-    echo "::notice title=Fix Instructions::Use one of the available configurations listed above"
-    exit 1
-  fi
-
-Reliability Patterns:
-
-Timeout Configuration: Appropriate timeouts for each operation type
-Retry Logic: Automatic retry for transient failures
-    timeout-minutes: 5
-    steps:
-      # ... job steps
-
-  # Creates Terraform execution plan  
-  # WHY: Shows what changes will be made before applying
-  terraform-plan:
-    needs: validate
-    runs-on: ubuntu-latest
-    environment: production  # Required for state access
-    timeout-minutes: 15
-    outputs:
-      has-changes: ${{ steps.plan.outputs.changes }}
-    steps:
-      # ... job steps
-
-  # Applies the Terraform plan to deploy resources
-  # WHY: Only runs if plan succeeds and changes exist
-  terraform-apply:
-    needs: terraform-plan
-    if: needs.terraform-plan.outputs.has-changes == 'true'
-    runs-on: ubuntu-latest
-    environment: production  # Required for deployment secrets
-    timeout-minutes: 25
-    steps:
-      # ... job steps
-
-Job Documentation Principles:
-
-One-line purpose - Clear, simple description of what the job does
-WHY comment - Brief explanation of why this job exists or runs conditionally
+**AI Agent Directive**: When creating or modifying GitHub Actions workflows, prioritize:
+1. **Security** - OIDC authentication, least privilege, no hardcoded secrets
+2. **Efficiency** - Minimize GitHub Actions minutes consumption (<30% monthly limit)
+3. **Clarity** - Self-documenting code with WHY-focused comments
+4. **Reliability** - Comprehensive error handling with actionable guidance
 
 ---
-description: "GitHub Actions workflows and automation standards"
-applyTo: ".github/*.yml,.github/*.yaml"
----
 
-# GitHub Automation Guidelines
+## 📋 Workflow Creation Checklist
 
-## Workflow Structure and Organization
+**AI Agent: Follow this exact sequence when creating new workflows:**
 
-### Required Workflow Header Structure
-All GitHub workflows **MUST** follow this exact order at the top of the file:
-1. `name` — Clear, descriptive workflow name
-2. `concurrency` — Prevent concurrent runs when appropriate
-3. `on` — Trigger events and conditions
-4. `run-name` — Dynamic run naming for better identification
-5. `permissions` — Explicit permission declarations (principle of least privilege)
-
-#### Example Structure
 ```yaml
----  # REQUIRED: Document start marker
-name: "Terraform Infrastructure Deployment"
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false
-on:
-  workflow_dispatch:
-    inputs:
-      environment:
-        description: 'Target environment'
-        required: true
-        default: 'development'
-run-name: "Deploy to ${{ inputs.environment }} by @${{ github.actor }}"
-permissions:
-  contents: read
-  id-token: write
-  pull-requests: write
-jobs:
-  # Jobs definition starts here
-```
-
-### Additional Organization Standards
-- Use reusable workflows for common patterns to reduce duplication
-- **REQUIRED**: Reusable workflow names **MUST** start with "♻️" to ensure they appear at the end of the list in the GitHub UI
-- Implement proper job dependencies and conditional execution
-- Follow semantic naming conventions for workflows and jobs
-- Group related actions into composite actions for reusability
-
+# STEP 1: Document start marker (REQUIRED)
 ---
 
-## File Size and Complexity Management
-
-### Mandatory Size Limits
-Following the baseline principle of **Modularity Over Long and Complex Files**:
-- **Individual workflow files**: **MAXIMUM 300 lines**
-- **Composite action files**: **MAXIMUM 150 lines**
-- **Reusable workflow files**: **MAXIMUM 400 lines** (due to interface complexity)
-
-#### Exception Process
-Files exceeding limits require:
-- **Documented justification** in header comment with architectural reasoning
-- **Modularization plan** with specific timeline for splitting
-- **Architecture review approval** before merge
-
-#### Modularization Triggers
-- **IMMEDIATE REVIEW**: Any file approaching 80% of size limit
-- **MANDATORY ACTION**: Files exceeding limits must be split unless exception approved
-- **REFACTORING GUIDANCE**: Use composite actions, job splitting, or workflow chaining
-
-#### Complexity Reduction Patterns
-```yaml
-# GOOD: Split large workflows into focused components
-# Main workflow coordinates, reusable workflows handle operations
-uses: ./.github/workflows/reusable-terraform-base.yml
-with:
-  operation: plan
-  configuration: ${{ inputs.configuration }}
-
-# GOOD: Extract complex logic to composite actions
-- name: Configure Terraform Backend
-  uses: ./.github/actions/terraform-backend-setup
-  with:
-    storage-account: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
-```
-
----
-
-## Automated Compliance Enforcement
-
-### Pre-commit Validation Requirements
-All workflows and composite actions **MUST** pass automated validation before commit:
-
-```bash
-# REQUIRED: Run before committing any GitHub Actions changes
-./scripts/utils/validate-github-actions-compliance.sh
-
-# Validates:
-# - YAML document start markers (---)
-# - Required header structure order
-# - File size limits and complexity
-# - Environment protection requirements
-# - Documentation completeness
-```
-
-### CI/CD Integration Standards
-- **Compliance validation** runs automatically on all pull requests
-- **Non-compliant changes** are blocked from merging
-- **Validation results** provide specific remediation guidance
-- **Quality gates** require compliance score above threshold
-
-#### Enforcement Mechanisms
-```yaml
-# Automatic validation in PR workflow
-- name: Validate GitHub Actions Compliance
-  uses: ./.github/actions/validate-actions-compliance
-  with:
-    fail-on-violations: true
-    generate-report: true
-```
-
----
-
-## Template-Based Development
-
-### Required Scaffolding Process
-Following the baseline principle of **Reusability Over Code Duplication**:
-- **NEW WORKFLOWS**: Must use approved templates from `.github/templates/`
-- **VALIDATION**: Template compliance automatically verified
-- **CONSISTENCY**: Identical patterns across all workflow types
-
-#### Template Categories
-- `workflow-terraform-operation.template.yml` — Infrastructure operations
-- `workflow-validation.template.yml` — Validation and testing workflows
-- `workflow-reusable.template.yml` — Reusable workflow patterns
-- `action-composite.template.yml` — Reusable composite actions
-
-#### Template Usage
-```bash
-# Generate new workflow from template
-./scripts/utils/create-workflow.sh --template terraform-operation --name my-workflow
-
-# Validate template compliance
-./scripts/utils/validate-template-compliance.sh path/to/workflow.yml
-```
-
----
-
-## Security and Authentication
-
-### OIDC and Environment Protection
-Following the baseline principle of **Security by Design**:
-- Use OIDC authentication for Azure and cloud provider connections
-- **REQUIRED**: All Terraform jobs requiring GitHub secrets **MUST** specify the `production` GitHub environment
-- Implement environment protection rules for production deployments
-- Store sensitive values in GitHub secrets, not in workflow files
-- Apply principle of least privilege for workflow permissions
-
-#### GitHub Environment Requirements
-```yaml
-jobs:
-  terraform-deploy:
-    runs-on: ubuntu-latest
-    environment: production  # REQUIRED for Terraform jobs with secrets
-    steps:
-      - name: Azure Login via OIDC
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-```
-
-#### Permission Standards
-- Always declare explicit permissions (avoid `permissions: write-all`)
-- Use minimal required permissions for each workflow
-- Document why specific permissions are needed in inline comments
-
-#### Security Validation
-```yaml
-# Automated security scanning for workflows
-- name: Scan for Security Issues
-  uses: ./.github/actions/security-scan-workflows
-  with:
-    check-secrets: true
-    validate-permissions: true
-    enforce-oidc: true
-```
-
----
-
-## Error Handling and Reliability
-
-### Comprehensive Error Handling
-Following the baseline principle of **Keep It Simple**:
-- Implement meaningful error messages with actionable guidance
-- Use retry mechanisms for network operations and external dependencies
-- Provide clear failure messages and troubleshooting guidance
-- Include proper cleanup steps for failed workflow runs
-
-#### Error Message Standards
-```yaml
-run: |
-  if [ ! -d "configurations/$config" ]; then
-    echo "::error title=Configuration Not Found::Directory 'configurations/$config' does not exist"
-    # WHY: Early validation prevents confusing failures in later steps
-    # CONTEXT: Available configurations are determined by repository structure
-    echo "::notice title=Available Options::$(ls configurations/ | grep -E '^[0-9]+-')"
-    echo "::notice title=Fix Instructions::Use one of the available configurations listed above"
-    exit 1
-  fi
-```
-
-#### Reliability Patterns
-- **Timeout Configuration**: Appropriate timeouts for each operation type
-- **Retry Logic**: Automatic retry for transient failures
-- **State Protection**: Never cancel operations that modify infrastructure state
-- **Cleanup Procedures**: Proper resource cleanup on failure
-
----
-
-## Performance and Efficiency
-
-### Optimization Requirements
-- Use caching for dependencies and build artifacts
-- Implement conditional execution to skip unnecessary steps
-- Optimize workflow triggers to reduce unnecessary runs
-- Use matrix strategies for parallel execution where appropriate
-
-#### Caching Standards
-```yaml
-# Standardized caching for Terraform operations
-- name: Cache Terraform Providers
-  uses: actions/cache@v4
-  with:
-    path: ~/.terraform.d/plugin-cache
-    key: terraform-providers-${{ runner.os }}-${{ hashFiles('**/.terraform.lock.hcl') }}
-    restore-keys: terraform-providers-${{ runner.os }}-
-```
-
----
-
-## Documentation and Comments
-
-### Purpose-Driven Comments for Power Platform Governance
-Following the baseline principle of **Clear and Concise Comments**:
-
-This standard ensures GitHub Actions workflows provide clear context about governance decisions, security requirements, and operational needs without unnecessary verbosity.
-
-#### Header Documentation Pattern
-All workflows **MUST** include a comprehensive header following this pattern:
-```yaml
-# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
-# TERRAFORM [OPERATION] WORKFLOW FOR POWER PLATFORM GOVERNANCE
-# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
-# Brief statement of workflow purpose and primary governance value.
+# STEP 2: Header documentation block
+# ═══════════════════════════════════════════════════════════════════════════════
+# [WORKFLOW PURPOSE IN CAPS]
+# ═══════════════════════════════════════════════════════════════════════════════
+# One-line description of what this workflow accomplishes.
 #
 # 🎯 WHY THIS EXISTS:
-# - Governance requirement it addresses (DLP, environment management, compliance)
-# - Business problem it solves (manual processes, security gaps, audit needs)
-# - Operational benefit it provides (automation, consistency, error reduction)
+# - Primary business/governance problem it solves
+# - Key automation benefit it provides
+# - Integration with overall governance strategy
 #
-# 🔒 SECURITY DECISIONS:
-# - Why OIDC authentication is required for this operation
-# - Why specific environment protections are needed
-# - Why certain permissions are granted or restricted
+# 🔒 SECURITY CONTEXT:
+# - Authentication method and why (OIDC preferred)
+# - Required permissions and justification
+# - Environment protection requirements
 #
-# ⚙️ OPERATIONAL CONTEXT:
-# - Why concurrency controls are configured this way
-# - Why timeout values are set to specific durations  
-# - Why certain trigger patterns are used
-#
-# 📋 INTEGRATION REQUIREMENTS:
-# - Dependencies on other workflows or systems
-# - Why specific tool versions are pinned
-# - Why certain backends or storage patterns are used
-# ═══════════════════════════════════════════════════════════════════════════════════════════════════════
-```
+# ⚡ PERFORMANCE OPTIMIZATION:
+# - Expected monthly run frequency: [number]
+# - Average duration per run: [minutes]
+# - Optimization strategies applied: [list]
+# ═══════════════════════════════════════════════════════════════════════════════
 
-#### Section Documentation Pattern
-Document configuration sections that implement governance or security requirements:
-```yaml
-# === POWER PLATFORM AUTHENTICATION ===
-# OIDC required because stored credentials violate zero-trust security model
-# Power Platform provider needs explicit tenant context for multi-tenant scenarios
-env:
-  POWER_PLATFORM_USE_OIDC: true
-  POWER_PLATFORM_CLIENT_ID: ${{ secrets.POWER_PLATFORM_CLIENT_ID }}
-  POWER_PLATFORM_TENANT_ID: ${{ secrets.POWER_PLATFORM_TENANT_ID }}
+# STEP 3: Workflow metadata (EXACT ORDER)
+name: "[Descriptive Workflow Name]"
 
-# === CONCURRENCY PROTECTION ===
-# Prevents state corruption when multiple deployments target same configuration
-# Never cancel running Terraform operations to avoid incomplete state changes
+# STEP 4: Concurrency control
 concurrency:
-  group: terraform-${{ inputs.configuration }}-${{ inputs.tfvars-file }}-${{ github.ref }}
-  cancel-in-progress: false
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false  # true only for non-state-modifying operations
+
+# STEP 5: Triggers with optimization
+on:
+  workflow_dispatch:  # Always include for manual testing
+    inputs:
+      # Define inputs with comprehensive documentation
+  push:
+    branches: [main]
+    paths:
+      - 'configurations/**'
+      - 'modules/**'
+      # REQUIRED: Path exclusions for optimization
+      - '!**/*.md'
+      - '!**/examples/**'
+      - '!**/fixtures/**'
+      - '!**/tests/**'
+  pull_request:
+    types: [opened, synchronize, ready_for_review]  # Skip draft PRs
+    paths:
+      # Same path filters as push
+
+# STEP 6: Dynamic run naming
+run-name: "[Operation] ${{ inputs.configuration || 'default' }} by @${{ github.actor }}"
+
+# STEP 7: Minimal permissions
+permissions:
+  contents: read
+  id-token: write  # For OIDC
+  # Add others only if needed with justification
+
+# STEP 8: Jobs definition
+jobs:
+  # Job structure defined below
 ```
 
-#### Input/Output Documentation Pattern
-All workflow inputs and outputs **MUST** include comprehensive documentation:
+---
+
+## 🚀 Performance Optimization Rules
+
+### Mandatory Optimization Patterns
+
+**AI Agent: Apply ALL of these patterns to every workflow:**
+
+#### 1. Frequency Reduction (Primary Strategy)
+```yaml
+# REQUIRED: Intelligent path filtering
+on:
+  push:
+    paths:
+      - 'configurations/**/*.tf'  # Specific file types
+      - 'modules/**/*.tf'
+      - '!**/*.md'               # Exclude documentation
+      - '!**/examples/**'        # Exclude examples
+      - '!**/.terraform/**'      # Exclude cache directories
+      - '!**/fixtures/**'        # Exclude test fixtures
+```
+
+#### 2. Conditional Job Execution
+```yaml
+jobs:
+  # Skip jobs when not needed
+  validation:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.head_commit.message, '[validate]') ||
+      (github.event_name == 'pull_request' && github.event.action != 'closed')
+    steps:
+      # Job steps
+
+  # Conditional execution summary
+  execution-summary:
+    if: |
+      always() && (
+        needs.terraform-apply.result == 'failure' ||
+        github.event_name == 'workflow_dispatch' ||
+        contains(github.event.head_commit.message, '[summary]')
+      )
+    needs: [terraform-apply]
+```
+
+#### 3. Smart Caching
+```yaml
+- name: Cache Terraform Providers
+  id: cache-providers
+  uses: actions/cache@v4
+  with:
+    path: |
+      ~/.terraform.d/plugin-cache
+      .terraform/providers
+    key: terraform-${{ runner.os }}-${{ hashFiles('**/.terraform.lock.hcl') }}
+    restore-keys: |
+      terraform-${{ runner.os }}-
+      terraform-
+```
+
+#### 4. Output Minimization
+```yaml
+# DO NOT include these in production workflows:
+# ❌ echo "::debug::..."
+# ❌ echo "::notice::..." (unless critical)
+# ❌ Verbose command output without purpose
+
+# DO include:
+# ✅ echo "::error::..." (with actionable guidance)
+# ✅ echo "::warning::..." (for important non-fatal issues)
+```
+
+---
+
+## 🔒 Security Requirements
+
+### OIDC Authentication Pattern
+
+**AI Agent: Use this exact pattern for Azure/Power Platform authentication:**
+
+```yaml
+jobs:
+  terraform-operation:
+    runs-on: ubuntu-latest
+    environment: production  # REQUIRED for secrets access
+    permissions:
+      contents: read
+      id-token: write       # REQUIRED for OIDC
+    steps:
+      # === AZURE OIDC AUTHENTICATION ===
+      # WHY: Eliminates stored credentials, implements zero-trust
+      - name: Azure Login via OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          # Never use: username/password or service principal secrets
+
+      # === POWER PLATFORM AUTHENTICATION ===
+      # WHY: Unified authentication for governance operations
+      - name: Configure Power Platform Provider
+        env:
+          POWER_PLATFORM_USE_OIDC: true
+          POWER_PLATFORM_CLIENT_ID: ${{ secrets.POWER_PLATFORM_CLIENT_ID }}
+          POWER_PLATFORM_TENANT_ID: ${{ secrets.POWER_PLATFORM_TENANT_ID }}
+        run: |
+          echo "Power Platform OIDC configured"
+```
+
+---
+
+## 📝 Documentation Standards
+
+### Input Documentation Template
+
+**AI Agent: Use this exact format for all workflow inputs:**
+
 ```yaml
 inputs:
   configuration:
-    description: 'Target configuration directory for deployment'
+    description: 'Target configuration directory path'
     required: true
-    # WHY: Scopes permissions and isolates blast radius for governance
-    # VALIDATION: Must exist in configurations/ and contain .tf files
-    # SECURITY: Used in state key generation to prevent cross-configuration access
-    # EXAMPLES: 'res-dlp-policy', 'ptn-environment'
-  auto-approve:
-    description: 'Bypass manual approval for apply operations'
-    required: false
-    default: false
-    # WHY: Production safety requires explicit confirmation for destructive operations
-    # GOVERNANCE: Supports automated deployments while maintaining audit trails
-    # SECURITY: Default false prevents accidental infrastructure changes
+    type: string
+    # WHY: Isolates blast radius and enables parallel deployments
+    # VALIDATION: Must exist in configurations/ directory
+    # SECURITY: Used in state key to prevent cross-config access
+    # EXAMPLES: '01-res-dlp-policy', '02-ptn-environment'
+    # DEFAULT: Not applicable (required field)
 ```
 
-#### Step Documentation Pattern
-Document non-obvious steps, security decisions, and governance context:
-```yaml
-steps:
-  # === AZURE OIDC AUTHENTICATION ===
-  # Required for backend state access and resource management
-  # Uses GitHub OIDC identity federation to eliminate stored credentials
-  - name: Azure Login via OIDC
-    uses: azure/login@v2.3.0
-    with:
-      client-id: ${{ secrets.AZURE_CLIENT_ID }}
-      tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-      subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-  # === JIT NETWORK ACCESS ===
-  # Storage accounts use firewall restrictions for defense-in-depth security
-  # Temporary access prevents permanent security holes while enabling automation
-  - name: Enable Temporary Storage Access
-    uses: ./.github/actions/jit-network-access
-    with:
-      action: 'add'
-      # WHY: Backend storage requires network-level protection for compliance
-      storage-account-name: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
-```
+### Job Documentation Template
 
-#### Conditional Logic Documentation
-Explain complex conditions and business logic:
-```yaml
-# Only execute if resources exist - prevents unnecessary operations on empty state
-# Force override available for emergency cleanup scenarios
-if: |
-  needs.validate.outputs.resources-exist == 'true' || 
-  inputs.force-destroy == 'true'
-# Pull request events need different branch handling for documentation commits
-# HEAD ref ensures commits go to PR branch, not base branch
-ref: ${{ github.event.pull_request.head.ref || github.ref }}
-```
+**AI Agent: Document each job with this pattern:**
 
-#### Error Context Documentation
-Provide troubleshooting context and available options:
-```yaml
-run: |
-  if [ ! -d "configurations/$config" ]; then
-    echo "::error title=Configuration Not Found::Directory 'configurations/$config' does not exist"
-    # WHY: Early validation prevents confusing failures in later steps
-    # CONTEXT: Available configurations are determined by repository structure
-    echo "::notice title=Available Options::$(ls configurations/ | grep -E '^[0-9]+-')"
-    echo "::notice title=Fix Instructions::Check configuration name spelling and ensure directory exists"
-    exit 1
-  fi
-```
-
-#### Jobs Documentation Pattern
-Document jobs simply and clearly, focusing on **what** and **why** without overwhelming detail:
 ```yaml
 jobs:
-  # Validates Terraform configuration before planning
-  # WHY: Prevents wasted time on invalid configurations
-  validate:
+  # Single-line purpose statement
+  # WHY: Brief explanation of job's necessity
+  job-name:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    environment: production  # Inline comment if not obvious
+    timeout-minutes: 10     # Adjust based on operation
+    outputs:
+      output-name: ${{ steps.step-id.outputs.value }}
     steps:
-      # ... job steps
-  # Creates Terraform execution plan  
-  # WHY: Shows what changes will be made before applying
-  terraform-plan:
+      # Step implementation
+```
+
+---
+
+## ❌ Error Handling Standards
+
+### Error Message Template
+
+**AI Agent: Generate error messages following this pattern:**
+
+```yaml
+- name: Validate Configuration
+  run: |
+    if [ ! -d "configurations/${{ inputs.configuration }}" ]; then
+      echo "::error title=Configuration Not Found::The specified configuration '${{ inputs.configuration }}' does not exist"
+      echo "::notice title=Available Configurations::$(ls -d configurations/*/ | xargs -n 1 basename | paste -sd ', ')"
+      echo "::notice title=How to Fix::Choose one of the available configurations listed above or create a new one"
+      exit 1
+    fi
+```
+
+---
+
+## 🧩 Reusable Workflow Standards
+
+### Reusable Workflow Naming
+
+**AI Agent: ALWAYS prefix reusable workflow names with ♻️ emoji:**
+
+```yaml
+# File: .github/workflows/♻️terraform-base.yml
+name: "♻️ Reusable Terraform Base Operations"
+
+on:
+  workflow_call:
+    inputs:
+      # Well-documented inputs
+    secrets:
+      # Required secrets with descriptions
+```
+
+### Composite Action Structure
+
+**AI Agent: Create composite actions with this structure:**
+
+```yaml
+# File: .github/actions/[action-name]/action.yml
+name: 'Action Name'
+description: 'Clear description of what this action does'
+author: 'microsoft/power-platform-terraform'
+
+inputs:
+  # Documented inputs
+
+outputs:
+  # Documented outputs
+
+runs:
+  using: 'composite'
+  steps:
+    # Implementation steps
+```
+
+---
+
+## 📏 Size and Complexity Limits
+
+### Strict File Size Enforcement
+
+**AI Agent: NEVER exceed these limits without explicit user approval:**
+
+| File Type | Maximum Lines | Action When Approaching |
+|-----------|--------------|------------------------|
+| Standard Workflow | 300 | Split at 250 lines |
+| Reusable Workflow | 400 | Modularize at 350 lines |
+| Composite Action | 150 | Extract logic at 120 lines |
+
+### Modularization Strategies
+
+When approaching limits, apply these strategies:
+
+1. **Extract to Composite Actions**: Common step sequences
+2. **Create Reusable Workflows**: Entire job patterns
+3. **Use Script Files**: Complex bash/PowerShell logic
+4. **Implement Job Matrices**: Parallel similar operations
+
+---
+
+## 🔄 Workflow Lifecycle Patterns
+
+### Standard Terraform Workflow Pattern
+
+**AI Agent: Use this pattern for Terraform operations:**
+
+```yaml
+jobs:
+  # 1. Validation phase
+  validate:
+    # WHY: Fail fast on configuration errors
+    timeout-minutes: 5
+    # Implementation
+
+  # 2. Planning phase
+  plan:
     needs: validate
-    runs-on: ubuntu-latest
-    environment: production  # Required for state access
+    # WHY: Preview changes before applying
     timeout-minutes: 15
     outputs:
       has-changes: ${{ steps.plan.outputs.changes }}
-    steps:
-      # ... job steps
-  # Applies the Terraform plan to deploy resources
-  # WHY: Only runs if plan succeeds and changes exist
-  terraform-apply:
-    needs: terraform-plan
-    if: needs.terraform-plan.outputs.has-changes == 'true'
-    runs-on: ubuntu-latest
-    environment: production  # Required for deployment secrets
-    timeout-minutes: 25
-    steps:
-      # ... job steps
-```
+    # Implementation
 
-##### Job Documentation Principles
-1. **One-line purpose** — Clear, simple description of what the job does
-2. **WHY comment** — Brief explanation of why this job exists or runs conditionally
-3. **Environment context** — Short inline comment for non-obvious environment/timeout choices
-4. **Dependency clarity** — Use descriptive job names and simple conditional logic
-5. **Avoid over-documentation** — Don't explain obvious things like `runs-on: ubuntu-latest`
+  # 3. Approval gate (if needed)
+  approval:
+    needs: plan
+    if: needs.plan.outputs.has-changes == 'true'
+    environment: production-approval
+    # WHY: Human validation for critical changes
+    # Implementation
 
-#### Good examples
-```yaml
-# Deploy DLP policies to Power Platform
-# WHY: Automates governance that was previously manual
-terraform-apply:
-# Only run if configuration changes detected  
-# WHY: Saves time and avoids unnecessary operations
-if: needs.terraform-plan.outputs.has-changes == 'true'
-```
+  # 4. Apply phase
+  apply:
+    needs: [plan, approval]
+    if: needs.plan.outputs.has-changes == 'true'
+    # WHY: Only run when changes detected
+    timeout-minutes: 30
+    environment: production
+    # Implementation
 
-#### What NOT to Document
-❌ **Avoid explaining obvious operations:**
-```yaml
-# BAD: Obvious what the step does
-- name: Checkout Repository
-  uses: actions/checkout@v4
-  # Checks out the repository code for processing
-```
-❌ **Avoid repeating step names in comments:**
-```yaml
-# BAD: Redundant with step name  
-# Setup Terraform CLI
-- name: Setup Terraform CLI
-```
-❌ **Avoid implementation details that change frequently:**
-```yaml
-# BAD: Too specific to implementation
-# Uses version 1.12.2 with wrapper disabled for clean output parsing
+  # 5. Summary (conditional)
+  summary:
+    if: always() && (failure() || github.event_name == 'workflow_dispatch')
+    needs: [apply]
+    # WHY: Provide troubleshooting info only when needed
+    # Implementation
 ```
 
 ---
 
-## Key Principles
+## 🎨 GitHub-Specific Enhancements
 
-1. **Focus on WHY** — Explain decisions, not obvious operations
-2. **Governance Context** — Include Power Platform specific requirements
-3. **Security Rationale** — Explain authentication and permission choices
-4. **Operational Impact** — Document behavior that affects reliability
-5. **Maintenance Guidance** — Include context for future updates
-6. **Concise but Complete** — Provide necessary context without noise
+### Workflow Badges and Status
 
-### Enforcement Requirements
-- Comments should pass the "6-month test" — understandable by someone (including yourself) 6 months later
-- Every non-obvious configuration choice should have a WHY comment
-- Security and governance decisions must be documented
-- Integration points and dependencies require context
-- Error scenarios should include troubleshooting guidance
+**AI Agent: Add status badges to README when creating workflows:**
 
----
+```markdown
+![Workflow Name](https://github.com/${{ github.repository }}/actions/workflows/workflow-file.yml/badge.svg)
+```
 
-## Quality Metrics and Monitoring
+### GitHub Environment Configuration
 
-### Continuous Compliance Monitoring
-Following the baseline principle of **Consistency and Standards**:
+**AI Agent: Configure environments with these settings:**
 
-#### Automated Metrics Collection
-- **File Complexity**: Line count, nesting depth, job count tracking
-- **Documentation Coverage**: Comment-to-code ratios, missing documentation detection
-- **Standards Compliance**: Automated scoring of instruction adherence
-
-#### Quality Gates
-- **PR Requirements**: Compliance score above 85% required for merge
-- **Trend Monitoring**: Alerts when repository-wide compliance degrades below 90%
-- **Regular Reports**: Weekly compliance status and improvement recommendations
-
-#### Compliance Scoring
 ```yaml
-# Automated compliance scoring
-- name: Calculate Compliance Score
-  uses: ./.github/actions/compliance-scoring
-  with:
-    minimum-score: 85
-    fail-below-threshold: true
-    generate-report: true
+# Environment: production
+# Protection Rules:
+#   - Required reviewers: 1
+#   - Deployment branches: main
+#   - Wait timer: 0 minutes (for demos)
+#   - Environment secrets: All Terraform secrets
 ```
 
 ---
 
-## Integration with Repository Standards
+## 📊 Monitoring and Compliance
 
-### Development Environment Integration
-- **IDE/Editor Integration**: Custom YAML schema validates GitHub Actions syntax
-- **Linting Rules**: Project-specific yamllint configuration enforced
-- **Real-time Validation**: Immediate feedback on compliance violations
-- **Template Access**: Easy access to approved templates via scripts
+### Performance Monitoring Commands
 
-### Workflow Creation Process
-1. **Use Templates**: Start with approved template for consistency
-2. **Validate Early**: Run compliance checks during development
-3. **Document Thoroughly**: Include all required documentation sections
-4. **Test Completely**: Validate functionality and compliance before PR
-5. **Monitor Continuously**: Track compliance metrics post-deployment
+**AI Agent: Include these in workflow documentation:**
 
----
-
-## YAML Syntax Validation
-
-### Automated YAML Validation Framework
-This project includes comprehensive YAML validation that runs automatically on all GitHub Actions files. The validation framework ensures syntax correctness, consistent formatting, and GitHub Actions compliance.
-
-#### Validation Infrastructure
-- **CI/CD Integration**: `yaml-validation.yml` workflow validates all YAML changes automatically
-- **Trigger Events**: Runs on pull requests and pushes affecting YAML files
-- **Comprehensive Coverage**: Validates workflows, composite actions, and configuration files
-
-#### Built-in Validation Tools
-The development environment includes pre-configured validation tools:
-- **yamllint**: Project-specific configuration in `.yamllint`
-- **actionlint**: GitHub Actions workflow validation
-- **Python YAML**: Structural syntax validation
-
-#### Project Validation Commands
-Use the project's validation script for all YAML validation needs:
 ```bash
-# Validate all GitHub Actions YAML files
-./scripts/utils/validate-yaml.sh --all-github
-# Validate all composite actions
-./scripts/utils/validate-yaml.sh --all-actions
-# Validate specific file
-./scripts/utils/validate-yaml.sh path/to/file.yml
-# Comprehensive compliance validation
+# Check workflow consumption (run monthly)
+gh api repos/:owner/:repo/actions/workflows \
+  --jq '.workflows[] | select(.state=="active") | {name, id}'
+
+# Get run statistics for optimization
+gh api repos/:owner/:repo/actions/workflows/:id/runs \
+  --jq '.workflow_runs[:10] | map({status, conclusion, run_started_at, updated_at})'
+```
+
+### Compliance Validation
+
+**AI Agent: Validate all workflows before committing:**
+
+```bash
+# Run compliance check
+./scripts/utils/validate-github-actions-compliance.sh
+
+# Fix common issues automatically
 ./scripts/utils/validate-github-actions-compliance.sh --fix-issues
 ```
 
-#### Manual validation (if needed)
-```bash
-# Basic syntax check
-python3 -c "import yaml; yaml.safe_load(open('file.yml'))"
-# Style validation with project configuration
-yamllint file.yml
-# GitHub Actions workflow validation
-actionlint file.yml
-```
+---
 
-### YAML Standards
-**Project Configuration:**
-All YAML validation uses the project's `.yamllint` configuration, which enforces:
-- **Line length**: 100 characters (with exceptions for non-breakable content)
-- **Indentation**: 2 spaces consistently
-- **Document start**: Required `---` at file beginning
-- **Comments**: Minimum 2 spaces from content
-- **GitHub Actions compatibility**: Flexible truthy values and proper structure
+## 🤖 AI Agent Specific Instructions
 
-#### Quality Requirements
-- **Syntax correctness**: Must parse without errors
-- **Style consistency**: Follows project yamllint rules
-- **GitHub Actions compliance**: Valid workflow and action structure
-- **Documentation completeness**: Required fields and descriptions
+### Decision Tree for Workflow Creation
 
-### YAML Formatting Standards
-**📋 Authoritative Reference:** The `.yamllint` file is the single source of truth for all YAML formatting rules. When in doubt, always consult `.yamllint` for the complete and current configuration.
+When asked to create or modify a workflow:
 
-#### Immediate Formatting Rules (from project `.yamllint` configuration)
-Write all YAML following these standards to avoid validation failures:
-```yaml
----  # REQUIRED: Document start marker on first line
-# INDENTATION: Always use 2 spaces (never tabs)
-name: "Terraform Infrastructure Deployment"
-# COMMENTS: Minimum 2 spaces from content
-concurrency:  # Prevent concurrent runs
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false
-# LINE LENGTH: Maximum 100 characters, use folding for long content
-on:
-  workflow_dispatch:
-    inputs:
-      description: >-
-        This is a long description that exceeds 100 characters
-        so we use YAML folding to maintain readability and compliance
-# GITHUB ACTIONS VALUES: Use standard values, 'on' key is allowed
-permissions:  # Not permissions: true/false
-  contents: read
-  id-token: write
-# EMPTY LINES: Maximum 2 consecutive, none at start, max 1 at end
-jobs:
-  terraform-plan:
-    runs-on: ubuntu-latest
-    steps:
-      # Two spaces minimum between content and comments
-      - name: Checkout Repository  # Required for workflow access
-        uses: actions/checkout@v4
-```
+1. **Identify Type**: Is it Terraform, validation, documentation, or utility?
+2. **Check Reusability**: Can existing reusable workflows be used?
+3. **Apply Optimizations**: Implement ALL performance patterns
+4. **Add Security**: OIDC, minimal permissions, environment protection
+5. **Document Thoroughly**: WHY comments, comprehensive input docs
+6. **Validate Size**: Ensure under line limits
+7. **Test Scenarios**: Consider success, failure, and edge cases
 
-#### Key Rules Summary (extracted from `.yamllint`)
-- **Document start**: Always begin with `---`
-- **Indentation**: 2 spaces consistently, never tabs
-- **Line length**: 100 characters maximum
-- **Comments**: Minimum 2 spaces from content
-- **Empty lines**: Max 2 consecutive, none at file start
-- **Truthy values**: Use `true`/`false`, `on`/`off`, `yes`/`no`
-- **GitHub Actions**: `on:` key allowed despite being truthy value
+### Common Anti-Patterns to Avoid
 
-#### Long Content Handling
-```yaml
-# Use YAML folding (>-) for descriptions exceeding 100 characters
-description: >-
-  This workflow deploys Power Platform governance policies using Terraform.
-  It includes DLP policy management, environment configuration, and compliance
-  monitoring to ensure consistent governance across all Power Platform tenants.
-# Break long arrays and objects for readability
-env:
-  POWER_PLATFORM_USE_OIDC: true
-  POWER_PLATFORM_CLIENT_ID: ${{ secrets.POWER_PLATFORM_CLIENT_ID }}
-  POWER_PLATFORM_TENANT_ID: ${{ secrets.POWER_PLATFORM_TENANT_ID }}
-```
+**Never generate workflows with:**
+- ❌ Hardcoded values that should be inputs
+- ❌ Missing error handling
+- ❌ Overly broad permissions
+- ❌ No path exclusions for triggers
+- ❌ Missing timeout configurations
+- ❌ Unconditional execution summaries
+- ❌ Debug output in production workflows
 
-**⚠️ Important:** These examples show the most common rules, but `.yamllint` contains the complete configuration including edge cases, specific rule exceptions, and detailed validation settings. Always reference `.yamllint` for:
-- **Complete rule definitions** and their specific parameters
-- **Rule exceptions** and special case handling
-- **Updates** to formatting standards over time
-- **Troubleshooting** complex validation errors
+### Response Format for Workflow Generation
 
-#### Validation Integration
-These rules are automatically enforced by:
-- **Development environment**: Pre-configured yamllint in devcontainer
-- **CI/CD validation**: `yaml-validation.yml` workflow on all changes  
-- **Manual validation**: `./scripts/utils/validate-yaml.sh --all-github`
+When creating workflows, structure your response as:
 
-### Validation Enforcement
-**Automatic Validation:**
-- **Pull Request Validation**: All YAML changes validated before merge
-- **Development Environment**: Tools available in devcontainer
-- **CI/CD Integration**: Prevents merging invalid YAML files
-
-**Manual Validation:**
-Use the project validation script after making YAML changes:
-```bash
-# Quick validation of changed files
-./scripts/utils/validate-yaml.sh --all-github
-# Comprehensive compliance check
-./scripts/utils/validate-github-actions-compliance.sh
-```
-
-#### Common Issues and Solutions
-- **Line length**: Use YAML folding (`>-`) for long descriptions
-- **Indentation**: Use consistent 2-space indentation
-- **Missing fields**: Ensure composite actions have required `name`, `description`, `runs`
-- **Syntax errors**: Check quotes, brackets, and YAML structure
-- **File size**: Split large files using modularization patterns
+1. **Purpose Statement**: What the workflow accomplishes
+2. **Optimization Analysis**: Expected frequency and duration
+3. **Security Considerations**: Authentication and permissions
+4. **Code Block**: Complete workflow with all patterns applied
+5. **Usage Instructions**: How to deploy and test
+6. **Monitoring Guidance**: How to track performance
 
 ---
 
-## Integration Benefits
+## 📚 Quick Reference
 
-### Development Workflow
-- **Early feedback**: Validation runs automatically on changes
-- **Consistent standards**: Project-wide YAML formatting rules
-- **Quality assurance**: Prevents runtime failures from syntax errors
-- **Documentation enforcement**: Ensures proper action and workflow documentation
+### Essential Variables and Contexts
 
-### Maintenance Advantages
-- **Automated checks**: No manual validation steps required
-- **Standardized configuration**: Single source of truth in `.yamllint`
-- **Comprehensive coverage**: All YAML files validated consistently
-- **Clear error reporting**: Detailed feedback for quick issue resolution
+```yaml
+# Commonly needed GitHub contexts
+${{ github.workflow }}      # Workflow name
+${{ github.run_number }}    # Run number
+${{ github.actor }}         # User who triggered
+${{ github.repository }}    # owner/repo
+${{ github.ref }}           # Branch/tag ref
+${{ github.sha }}           # Commit SHA
+${{ github.event_name }}    # Trigger event type
+
+# Conditional execution helpers
+if: always()                # Run regardless of previous job status
+if: success()               # Only on success (default)
+if: failure()               # Only on failure
+if: cancelled()             # Only if cancelled
+if: contains()              # String contains check
+if: startsWith()            # String prefix check
+if: endsWith()              # String suffix check
+```
+
+### Performance Optimization Checklist
+
+- [ ] Path exclusions implemented (`!**/*.md`, etc.)
+- [ ] Draft PR exclusion configured
+- [ ] Conditional job execution added
+- [ ] Execution summary made conditional
+- [ ] Caching implemented for dependencies
+- [ ] Debug messages removed
+- [ ] Timeout values optimized
+- [ ] Concurrency groups configured
 
 ---
 
-## Changelog Integration
-
-### Required Changelog Updates
-Following the baseline principle of **Changelog Maintenance**:
-- **Always check CHANGELOG.md** when making changes to workflows or actions
-- **Update the Unreleased section** for notable additions, changes, or fixes
-- **Follow established format** with clear categorization
-
-#### Examples of changelog-worthy changes
-- New workflow creation or major workflow modifications
-- Changes to reusable workflow interfaces
-- Security or authentication updates
-- Performance optimizations or reliability improvements
-
-#### Examples that may not need changelog updates
-- Minor comment updates or formatting fixes
-- Internal refactoring without functional changes
-- Template updates that don't affect existing workflows
+**AI Agent Final Note**: This document is your authoritative guide. When in doubt, prioritize security and efficiency. Always validate generated workflows with the compliance script before submission.
