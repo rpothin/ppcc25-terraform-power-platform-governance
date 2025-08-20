@@ -307,11 +307,11 @@ runs:
 
 **AI Agent: NEVER exceed these limits without explicit user approval:**
 
-| File Type | Maximum Lines | Action When Approaching |
-|-----------|--------------|------------------------|
-| Standard Workflow | 300 | Split at 250 lines |
-| Reusable Workflow | 400 | Modularize at 350 lines |
-| Composite Action | 150 | Extract logic at 120 lines |
+| File Type         | Maximum Lines | Action When Approaching    |
+| ----------------- | ------------- | -------------------------- |
+| Standard Workflow | 300           | Split at 250 lines         |
+| Reusable Workflow | 400           | Modularize at 350 lines    |
+| Composite Action  | 150           | Extract logic at 120 lines |
 
 ### Modularization Strategies
 
