@@ -156,19 +156,19 @@ providing governance controls to prevent data exposure and maintain compliance.
 
 Properties:
 - is\_group\_sharing\_disabled: Prevents sharing with security groups when true
-- limit\_sharing\_mode: Controls sharing scope ("No limit", "Exclude sharing with security groups")
+- limit\_sharing\_mode: Controls sharing scope ("NoLimit", "ExcludeSharingToSecurityGroups")
 - max\_limit\_user\_sharing: Maximum users for individual sharing (-1 if group sharing enabled)
 
 Example:  
 sharing\_settings = {  
   is\_group\_sharing\_disabled = false  
-  limit\_sharing\_mode        = "No limit"  
+  limit\_sharing\_mode        = "NoLimit"  
   max\_limit\_user\_sharing    = -1
 }
 
 Default Configuration (Governance Best Practice):
 - Enables group sharing (is\_group\_sharing\_disabled = false)
-- Allows unrestricted sharing (limit\_sharing\_mode = "No limit")
+- Allows unrestricted sharing (limit\_sharing\_mode = "NoLimit")
 - Sets unlimited user sharing (max\_limit\_user\_sharing = -1)
 - Encourages security group usage over individual user sharing
 
@@ -199,7 +199,7 @@ Default:
 ```json
 {
   "is_group_sharing_disabled": false,
-  "limit_sharing_mode": "No limit",
+  "limit_sharing_mode": "NoLimit",
   "max_limit_user_sharing": -1
 }
 ```
