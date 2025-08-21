@@ -7,116 +7,307 @@ description: "Comprehensive feasibility analysis for new Terraform configuration
 # Terraform Configuration Feasibility Analysis
 
 ## 🎯 Context & Mission
-Analyze the feasibility of implementing a new **{CONFIGURATION_TYPE}** Terraform configuration for **{RESOURCE_DESCRIPTION}** management.
 
-**Target Resource/Provider**: {TERRAFORM_RESOURCE_DOCUMENTATION_URL}
-**Configuration Class**: {res-|utl-|ptn-}*
+**OBJECTIVE**: Analyze the feasibility of implementing a new **{CONFIGURATION_TYPE}** Terraform configuration for **{RESOURCE_DESCRIPTION}** management in the PPCC25 Power Platform governance demonstration.
+
+**Required Inputs** (Replace before analysis):
+- `{CONFIGURATION_TYPE}`: Specific module type (res-|utl-|ptn-)
+- `{RESOURCE_DESCRIPTION}`: Target resource or pattern to implement
+- `{TERRAFORM_RESOURCE_DOCUMENTATION_URL}`: Provider documentation link
+- `{BUSINESS_JUSTIFICATION}`: Why this configuration is needed
+- `{TARGET_AUDIENCE}`: Who will use this configuration
 
 ## 📋 Systematic Analysis Framework
 
-### Phase 1: Requirements & Compliance Assessment
+### Phase 1: Compliance & Standards Verification
 
-#### A. Repository Standards Compliance
-Evaluate alignment with established guidelines:
-- **Baseline Principles**: Security by design, simplicity, modularity, reusability, clear comments
-- **Terraform IaC Standards**: AVM compliance, provider management, testing requirements
-- **File Organization**: Proper placement in `configurations/` with standard structure
-- **Documentation Standards**: Diataxis framework adherence for any new docs
+#### A. Repository Standards Checklist
+**AI Agent: Verify each item with specific evidence**
 
-#### B. AVM Specification Compliance  
-Assess against Azure Verified Module requirements:
-- **Module Classification**: Verify correct `res-`, `utl-`, or `ptn-` prefix usage
-- **File Structure**: Ensure all required files (main.tf, variables.tf, outputs.tf, versions.tf, tests/)
-- **Testing Requirements**: Plan for minimum assertions (15+ utl, 20+ res, 25+ ptn)
-- **Anti-corruption Layer**: Design discrete outputs vs. full resource exposure
+```yaml
+Security_by_Design:
+  ✓ OIDC_Authentication: # Can this use OIDC exclusively?
+  ✓ No_Hardcoded_Secrets: # Are all sensitive values parameterized?
+  ✓ Least_Privilege: # Does this follow minimum permission model?
+  ✓ Input_Validation: # Can all inputs be validated?
 
-#### C. Power Platform Provider Compatibility
-Analyze provider-specific considerations:
-- **Provider Version**: Compatibility with centralized standard `~> 3.8`
-- **Resource Availability**: Confirm target resources exist in current provider version
-- **Authentication**: OIDC compatibility and security requirements
-- **State Management**: Backend configuration for Azure Storage with encryption
+Simplicity_Metrics:
+  ✓ File_Size: # Can each file stay under 200 lines?
+  ✓ Complexity: # Is cyclomatic complexity under 10?
+  ✓ Nesting: # Can we maintain max 3 levels nesting?
+  
+Modularity:
+  ✓ Single_Responsibility: # One clear purpose per file?
+  ✓ Logical_Boundaries: # Clear separation of concerns?
+  
+Reusability:
+  ✓ Parameterization: # Fully configurable via variables?
+  ✓ No_Duplication: # Avoiding copy-paste patterns?
+```
 
-### Phase 2: Technical Architecture Analysis
+#### B. AVM Specification Compliance Matrix
+**AI Agent: Complete this assessment table**
 
-#### A. Resource Design Patterns
-**Variable Design**:
-- Complex object types with property-level validation
-- HEREDOC descriptions with examples and validation reasoning
-- Actionable error messages for failed validations
-- Input sanitization and security considerations
+| AVM Requirement               | Supported  | Implementation Notes | Risk Level   |
+| ----------------------------- | ---------- | -------------------- | ------------ |
+| Module prefix (res/utl/ptn)   | ☐ Yes ☐ No |                      | Low/Med/High |
+| Required files structure      | ☐ Yes ☐ No |                      | Low/Med/High |
+| Test assertions (15+/20+/25+) | ☐ Yes ☐ No |                      | Low/Med/High |
+| Anti-corruption outputs       | ☐ Yes ☐ No |                      | Low/Med/High |
+| Version constraints           | ☐ Yes ☐ No |                      | Low/Med/High |
 
-**Output Strategy**:
-- Anti-corruption layer implementation
-- Required summary outputs for module type
-- Discrete value exposure vs. full resource objects
-- Downstream integration considerations
+#### C. Power Platform Provider Capability Assessment
+**AI Agent: Analyze provider documentation and answer**
 
-**Lifecycle Management**:
-- For `res-*` modules: lifecycle blocks for manual change tolerance
-- State drift handling between Terraform and admin portal changes
-- Resource update strategies and change detection
+```markdown
+Provider Analysis:
+1. Does provider v3.8+ support this resource? [YES/NO/PARTIAL]
+   - If PARTIAL, what's missing: _______________
+   
+2. OIDC authentication compatible? [YES/NO]
+   - Required workarounds: _______________
+   
+3. Known limitations or issues:
+   - [ ] State drift concerns
+   - [ ] API rate limiting
+   - [ ] Resource dependencies
+   - [ ] Update restrictions
+```
 
-#### B. Integration Considerations
-**Repository Integration**:
-- Relationship with existing configurations (res-dlp-policy, res-environment, etc.)
-- Shared data sources and cross-module dependencies
-- Consistency with established naming and tagging patterns
-- Reusability potential for future configurations
+### Phase 2: Technical Design Analysis
 
-**CI/CD Pipeline Integration**:
-- GitHub Actions workflow compatibility
-- Validation gate requirements (fmt, validate, test)
-- Security scanning and credential management
-- Deployment automation considerations
+#### A. Configuration Architecture Decision Record
 
-### Phase 3: Implementation Planning
+**AI Agent: Complete this ADR template**
+
+```markdown
+## Decision: {Configuration Design Approach}
+
+### Status
+[PROPOSED]
+
+### Context
+- Business need: {BUSINESS_JUSTIFICATION}
+- Technical constraints: [List key constraints]
+- Integration requirements: [List dependencies]
+
+### Decision Drivers (prioritized)
+1. Security compliance (MUST have)
+2. Simplicity for demonstration (SHOULD have)
+3. Reusability across environments (SHOULD have)
+4. Educational clarity (MUST have)
+
+### Considered Options
+
+#### Option 1: {Approach Name} ⭐ RECOMMENDED
+**Implementation Pattern**:
+```terraform
+# Example structure
+module "example" {
+  source = "./modules/{module-name}"
+  # Key design pattern illustration
+}
+```
+
+**Metrics**:
+- Lines of Code: ~{number}
+- Files Required: {number}
+- Complexity Score: {1-10}
+- Development Effort: {hours/days}
+
+**Trade-offs**:
+- ✅ Pros: [List 3-5 advantages]
+- ⚠️ Cons: [List 2-3 limitations]
+- 🚨 Risks: [List critical risks]
+
+#### Option 2: {Alternative Approach}
+[Repeat structure above]
+
+### Decision Outcome
+Selected Option {N} because:
+1. [Primary reason aligned with decision drivers]
+2. [Secondary supporting reason]
+3. [Risk mitigation consideration]
+```
+
+#### B. Resource Dependency Mapping
+**AI Agent: Identify all dependencies**
+
+```yaml
+Direct_Dependencies:
+  - provider: power-platform ~> 3.8
+  - provider: azurerm ~> 4.0
+  - data_sources:
+    - [ ] power_platform_environment
+    - [ ] azurerm_subscription
+    - [ ] Other: _________
+
+Cross_Module_Dependencies:
+  - [ ] res-environment (environment creation)
+  - [ ] res-dlp-policy (policy assignment)
+  - [ ] utl-naming (naming conventions)
+  - [ ] Other: _________
+
+External_Dependencies:
+  - [ ] Azure AD configuration
+  - [ ] Power Platform admin center settings
+  - [ ] Network connectivity
+  - [ ] Other: _________
+```
+
+### Phase 3: Risk Assessment & Mitigation
+
+#### A. Risk Register
+**AI Agent: Complete risk analysis with specific mitigations**
+
+| Risk Category | Specific Risk                     | Probability  | Impact       | Mitigation Strategy | Owner |
+| ------------- | --------------------------------- | ------------ | ------------ | ------------------- | ----- |
+| Technical     | Provider limitation for {feature} | High/Med/Low | High/Med/Low | [Specific action]   | Dev   |
+| Security      | Credential exposure in logs       | High/Med/Low | High/Med/Low | [Specific action]   | Dev   |
+| Operational   | State drift with manual changes   | High/Med/Low | High/Med/Low | [Specific action]   | Ops   |
+| Educational   | Complexity exceeds demo scope     | High/Med/Low | High/Med/Low | [Specific action]   | PM    |
+
+#### B. Failure Mode Analysis
+**AI Agent: Identify potential failure points**
+
+```markdown
+Critical Failure Points:
+1. **Authentication Failure**
+   - Trigger: OIDC token expiration
+   - Impact: Complete deployment failure
+   - Detection: Provider error messages
+   - Recovery: Token refresh automation
+
+2. **Resource Conflict**
+   - Trigger: [Specific scenario]
+   - Impact: [Specific outcome]
+   - Detection: [How to identify]
+   - Recovery: [Resolution steps]
+
+[Add 2-3 more critical points]
+```
+
+### Phase 4: Implementation Roadmap
 
 #### A. Development Phases
-Present **2-4 implementation approaches** with clear trade-offs:
+**AI Agent: Create actionable timeline**
 
-**Option 1**: [Approach Name] ⭐ RECOMMENDED
-- **Complexity**: {Low|Medium|High}
-- **Timeline**: {X-Y weeks}
-- **Pros**: [Key advantages]
-- **Cons**: [Main limitations]
-- **Risk Level**: {Low|Medium|High}
+```markdown
+## Sprint 1 (Week 1-2): Foundation
+- [ ] Create module structure in `configurations/{name}/`
+- [ ] Implement core resource definitions
+- [ ] Add basic variable validation
+- [ ] Create minimal test case
+- Deliverable: Working prototype with 1 test passing
 
-## 🎯 Success Criteria
+## Sprint 2 (Week 3-4): Enhancement
+- [ ] Complete variable validation rules
+- [ ] Implement anti-corruption outputs
+- [ ] Add comprehensive error handling
+- [ ] Expand test coverage to 50%
+- Deliverable: Feature-complete module
 
-### Mandatory Deliverables
-- [ ] All files pass `terraform fmt -check` and `terraform validate`
-- [ ] Tests meet minimum assertion requirements for module type
-- [ ] Variables use explicit types with comprehensive validation
-- [ ] Outputs implement anti-corruption layer pattern
-- [ ] Documentation follows repository standards
-- [ ] Security baseline compliance (OIDC, no hardcoded secrets)
+## Sprint 3 (Week 5-6): Production Ready
+- [ ] Complete test assertions (15+/20+/25+)
+- [ ] Add documentation (README, examples)
+- [ ] Security review and remediation
+- [ ] Integration testing with workflows
+- Deliverable: Production-ready configuration
+```
 
-### Quality Indicators
-- [ ] Code demonstrates PPCC25 educational objectives
-- [ ] Configuration serves as effective quickstart example
-- [ ] Implementation supports ClickOps to IaC transition narrative
-- [ ] Documentation enables user learning and adoption
-- [ ] Testing provides confidence in production usage
+#### B. Success Metrics
+**AI Agent: Define measurable outcomes**
 
-## 📊 Analysis Output Format
+```yaml
+Quantitative_Metrics:
+  code_quality:
+    - terraform_fmt: 100% compliance
+    - terraform_validate: 0 errors
+    - test_coverage: >80%
+    - file_size: <200 lines per file
+    - complexity: <10 cyclomatic
+  
+  performance:
+    - apply_time: <5 minutes
+    - state_size: <100KB
+    - api_calls: <50 per apply
 
-Provide structured analysis covering:
+Qualitative_Metrics:
+  educational_value:
+    - [ ] Clear demonstration of IaC benefits
+    - [ ] Obvious improvement over ClickOps
+    - [ ] Reusable patterns demonstrated
+  
+  user_experience:
+    - [ ] Intuitive variable names
+    - [ ] Helpful error messages
+    - [ ] Comprehensive examples
+```
 
-1. **Feasibility Assessment**: Go/No-Go recommendation with rationale
-2. **Implementation Options**: 2-4 approaches with pros/cons analysis
-3. **Recommended Approach**: Clear selection with justification
-4. **Risk Register**: Identified risks with mitigation strategies
-5. **Success Metrics**: Measurable outcomes and validation criteria
+## 📊 Executive Summary Template
 
-## 🔍 Key Questions to Address
+**AI Agent: Complete after analysis**
 
-1. **Technical Viability**: Does the provider support all required functionality?
-2. **Repository Fit**: How does this align with existing patterns and standards?
-3. **Complexity Management**: Can this be implemented within file size limits (200 lines)?
-4. **Maintenance Burden**: What ongoing support will this configuration require?
-5. **Educational Value**: How does this advance the PPCC25 learning objectives?
+```markdown
+### Recommendation: [GO / NO-GO / CONDITIONAL]
 
----
+**One-Line Summary**: {Clear statement of feasibility}
 
-**Remember**: This analysis serves demonstration and educational purposes. Prioritize clarity, security, and reusability while maintaining alignment with baseline principles and AVM compliance where technically feasible.
+**Key Findings**:
+1. **Technical Feasibility**: [High/Medium/Low] - {One sentence explanation}
+2. **Compliance Status**: [Full/Partial/None] - {Key gaps if any}
+3. **Resource Investment**: {X} person-days across {Y} weeks
+4. **Risk Level**: [Low/Medium/High] - {Primary risk factor}
+
+**Recommended Path Forward**:
+- If GO: Start with Option {N} approach, beginning {date}
+- If NO-GO: {Alternative solution or deferral reason}
+- If CONDITIONAL: {Specific conditions that must be met}
+
+**Critical Success Factors**:
+1. {Most important requirement}
+2. {Second most important}
+3. {Third most important}
+
+**Next Steps** (if approved):
+1. [ ] {Immediate action item}
+2. [ ] {Second action within 48 hours}
+3. [ ] {Third action within 1 week}
+```
+
+## 🔍 Analysis Quality Checklist
+
+**AI Agent: Verify before submitting analysis**
+
+- [ ] All template sections completed with specific details
+- [ ] At least 2 implementation options analyzed
+- [ ] Risk mitigation strategies are actionable
+- [ ] Timeline is realistic and phased
+- [ ] Success metrics are measurable
+- [ ] Compliance assessment is evidence-based
+- [ ] Educational value is clearly articulated
+- [ ] Security considerations thoroughly addressed
+
+## 🤖 AI Agent Instructions
+
+### How to Use This Template
+
+1. **Replace all placeholders** in curly braces with actual values
+2. **Complete all checklists** with specific evidence
+3. **Fill all tables** with concrete data
+4. **Provide code examples** where indicated
+5. **Generate executive summary** only after full analysis
+
+### Response Format
+
+Structure your analysis as:
+1. Executive Summary (2-3 paragraphs max)
+2. Detailed Analysis (following template sections)
+3. Appendices (if needed for technical details)
+
+### Critical Reminders
+
+- **Security First**: Never suggest approaches that compromise security
+- **Simplicity Matters**: If it's too complex to explain, it's too complex to implement
+- **Educational Focus**: Every decision should support learning objectives
+- **Evidence-Based**: Support all assessments with specific examples or documentation

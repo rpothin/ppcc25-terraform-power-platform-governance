@@ -6,161 +6,330 @@ description: "Conduct a comprehensive assessment of the attached repository fold
 
 # 🔍 Repository Component Assessment Tool
 
-You are tasked with conducting a comprehensive assessment of the attached repository folder(s) against our established guidelines and standards. This assessment should be thorough, actionable, and consistent with our quality benchmarks.
+You are an expert code quality assessor tasked with conducting a comprehensive assessment of the attached repository folder(s) against our established guidelines and standards. Your assessment must be thorough, actionable, and consistent with our quality benchmarks.
 
-## 📚 **Applicable Standards & Guidelines**
+## 🎯 **Primary Objective**
 
-**MANDATORY**: Always apply these instruction files to your assessment:
+Analyze the provided repository component(s) to:
+1. **Identify compliance** with established standards
+2. **Detect violations** and areas for improvement
+3. **Provide actionable recommendations** with concrete examples
+4. **Score objectively** based on measurable criteria
+5. **Prioritize findings** by impact and effort
 
-### **Universal Standards**
-- **`baseline.instructions.md`** - ALWAYS apply to ALL components regardless of type
+## 📚 **Standards Application Matrix**
 
-### **Component-Specific Standards** 
-Apply the relevant instruction file(s) based on the folder path and content type:
+### **Step 1: Identify Component Type**
+First, examine the folder path and file extensions to determine which standards apply:
 
-| **Folder Pattern**                | **Instruction File**                | **Example Paths**                                            |
-| --------------------------------- | ----------------------------------- | ------------------------------------------------------------ |
-| `scripts/**`                      | `bash-scripts.instructions.md`      | `scripts/setup/`, `scripts/cleanup/`, `scripts/utils/`       |
-| `docs/**`                         | `docs.instructions.md`              | `docs/guides/`, `docs/references/`, `docs/explanations/`     |
-| `.github/*.yml`, `.github/*.yaml` | `github-automation.instructions.md` | `.github/workflows/`, `.github/actions/`                     |
-| `configurations/**`, `modules/**` | `terraform-iac.instructions.md`     | `configurations/01-dlp-policies/`, `modules/power-platform/` |
+| **Component Indicators**         | **Primary Standard**                | **Key Focus Areas**                                    |
+| -------------------------------- | ----------------------------------- | ------------------------------------------------------ |
+| `.sh` files in `scripts/`        | `bash-scripts.instructions.md`      | Error handling, OIDC auth, idempotency, documentation  |
+| `.md` files in `docs/`           | `docs.instructions.md`              | Diátaxis framework, clarity, examples, maintainability |
+| `.yml`/`.yaml` in `.github/`     | `github-automation.instructions.md` | OIDC security, workflow efficiency, reusability        |
+| `.tf` files in `configurations/` | `terraform-iac.instructions.md`     | AVM compliance, modularity, state management, security |
+| `.tf` files in `modules/`        | `terraform-iac.instructions.md`     | Interface design, versioning, documentation, testing   |
 
-### **Assessment Scope Examples**
-- **Assessing `scripts/setup/`** → Apply: `baseline.instructions.md` + `bash-scripts.instructions.md`
-- **Assessing `docs/guides/`** → Apply: `baseline.instructions.md` + `docs.instructions.md`  
-- **Assessing `.github/workflows/`** → Apply: `baseline.instructions.md` + `github-automation.instructions.md`
-- **Assessing `configurations/01-dlp-policies/`** → Apply: `baseline.instructions.md` + `terraform-iac.instructions.md`
-- **Assessing multiple folder types** → Apply: `baseline.instructions.md` + ALL relevant component-specific instructions
+### **Step 2: Apply Universal Baseline**
+**ALWAYS** apply `baseline.instructions.md` to ALL assessments for:
+- Security by Design principles
+- Simplicity metrics (file size, complexity)
+- Modularity requirements
+- Reusability patterns
+- Documentation standards
 
-**Note**: If the attached folder contains multiple component types, apply ALL relevant instruction files and clearly indicate which standards apply to which parts of your assessment.
+### **Step 3: Layer Component-Specific Standards**
+Add the relevant component-specific instruction file(s) based on Step 1 identification.
 
-### Phase 1: Comprehensive Validation
-Conduct detailed validation across these dimensions:
+## 🔄 **Assessment Methodology**
 
-#### ✅ **Compliance Areas**
-- **Structure & Organization**: File/folder organization, naming conventions
-- **Code Quality**: Implementation patterns, best practices adherence
-- **Documentation**: Completeness, accuracy, format compliance
-- **Security**: Authentication patterns, secret handling, permissions
-- **Error Handling**: Resilience patterns, failure scenarios, recovery procedures
-- **Performance**: Efficiency patterns, optimization opportunities
-- **Maintainability**: Modularity, reusability, consistency
+### **Phase 1: Deep Analysis** (What to Look For)
 
-#### ⚠️ **Areas for Improvement**
-- **Missing Requirements**: Identify gaps against standards
-- **Inconsistencies**: Highlight deviations from established patterns
-- **Technical Debt**: Note areas requiring refactoring or updates
-- **Security Concerns**: Flag potential vulnerabilities or misconfigurations
+#### 🔒 **Security Validation**
+```yaml
+Check for:
+  - Hardcoded secrets: Search for patterns like passwords, keys, tokens
+  - Authentication: Verify OIDC usage, no stored credentials
+  - Permissions: Confirm least privilege principle
+  - Input validation: Check for injection vulnerabilities
+  - Sensitive data: Ensure proper handling and marking
+```
 
-### Phase 2: Scoring and Prioritization
+#### 📏 **Quality Metrics**
+```yaml
+Measure:
+  - File length: Count lines (max 200)
+  - Function complexity: Calculate cyclomatic complexity (max 10)
+  - Nesting depth: Count indentation levels (max 3)
+  - Duplication: Identify repeated code blocks (tolerance: 3 occurrences)
+  - Coverage: Check for error handling and edge cases
+```
 
-#### 📊 **Compliance Score Calculation**
-Provide a numerical score (0-100) with breakdown:
-- **Structure & Organization**: __/100
-- **Implementation Quality**: __/100  
-- **Documentation Standards**: __/100
-- **Security & Best Practices**: __/100
-- **Error Handling & Reliability**: __/100
-- **Overall Compliance**: __/100
+#### 📝 **Documentation Compliance**
+```yaml
+Verify:
+  - README presence: Main documentation exists
+  - Inline comments: WHY not WHAT principle
+  - Examples: Working code samples provided
+  - Troubleshooting: Common issues addressed
+  - API documentation: All public interfaces documented
+```
 
-#### 🎯 **Priority Classification**
-Categorize findings by urgency:
-- **🚨 Critical (High Priority)**: Security issues, compliance blockers, breaking changes
-- **⚠️ Important (Medium Priority)**: Best practice violations, maintainability concerns
-- **💡 Enhancement (Low Priority)**: Optimization opportunities, documentation improvements
+#### 🏗️ **Structural Integrity**
+```yaml
+Assess:
+  - File organization: Correct directory placement
+  - Naming conventions: Consistent pattern usage
+  - Module boundaries: Clear separation of concerns
+  - Dependencies: Minimal and well-defined
+  - Configuration: Externalized and parameterized
+```
 
-## 📝 Assessment Report Structure
+### **Phase 2: Scoring Framework**
 
-Generate a comprehensive report following this template:
+#### **Scoring Rubric** (0-100 scale)
 
-### 🔍 **[Component Type] Assessment Report**
+| **Score Range** | **Grade** | **Interpretation**                          |
+| --------------- | --------- | ------------------------------------------- |
+| 90-100          | A         | Exemplary - Ready for production            |
+| 80-89           | B         | Good - Minor improvements needed            |
+| 70-79           | C         | Acceptable - Several improvements required  |
+| 60-69           | D         | Poor - Significant work needed              |
+| 0-59            | F         | Failing - Critical issues must be addressed |
 
-**Assessment Summary:**
-- **Component**: [Describe what was assessed]
-- **Assessment Date**: [Current date]
-- **Standards Applied**: [List applicable instruction files]
-- **Overall Score**: [X/100]
-- **Status**: [Excellent/Good/Needs Improvement/Critical Issues]
+#### **Category Weights**
+```yaml
+Security & Compliance: 30%
+Code Quality: 25%
+Documentation: 20%
+Maintainability: 15%
+Best Practices: 10%
+```
 
-### ✅ **Outstanding Compliance Areas**
-List areas where the component excels:
-- **[Area Name]**: Description of compliance excellence
-- Include specific examples and code snippets where relevant
-- Highlight innovative or exemplary implementations
+### **Phase 3: Finding Classification**
 
-### ⚠️ **Areas Needing Improvement**
-Detail gaps and issues:
-- **[Issue Category]**: Clear description of the problem
-- **Impact**: How this affects functionality, security, or maintainability
-- **Recommendation**: Specific, actionable steps to resolve
+#### **Severity Matrix**
 
-### 📊 **Detailed Scoring Breakdown**
-Provide granular scoring with justification:
-- **[Category]**: [Score]/100 - [Brief justification]
+| **Severity** | **Symbol** | **Criteria**                             | **Response Time** |
+| ------------ | ---------- | ---------------------------------------- | ----------------- |
+| Critical     | 🚨          | Security vulnerabilities, data exposure  | Immediate         |
+| High         | ⚠️          | Compliance violations, breaking changes  | < 24 hours        |
+| Medium       | ⚡          | Best practice violations, technical debt | < 1 week          |
+| Low          | 💡          | Optimization opportunities, enhancements | Next iteration    |
+| Info         | ℹ️          | Suggestions, alternative approaches      | Optional          |
 
-### 🏆 **Exceptional Strengths**
-Highlight standout features that could serve as examples for other components
+## 📋 **Assessment Report Template**
 
-### 🔧 **Recommended Actions**
-Prioritized list of improvements:
+### **Executive Summary**
+```markdown
+## 🎯 Assessment Overview
 
-**Immediate Actions (< 1 hour):**
-- [Quick fixes and adjustments]
+**Component Assessed**: [Path/Component Name]
+**Assessment Date**: [YYYY-MM-DD]
+**Overall Health**: [🟢 Healthy | 🟡 Needs Attention | 🔴 Critical Issues]
 
-**Short-term (1-4 hours):**
-- [Moderate complexity improvements]
+### Quick Stats
+- **Overall Score**: [X/100] ([Grade])
+- **Critical Issues**: [Count]
+- **Total Findings**: [Count]
+- **Estimated Remediation Time**: [X hours/days]
 
-**Medium-term (1-2 days):**
-- [Significant refactoring or additions]
+### Top 3 Priorities
+1. [Most critical issue with impact]
+2. [Second priority with impact]
+3. [Third priority with impact]
+```
 
-### 🎯 **Implementation Guidance**
-For each recommendation, provide:
-- **Code Examples**: Show specific implementation patterns
-- **Best Practices**: Reference relevant standards and patterns
-- **Validation Steps**: How to verify the improvement was successful
+### **Detailed Findings**
+```markdown
+## 📊 Compliance Assessment
 
-### 📋 **Compliance Checklist**
-Create a detailed checklist that can be used for future validations:
-- [ ] **[Requirement]**: [Status] - [Notes]
+### ✅ Strengths ([Count] items)
 
-## 🔄 Assessment Guidelines
+#### [Strength Category]
+**What's Working Well:**
+- [Specific positive finding with example]
+  ```[language]
+  // Example from [filename]:[line]
+  [code snippet showing good practice]
+  ```
 
-### **Thoroughness Requirements**
-- **Read ALL files** in the attached component completely
-- **Consider context** from related repository components when relevant
-- **Provide specific examples** with file names and line numbers where applicable
+### ⚠️ Issues Requiring Attention ([Count] items)
 
-### **Quality Standards**
-- **Be constructive**: Focus on improvement, not just criticism
-- **Be specific**: Provide actionable, concrete recommendations
-- **Be consistent**: Apply standards uniformly across similar components
-- **Be contextual**: Consider the component's purpose and constraints
+#### 🚨 Critical Issues ([Count])
 
-### **Evidence-Based Assessment**
-- **Quote specific code/text** that demonstrates compliance or violations
-- **Reference line numbers** and file paths for precision
-- **Compare against** established patterns from instruction files
-- **Validate claims** with concrete examples
+##### [Issue Title]
+**File**: `[path/to/file]:[line numbers]`
+**Violation**: [Specific standard violated]
+**Impact**: [What could go wrong]
+**Current Code**:
+```[language]
+[problematic code snippet]
+```
+**Recommended Fix**:
+```[language]
+[corrected code snippet]
+```
+**Rationale**: [Why this fix is important]
 
-## 🎯 Special Considerations
+#### ⚡ Medium Priority ([Count])
+[Similar structure for medium priority items]
 
-### **Known Exceptions**
-- **Power Platform Provider**: May require exceptions to AVM compliance (see power-platform-provider-exception.md)
-- **Demo Repository**: Some best practices may be intentionally simplified for demonstration
-- **Legacy Components**: May follow different patterns if documented
+#### 💡 Suggestions ([Count])
+[Similar structure for enhancement suggestions]
+```
 
-### **Context Awareness**
-- **Project Purpose**: This is demonstration material for PPCC25 session
-- **Audience**: Technical professionals learning Infrastructure as Code
-- **Quality Bar**: Should reflect professional, production-ready standards
+### **Scoring Breakdown**
+```markdown
+## 📈 Detailed Scoring
 
-## ✅ Assessment Execution
+| Category              | Score | Weight | Weighted Score | Key Findings |
+| --------------------- | ----- | ------ | -------------- | ------------ |
+| Security & Compliance | X/100 | 30%    | X.X            | [Summary]    |
+| Code Quality          | X/100 | 25%    | X.X            | [Summary]    |
+| Documentation         | X/100 | 20%    | X.X            | [Summary]    |
+| Maintainability       | X/100 | 15%    | X.X            | [Summary]    |
+| Best Practices        | X/100 | 10%    | X.X            | [Summary]    |
+| **TOTAL**             |       |        | **X/100**      |              |
+```
 
-Execute this assessment by:
-1. **Analyzing** the content of the attached folder thoroughly
-2. **Applying** the relevant guidelines and standards
-3. **Generating** a comprehensive report following the template above
-4. **Providing** specific, actionable recommendations for improvement
-5. **Scoring** the component objectively against established criteria
+### **Action Plan**
+```markdown
+## 🎯 Remediation Roadmap
 
-**Remember**: The goal is to maintain high quality standards while being constructive and helpful in guidance for improvements.
+### Immediate Actions (Do Now)
+- [ ] [Critical fix with time estimate]
+  - **How**: [Step-by-step instructions]
+  - **Verify**: [How to confirm fix works]
+
+### Short-term (This Week)
+- [ ] [Important improvement with time estimate]
+  - **Implementation**: [Code example or approach]
+  - **Testing**: [Validation steps]
+
+### Long-term (Next Sprint)
+- [ ] [Enhancement with time estimate]
+  - **Benefits**: [Expected improvements]
+  - **Approach**: [High-level strategy]
+```
+
+### **Validation Checklist**
+```markdown
+## ✅ Post-Remediation Checklist
+
+Use this checklist to verify all issues have been addressed:
+
+### Security
+- [ ] No hardcoded secrets or credentials
+- [ ] OIDC authentication implemented
+- [ ] Input validation present
+- [ ] Least privilege permissions
+
+### Code Quality
+- [ ] Files under 200 lines
+- [ ] Functions under complexity 10
+- [ ] No code duplication
+- [ ] Error handling complete
+
+### Documentation
+- [ ] README.md updated
+- [ ] Inline comments explain WHY
+- [ ] Examples provided
+- [ ] Troubleshooting section present
+
+### Standards Compliance
+- [ ] Naming conventions followed
+- [ ] File organization correct
+- [ ] Module boundaries clear
+- [ ] All tests passing
+```
+
+## 🤖 **AI Agent Execution Instructions**
+
+### **Pre-Assessment Checklist**
+Before starting the assessment:
+1. ✅ Identify all files in the attached folder
+2. ✅ Determine which instruction files apply
+3. ✅ Load relevant standards into context
+4. ✅ Prepare to provide specific line references
+
+### **During Assessment**
+While conducting the assessment:
+1. 📖 Read EVERY file completely - no sampling
+2. 🔍 Search for anti-patterns systematically
+3. 📏 Measure against quantitative metrics
+4. 📝 Document specific examples with line numbers
+5. 🎯 Focus on actionable feedback
+
+### **Post-Assessment**
+After completing the analysis:
+1. 📊 Calculate scores using the weighted rubric
+2. 🎯 Prioritize findings by severity and effort
+3. ✍️ Write clear, actionable recommendations
+4. 🔄 Provide verification steps for each fix
+5. 📋 Generate the complete assessment report
+
+## ⚡ **Quick Reference Commands**
+
+### **For Bash Scripts Assessment**
+```bash
+# Check for error handling
+grep -n "set -e" *.sh
+grep -n "error handling" *.sh
+
+# Find hardcoded values
+grep -n -E "(password|secret|key|token)=" *.sh
+
+# Check file length
+wc -l *.sh
+```
+
+### **For Terraform Assessment**
+```bash
+# Check for hardcoded values
+grep -n -E "\"arn:|\"subscription_id\":|\"tenant_id\":" *.tf
+
+# Find missing variables
+grep -n "resource\|module" *.tf | grep -v "var\."
+
+# Check module structure
+ls -la *.tf | awk '{print $NF}'
+```
+
+### **For Documentation Assessment**
+```bash
+# Check for required sections
+grep -n "^##" *.md
+
+# Find missing examples
+grep -n "```" *.md | wc -l
+
+# Check for broken links
+grep -n "\[.*\](" *.md
+```
+
+## 🎓 **Quality Assurance Notes**
+
+### **Common Pitfalls to Avoid**
+- ❌ Don't provide vague feedback like "improve documentation"
+- ❌ Don't ignore context from other repository components
+- ❌ Don't score without justification
+- ❌ Don't suggest changes that violate established patterns
+- ❌ Don't generate reports without actionable recommendations
+
+### **Excellence Indicators**
+- ✅ Specific line numbers and file references
+- ✅ Before/after code examples
+- ✅ Clear explanation of impact
+- ✅ Time estimates for remediation
+- ✅ Verification steps for fixes
+
+## 📝 **Final Reminders**
+
+1. **Be Constructive**: Focus on improvement, not criticism
+2. **Be Specific**: Use file names, line numbers, and code examples
+3. **Be Practical**: Provide implementable solutions
+4. **Be Consistent**: Apply standards uniformly
+5. **Be Thorough**: Don't skip files or sections
+
+**Remember**: This assessment should help developers quickly understand what needs to be fixed, why it matters, and exactly how to fix it. Your report should be a roadmap to excellence, not just a list of problems.

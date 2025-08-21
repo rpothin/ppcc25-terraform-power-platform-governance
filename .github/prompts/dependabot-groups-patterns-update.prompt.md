@@ -1,151 +1,270 @@
 ---
 mode: agent
 model: Claude Sonnet 4
-description: "Automatically update Dependabot configuration groups patterns by analyzing the codebase to identify all current and potential dependencies, ensuring comprehensive coverage while maintaining logical groupings."
+description: "Systematically analyze codebase and update Dependabot configuration groups patterns for comprehensive dependency coverage"
 ---
 
 # Dependabot Groups Patterns Update Task
 
-## 🎯 Task Definition
+## 🎯 Primary Objective
 
-**Objective:** Automatically update Dependabot configuration groups patterns by systematically analyzing the codebase to identify all current and potential dependencies, ensuring comprehensive coverage while maintaining logical groupings.
+Update `.github/dependabot.yml` groups patterns by analyzing the entire codebase to ensure 100% dependency coverage with maintainable, forward-looking patterns.
 
-## 📋 Specific Requirements
+## 📊 Task Execution Framework
 
-### 1. Codebase Analysis Phase
+### Phase 1: Discovery & Analysis [REQUIRED]
 
-**GitHub Actions Analysis:**
-- Scan `.github/workflows/*.yml` files for all action references (e.g., `actions/checkout@v4`, `azure/login@v2`)
-- Scan `.github/actions/*/action.yml` files for composite action dependencies
-- Extract action namespaces and patterns (e.g., `actions/*`, `azure/*`, `hashicorp/*`)
-- Identify version pinning strategies and update frequency requirements
+#### Step 1.1: Dependency Discovery
+Execute these commands to build comprehensive dependency inventory:
 
-**Terraform Dependencies Analysis:**
-- Scan `configurations/*/main.tf` and `modules/*/main.tf` for provider requirements
-- Extract provider sources from `terraform` blocks and `required_providers`
-- Identify provider namespaces (e.g., `microsoft/power-platform`, `hashicorp/azurerm`)
-- Analyze version constraints and compatibility requirements
+```bash
+# GitHub Actions dependencies
+echo "=== GitHub Actions Dependencies ==="
+grep -h "uses:" .github/workflows/*.yml .github/actions/*/action.yml 2>/dev/null | \
+  sed 's/.*uses: *//' | sed 's/@.*//' | sort -u
 
-**Docker Dependencies Analysis:**
-- Scan `.devcontainer/devcontainer.json` for base images and features
-- Check for `Dockerfile` references and base image patterns
-- Identify container registries and image naming patterns
-- Extract feature dependencies and tool installations
+# Terraform provider dependencies
+echo "=== Terraform Providers ==="
+grep -h "source.*=" configurations/*/main.tf modules/*/main.tf 2>/dev/null | \
+  grep -E '(registry\.terraform\.io|[^/]+/[^/]+)' | sed 's/.*= *//' | tr -d '"' | sort -u
 
-**Development Dependencies Analysis:**
-- Scan `devcontainer.json` features for development tools
-- Identify VS Code extensions and development utilities
-- Check for language-specific tooling (Go, Python, Node.js)
-- Analyze tool version requirements and update patterns
+# Docker base images
+echo "=== Docker Images ==="
+jq -r '.image // empty' .devcontainer/devcontainer.json 2>/dev/null
+grep -h "FROM" **/Dockerfile 2>/dev/null | sed 's/FROM *//'
 
-**Documentation Dependencies Analysis:**
-- Check `docs/go.mod` for Hugo modules and themes
-- Scan for git submodules in `.gitmodules`
-- Identify documentation build dependencies
-- Check for external theme or plugin references
+# Development features
+echo "=== Dev Container Features ==="
+jq -r '.features | keys[]' .devcontainer/devcontainer.json 2>/dev/null
+```
 
-### 2. Pattern Generation Phase
+#### Step 1.2: Pattern Analysis Matrix
+Create dependency analysis table:
 
-**Generate Comprehensive Patterns:**
-- Create specific patterns for identified dependencies
-- Group by logical categories (Microsoft, HashiCorp, Docker registries)
-- Include both current and anticipated future dependencies
-- Apply wildcard patterns strategically to reduce maintenance overhead
+| Ecosystem             | Namespace               | Current Count | Pattern Type | Update Frequency |
+| --------------------- | ----------------------- | ------------- | ------------ | ---------------- |
+| github-actions        | actions/*               | X             | wildcard     | weekly           |
+| github-actions        | azure/*                 | X             | wildcard     | weekly           |
+| terraform             | microsoft/*             | X             | wildcard     | monthly          |
+| docker                | mcr.microsoft.com/*     | X             | prefix       | monthly          |
+| devcontainer-features | ghcr.io/devcontainers/* | X             | prefix       | monthly          |
 
-**Pattern Validation:**
-- Ensure patterns don't conflict or overlap inappropriately
-- Validate pattern specificity vs. maintainability balance
-- Test patterns against current dependency names
-- Check for potential false positives or missed dependencies
+### Phase 2: Pattern Design [REQUIRED]
 
-### 3. Configuration Update Phase
+#### Step 2.1: Pattern Strategy Selection
+For each namespace, choose pattern strategy:
 
-**Update Dependabot Configuration:**
-- Replace existing patterns in `.github/dependabot.yml`
-- Maintain existing group structure and naming conventions
-- Preserve security-focused grouping priorities
-- Keep existing scheduling and PR limit configurations
+```yaml
+# Decision Matrix:
+# High frequency changes (>5 deps) → Use wildcard: "namespace/*"
+# Medium frequency (2-5 deps) → Use prefix: "namespace/common-prefix-*"
+# Low frequency (1-2 deps) → Use explicit: "namespace/specific-dep"
+# Security critical → Always explicit listing
+```
 
-**Documentation Updates:**
-- Update inline comments explaining pattern choices
-- Document pattern maintenance strategy
-- Include examples of dependencies covered by each pattern
-- Add notes about anticipated future dependencies
+#### Step 2.2: Pattern Validation Rules
+Validate each pattern against these criteria:
 
-## 🔒 Constraints
+1. **Coverage Test**: Pattern matches all current dependencies in namespace
+2. **Specificity Test**: Pattern doesn't capture unintended dependencies
+3. **Future-Proof Test**: Pattern captures likely future additions
+4. **Conflict Test**: Pattern doesn't overlap with higher-priority groups
 
-### Security Requirements
-- **Maintain security-first approach** - Critical security dependencies must remain in priority groups
-- **Preserve permission principles** - GitHub Actions patterns must reflect elevated permission requirements
-- **Keep infrastructure separation** - Terraform providers must maintain separate grouping from development tools
+### Phase 3: Implementation [REQUIRED]
 
-### Maintenance Constraints
-- **Minimize pattern complexity** - Avoid over-engineering patterns that require frequent updates
-- **Balance specificity vs. coverage** - Patterns should be specific enough to be meaningful but broad enough to catch new dependencies
-- **Preserve existing workflow** - Don't break existing PR workflows or review processes
+#### Step 3.1: Configuration Structure Template
+Update `.github/dependabot.yml` following this exact structure:
 
-### Performance Constraints
-- **Respect PR limits** - Ensure patterns don't exceed configured `open-pull-requests-limit`
-- **Maintain update frequency** - Patterns should align with existing scheduling strategy
-- **Avoid pattern conflicts** - Ensure clear priority order for overlapping patterns
+```yaml
+version: 2
+updates:
+  # ===== SECURITY CRITICAL GROUPS (Priority 1) =====
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "03:00"
+      timezone: "America/New_York"
+    groups:
+      # Group 1: Microsoft Security Dependencies
+      microsoft-security:
+        patterns:
+          - "azure/login*"  # Authentication critical
+          - "Azure/load-testing*"  # Infrastructure testing
+        update-types:
+          - "minor"
+          - "patch"
+      
+      # Group 2: GitHub Core Actions
+      github-core:
+        patterns:
+          - "actions/checkout*"  # Core workflow dependency
+          - "actions/setup-*"     # Environment setup
+          - "actions/upload-*"    # Artifact management
+          - "actions/download-*"  # Artifact retrieval
+        
+  # ===== INFRASTRUCTURE GROUPS (Priority 2) =====
+  - package-ecosystem: "terraform"
+    directory: "/configurations"
+    schedule:
+      interval: "monthly"
+    groups:
+      # Group 3: Power Platform Providers
+      power-platform:
+        patterns:
+          - "microsoft/power-platform*"
+          - "Microsoft/terraform-provider-power*"
+      
+      # Group 4: Azure Providers
+      azure-providers:
+        patterns:
+          - "hashicorp/azurerm*"
+          - "hashicorp/azuread*"
+          - "Azure/terraform-*"
 
-## ✅ Success Criteria
+  # ===== DEVELOPMENT TOOLS (Priority 3) =====
+  - package-ecosystem: "docker"
+    directory: "/.devcontainer"
+    schedule:
+      interval: "monthly"
+    groups:
+      # Group 5: Development Containers
+      dev-containers:
+        patterns:
+          - "mcr.microsoft.com/devcontainers/*"
+          - "ghcr.io/devcontainers/*"
+```
 
-### Coverage Verification
-- [ ] **100% of current dependencies** are covered by appropriate patterns
-- [ ] **Anticipated dependencies** are covered by forward-looking patterns
-- [ ] **No ungrouped PRs** for dependencies that should logically be grouped
-- [ ] **Pattern efficiency** - Minimal pattern count while maintaining logical separation
+#### Step 3.2: Documentation Requirements
+Add inline documentation for each pattern:
 
-### Maintenance Reduction
-- [ ] **Reduced maintenance overhead** - Patterns require updates only for major new dependency categories
-- [ ] **Clear pattern logic** - Each pattern's purpose and coverage is well-documented
-- [ ] **Future-proof design** - Patterns accommodate likely future dependencies without modification
+```yaml
+patterns:
+  - "azure/*"  # Covers: azure/login, azure/CLI, azure/setup-kubectl
+  - "microsoft/power-platform*"  # Current: power-platform v2, Future: power-platform-cli
+```
 
-### Quality Assurance
-- [ ] **YAML syntax validation** - Configuration passes yamllint and actionlint checks
-- [ ] **Pattern testing** - All patterns successfully match intended dependencies
-- [ ] **Documentation completeness** - All pattern choices are explained and justified
-- [ ] **Backward compatibility** - Existing PR workflows continue to function
+### Phase 4: Validation [REQUIRED]
 
-## 🔍 Validation Steps
+#### Step 4.1: Automated Validation Script
+Create and run validation script:
 
-### Pre-Update Analysis
-1. **Inventory current dependencies** - Create comprehensive list of all current dependencies across all ecosystems
-2. **Map dependency patterns** - Identify naming patterns and logical groupings
-3. **Assess pattern gaps** - Identify dependencies not covered by current patterns
-4. **Predict future dependencies** - Anticipate likely additions based on project roadmap
+```bash
+#!/bin/bash
+# filepath: scripts/validate-dependabot-patterns.sh
 
-### Post-Update Verification
-1. **Pattern coverage test** - Verify all current dependencies match appropriate patterns
-2. **Conflict detection** - Ensure no pattern conflicts or unexpected groupings
-3. **Syntax validation** - Run YAML validation tools to ensure configuration correctness
-4. **Documentation review** - Verify all pattern choices are documented and justified
+echo "Validating Dependabot patterns..."
 
-## 📁 File Scope
+# Test 1: YAML syntax
+yamllint .github/dependabot.yml || exit 1
 
-**Primary Target:**
-- `.github/dependabot.yml` - Main configuration file to update
+# Test 2: Pattern coverage
+for dep in $(grep -h "uses:" .github/workflows/*.yml | sed 's/.*uses: *//' | sed 's/@.*//' | sort -u); do
+  echo "Checking coverage for: $dep"
+  # Verify dependency matches at least one pattern
+done
 
-**Analysis Sources:**
-- `.github/workflows/*.yml` - GitHub Actions workflows
-- `.github/actions/*/action.yml` - Composite actions
-- `configurations/*/main.tf` - Terraform configurations
-- `modules/*/main.tf` - Terraform modules
-- `.devcontainer/devcontainer.json` - Development container configuration
-- `docs/go.mod` - Hugo documentation dependencies
-- `.gitmodules` - Git submodules (if present)
+# Test 3: No orphaned dependencies
+echo "✅ All validations passed"
+```
 
-**Documentation Updates:**
-- Update inline comments in `dependabot.yml`
-- Consider updating `CHANGELOG.md` if changes are significant
-- Update any related documentation in `docs/` if dependency management process changes
+#### Step 4.2: Coverage Report
+Generate coverage report showing:
+- Total dependencies found: X
+- Dependencies covered by patterns: Y
+- Coverage percentage: Z%
+- Ungrouped dependencies: [list]
 
-## 🎯 Expected Outcome
+## 🚫 Critical Constraints
 
-A comprehensive, maintainable Dependabot configuration that:
-- **Automatically groups** all current and anticipated dependencies appropriately
-- **Reduces maintenance overhead** through strategic pattern design
-- **Maintains security priorities** while improving coverage
-- **Provides clear documentation** of pattern logic and coverage
-- **Enables predictable PR management** with consistent grouping behavior
+### MUST NOT:
+1. **Break existing workflows** - Preserve all current PR automation
+2. **Create overlapping patterns** - Each dependency matches exactly one group
+3. **Hardcode versions** - Patterns should be version-agnostic
+4. **Mix security levels** - Keep security-critical deps in separate groups
+5. **Exceed PR limits** - Respect `open-pull-requests-limit` settings
+
+### MUST:
+1. **Maintain priority order** - Security > Infrastructure > Development
+2. **Document pattern rationale** - Explain why each pattern exists
+3. **Test pattern matching** - Verify patterns work as intended
+4. **Preserve scheduling** - Keep existing update schedules
+5. **Follow naming conventions** - Use kebab-case for group names
+
+## ✅ Success Metrics
+
+### Quantitative Metrics:
+- [ ] **100% dependency coverage** - All identified dependencies match a pattern
+- [ ] **<20 total patterns** - Maintain manageable pattern count
+- [ ] **0 pattern conflicts** - No overlapping patterns across groups
+- [ ] **<5 minute execution** - Task completes efficiently
+
+### Qualitative Metrics:
+- [ ] **Clear pattern logic** - Each pattern's purpose is obvious
+- [ ] **Future-proof design** - Patterns accommodate growth
+- [ ] **Maintenance reduction** - Fewer manual updates needed
+- [ ] **Documentation clarity** - Anyone can understand pattern choices
+
+## 🎬 AI Agent Action Sequence
+
+1. **START**: Acknowledge task and confirm understanding
+2. **ANALYZE**: Run discovery commands and create dependency inventory
+3. **DESIGN**: Generate patterns based on analysis matrix
+4. **IMPLEMENT**: Update dependabot.yml with new patterns
+5. **VALIDATE**: Run validation script and generate coverage report
+6. **DOCUMENT**: Add inline comments explaining each pattern
+7. **REPORT**: Provide summary of changes and coverage metrics
+8. **END**: Confirm task completion and next steps
+
+## 📝 Expected Deliverables
+
+1. **Updated `.github/dependabot.yml`** with comprehensive patterns
+2. **Validation script** at `scripts/validate-dependabot-patterns.sh`
+3. **Coverage report** showing pattern effectiveness
+4. **Change summary** listing all modifications made
+
+## 🔍 Quality Checklist
+
+Before marking complete, verify:
+- [ ] All current dependencies have matching patterns
+- [ ] Patterns are documented with examples
+- [ ] YAML syntax is valid (passes yamllint)
+- [ ] No duplicate or conflicting patterns exist
+- [ ] Security dependencies remain prioritized
+- [ ] Update schedules are preserved
+- [ ] PR limits are respected
+- [ ] Future dependencies are considered
+
+## 💡 Pattern Examples Reference
+
+### Effective Patterns:
+```yaml
+# Wildcard for namespace (catches all)
+- "actions/*"
+
+# Prefix matching (catches variations)
+- "azure/login*"  # Matches: azure/login, azure/login-v2
+
+# Explicit for security-critical
+- "azure/login"  # Exact match only
+
+# Registry prefix for containers
+- "mcr.microsoft.com/devcontainers/*"
+```
+
+### Avoid These Patterns:
+```yaml
+# Too broad (catches unintended)
+- "*"
+
+# Version-specific (requires updates)
+- "actions/checkout@v4"
+
+# Redundant (already covered)
+- "actions/checkout"  # If "actions/*" exists
+```
+
+---
+
+**AI Agent Instructions**: Follow this guide systematically. Begin with Phase 1 discovery, proceed through each phase sequentially, and provide clear output at each step. Ask for clarification if any requirement is ambiguous. Focus on creating maintainable, comprehensive patterns that reduce future manual updates.
