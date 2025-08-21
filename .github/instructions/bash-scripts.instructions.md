@@ -30,11 +30,11 @@ set -euo pipefail  # Exit on error, undefined variables, pipe failures
 
 **AI Agent: NEVER generate a script without these flags:**
 
-| Flag | Purpose | Required | Exception Allowed |
-|------|---------|----------|-------------------|
-| `set -e` | Exit on command failure | ✅ YES | ❌ NO |
-| `set -u` | Error on undefined variables | ✅ YES | ❌ NO |
-| `set -o pipefail` | Detect pipeline failures | ✅ YES | ❌ NO |
+| Flag              | Purpose                      | Required | Exception Allowed |
+| ----------------- | ---------------------------- | -------- | ----------------- |
+| `set -e`          | Exit on command failure      | ✅ YES    | ❌ NO              |
+| `set -u`          | Error on undefined variables | ✅ YES    | ❌ NO              |
+| `set -o pipefail` | Detect pipeline failures     | ✅ YES    | ❌ NO              |
 
 ### Exception Handling Patterns
 
@@ -60,11 +60,11 @@ set +e  # NEVER DO THIS
 
 **AI Agent: ENFORCE these limits strictly:**
 
-| File Type | Maximum Lines | Action When Exceeded |
-|-----------|---------------|----------------------|
-| Individual scripts | 200 lines | Split into modules |
-| Utility modules | 150 lines | Extract functions |
-| Setup/cleanup scripts | 250 lines | Create sub-scripts |
+| File Type             | Maximum Lines | Action When Exceeded |
+| --------------------- | ------------- | -------------------- |
+| Individual scripts    | 200 lines     | Split into modules   |
+| Utility modules       | 150 lines     | Extract functions    |
+| Setup/cleanup scripts | 250 lines     | Create sub-scripts   |
 
 ### Modularization Decision Tree
 
@@ -104,13 +104,13 @@ scripts/
 
 **AI Agent: Apply these naming rules consistently:**
 
-| Element | Convention | Example |
-|---------|-----------|---------|
-| Script files | kebab-case.sh | `setup-environment.sh` |
-| Functions | snake_case | `validate_azure_auth()` |
-| Local variables | snake_case | `local resource_group` |
-| Global variables | SCREAMING_SNAKE | `AZURE_SUBSCRIPTION_ID` |
-| Constants | readonly SCREAMING_SNAKE | `readonly SCRIPT_VERSION` |
+| Element          | Convention               | Example                   |
+| ---------------- | ------------------------ | ------------------------- |
+| Script files     | kebab-case.sh            | `setup-environment.sh`    |
+| Functions        | snake_case               | `validate_azure_auth()`   |
+| Local variables  | snake_case               | `local resource_group`    |
+| Global variables | SCREAMING_SNAKE          | `AZURE_SUBSCRIPTION_ID`   |
+| Constants        | readonly SCREAMING_SNAKE | `readonly SCRIPT_VERSION` |
 
 ### Function Documentation Template
 
@@ -324,12 +324,12 @@ execute_with_retry "az group create --name \$RG --location \$LOCATION"
 
 **AI Agent: Select templates based on script purpose:**
 
-| Purpose | Template to Use | Location |
-|---------|----------------|----------|
-| Infrastructure setup | `setup-script.template.sh` | `scripts/templates/` |
-| Resource cleanup | `cleanup-script.template.sh` | `scripts/templates/` |
-| Utility functions | `utility-module.template.sh` | `scripts/templates/` |
-| Validation checks | `validation-script.template.sh` | `scripts/templates/` |
+| Purpose              | Template to Use                 | Location             |
+| -------------------- | ------------------------------- | -------------------- |
+| Infrastructure setup | `setup-script.template.sh`      | `scripts/templates/` |
+| Resource cleanup     | `cleanup-script.template.sh`    | `scripts/templates/` |
+| Utility functions    | `utility-module.template.sh`    | `scripts/templates/` |
+| Validation checks    | `validation-script.template.sh` | `scripts/templates/` |
 
 ## ✅ Quality Checklist
 
