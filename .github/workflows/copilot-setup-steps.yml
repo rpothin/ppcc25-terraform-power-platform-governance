@@ -65,11 +65,31 @@ jobs:
 
       # === TERRAFORM INFRASTRUCTURE ===
       # Primary tool for Power Platform governance automation
+      - name: Cache Terraform Providers
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.terraform.d/plugin-cache
+            .terraform/providers
+            ~/.cache/pip
+            ~/.npm
+          # WHY: Cache key based on lock file hash for automatic invalidation on version changes
+          key: copilot-setup-${{ runner.os }}-${{ hashFiles('.terraform.lock.hcl', '**/configurations/**/.terraform.lock.hcl', '**/*.tf', '**/package*.json', '**/requirements*.txt') }}
+          restore-keys: |
+            copilot-setup-${{ runner.os }}-
+
       - name: Setup Terraform CLI
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ vars.TERRAFORM_VERSION || '1.12.2' }}  # Uses repository variable with fallback
           terraform_wrapper: false       # WHY: Clean output for Copilot parsing
+
+      # WHY: Configure provider cache for faster Terraform operations in Copilot environment
+      - name: Configure Provider Cache
+        run: |
+          mkdir -p ~/.terraform.d/plugin-cache
+          echo 'plugin_cache_dir = "$HOME/.terraform.d/plugin-cache"' > ~/.terraform.d/terraformrc
+          echo "TF_CLI_CONFIG_FILE=$HOME/.terraform.d/terraformrc" >> $GITHUB_ENV
 
       # === TERRAFORM CODE QUALITY ===
       # Linting and validation for AVM-compliant modules
@@ -146,16 +166,3 @@ jobs:
           echo "=== Environment Ready ==="
           echo "GitHub Copilot coding agent environment configured successfully!"
           echo "All tools installed and validated for Power Platform governance automation."
-
-      # === PERFORMANCE OPTIMIZATION ===
-      # Cache setup for faster subsequent Copilot runs
-      - name: Setup Caching
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.terraform.d/plugin-cache
-            ~/.cache/pip
-            ~/.npm
-          key: copilot-setup-${{ runner.os }}-${{ hashFiles('**/*.tf', '**/package*.json', '**/requirements*.txt') }}
-          restore-keys: |
-            copilot-setup-${{ runner.os }}-
