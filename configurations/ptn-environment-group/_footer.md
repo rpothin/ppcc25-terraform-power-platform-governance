@@ -96,5 +96,6 @@ This pattern uses the `microsoft/power-platform` provider, which creates an exce
 
 - [Power Platform Environment Group Resource Documentation](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/resources/environment_group)
 - [Power Platform Environment Resource Documentation](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/resources/environment)
+- [Power Platform Managed Environment Resource Documentation](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/resources/managed_environment)
 - [Power Platform Terraform Provider](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs)
 - [AVM Terraform Specifications](https://azure.github.io/Azure-Verified-Modules/specs/tf/)

@@ -195,6 +195,16 @@ DESCRIPTION
   }
 }
 
+output "managed_environment_deployment_status" {
+  description = "Deployment status of the managed environment settings."
+  value = {
+    for idx, env in local.environment_summary : env.display_name => {
+      environment_id = module.environments[idx].environment_id
+      enabled        = module.managed_environment[idx].is_managed_environment
+    }
+  }
+}
+
 # ============================================================================
 # TEMPLATE METADATA - Template Configuration and Validation Summary
 # ============================================================================
@@ -236,9 +246,10 @@ output "orchestration_summary" {
     group_assignment_valid = local.deployment_validation.group_assignment_valid
 
     # Resource metrics (including settings modules)
-    total_resources_created    = 1 + local.pattern_metadata.environment_count + length(module.environment_settings) # Group + environments + settings
+    total_resources_created    = 1 + local.pattern_metadata.environment_count + length(module.managed_environment) + length(module.environment_settings) # Group + environments + managed + settings
     environment_group_id       = module.environment_group.environment_group_id
     environments_created       = local.pattern_metadata.environment_count
+    managed_environments_count = length(module.managed_environment)
     environment_settings_count = length(module.environment_settings)
 
     # Template processing results
@@ -329,6 +340,18 @@ output "governance_ready_resources" {
         template_driven    = true
         workspace_name     = var.name
         configuration_type = "hybrid_template_driven"
+      }
+    }
+
+    managed_environments = {
+      for idx, managed_env in module.managed_environment : idx => {
+        environment_id   = module.environments[idx].environment_id
+        environment_name = local.environment_summary[idx].display_name
+        resource_type    = "powerplatform_managed_environment"
+        governance_ready = true
+        enabled          = managed_env.is_managed_environment
+        template_driven  = true
+        workspace_name   = var.name
       }
     }
   }
