@@ -15,7 +15,7 @@ This document provides Terraform standards for **"Enhancing Power Platform Gover
 
 ## 🚀 Pre-Development Checklist
 
-**MANDATORY: Complete this checklist before writing any Terraform code**
+**AI Agent: MANDATORY - Complete this checklist before writing any Terraform code**
 
 ### Module Setup Requirements
 - [ ] Confirm module type classification (utl-, res-, ptn-)
@@ -58,7 +58,7 @@ This document provides Terraform standards for **"Enhancing Power Platform Gover
 
 ## 📚 Azure Verified Modules (AVM) Foundation
 
-**AVM principles serve as the northstar for all Terraform code:**
+**AI Agent: AVM principles serve as the northstar for all Terraform code:**
 - Implement AVM-inspired patterns even with Power Platform provider limitations
 - Follow AVM specification TFNFR27: Provider configurations should be passed from parent modules
 - Follow AVM specification PMNFR2: Pattern modules should be built from resource modules
@@ -67,7 +67,8 @@ This document provides Terraform standards for **"Enhancing Power Platform Gover
 - Plan for future transition to full AVM compliance when technically feasible
 
 ### ⚠️ Critical Anti-Pattern Warning
-**NEVER allow pattern modules to directly create resources** - this violates AVM principles and creates maintenance debt:
+
+**AI Agent: NEVER allow pattern modules to directly create resources** - this violates AVM principles and creates maintenance debt:
 
 ```hcl
 # ❌ FORBIDDEN: Direct resource creation in pattern modules
@@ -80,6 +81,17 @@ module "environments" { source = "../res-environment" }
 ```
 
 ### Module Classifications
+
+**AI Agent: Use this decision tree for module type selection:**
+
+```yaml
+Module Type Decision:
+├─ Does it deploy Power Platform resources?
+│  ├─ Single resource type? → res-* (child module)
+│  └─ Multiple resources? → ptn-* (orchestration)
+└─ Does it only query/transform data? → utl-* (utility)
+```
+
 - **Resource Modules (`res-*`)**: Deploy primary Power Platform resources (DLP policies, environments) - MUST be child modules
 - **Pattern Modules (`ptn-*`)**: Orchestrate multiple resource modules using composable patterns - MUST NOT create resources directly
 - **Utility Modules (`utl-*`)**: Provide reusable data sources without deploying resources (connector exports)
@@ -87,6 +99,9 @@ module "environments" { source = "../res-environment" }
 ## 🏗️ Basic Terraform Standards
 
 ### Code Structure and Formatting
+
+**AI Agent: Apply these standards to every Terraform file:**
+
 - Use consistent formatting with `terraform fmt` for all configuration files
 - Separate concerns using multiple .tf files (main.tf, variables.tf, outputs.tf, versions.tf)
 - Keep individual files under 200 lines when possible (baseline principle: modularity)
@@ -94,7 +109,8 @@ module "environments" { source = "../res-environment" }
 - Use meaningful comments that explain "why" decisions were made (baseline principle: clear comments)
 
 ### Mandatory Validation (Gate Requirement)
-**All Terraform code must pass these validations before any commit or pull request:**
+
+**AI Agent: All Terraform code must pass these validations before any commit or pull request:**
 
 1. **Format Validation**: `terraform fmt -check` (auto-fix with `terraform fmt`)
 2. **Syntax Validation**: `terraform validate` (all configurations must pass)
@@ -109,6 +125,9 @@ module "environments" { source = "../res-environment" }
 *Why: This process ensures AVM compliance, CI/CD reliability, and consistent code quality while supporting baseline principles of security by design and simplicity.*
 
 ### File Organization (AVM-Inspired)
+
+**AI Agent: Create this exact structure for all modules:**
+
 ```
 configurations/{module-name}/
 ├── main.tf              # Primary resource definitions
@@ -124,7 +143,7 @@ configurations/{module-name}/
 
 ### Provider/Backend Block Limitation: Expected Terraform Behavior
 
-**CRITICAL UNDERSTANDING: The restriction "Child modules with provider/backend blocks cannot be used with meta-arguments" is not a bug or AVM-specific limitation—it is fundamental Terraform behavior by design.**
+**AI Agent CRITICAL UNDERSTANDING: The restriction "Child modules with provider/backend blocks cannot be used with meta-arguments" is fundamental Terraform behavior by design, not a bug.**
 
 **Technical Background:**
 When a child module contains its own `provider` or `backend` blocks, Terraform restricts the use of meta-arguments (`count`, `for_each`, `depends_on`) on that module. This limitation exists because:
@@ -133,37 +152,16 @@ When a child module contains its own `provider` or `backend` blocks, Terraform r
 2. **Module Instantiation Issues**: Meta-arguments like `count` and `for_each` require precise control over provider configurations, which conflicts with modules that define their own providers  
 3. **Legacy Compatibility**: This restriction maintains backward compatibility while encouraging modern best practices
 
-**AVM Specification Alignment:**
-This Terraform limitation aligns perfectly with Azure Verified Module specifications:
-- **TFNFR27**: Provider blocks **must not** be declared in module code except when different instances of the same provider are needed
-- **PMNFR2**: Pattern modules should be built from resource modules (requiring proper module composition)
-- **Best Practice**: Provider configurations should be passed in by module users, with only `alias` used in provider blocks within modules
-
-**Why This Approach Is Correct:**
-- **Modularity**: Each resource module focuses on a specific resource type without provider coupling
-- **Reusability**: Resource modules can be used across different pattern modules with different provider configurations
-- **Maintainability**: Provider configurations are centralized in the root module
-- **Composability**: Pattern modules can easily combine multiple resource modules
-- **Compliance**: Follows both Terraform best practices and AVM specifications
-
-**Reference Documentation:**
-- [Terraform Provider Configuration](https://developer.hashicorp.com/terraform/language/providers/configuration)
-- [AVM Terraform Specifications](https://azure.github.io/Azure-Verified-Modules/specs/tf/)
-- [Terraform Module Composition](https://developer.hashicorp.com/terraform/language/modules/develop/composition)
+**AI Agent Action**: Always remove provider/backend blocks from res-* modules.
 
 ### Child Module Requirements (res-* modules)
-**CRITICAL: All `res-*` modules MUST be designed as child modules for orchestration compatibility**
 
-**Why This Is Required:**
-When child modules contain their own `provider` or `backend` blocks, Terraform restricts the use of meta-arguments (`count`, `for_each`, `depends_on`) on those modules. This is a fundamental Terraform limitation that applies to all modules, not just AVM modules. The error "Child modules with provider/backend blocks cannot be used with meta-arguments" is expected behavior that:
-- **Prevents Provider Configuration Conflicts**: Child modules with their own providers create ambiguity about which provider should be used
-- **Ensures Module Instantiation Consistency**: Meta-arguments require precise control over provider configurations
-- **Maintains Legacy Compatibility**: This restriction encourages modern best practices
-
-**AVM Specification Alignment:**
-This approach aligns with AVM specification [TFNFR27](https://azure.github.io/Azure-Verified-Modules/specs/tf/) which requires that provider blocks **must not** be declared in module code except when different instances of the same provider are needed.
+**AI Agent: CRITICAL - All `res-*` modules MUST be designed as child modules for orchestration compatibility**
 
 #### versions.tf Format (MANDATORY)
+
+**AI Agent: Use this exact format for res-* module versions.tf:**
+
 ```hcl
 # Child module versions.tf (UNDER 20 LINES)
 # This format ensures compatibility with meta-arguments (for_each, count, depends_on)
@@ -182,6 +180,9 @@ terraform {
 ```
 
 #### Integration Test Requirements
+
+**AI Agent: Include provider block in test files for child modules:**
+
 ```hcl
 # MUST include provider block in test files
 provider "powerplatform" {
@@ -192,7 +193,8 @@ provider "powerplatform" {
 ## 🔌 Power Platform Specifics
 
 ### Provider Configuration (Centralized Standard)
-**All modules must use the same provider version for consistency:**
+
+**AI Agent: Use this exact provider configuration for all root modules:**
 
 ```hcl
 terraform {
@@ -217,6 +219,9 @@ provider "powerplatform" {
 *Why `~> 3.8`: This version provides stable Power Platform resource management while allowing patch updates.*
 
 ### Authentication and Security
+
+**AI Agent: Apply these security patterns to all Power Platform code:**
+
 - **OIDC authentication** for all Azure and Power Platform connections (no client secrets)
 - **Azure Storage backend** with OIDC for state management
 - **Never hardcode** sensitive values in configuration files (baseline: security by design)
@@ -224,6 +229,9 @@ provider "powerplatform" {
 - **Apply principle of least privilege** for all permissions
 
 ### Resource Naming and Tagging
+
+**AI Agent: Use this naming pattern for all Power Platform resources:**
+
 ```hcl
 # Consistent naming pattern for Power Platform resources
 resource "powerplatform_data_loss_prevention_policy" "example" {
@@ -237,7 +245,8 @@ resource "powerplatform_data_loss_prevention_policy" "example" {
 ## 📝 Variables and Outputs Standards
 
 ### Variable Requirements (Strong Typing)
-**All variables must use explicit typing and comprehensive validation:**
+
+**AI Agent: MANDATORY - All variables must use this exact pattern:**
 
 ```hcl
 variable "dlp_policy_config" {
@@ -281,14 +290,15 @@ DESCRIPTION
 }
 ```
 
-**Forbidden Practices:**
+**AI Agent Forbidden Practices:**
 - ❌ `type = any` (use explicit object types)
 - ❌ Variables without validation rules
 - ❌ Single-line descriptions (use HEREDOC format)
 - ❌ Generic error messages without actionable guidance
 
 ### Enhanced Validation Patterns
-**All validation blocks must include actionable error messages:**
+
+**AI Agent: Use actionable error messages in all validation blocks:**
 
 ```hcl
 # ✅ Good: Actionable error message with guidance
@@ -305,7 +315,8 @@ validation {
 ```
 
 ### Output Standards (Anti-Corruption Layer)
-**Implement discrete outputs instead of exposing full resource objects:**
+
+**AI Agent: Implement discrete outputs instead of exposing full resource objects:**
 
 ```hcl
 # ✅ Good: Discrete, useful outputs
@@ -331,17 +342,16 @@ output "dlp_policy" {
 }
 ```
 
-**Required Summary Outputs (All Modules):**
+**AI Agent Required Summary Outputs (All Modules):**
 - **Utility modules**: Processing summary with record counts and validation status
 - **Resource modules**: Configuration summary with deployment status and key settings
 - **Pattern modules**: Orchestration summary with component status and dependencies
 
-*Why anti-corruption layer: Protects downstream consumers from provider schema changes and prevents accidental exposure of sensitive attributes.*
-
 ## 🎯 Required Implementation Patterns
 
 ### Lifecycle Protection (res-* modules only)
-**All `res-*` modules must include lifecycle protection:**
+
+**AI Agent: Include this lifecycle block in all res-* modules:**
 
 ```hcl
 resource "powerplatform_data_loss_prevention_policy" "this" {
@@ -360,12 +370,9 @@ resource "powerplatform_data_loss_prevention_policy" "this" {
 }
 ```
 
-*Why lifecycle blocks: Manual changes in Power Platform admin center should not cause Terraform drift.*
-
-**Documentation requirement:** Include lifecycle behavior explanation in module README.
-
 ### Avoiding Count Dependency Issues
-**CRITICAL: Use lifecycle preconditions instead of count with unknown values**
+
+**AI Agent: Use lifecycle preconditions instead of count with unknown values:**
 
 ```hcl
 # ❌ PROBLEMATIC: Count with unknown values during planning
@@ -394,56 +401,10 @@ resource "powerplatform_environment" "this" {
 }
 ```
 
-*Why preconditions: They validate requirements without creating dependency issues with unknown values during planning.*
-
-### Anti-Corruption Output Pattern (All modules)
-```hcl
-# ✅ Correct: Discrete, useful outputs with summary pattern
-output "policy_configuration_summary" {
-  description = "Summary of deployed configuration for validation and downstream reference"
-  value = {
-    name             = resource.main.display_name
-    environment_type = var.config.environment_type
-    connector_count  = length(resource.main.connectors)
-    deployment_date  = timestamp()
-    module_version   = local.module_version
-  }
-}
-
-# ❌ Incorrect: Full resource exposure
-output "policy" {
-  value = powerplatform_data_loss_prevention_policy.this
-}
-```
-
-### File Organization Enhancement
-**When main.tf approaches 150+ lines, extract complex logic:**
-
-```hcl
-# locals.tf - Complex transformation and processing logic
-locals {
-  # Complex connector processing
-  business_connectors = [
-    for connector in var.connectors : connector
-    if connector.classification == "Business"
-  ]
-  
-  # Policy validation logic
-  policy_valid = length(local.business_connectors) > 0 && length(var.policy_name) <= 50
-  
-  # Summary generation
-  deployment_summary = {
-    policy_name      = var.policy_name
-    connector_count  = length(local.business_connectors)
-    validation_state = local.policy_valid ? "valid" : "invalid"
-  }
-}
-```
-
 ### Pattern Module Orchestration (ptn-* modules)
-**MANDATORY: Pattern modules must orchestrate resource modules, never create resources directly**
 
-#### Required Implementation Pattern
+**AI Agent: MANDATORY - Pattern modules must use this exact orchestration pattern:**
+
 ```hcl
 # Variable transformation layer
 locals {
@@ -480,19 +441,9 @@ module "environments" {
 }
 ```
 
-#### Orchestration Requirements
-- **Variable Transformation**: Use locals to bridge interfaces between pattern and resource modules
-- **Explicit Dependencies**: Use `depends_on` to ensure correct resource creation order
-- **Meta-Arguments**: Leverage `for_each` for multiple resource deployment
-- **Output Aggregation**: Collect and transform outputs from child modules
-
 ### Test Coverage Requirements
-**Minimum test patterns by module type:**
 
-- **All modules**: Basic structure, input validation, output presence
-- **utl-* modules**: Data transformation accuracy, error handling, performance validation
-- **res-* modules**: Resource planning, lifecycle behavior validation, state management
-- **ptn-* modules**: Multi-resource orchestration, dependency validation, rollback scenarios, module compatibility
+**AI Agent: Implement these exact test patterns by module type:**
 
 ```hcl
 # Consolidated test pattern (performance optimized)
@@ -521,44 +472,11 @@ run "comprehensive_validation" {
 }
 ```
 
-## 🛡️ Advanced Requirements (AVM Compliance)
-
-### Strong Variable Validation (All Modules)
-**Every object variable must include property-level validation:**
-
-- **Explicit object types** for all complex variables (no `any` type)
-- **Validation blocks** for each object property
-- **HEREDOC descriptions** with properties, examples, and validation reasoning
-- **Clear error messages** that guide users toward correct values with specific guidance
-
-### Testing Coverage Requirements
-**Minimum test assertions by module type:**
-
-| Module Type | Minimum Assertions | Required Test Types     | Focus Areas                                      |
-| ----------- | ------------------ | ----------------------- | ------------------------------------------------ |
-| `utl-*`     | 15+                | `plan` only             | Data transformation, error handling, performance |
-| `res-*`     | 20+                | Both `plan` and `apply` | Resource planning, lifecycle, state management   |
-| `ptn-*`     | 25+                | Both `plan` and `apply` | Orchestration, dependencies, rollback scenarios  |
-
-```hcl
-# res-* modules must test both planning and deployment
-run "plan_validation" {
-  command = plan
-  # ... at least 10 assertions for structure and logic ...
-}
-
-run "apply_validation" {
-  command = apply
-  # ... at least 10 assertions for actual deployment ...
-}
-```
-
-*Why these numbers: Based on AVM standards and complexity analysis of Power Platform resources. Plan/apply separation ensures both design-time and runtime validation.*
-
 ## 🧪 Testing and Quality Assurance
 
 ### Performance-Optimized Testing
-**Consolidate assertions to minimize expensive plan/apply operations:**
+
+**AI Agent: Consolidate assertions to minimize expensive operations:**
 
 ```hcl
 # ✅ Good: Consolidated assertions in single run block
@@ -584,7 +502,8 @@ run "test_2" { command = plan; assert { ... } }
 ```
 
 ### Test Phase Separation (CRITICAL for pattern modules)
-**MANDATORY: Separate static validation from runtime validation to avoid unknown value errors**
+
+**AI Agent: MANDATORY - Separate static validation from runtime validation:**
 
 ```hcl
 # ✅ REQUIRED: Plan phase - static validation only
@@ -622,54 +541,12 @@ run "apply_validation" {
 }
 ```
 
-**Why separation is critical:**
-- **Plan phase**: Can only validate static configuration, file structure, and variable types
-- **Apply phase**: Can validate module outputs, computed values, and actual resource creation
-- **Unknown values**: Module outputs and computed locals are unknown during plan phase
-
-### Missing Outputs Prevention
-**All modules must include these standard outputs to prevent test failures:**
-
-```hcl
-# Required for all utility modules
-output "processing_summary" {
-  description = "Summary of data processing operations and results"
-  value = {
-    records_processed = local.total_records
-    validation_status = local.validation_passed
-    processing_time   = timestamp()
-  }
-}
-
-# Required for all resource modules  
-output "deployment_summary" {
-  description = "Summary of resource deployment status and configuration"
-  value = {
-    resource_id       = try(resource.main.id, null)
-    deployment_status = "completed"
-    configuration     = local.resource_config_summary
-  }
-}
-```
-
-### Documentation Standards
-**Auto-generate documentation using terraform-docs:**
-- Include `.terraform-docs.yml` configuration
-- Provide usage examples in module README
-- Document troubleshooting guidance for common Power Platform issues
-- Reference official Microsoft documentation
-- Include performance considerations for large datasets
-
-### Validation Workflows
-- Include automated format/syntax checking in CI/CD
-- Validate both successful deployments and error conditions
-- Test against multiple Power Platform environments when possible
-- Follow semantic versioning (SemVer) for module releases
-
 ## 🔒 Security and State Management
 
 ### Security by Design
-**Power Platform governance requires enhanced security:**
+
+**AI Agent: Apply these security patterns to all Terraform code:**
+
 - **OIDC authentication** for all provider connections (Azure AD app registration)
 - **Secure state backends** with encryption at rest
 - **Input validation** for all user-provided values
@@ -677,7 +554,8 @@ output "deployment_summary" {
 - **No hardcoded secrets** in any configuration files
 
 ### State Management Best Practices
-**Use Azure Storage backend with proper security:**
+
+**AI Agent: Use this exact backend configuration:**
 
 ```hcl
 terraform {
@@ -692,130 +570,158 @@ terraform {
 }
 ```
 
-**State Security Requirements:**
-- Never commit state files to version control
-- Use OIDC authentication (avoid access keys)
-- Implement proper state locking mechanisms
-- Document state recovery procedures
-- Follow organizational naming conventions for state files
+## 📊 AI Agent Decision Trees
+
+### Module Creation Decision Tree
+
+**AI Agent: Follow this decision tree when creating modules:**
+
+```yaml
+What type of module should I create?
+├─ Does it deploy resources?
+│  ├─ Single resource type?
+│  │  └─ Create res-* module (child module pattern)
+│  └─ Multiple resource types?
+│     └─ Create ptn-* module (orchestration pattern)
+└─ Does it only query/transform data?
+   └─ Create utl-* module (utility pattern)
+
+For res-* modules:
+├─ Remove all provider/backend blocks
+├─ Keep versions.tf under 20 lines
+├─ Add lifecycle blocks
+└─ Include 20+ test assertions
+
+For ptn-* modules:
+├─ Use module blocks only (no resources)
+├─ Transform variables in locals
+├─ Add explicit depends_on
+└─ Include 25+ test assertions
+
+For utl-* modules:
+├─ Use data sources only
+├─ Process and transform data
+├─ Output summary information
+└─ Include 15+ test assertions
+```
+
+### Validation Decision Tree
+
+**AI Agent: Apply this validation sequence:**
+
+```yaml
+Validation Sequence:
+├─ Run terraform fmt
+│  ├─ Changes needed? → Apply and continue
+│  └─ No changes? → Continue
+├─ Run terraform validate
+│  ├─ Errors? → Fix and restart
+│  └─ Success? → Continue
+├─ Run terraform test
+│  ├─ Failures? → Fix assertions
+│  └─ Success? → Continue
+├─ Check module requirements
+│  ├─ Correct file structure?
+│  ├─ Validation blocks present?
+│  ├─ Summary outputs included?
+│  └─ Test coverage sufficient?
+└─ Ready for commit
+```
+
+## 🚫 Common Anti-Patterns to Avoid
+
+**AI Agent: NEVER generate code with these patterns:**
+
+### Pattern Module Anti-Patterns
+- ❌ Direct resource creation in ptn-* modules
+- ❌ Missing variable transformation layer
+- ❌ No explicit dependencies between modules
+- ❌ Evaluating module outputs in plan phase tests
+
+### Child Module Anti-Patterns
+- ❌ Provider blocks in res-* module versions.tf
+- ❌ Backend blocks in res-* module versions.tf
+- ❌ versions.tf exceeding 20 lines
+- ❌ Missing provider blocks in test files
+- ❌ Using count with unknown values
+
+### General Anti-Patterns
+- ❌ Variables with `type = any`
+- ❌ Missing validation blocks
+- ❌ Exposing full resource objects in outputs
+- ❌ Single-line descriptions
+- ❌ Generic error messages
+- ❌ Unconsolidated test assertions
+
+## 📋 Quick Reference Checklists
+
+### Pre-Development Checklist (AI Agent: Complete before starting)
+- [ ] Module type classified (utl-, res-, ptn-)
+- [ ] Directory structure created with all files
+- [ ] Provider version set to ~> 3.8
+- [ ] Documentation configuration added
+
+### Variable Checklist (AI Agent: Apply to every variable)
+- [ ] Explicit object type (no `any`)
+- [ ] HEREDOC description with properties
+- [ ] Example provided
+- [ ] Validation blocks with actionable errors
+- [ ] Sensitive flag for credentials
+
+### Output Checklist (AI Agent: Apply to every output)
+- [ ] Discrete values (no full resources)
+- [ ] Comprehensive description
+- [ ] Summary output included
+- [ ] Anti-corruption pattern used
+
+### Test Checklist (AI Agent: Verify coverage)
+- [ ] utl-*: 15+ assertions (plan only)
+- [ ] res-*: 20+ assertions (plan + apply)
+- [ ] ptn-*: 25+ assertions (plan + apply)
+- [ ] Consolidated assertion blocks
+- [ ] Phase separation for patterns
+
+### Child Module Checklist (AI Agent: res-* modules only)
+- [ ] No provider blocks in versions.tf
+- [ ] No backend blocks in versions.tf
+- [ ] versions.tf under 20 lines
+- [ ] Provider block in test files
+- [ ] Lifecycle blocks included
+- [ ] Meta-argument compatible
+
+### Pattern Module Checklist (AI Agent: ptn-* modules only)
+- [ ] No resource blocks (only modules)
+- [ ] Variable transformation in locals
+- [ ] Explicit depends_on used
+- [ ] Test phases separated
+- [ ] Module outputs aggregated
 
 ---
 
-## � Lessons Learned from Migration Experience
+## 🤖 AI Agent Response Structure
 
-### Critical Migration Insights
-**Based on the successful transformation from anti-pattern direct resource creation to AVM-compliant child module orchestration:**
+### When Creating Terraform Modules
 
-#### 1. Anti-Pattern Recognition
-- **Warning Signs**: Pattern modules creating resources directly instead of orchestrating child modules
-- **Impact**: Code duplication, maintenance complexity, violation of AVM principles
-- **Detection**: Look for `resource` blocks in `ptn-*` modules - should only contain `module` blocks
+**AI Agent: Structure your response as follows:**
 
-#### 2. Child Module Compatibility Requirements
-- **Root Cause**: Provider and backend blocks in child modules prevent meta-argument usage (fundamental Terraform limitation)
-- **Technical Reason**: Meta-arguments require precise control over provider configurations, which conflicts with modules that define their own providers
-- **AVM Alignment**: This aligns with AVM specification TFNFR27 requiring provider configurations to be passed from parent modules
-- **Solution**: Remove all provider/backend blocks from `res-*` modules
-- **Validation**: Child modules must work with `for_each`, `count`, and `depends_on`
-- **Expected Behavior**: The error "Child modules with provider/backend blocks cannot be used with meta-arguments" is standard Terraform behavior, not a bug
+1. **Module Classification**: State module type (utl-, res-, ptn-) and rationale
+2. **File Structure**: List all files to be created with their purposes
+3. **Implementation Strategy**: Explain approach and AVM alignment
+4. **Code Blocks**: Provide complete, working Terraform code
+5. **Test Coverage**: Include comprehensive test file
+6. **Usage Example**: Show how to use the module
+7. **Validation Steps**: List commands to verify correctness
 
-#### 3. Test Phase Separation Critical Success Factor
-- **Problem**: "Unknown condition value" errors when evaluating runtime values during plan phase
-- **Solution**: Strict separation between static validation (plan) and runtime validation (apply)
-- **Implementation**: File-based assertions in plan, module output assertions in apply
+### When Debugging Terraform Issues
 
-#### 4. Variable Transformation Patterns
-- **Need**: Bridge interface differences between pattern and resource modules
-- **Pattern**: Use `locals` for complex transformations (e.g., language code mapping)
-- **Benefits**: Clean interfaces, maintainable code, clear data flow
+**AI Agent: Follow this structure:**
 
-#### 5. Integration Test Infrastructure Requirements
-- **Child Module Testing**: Must include provider blocks in test files
-- **Performance**: Consolidate assertions to minimize expensive plan/apply cycles
-- **Coverage**: 25+ assertions for patterns, 20+ for resources, proper phase distribution
-
-### Migration Checklist for Future Implementations
-**Use this checklist when implementing new modules or refactoring existing ones:**
-
-#### Pattern Module Migration (ptn-*)
-- [ ] Replace all `resource` blocks with `module` blocks
-- [ ] Implement variable transformation in `locals`
-- [ ] Add explicit `depends_on` between modules
-- [ ] Update outputs to reference module outputs
-- [ ] Separate test phases (plan vs apply validation)
-
-#### Child Module Preparation (res-*)
-- [ ] Remove provider blocks from versions.tf
-- [ ] Remove backend blocks from versions.tf
-- [ ] Minimize versions.tf to under 20 lines
-- [ ] Add provider blocks to test files
-- [ ] Replace count-based validation with lifecycle preconditions
-- [ ] Verify compatibility with meta-arguments
-
-#### Common Pitfalls to Avoid
-- ❌ **Never** mix resource creation and module orchestration in same module (violates AVM PMNFR2)
-- ❌ **Never** use count with unknown values from other resources (causes planning errors)
-- ❌ **Never** put provider/backend blocks in child modules (breaks meta-argument compatibility - violates AVM TFNFR27)
-- ❌ **Never** evaluate module outputs in plan phase tests (unknown values cause test failures)
-- ❌ **Never** skip explicit dependencies between modules (can cause race conditions)
-- ❌ **Never** expect different behavior from "Child modules with provider/backend blocks cannot be used with meta-arguments" error (this is expected Terraform behavior)
+1. **Error Analysis**: Quote exact error and identify root cause
+2. **Pattern Recognition**: Identify if it's a known anti-pattern
+3. **Solution**: Provide corrected code with explanation
+4. **Prevention**: Explain how to avoid similar issues
+5. **Verification**: List steps to confirm fix works
 
 ---
 
-## �📋 Quick Reference
-
-### Pre-Development Checklist (Essential)
-- [ ] Module type classified and directory structure created
-- [ ] All required files present (main.tf, variables.tf, outputs.tf, versions.tf, tests/)
-- [ ] Variables use explicit types with validation and HEREDOC descriptions
-- [ ] Outputs implement anti-corruption layer with summary patterns
-- [ ] Tests meet minimum assertion requirements for module type
-
-### Module Checklist (Validation Gates)
-- [ ] Uses provider version `~> 3.8`
-- [ ] All variables have explicit types and validation with actionable error messages
-- [ ] Outputs use anti-corruption layer pattern with required summary outputs
-- [ ] `res-*` modules include lifecycle blocks
-- [ ] Tests meet minimum assertion requirements with consolidated run blocks
-- [ ] Documentation auto-generated with terraform-docs
-- [ ] Passes `terraform fmt -check` and `terraform validate`
-- [ ] Complex logic extracted to locals.tf when main.tf > 150 lines
-
-### Child Module Specific Validation (res-* modules)
-- [ ] **No provider blocks** in versions.tf (child module compatibility)
-- [ ] **No backend blocks** in versions.tf (child module compatibility)
-- [ ] **versions.tf under 20 lines** (AVM child module standard)
-- [ ] **Provider block in test files** for integration test compatibility
-- [ ] **Compatible with for_each and depends_on** (verified in pattern module tests)
-- [ ] **Uses lifecycle preconditions** instead of count for validation
-
-### Pattern Module Specific Validation (ptn-* modules)
-- [ ] **No direct resource creation** (only module orchestration)
-- [ ] **Variable transformation layer** implemented in locals
-- [ ] **Explicit dependencies** using depends_on between modules
-- [ ] **Test phase separation** (plan for static, apply for runtime validation)
-- [ ] **Meta-arguments compatibility** verified with child modules
-
-### Common Patterns
-- **DLP Policy**: Use `res-dlp-policy` pattern with connector classification
-- **Environment Export**: Use `utl-export-environments` for data collection
-- **Governance Suite**: Use `ptn-governance-suite` for multiple resource deployment
-
-### Quality Gates Summary
-1. **Format & Syntax**: Must pass `terraform fmt -check` and `terraform validate`
-2. **Testing**: Must meet minimum assertion requirements with all tests passing
-3. **Security**: Must use OIDC authentication and no hardcoded secrets
-4. **Documentation**: Must include comprehensive variable descriptions and output summaries
-5. **File Organization**: Must follow AVM-inspired structure with appropriate file separation
-6. **Child Module Compliance**: `res-*` modules must be compatible with meta-arguments (no provider/backend blocks)
-7. **Pattern Module Orchestration**: `ptn-*` modules must orchestrate only, never create resources directly
-8. **Test Phase Separation**: Pattern modules must separate static (plan) from runtime (apply) validation
-
-### Anti-Pattern Detection Gates
-**Automated checks to prevent architectural violations:**
-- **Pattern Module Resource Check**: Fail if `ptn-*` modules contain `resource` blocks
-- **Child Module Provider Check**: Fail if `res-*` modules contain `provider` or `backend` blocks
-- **Test Phase Validation**: Fail if plan phase tests evaluate module outputs or computed values
-- **Meta-Argument Compatibility**: Fail if child modules cannot be used with `for_each` or `depends_on`
-
-*Remember: These guidelines support the PPCC25 demonstration goals of showing effective Power Platform governance through Infrastructure as Code while maintaining alignment with baseline principles of security, simplicity, and modularity.*
+**AI Agent Final Directive**: This document defines the quality bar for all Terraform code generation. Always prioritize AVM compliance, security by design, and demonstration quality. When conflicts arise, consult the baseline principles and maintain the educational mission of PPCC25.
