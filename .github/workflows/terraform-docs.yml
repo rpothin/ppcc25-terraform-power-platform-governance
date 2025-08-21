@@ -41,12 +41,33 @@ concurrency:
 # Manual dispatch supports ad-hoc generation for specific paths
 on:
   pull_request:
+    types: [opened, synchronize, ready_for_review]  # Skip draft PRs for optimization
     paths:
-      - 'configurations/**'
+      # Include Terraform files and documentation configs
+      - 'configurations/**/*.tf'
+      - 'configurations/**/*.tfvars'
+      - 'configurations/**/.terraform-docs.yml'
+      - 'configurations/**/.terraform-docs.yaml'
+      - 'configurations/**/*_header.md'
+      - 'configurations/**/*_footer.md'
+      # Exclude documentation files to prevent recursive runs
+      - '!**/README.md'
+      - '!docs/**'
+      - '!plans/**'
   push:
     branches: [main]
     paths:
-      - 'configurations/**'
+      # Include Terraform files and documentation configs
+      - 'configurations/**/*.tf'
+      - 'configurations/**/*.tfvars'
+      - 'configurations/**/.terraform-docs.yml'
+      - 'configurations/**/.terraform-docs.yaml'
+      - 'configurations/**/*_header.md'
+      - 'configurations/**/*_footer.md'
+      # Exclude documentation files to prevent recursive runs
+      - '!**/README.md'
+      - '!docs/**'
+      - '!plans/**'
   workflow_dispatch:
     inputs:
       target_path:

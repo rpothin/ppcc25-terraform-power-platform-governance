@@ -35,17 +35,28 @@ on:
   # Trigger comprehensive testing when changes affect Terraform configurations
   # This ensures all modifications are validated before merge
   pull_request:
+    types: [opened, synchronize, ready_for_review]  # Skip draft PRs for optimization
     paths:
+      # Include actual code
       - 'configurations/**'     # All Power Platform configuration directories
-      - 'modules/**'            # Custom Terraform modules and reusable components
+      # Exclude documentation to reduce GitHub Actions consumption
+      - '!**/*.md'
+      - '!docs/**'
+      - '!plans/**'
+      - '!.github/instructions/**'
 
   # === AUTOMATED TESTING ON MAIN BRANCH ===
   # Validate changes after merge to ensure main branch stability
   push:
     branches: [main]
     paths:
+      # Include actual code
       - 'configurations/**'     # Configuration changes requiring validation
-      - 'modules/**'            # Module updates affecting dependent configurations
+      # Exclude documentation to reduce GitHub Actions consumption
+      - '!**/*.md'
+      - '!docs/**'
+      - '!plans/**'
+      - '!.github/instructions/**'
 
 run-name: "🧪 Detect & Validate Terraform Changes by @${{ github.actor }}"
 

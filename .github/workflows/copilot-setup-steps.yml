@@ -38,6 +38,7 @@ on:
     paths:
       - .github/workflows/copilot-setup-steps.yml
   pull_request:
+    types: [opened, synchronize, ready_for_review]  # Skip draft PRs for optimization
     paths:
       - .github/workflows/copilot-setup-steps.yml
 
