@@ -1,22 +1,22 @@
 ---
-description: "Bash scripting standards"
+description: "Bash scripting standards for PPCC25 Power Platform governance demonstration - emphasizing safety, clarity, and maintainability"
 applyTo: "scripts/**"
 ---
 
 # Bash Script Guidelines
 
-## Script Structure and Safety
+## 🛡️ Script Structure and Safety
 
 ### Mandatory Safety Standards
 
-All scripts **MUST** include these safety measures:
+**AI Agent Directive: ALWAYS include these safety measures in EVERY bash script:**
 
 ```bash
 #!/bin/bash
-# REQUIRED: Full error handling and safety flags
+# CRITICAL: These three lines are NON-NEGOTIABLE
 set -euo pipefail  # Exit on error, undefined variables, pipe failures
 
-# REQUIRED: Script metadata header
+# REQUIRED: Script metadata header (customize values)
 # ==============================================================================
 # Script Name: [Descriptive Name]
 # Purpose: [Clear purpose statement]
@@ -26,248 +26,198 @@ set -euo pipefail  # Exit on error, undefined variables, pipe failures
 # ==============================================================================
 ```
 
-#### Safety Flag Requirements
+### Safety Flag Enforcement
 
-- `set -e` — Exit immediately on any command failure
-- `set -u` — Treat undefined variables as errors
-- `set -o pipefail` — Ensure pipeline failures are detected
+**AI Agent: NEVER generate a script without these flags:**
 
-#### Exception Handling
+| Flag | Purpose | Required | Exception Allowed |
+|------|---------|----------|-------------------|
+| `set -e` | Exit on command failure | ✅ YES | ❌ NO |
+| `set -u` | Error on undefined variables | ✅ YES | ❌ NO |
+| `set -o pipefail` | Detect pipeline failures | ✅ YES | ❌ NO |
 
-When you need to handle expected failures, use explicit error handling:
+### Exception Handling Patterns
+
+**AI Agent: Use these patterns for controlled error handling:**
 
 ```bash
-# GOOD: Explicit error handling for expected failures
+# ✅ CORRECT: Explicit handling of expected failures
 if ! command_that_might_fail; then
     print_warning "Expected condition occurred, continuing..."
     # Handle the expected failure appropriately
 fi
 
-# GOOD: Temporary variable override when needed
+# ✅ CORRECT: Safe variable defaulting
 result="${OPTIONAL_VAR:-default_value}"
+
+# ❌ WRONG: Never disable error handling globally
+set +e  # NEVER DO THIS
 ```
 
-### File Size and Modularization Requirements
+## 📏 File Size and Modularization Requirements
 
-#### Mandatory Size Limits
+### Mandatory Size Limits
 
-Following the baseline principle of **Modularity Over Long and Complex Files**:
+**AI Agent: ENFORCE these limits strictly:**
 
-- **Individual script files**: **MAXIMUM 200 lines**
-- **Utility modules**: **MAXIMUM 150 lines**
-- **Setup/cleanup scripts**: **MAXIMUM 250 lines** (due to orchestration complexity)
+| File Type | Maximum Lines | Action When Exceeded |
+|-----------|---------------|----------------------|
+| Individual scripts | 200 lines | Split into modules |
+| Utility modules | 150 lines | Extract functions |
+| Setup/cleanup scripts | 250 lines | Create sub-scripts |
 
-#### Exception Process
+### Modularization Decision Tree
 
-Scripts exceeding limits require:
+**AI Agent: When generating scripts, follow this decision process:**
 
-- **Documented justification** in header comment with architectural reasoning
-- **Modularization plan** with timeline for splitting
-- **Architecture review approval** before merge
-
-#### Modularization Patterns
-
-```bash
-# GOOD: Extract functions to utility modules
-source "$SCRIPT_DIR/../utils/azure-auth.sh"
-source "$SCRIPT_DIR/../utils/config-validator.sh"
-
-# Main script focuses on orchestration
-validate_prerequisites
-setup_azure_resources
-configure_terraform_backend
+```yaml
+Script Size Check:
+├─ Under 150 lines?
+│  └─ ✅ Single file acceptable
+├─ 150-200 lines?
+│  └─ ⚠️ Consider splitting if logical boundaries exist
+└─ Over 200 lines?
+   └─ ❌ MUST split into modules:
+      ├─ Extract common functions → scripts/utils/
+      ├─ Separate setup logic → scripts/setup/
+      └─ Isolate cleanup logic → scripts/cleanup/
 ```
 
-#### Required Directory Structure
+### Required Directory Structure
 
-Scripts should follow the established directory structure:
+**AI Agent: Place files according to this structure:**
 
-- `scripts/setup/` - Setup and initialization scripts
-- `scripts/cleanup/` - Cleanup and teardown scripts
-- `scripts/utils/` - Reusable utility functions and modules
+```yaml
+scripts/
+├── setup/          # Setup and initialization scripts
+├── cleanup/        # Cleanup and teardown scripts
+├── utils/          # Reusable utility functions
+│   ├── common.sh   # Common utilities (ALWAYS source this)
+│   ├── azure.sh    # Azure-specific functions
+│   └── validation.sh # Validation functions
+└── templates/      # Script templates
+```
 
-## Function and Variable Standards
+## 🏷️ Naming and Documentation Standards
 
-### Naming and Scope Management
+### Naming Conventions
 
-Following the baseline principle of **Keep It Simple**:
+**AI Agent: Apply these naming rules consistently:**
 
-- Use descriptive function names with snake_case convention
-- Declare variables with appropriate scope (local vs global)
-- Quote variables to prevent word splitting: `"$variable"`
-- Use arrays for lists and `readonly` for constants
+| Element | Convention | Example |
+|---------|-----------|---------|
+| Script files | kebab-case.sh | `setup-environment.sh` |
+| Functions | snake_case | `validate_azure_auth()` |
+| Local variables | snake_case | `local resource_group` |
+| Global variables | SCREAMING_SNAKE | `AZURE_SUBSCRIPTION_ID` |
+| Constants | readonly SCREAMING_SNAKE | `readonly SCRIPT_VERSION` |
 
-#### Function Documentation Standards
+### Function Documentation Template
+
+**AI Agent: ALWAYS document functions using this format:**
 
 ```bash
 # Brief description of function purpose
 # Parameters:
-#   $1 - parameter description
-#   $2 - parameter description
+#   $1 - parameter description (required/optional)
+#   $2 - parameter description (required/optional)
 # Returns:
-#   0 - success
-#   1 - failure with specific meaning
+#   0 - success condition
+#   1 - specific failure condition
+# Example:
+#   function_name "param1" "param2"
 function_name() {
-    local param1="$1"
-    local param2="$2"
-    # Function implementation
+    local param1="${1:?Error: parameter 1 required}"
+    local param2="${2:-default_value}"
+    
+    # Implementation
 }
 ```
 
-#### Variable Management
+## 🔄 Cleanup and Signal Handling
+
+### Mandatory Cleanup Pattern
+
+**AI Agent: ALWAYS implement cleanup for scripts that create resources:**
 
 ```bash
-# GOOD: Proper variable scoping and documentation
-readonly SCRIPT_VERSION="1.0.0"
-readonly CONFIG_FILE="config.env"
-
-setup_azure_resources() {
-    local resource_group="$1"
-    local location="$2"
-    # Local variables prevent global scope pollution
-    local storage_account="${resource_group}storage"
-    # Implementation details
+# REQUIRED: Cleanup function definition
+cleanup() {
+    local exit_code=$?
+    
+    # Remove temporary files
+    [[ -n "${TEMP_DIR:-}" ]] && rm -rf "$TEMP_DIR"
+    
+    # Unset sensitive variables
+    unset AZURE_CLIENT_SECRET
+    unset GITHUB_TOKEN
+    
+    # Restore original state if needed
+    [[ -n "${ORIGINAL_DIR:-}" ]] && cd "$ORIGINAL_DIR"
+    
+    exit $exit_code
 }
+
+# REQUIRED: Trap setup (immediately after shebang and set flags)
+trap cleanup EXIT SIGINT SIGTERM
 ```
 
-### Cleanup and Signal Handling
+## 🎨 Output and User Experience
 
-#### Cleanup Requirements
+### Color-Coded Output Functions
 
-Scripts must handle cleanup properly:
-
-- **Temporary files**: Always remove created temporary files
-- **Sensitive variables**: Unset variables containing secrets or tokens
-- **Resource state**: Restore original configuration when appropriate
-- **Network access**: Remove temporary firewall rules or access permissions
-
-#### Signal Handling Patterns
+**AI Agent: Use these standard output functions (assume they're defined in utils/common.sh):**
 
 ```bash
-# Pattern for scripts that create temporary resources
-setup_temporary_resources() {
-    TEMP_DIR=$(mktemp -d)
-    TEMP_STORAGE_RULE="temp-rule-$$"
-    
-    # Ensure cleanup happens on any exit
-    trap 'cleanup_temporary_resources' EXIT SIGINT SIGTERM
-    
-    # Main operation
-    perform_operations
-    
-    # Manual cleanup on success
-    cleanup_temporary_resources
-    trap - EXIT  # Remove trap after successful cleanup
-}
+# Source common utilities for consistent output
+source "$(dirname "${BASH_SOURCE[0]}")/../utils/common.sh"
+
+# Available functions:
+print_success "Operation completed successfully"
+print_error "Critical error occurred"
+print_warning "Non-critical issue detected"
+print_info "Informational message"
+print_step "Step 1: Starting operation..."
+print_status "Current status: Processing..."
 ```
 
-## Error Handling and User Experience
+### Error Message Quality Standards
 
-### Comprehensive Error Handling
-
-Following the baseline principle of **Keep It Simple**:
-
-- Implement meaningful error messages with actionable guidance
-- Use color-coded output functions (print_success, print_error, print_warning)
-- Provide progress indicators and status updates for long operations
-- Include validation of prerequisites and dependencies
-
-#### Enhanced Error Message Standards
+**AI Agent: Generate error messages with this level of detail:**
 
 ```bash
-# GOOD: Comprehensive error reporting with context
-validate_file_exists() {
-    local file_path="$1"
-    local file_description="$2"
-    
-    if [[ ! -f "$file_path" ]]; then
-        print_error "$file_description not found: $file_path"
-        print_status "Expected location: $file_path"
-        print_status "Current directory: $(pwd)"
-        print_status "Available files: $(ls -la "$(dirname "$file_path")" 2>/dev/null || echo "Directory not accessible")"
-        print_warning "To fix: Create the required file or check the path"
-        return 1
-    fi
-    
-    print_success "$file_description found: $file_path"
-    return 0
-}
+# ✅ GOOD: Comprehensive error with context and solution
+if [[ ! -f "$config_file" ]]; then
+    print_error "Configuration file not found: $config_file"
+    print_info "Expected location: $(pwd)/$config_file"
+    print_info "To fix: cp config.env.example $config_file"
+    print_info "Then edit $config_file with your values"
+    return 1
+fi
+
+# ❌ BAD: Vague error without guidance
+if [[ ! -f "$config_file" ]]; then
+    echo "File not found"
+    exit 1
+fi
 ```
 
-#### Progress Indicators and Status Updates
+## ⚙️ Configuration Management
+
+### Configuration Loading Pattern
+
+**AI Agent: Use this standard pattern for configuration:**
 
 ```bash
-# Enhanced progress reporting for long operations
-perform_long_operation() {
-    local operation_name="$1"
-    local total_steps="$2"
-    
-    print_step "Starting $operation_name..."
-    
-    for ((i=1; i<=total_steps; i++)); do
-        print_status "Processing step $i of $total_steps..."
-        
-        # Actual operation
-        if ! perform_step "$i"; then
-            print_error "Failed at step $i of $total_steps"
-            return 1
-        fi
-        
-        print_progress "$i" "$total_steps"
-    done
-    
-    print_success "$operation_name completed successfully"
-}
-```
-
-## Configuration Management
-
-### Standardized Configuration Patterns
-
-Following the baseline principle of **Reusability Over Code Duplication**:
-
-- Source utility functions from common libraries
-- Load configuration from standardized config files (config.env)
-- Validate required configuration values before proceeding
-- Support both interactive and automated execution modes
-
-#### Configuration Loading Standards
-
-```bash
-# REQUIRED: Standardized configuration loading
-load_configuration() {
-    local config_file="${1:-config.env}"
-    
-    # Validate configuration file exists
-    if [[ ! -f "$config_file" ]]; then
-        print_error "Configuration file not found: $config_file"
-        print_status "Create from template: cp config.env.example $config_file"
-        return 1
-    fi
-    
-    # Source configuration with error handling
-    if ! source "$config_file"; then
-        print_error "Failed to load configuration from: $config_file"
-        return 1
-    fi
-    
-    # Validate required configuration
-    validate_required_config
-    
-    print_success "Configuration loaded from: $config_file"
-}
-
-# REQUIRED: Configuration validation
+# REQUIRED: Configuration validation function
 validate_required_config() {
     local required_vars=(
         "AZURE_SUBSCRIPTION_ID"
         "AZURE_TENANT_ID"
-        "GITHUB_REPOSITORY"
-        "TERRAFORM_STORAGE_ACCOUNT"
+        "RESOURCE_GROUP_NAME"
     )
     
     local missing_vars=()
-    
     for var in "${required_vars[@]}"; do
         if [[ -z "${!var:-}" ]]; then
             missing_vars+=("$var")
@@ -275,470 +225,223 @@ validate_required_config() {
     done
     
     if [[ ${#missing_vars[@]} -gt 0 ]]; then
-        print_error "Missing required configuration variables:"
+        print_error "Missing required configuration:"
         printf "  - %s\n" "${missing_vars[@]}"
-        print_status "Please set these variables in your configuration file"
         return 1
     fi
     
-    print_success "All required configuration variables are set"
+    return 0
 }
-```
 
-#### Interactive vs Automated Mode Support
-
-```bash
-# Support both interactive and automated execution
-prompt_user_confirmation() {
-    local message="$1"
-    local auto_approve="${AUTO_APPROVE:-false}"
+# REQUIRED: Main configuration loading
+load_configuration() {
+    local config_file="${1:-config.env}"
     
-    if [[ "$auto_approve" == "true" ]]; then
-        print_status "Auto-approve enabled: $message"
-        return 0
+    if [[ ! -f "$config_file" ]]; then
+        print_error "Configuration file not found: $config_file"
+        print_info "Create from template: cp config.env.example $config_file"
+        return 1
     fi
     
-    print_warning "$message"
-    read -p "Do you want to continue? (y/N): " -r response
-    
-    case "$response" in
-        [yY]|[yY][eE][sS])
-            return 0
-            ;;
-        *)
-            print_status "Operation cancelled by user"
-            return 1
-            ;;
-    esac
+    source "$config_file"
+    validate_required_config
 }
 ```
 
-## Azure and Platform Integration
+## ☁️ Azure and Platform Integration
 
-### Cloud CLI Standards (Required)
+### CLI Tool Requirements
 
-Following the baseline principle of **Security by Design**:
+**AI Agent: Priority order for Azure/Platform operations:**
 
-- **MUST** use Azure CLI (az) for all Azure resource interactions
-- **MUST** use Power Platform CLI (pac) for all Power Platform operations
-- **MUST** use GitHub CLI (gh) for all GitHub API interactions
-- **EXCEPTION ONLY**: If CLI doesn't support required functionality, document justification
+1. **FIRST CHOICE**: Azure CLI (`az`)
+2. **SECOND CHOICE**: Power Platform CLI (`pac`)
+3. **THIRD CHOICE**: GitHub CLI (`gh`)
+4. **LAST RESORT**: REST API (with justification comment)
 
-#### Enhanced CLI Authentication Requirements
+### CLI Authentication Validation
+
+**AI Agent: ALWAYS validate CLI authentication before use:**
 
 ```bash
-# REQUIRED: Comprehensive authentication validation
-validate_cli_authentication() {
-    local cli_tool="$1"
-    local check_command="$2"
-    local auth_command="$3"
-    
-    print_step "Validating $cli_tool authentication..."
+# REQUIRED: Authentication check pattern
+validate_azure_auth() {
+    print_step "Validating Azure CLI authentication..."
     
     # Check CLI installation
-    if ! command -v "$cli_tool" &> /dev/null; then
-        print_error "$cli_tool is not installed"
-        print_status "Install instructions: https://docs.microsoft.com/cli"
+    if ! command -v az &> /dev/null; then
+        print_error "Azure CLI not installed"
+        print_info "Install: https://aka.ms/installazurecli"
         return 1
     fi
     
-    # Check authentication status with timeout and retry
-    local max_attempts=3
-    local attempt=1
-    
-    while [[ $attempt -le $max_attempts ]]; do
-        if timeout 30s $check_command &> /dev/null; then
-            print_success "$cli_tool authentication verified"
-            
-            # Validate token expiration if applicable
-            if [[ "$cli_tool" == "az" ]]; then
-                validate_azure_token_expiration
-            fi
-            
-            return 0
-        fi
-        
-        print_warning "$cli_tool authentication check failed (attempt $attempt/$max_attempts)"
-        
-        if [[ $attempt -eq $max_attempts ]]; then
-            print_error "$cli_tool is not authenticated"
-            print_status "To fix: Run '$auth_command' to authenticate"
-            return 1
-        fi
-        
-        ((attempt++))
-        sleep 2
-    done
-}
-
-# Enhanced token expiration validation
-validate_azure_token_expiration() {
-    local token_info
-    if token_info=$(az account get-access-token --query "expiresOn" -o tsv 2>/dev/null); then
-        local expires_epoch
-        expires_epoch=$(date -d "$token_info" +%s 2>/dev/null)
-        local current_epoch
-        current_epoch=$(date +%s)
-        local time_remaining=$((expires_epoch - current_epoch))
-        
-        if [[ $time_remaining -lt 600 ]]; then  # Less than 10 minutes
-            print_warning "Azure token expires soon (${time_remaining}s remaining)"
-            print_status "Consider running 'az login' to refresh token"
-        fi
-    fi
-}
-```
-
-#### Enhanced Retry Logic and Error Handling
-
-```bash
-# REQUIRED: Robust retry logic for network operations
-execute_with_retry() {
-    local command="$1"
-    local max_attempts="${2:-3}"
-    local wait_seconds="${3:-5}"
-    local attempt=1
-    
-    while [[ $attempt -le $max_attempts ]]; do
-        print_status "Executing: $command (attempt $attempt/$max_attempts)"
-        
-        # Execute command with timeout
-        if timeout 300s bash -c "$command"; then
-            print_success "Command succeeded on attempt $attempt"
-            return 0
-        fi
-        
-        local exit_code=$?
-        
-        if [[ $attempt -eq $max_attempts ]]; then
-            print_error "Command failed after $max_attempts attempts: $command"
-            print_error "Exit code: $exit_code"
-            return $exit_code
-        fi
-        
-        print_warning "Command failed (exit code: $exit_code), retrying in $wait_seconds seconds..."
-        sleep "$wait_seconds"
-        ((attempt++))
-        
-        # Exponential backoff for network issues
-        wait_seconds=$((wait_seconds * 2))
-    done
-}
-
-# Azure resource conflict handling
-handle_azure_naming_conflicts() {
-    local resource_type="$1"
-    local resource_name="$2"
-    local resource_group="$3"
-    
-    print_step "Checking for naming conflicts: $resource_name"
-    
-    if azure_resource_exists "$resource_type" "$resource_name" "$resource_group"; then
-        print_warning "Resource already exists: $resource_name"
-        
-        if ! prompt_user_confirmation "Do you want to use the existing resource?"; then
-            # Generate alternative name
-            local timestamp
-            timestamp=$(date +%s)
-            local alternative_name="${resource_name}-${timestamp}"
-            
-            print_status "Using alternative name: $alternative_name"
-            echo "$alternative_name"
-            return 0
-        fi
-    fi
-    
-    echo "$resource_name"
-}
-```
-
-### CLI Usage Requirements
-
-- Verify CLI installation and authentication before operations
-- Use proper authentication checks (az account show, pac auth list, gh auth status)
-- Implement retry logic for network operations
-- Handle Azure resource naming conflicts gracefully
-- Use JSON output format for programmatic processing (--output json)
-
-### Alternative Approach Justification
-
-When CLI tools cannot fulfill requirements, include detailed comment justification:
-
-```bash
-# JUSTIFICATION: Using REST API instead of Azure CLI because:
-# - Azure CLI does not support custom policy assignments for this resource type
-# - Required for compliance with organizational governance requirements
-# - CLI enhancement request submitted: https://github.com/Azure/azure-cli/issues/XXXXX
-curl -X POST "https://management.azure.com/..." \
-     -H "Authorization: Bearer $access_token" \
-     -H "Content-Type: application/json"
-```
-
-### Authentication Best Practices
-
-- Use managed identities or service principals (avoid personal accounts in automation)
-- Implement proper token refresh mechanisms
-- Handle authentication failures gracefully with clear error messages
-- Document required permissions and scopes
-
-## Script Templates and Standardization
-
-### Required Script Templates
-
-Following the baseline principle of **Reusability Over Code Duplication**:
-
-All new scripts **MUST** use approved templates from `scripts/templates/`:
-
-```bash
-# Generate new script from template
-./scripts/utils/create-script.sh --template setup --name my-setup-script
-./scripts/utils/create-script.sh --template utility --name my-utility-module
-./scripts/utils/create-script.sh --template cleanup --name my-cleanup-script
-```
-
-#### Template Categories
-
-- `setup-script.template.sh` — Infrastructure setup and configuration scripts
-- `cleanup-script.template.sh` — Resource cleanup and teardown scripts
-- `utility-module.template.sh` — Reusable utility functions and modules
-- `validation-script.template.sh` — Validation and testing scripts
-
-#### Template Compliance Validation
-
-```bash
-# REQUIRED: Validate script compliance before commit
-./scripts/utils/validate-script-compliance.sh path/to/script.sh
-```
-
-**Validates:**
-
-- Proper shebang and safety flags
-- Required header format and metadata
-- File size limits and modular design
-- Signal handling and cleanup implementation
-- CLI integration and authentication patterns
-
-### Script Header Standardization
-
-```bash
-#!/bin/bash
-# ==============================================================================
-# Script Name: [Descriptive Name]
-# ==============================================================================
-# Purpose: [Clear, single-sentence purpose statement]
-# 
-# Usage:
-#   ./script-name.sh [OPTIONS]
-#   
-# Examples:
-#   ./script-name.sh --resource-group mygroup --location eastus
-#   ./script-name.sh --config custom.env --auto-approve
-#
-# Dependencies:
-#   - Azure CLI (az) - authenticated and configured
-#   - GitHub CLI (gh) - authenticated with repo permissions
-#   - Required environment variables: AZURE_SUBSCRIPTION_ID, AZURE_TENANT_ID
-#   - Configuration file: config.env (or specified with --config)
-#
-# Author: [Maintainer Name/Team]
-# Last Modified: [Date]
-# ==============================================================================
-
-set -euo pipefail  # Exit on error, undefined variables, pipe failures
-```
-
-## Automated Compliance and Quality Control
-
-### Pre-commit Validation Requirements
-
-All scripts **MUST** pass automated validation before commit:
-
-```bash
-# REQUIRED: Run before committing any script changes
-./scripts/utils/validate-all-scripts.sh
-```
-
-**Comprehensive validation includes:**
-
-- Safety flags verification (set -euo pipefail)
-- File size and complexity limits
-- Header format and documentation completeness
-- Signal handling and cleanup implementation
-- CLI integration patterns and authentication
-- Code quality and style consistency
-
-### Development Environment Integration
-
-- **Shell linting**: shellcheck integration for syntax and best practice validation
-- **Real-time validation**: Immediate feedback on compliance violations
-- **Template scaffolding**: Easy script creation with proper structure
-- **Automated testing**: Unit tests for utility functions and integration tests for workflows
-
-### Quality Gates and Enforcement
-
-- **PR Requirements**: All scripts must pass compliance validation
-- **Continuous monitoring**: Regular audits of script quality and consistency
-- **Automated remediation**: Scripts to fix common compliance issues automatically
-
-#### Compliance Scoring System
-
-```bash
-# Automated compliance scoring for continuous improvement
-calculate_script_compliance_score() {
-    local script_path="$1"
-    local score=0
-    local max_score=100
-    
-    # Safety flags (20 points)
-    if grep -q "set -euo pipefail" "$script_path"; then
-        score=$((score + 20))
-    fi
-    
-    # Proper header (15 points)
-    if validate_script_header "$script_path"; then
-        score=$((score + 15))
-    fi
-    
-    # File size compliance (15 points)
-    if validate_file_size "$script_path"; then
-        score=$((score + 15))
-    fi
-    
-    # Signal handling (20 points)
-    if validate_signal_handling "$script_path"; then
-        score=$((score + 20))
-    fi
-    
-    # CLI integration (15 points)
-    if validate_cli_usage "$script_path"; then
-        score=$((score + 15))
-    fi
-    
-    # Documentation quality (15 points)
-    if validate_documentation_quality "$script_path"; then
-        score=$((score + 15))
-    fi
-    
-    echo "$score/$max_score"
-}
-```
-
-## Integration with Repository Standards
-
-### Changelog Integration
-
-Following the baseline principle of **Changelog Maintenance**:
-
-- Always check CHANGELOG.md when making changes to scripts
-- Update the Unreleased section for notable additions, changes, or fixes
-- Follow established format with clear categorization
-
-#### Examples of changelog-worthy changes
-
-- New script creation or major script modifications
-- Changes to utility modules or shared functions
-- Security improvements or authentication updates
-- Performance optimizations or reliability improvements
-
-#### Examples that may not need changelog updates
-
-- Minor comment updates or formatting fixes
-- Internal refactoring without functional changes
-- Template updates that don't affect existing scripts
-
-### Development Workflow Integration
-
-- **Use Templates**: Start with approved template for consistency
-- **Validate Early**: Run compliance checks during development
-- **Document Thoroughly**: Include all required documentation sections
-- **Test Completely**: Validate functionality and compliance before PR
-- **Monitor Continuously**: Track compliance metrics post-deployment
-
-#### Quality Assurance Process
-
-```bash
-# Complete quality assurance workflow
-qa_script_submission() {
-    local script_path="$1"
-    
-    print_step "Running quality assurance for: $script_path"
-    
-    # 1. Syntax validation
-    if ! shellcheck "$script_path"; then
-        print_error "Shellcheck validation failed"
+    # Check authentication
+    if ! az account show &> /dev/null; then
+        print_error "Not authenticated to Azure"
+        print_info "Run: az login"
         return 1
     fi
     
-    # 2. Compliance validation
-    if ! validate_script_compliance "$script_path"; then
-        print_error "Compliance validation failed"
-        return 1
-    fi
-    
-    # 3. Integration testing
-    if ! run_integration_tests "$script_path"; then
-        print_error "Integration tests failed"
-        return 1
-    fi
-    
-    # 4. Generate compliance report
-    local score
-    score=$(calculate_script_compliance_score "$script_path")
-    print_success "Quality assurance passed (Score: $score)"
-    
+    print_success "Azure authentication validated"
     return 0
 }
 ```
 
-## Performance and Reliability Standards
+### Retry Logic for Network Operations
 
-### Performance Optimization Guidelines
-
-- Minimize external command calls within loops
-- Use built-in bash features when possible
-- Implement proper caching for expensive operations
-- Profile long-running scripts for bottlenecks
-
-### Reliability Patterns
+**AI Agent: Implement retry logic for all network operations:**
 
 ```bash
-# Robust file operations with verification
-safe_file_operation() {
-    local operation="$1"
-    local source="$2"
-    local destination="$3"
+# REQUIRED: Retry pattern for network operations
+execute_with_retry() {
+    local command="$1"
+    local max_attempts="${2:-3}"
+    local wait_seconds="${3:-5}"
     
-    case "$operation" in
-        "copy")
-            if ! cp "$source" "$destination"; then
-                print_error "Failed to copy $source to $destination"
-                return 1
-            fi
-            
-            # Verify copy integrity
-            if ! cmp -s "$source" "$destination"; then
-                print_error "Copy verification failed: files differ"
-                rm -f "$destination"  # Clean up failed copy
-                return 1
-            fi
-            ;;
-        "move")
-            if ! mv "$source" "$destination"; then
-                print_error "Failed to move $source to $destination"
-                return 1
-            fi
-            ;;
-        *)
-            print_error "Unknown operation: $operation"
-            return 1
-            ;;
-    esac
+    for ((attempt=1; attempt<=max_attempts; attempt++)); do
+        if eval "$command"; then
+            return 0
+        fi
+        
+        if [[ $attempt -lt $max_attempts ]]; then
+            print_warning "Attempt $attempt failed, retrying in ${wait_seconds}s..."
+            sleep "$wait_seconds"
+            wait_seconds=$((wait_seconds * 2))  # Exponential backoff
+        fi
+    done
     
-    print_success "$operation completed: $source -> $destination"
+    print_error "Command failed after $max_attempts attempts"
+    return 1
 }
+
+# Usage example
+execute_with_retry "az group create --name \$RG --location \$LOCATION"
 ```
 
-This enhanced bash scripting guidelines document provides comprehensive standards that prevent the issues identified in the remediation plan while maintaining the educational focus and clarity required for the PPCC25 demonstration repository.
+## 📋 Script Template Usage
 
-This enhanced version integrates all the key improvements from the analysis while maintaining compatibility with the existing baseline principles. The additions focus on proactive compliance enforcement, clear safety standards, template-based development, and automated validation to prevent the issues identified in the scripts remediation plan.
+### Template Selection Guide
 
+**AI Agent: Select templates based on script purpose:**
+
+| Purpose | Template to Use | Location |
+|---------|----------------|----------|
+| Infrastructure setup | `setup-script.template.sh` | `scripts/templates/` |
+| Resource cleanup | `cleanup-script.template.sh` | `scripts/templates/` |
+| Utility functions | `utility-module.template.sh` | `scripts/templates/` |
+| Validation checks | `validation-script.template.sh` | `scripts/templates/` |
+
+## ✅ Quality Checklist
+
+### Pre-Generation Checklist
+
+**AI Agent: Verify these before generating any script:**
+
+- [ ] **Safety flags**: `set -euo pipefail` present
+- [ ] **Header block**: Complete with all metadata
+- [ ] **File size**: Under 200 lines (or justified)
+- [ ] **Cleanup trap**: Implemented if resources created
+- [ ] **Error handling**: Meaningful messages with fixes
+- [ ] **Authentication**: CLI auth validated before use
+- [ ] **Configuration**: Required vars validated
+- [ ] **Documentation**: Functions documented
+- [ ] **Naming**: Follows conventions consistently
+- [ ] **Output**: Uses standard print functions
+
+## 🚫 Common Anti-Patterns to Avoid
+
+### AI Agent: NEVER generate these patterns:
+
+```bash
+# ❌ NEVER: Hardcoded credentials
+AZURE_CLIENT_SECRET="abc123"  # NEVER DO THIS
+
+# ❌ NEVER: Disabled error handling
+set +e  # NEVER DO THIS
+
+# ❌ NEVER: Unquoted variables
+if [ $var = "value" ]; then  # WRONG
+
+# ❌ NEVER: Missing error checks
+az group create --name rg --location eastus  # WRONG - no error check
+
+# ❌ NEVER: Global variables without readonly
+SCRIPT_VERSION="1.0"  # WRONG - should be readonly
+
+# ❌ NEVER: Commands in backticks
+result=`command`  # WRONG - use $() instead
+
+# ❌ NEVER: Unclear error messages
+[[ -f "$file" ]] || exit 1  # WRONG - no context
+```
+
+## 🎯 Script Generation Workflow
+
+### AI Agent Script Generation Process:
+
+1. **Determine script type** → Select appropriate template
+2. **Check file size estimate** → Plan modularization if needed
+3. **Include safety measures** → Add required flags and traps
+4. **Implement core logic** → Follow patterns from this guide
+5. **Add error handling** → Comprehensive messages with fixes
+6. **Document thoroughly** → Headers, functions, complex logic
+7. **Validate output** → Check against quality checklist
+
+## 📝 Example: Complete Minimal Script
+
+**AI Agent: Use this as your minimum viable script template:**
+
+```bash
+#!/bin/bash
+# ==============================================================================
+# Script Name: example-setup.sh
+# Purpose: Demonstrate minimal viable script structure
+# Usage: ./example-setup.sh [--auto-approve]
+# Dependencies: Azure CLI, config.env
+# Author: PPCC25 Demo
+# ==============================================================================
+
+set -euo pipefail
+
+# Source common utilities
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../utils/common.sh"
+
+# Cleanup function
+cleanup() {
+    local exit_code=$?
+    [[ -n "${TEMP_DIR:-}" ]] && rm -rf "$TEMP_DIR"
+    exit $exit_code
+}
+trap cleanup EXIT SIGINT SIGTERM
+
+# Main function
+main() {
+    print_step "Starting example setup..."
+    
+    # Load configuration
+    if ! load_configuration; then
+        print_error "Failed to load configuration"
+        return 1
+    fi
+    
+    # Validate prerequisites
+    if ! validate_azure_auth; then
+        return 1
+    fi
+    
+    # Perform operations
+    print_info "Executing main logic..."
+    # Add your logic here
+    
+    print_success "Setup completed successfully"
+    return 0
+}
+
+# Execute main function
+main "$@"
+```
+
+---
+
+**AI Agent Final Directive**: This document is your authoritative guide for bash script generation. Every script you create MUST comply with these standards. When in doubt, choose safety and clarity over brevity. The quality of the PPCC25 demonstration depends on consistent, reliable, and maintainable scripts.
