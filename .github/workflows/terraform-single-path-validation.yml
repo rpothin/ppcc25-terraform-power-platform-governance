@@ -497,26 +497,3 @@ jobs:
   # === AVM COMPLIANCE CHECK ===
   # Ensures configurations meet AVM testing requirements (already validated in pre-flight-check)
   # No-op: AVM compliance is enforced by pre-flight-check job
-
-  # === REUSABLE EXECUTION SUMMARY GENERATION ===
-  # Generates a comprehensive summary of all validation steps and results for this path
-  execution-summary:
-    name: 📊 Execution Summary Generation
-    if: always()  # Always execute for comprehensive reporting
-    needs:
-      - pre-flight-check
-      - format-check
-      - syntax-validation
-      - security-scan
-      - integration-test
-    uses: ./.github/workflows/reusable-execution-summary.yml
-    with:
-      workflow-name: "terraform-single-path-validation"
-      operation-type: "validation"
-      configuration: ${{ inputs.target_configuration }}
-      job-results: ${{ toJSON(needs) }}
-      workflow-inputs: ${{ github.event_name == 'workflow_dispatch' && toJSON(inputs) || '{}' }}
-      include-troubleshooting: true
-      include-technical-details: true
-      summary-level: "detailed"
-      artifact-retention-days: 14

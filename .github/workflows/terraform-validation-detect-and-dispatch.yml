@@ -195,23 +195,3 @@ jobs:
           else
             echo "::notice title=Terraform Validation Dispatch Summary::✅ Dispatched validation for ${{ steps.dispatch.outputs.dispatched-count }} path(s)%0A%0A📋 Paths Dispatched:%0A${{ steps.dispatch.outputs.dispatched-paths }}%0A%0A🔗 View ${{ steps.dispatch.outputs.workflow-id }} Workflow Runs: ${{ steps.dispatch.outputs.workflow-url }}${{ steps.dispatch.outputs.has-failures == 'true' && '%0A%0A⚠️ Some dispatches failed. See logs for details.' || '' }}"
           fi
-
-  # === AGGREGATE & SUMMARY ===
-  # Aggregates results and generates a summary for governance and audit
-  # WHY: Provides a comprehensive report of all validation results, supporting governance, compliance, and troubleshooting
-  execution-summary:
-    name: 📊 Aggregate & Summarize Results
-    needs: [detect-changes, validate-paths]
-    if: always()
-    uses: ./.github/workflows/reusable-execution-summary.yml
-    with:
-      workflow-name: "terraform-validation-detect-and-dispatch"
-      operation-type: "validation"
-      configuration: "multi-path"
-      job-results: ${{ toJSON(needs) }}
-      # No manual workflow inputs; always empty
-      workflow-inputs: '{}'
-      include-troubleshooting: true
-      include-technical-details: true
-      summary-level: "detailed"
-      artifact-retention-days: 14

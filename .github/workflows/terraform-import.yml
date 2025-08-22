@@ -336,22 +336,3 @@ jobs:
           action: 'remove'
           storage-account-name: ${{ secrets.TERRAFORM_STORAGE_ACCOUNT }}
           resource-group-name: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
-
-  # === Generates a comprehensive execution summary for governance, troubleshooting, and audit trail ===
-  # WHY: Provides a clear, actionable summary of the workflow run, including troubleshooting and technical details
-  execution-summary:
-      name: "🎯 Execution Summary"
-      needs: [terraform-import, post-import-validation]
-      uses: ./.github/workflows/reusable-execution-summary.yml
-      if: always()
-      with:
-        workflow-name: "terraform-import"
-        operation-type: "import"
-        configuration: ${{ github.event.inputs.configuration }}
-        output-filename: ""
-        job-results: ${{ toJSON(needs) }}
-        workflow-inputs: ${{ toJSON(github.event.inputs) }}
-        include-troubleshooting: true
-        include-technical-details: true
-        summary-level: "detailed"
-        artifact-retention-days: 30

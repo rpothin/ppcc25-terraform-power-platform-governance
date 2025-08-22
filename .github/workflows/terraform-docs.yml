@@ -400,34 +400,3 @@ jobs:
               repo: context.repo.repo,
               body: commentBody
             });
-
-  # ╔══════════════════════════════════════════════════════════════════════════╗
-  # ║                         EXECUTION SUMMARY GENERATION                    ║
-  # ║              Leverage standardized reusable workflow for reporting      ║
-  # ╚══════════════════════════════════════════════════════════════════════════╝
-
-  execution-summary:
-    name: "🎯 Execution Summary"
-    needs: [detect-changes, terraform-docs]
-    uses: ./.github/workflows/reusable-execution-summary.yml
-    # Always execute regardless of previous job success/failure for complete audit trail
-    # Ensures execution summary captures all scenarios including failures and skipped runs
-    if: always()
-    with:
-      # === CORE WORKFLOW IDENTIFICATION ===
-      workflow-name: "terraform-docs"
-      operation-type: "docs"
-      configuration: "multiple-paths"
-      output-filename: ${{ needs.terraform-docs.outputs.output-files }}
-
-      # === EXECUTION CONTEXT ===
-      job-results: ${{ toJSON(needs) }}
-      workflow-inputs: ${{ github.event_name == 'workflow_dispatch' && toJSON(inputs) || '{}' }}
-
-      # === SUMMARY CUSTOMIZATION ===
-      include-troubleshooting: true
-      include-technical-details: true
-      summary-level: "detailed"
-
-      # === ARTIFACT CONFIGURATION ===
-      artifact-retention-days: 14
