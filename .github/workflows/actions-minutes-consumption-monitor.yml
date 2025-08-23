@@ -1,0 +1,125 @@
+---
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# GITHUB ACTIONS MINUTES CONSUMPTION MONITOR
+# ═══════════════════════════════════════════════════════════════════════════════
+# Monitor GitHub Actions consumption rate vs monthly progress and alert on overuse.
+#
+# 🎯 WHY THIS EXISTS:
+# - Prevents monthly GitHub Actions minutes limit overruns
+# - Provides early warning when consumption trends above sustainable levels
+# - Supports PPCC25 demonstration cost management
+#
+# 🔒 SECURITY CONTEXT:
+# - Uses GITHUB_TOKEN (built-in) for billing API access
+# - Read-only permissions for billing data retrieval
+#
+# ⚡ PERFORMANCE OPTIMIZATION:
+# - Expected monthly run frequency: 4-5 runs (weekly + manual)
+# - Average duration per run: 2-3 minutes
+# - Optimization strategies: minimal dependencies, efficient API calls
+# ═══════════════════════════════════════════════════════════════════════════════
+
+name: "📊 Actions Minutes Consumption Monitor"
+
+concurrency:
+  group: actions-consumption-monitor
+  cancel-in-progress: false
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'  # Weekly Monday 9 AM UTC
+  workflow_dispatch:
+    inputs:
+      threshold_override:
+        description: 'Override consumption rate threshold (e.g., 1.5)'
+        required: false
+        type: string
+      dry_run:
+        description: 'Run in dry-run mode (no failure on threshold breach)'
+        required: false
+        type: boolean
+        default: false
+
+run-name: "Monitor consumption ${{ inputs.threshold_override && format('(threshold: {0})', inputs.threshold_override) || '' }} by @${{ github.actor }}"
+
+permissions:
+  contents: read
+
+jobs:
+  monitor-consumption-rate:
+    name: Check Consumption Rate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    
+    steps:
+      - name: Checkout Scripts
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/utils/
+          sparse-checkout-cone-mode: false
+      
+      - name: Setup Dependencies
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y bc jq
+          command -v gh &> /dev/null || { echo "::error::GitHub CLI not available"; exit 1; }
+          echo "✅ Dependencies ready: bc, jq, gh"
+      
+      - name: Check Consumption Rate
+        id: consumption_check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          chmod +x scripts/utils/check-actions-minutes-consumption-rate.sh
+          cmd="scripts/utils/check-actions-minutes-consumption-rate.sh"
+          
+          if [[ -n "${{ inputs.threshold_override }}" ]]; then
+            echo "🔧 Using threshold: ${{ inputs.threshold_override }}x"
+            cmd="$cmd --threshold ${{ inputs.threshold_override }}"
+          fi
+          
+          echo "🚀 Executing: $cmd"
+          set +e
+          $cmd
+          exit_code=$?
+          set -e
+          
+          echo "exit_code=$exit_code" >> $GITHUB_OUTPUT
+          
+          if [[ "${{ inputs.dry_run }}" == "true" ]]; then
+            if [[ $exit_code -eq 0 ]]; then
+              echo "::notice::Dry-run: Check would PASS"
+            else
+              echo "::warning::Dry-run: Check would FAIL (notifications disabled)"
+            fi
+            exit 0
+          fi
+          
+          if [[ $exit_code -ne 0 ]]; then
+            echo "::error::Consumption threshold exceeded!"
+            echo "consumption_failed=true" >> $GITHUB_OUTPUT
+          fi
+          
+          exit $exit_code
+      
+      - name: Handle Consumption Alert
+        if: failure() && steps.consumption_check.outputs.consumption_failed == 'true'
+        run: |
+          echo "::error title=Overconsumption Alert::🚨 Actions minutes consumption exceeds safe threshold!"
+          echo "::warning title=Impact::Repository watchers will be notified of this workflow failure"
+          echo ""
+          echo "::notice title=Current Status::"
+          echo "::notice::• Monthly GitHub Actions limit exceeded or trending high"
+          echo "::notice::• Consumption rate above sustainable levels"
+          echo "::notice::• Action required to prevent service disruption"
+          echo ""
+          echo "::notice title=Immediate Actions::"
+          echo "::notice::1. Review recent workflow runs for optimization"  
+          echo "::notice::2. Check for loops, stuck runs, or unnecessary triggers"
+          echo "::notice::3. Cancel non-essential running workflows"
+          echo "::notice::4. Run diagnostic: scripts/utils/analyze-actions-minutes-consumption.sh"
+          echo ""
+          echo "::notice title=Monitoring::"
+          echo "::notice::• Weekly runs: Mondays 9 AM UTC"
+          echo "::notice::• Manual runs: workflow_dispatch available"
+          echo "::notice::• Test mode: gh workflow run actions-minutes-consumption-monitor.yml --field dry_run=true"
