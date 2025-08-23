@@ -29,6 +29,9 @@ done
 readonly SCRIPT_VERSION="1.0.0"
 readonly INCLUDED_MINUTES=3000
 
+# Global variables
+DETAILED_MODE=false
+
 cleanup() {
     [[ -n "${TEMP_DIR:-}" ]] && rm -rf "$TEMP_DIR"
 }
@@ -82,6 +85,15 @@ get_billing_data() {
     TOTAL_PAID_MINUTES=$(echo "$monthly_usage" | jq -r \
         '[.[] | select(.product == "actions" and .unitType == "Minutes") | .quantity] | add // 0')
     
+    # Store detailed repository data if requested
+    if [[ "$DETAILED_MODE" == "true" ]]; then
+        REPO_BREAKDOWN=$(echo "$monthly_usage" | jq -r \
+            '[.[] | select(.product == "actions" and .unitType == "Minutes")] | 
+             group_by(.repositoryName) | 
+             map({repository: .[0].repositoryName, minutes: (map(.quantity) | add)}) | 
+             sort_by(-.minutes)')
+    fi
+    
     [[ "$TOTAL_PAID_MINUTES" =~ ^[0-9]+(\.[0-9]+)?$ ]] || {
         print_error "Invalid billing data received"
         return 1
@@ -126,6 +138,32 @@ calculate_and_evaluate() {
     print_success "Rate: ${CONSUMPTION_RATE}x vs ${RATE_THRESHOLD}x threshold"
 }
 
+# Display per-repository breakdown when in detailed mode
+display_repository_breakdown() {
+    if [[ "$DETAILED_MODE" != "true" ]] || [[ -z "${REPO_BREAKDOWN:-}" ]]; then
+        return 0
+    fi
+    
+    echo ""
+    echo "📊 Repository Breakdown (Actions Minutes)"
+    echo "========================================="
+    
+    local repo_count
+    repo_count=$(echo "$REPO_BREAKDOWN" | jq 'length')
+    
+    if [[ "$repo_count" -eq 0 ]]; then
+        print_info "No Actions minutes consumed this month"
+        return 0
+    fi
+    
+    echo "$REPO_BREAKDOWN" | jq -r '.[] | 
+        "📁 " + (.repository // "<unknown>") + ": " + (.minutes | tostring) + " minutes (" + 
+        ((.minutes * 100 / '$TOTAL_PAID_MINUTES') | tonumber | . * 100 | round / 100 | tostring) + "%)"'
+    
+    echo ""
+    print_info "Total repositories with Actions usage: $repo_count"
+}
+
 # Display analysis and determine status
 display_and_evaluate() {
     local projected_usage
@@ -143,6 +181,9 @@ display_and_evaluate() {
     fi
     
     echo ""
+    
+    # Show repository breakdown if requested
+    display_repository_breakdown
     
     # Check if over budget regardless of rate
     if [[ $TOTAL_PAID_MINUTES -gt $INCLUDED_MINUTES ]]; then
@@ -170,11 +211,13 @@ main() {
     while [[ $# -gt 0 ]]; do
         case $1 in
             --threshold) threshold_override="$2"; shift 2 ;;
+            --detailed) DETAILED_MODE=true; shift ;;
             -h|--help)
-                echo "Usage: $0 [--threshold RATE]"
+                echo "Usage: $0 [--threshold RATE] [--detailed]"
                 echo "Monitor GitHub Actions consumption rate vs monthly progress"
                 echo "Options:"
                 echo "  --threshold RATE  Override threshold (e.g., 1.5)"
+                echo "  --detailed        Show per-repository consumption breakdown"
                 echo "  -h, --help        Show help"
                 exit 0 ;;
             *) print_error "Unknown option: $1"; exit 1 ;;
