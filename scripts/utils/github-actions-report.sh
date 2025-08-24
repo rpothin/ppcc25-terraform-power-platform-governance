@@ -83,37 +83,45 @@ _show_top_workflows() {
 _show_top_jobs() {
     local results_file="$1"
     
-    echo "⚡ Top 10 Jobs by Total Consumption:"
-    echo "-----------------------------------"
+    echo "⚡ Top 10 Jobs by Total Monthly Consumption:"
+    echo "--------------------------------------------"
     
-    # WHY: Clean job aggregation with proper error handling
-    # Header: workflow_name|run_id|job_name|billable_minutes|duration_minutes|runner_multiplier|started_at
+    # WHY: Simple job aggregation showing total consumption only
+    # Header: workflow_name|run_id|job_name|billable_minutes|job_duration_minutes|runner_multiplier|started_at|workflow_run_duration_minutes|workflow_file_name
     
     # Show basic statistics about the data
     local total_job_rows=$(tail -n +2 "$results_file" | wc -l)
-    local unique_jobs=$(tail -n +2 "$results_file" | cut -d'|' -f1,3 | sort -u | wc -l)
+    local unique_jobs=$(tail -n +2 "$results_file" | cut -d'|' -f9,3 | sort -u | wc -l)
     echo "📊 Processing $total_job_rows job records ($unique_jobs unique workflow→job combinations)"
     echo ""
     
-    if ! tail -n +2 "$results_file" | cut -d'|' -f1,3,4 | \
+    # Debug: Check if billable_minutes field has data
+    local non_zero_billable=$(tail -n +2 "$results_file" | cut -d'|' -f4 | awk '$1 > 0 {count++} END {print count+0}')
+    echo "🔍 Debug: Found $non_zero_billable jobs with non-zero billable minutes"
+    
+    if ! tail -n +2 "$results_file" | cut -d'|' -f9,3,4 | \
         awk -F'|' '{
-            # Only process rows with valid billable minutes
-            if ($3 != "" && $3 > 0) {
-                job_key=$1 " → " $2
+            # Process rows with valid billable minutes
+            if ($3 != "" && $3 >= 0) {  # Changed from > 0 to >= 0 to see all data
+                workflow_clean = $1
+                gsub(/.*\//, "", workflow_clean)  # Remove path, keep just filename
+                gsub(/\.yml$/, "", workflow_clean)  # Remove .yml extension
+                job_key=workflow_clean " → " $2
                 job_consumption[job_key]+=$3
+                if ($3 > 0) job_counts_nonzero[job_key]++
             }
         } END {
             if (length(job_consumption) == 0) {
                 print "No job consumption data found" > "/dev/stderr"
                 exit 1
             }
-            # Output aggregated data
+            # Output aggregated data - total consumption only
             for (j in job_consumption) {
                 printf "%d|%s\n", job_consumption[j], j
             }
         }' 2>/dev/null | \
         sort -nr | head -10 | \
-        awk -F'|' 'BEGIN {printf "%-8s %s\n", "Minutes", "Workflow → Job"} {printf "%-8d %s\n", $1, $2}'; then
+        awk -F'|' 'BEGIN {printf "%-8s %s\n", "Total Min", "Workflow → Job"} {printf "%-8d %s\n", $1, $2}'; then
         print_warning "Failed to generate job consumption statistics - check data format"
     fi
     echo ""
