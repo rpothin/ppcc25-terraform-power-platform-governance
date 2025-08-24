@@ -113,17 +113,36 @@ analyze_workflow_jobs() {
     # WHY: Ensure cache directory exists for job data
     mkdir -p "$CACHE_DIR"
     
-    # WHY: Initialize results file with header
-    echo "workflow_name|run_id|job_name|billable_minutes|duration_minutes|runner_multiplier|started_at" > "$results_file"
+    # WHY: Initialize results file with enhanced header including workflow run duration
+    echo "workflow_name|run_id|job_name|billable_minutes|job_duration_minutes|runner_multiplier|started_at|workflow_run_duration_minutes|workflow_file_name" > "$results_file"
     
     local processed=0
     local total_runs
     total_runs=$(jq 'length' "$runs_file")
     
     jq -c '.[]' "$runs_file" | while IFS= read -r run; do
-        local run_id workflow_name
+        local run_id workflow_name workflow_path run_started_at run_updated_at
         run_id=$(echo "$run" | jq -r '.id')
         workflow_name=$(echo "$run" | jq -r '.name')
+        workflow_path=$(echo "$run" | jq -r '.path // "unknown"')
+        run_started_at=$(echo "$run" | jq -r '.run_started_at // empty')
+        run_updated_at=$(echo "$run" | jq -r '.updated_at // empty')
+        
+        # WHY: Calculate workflow run duration in minutes
+        local workflow_run_duration=0
+        if [[ "$run_started_at" != "null" && "$run_updated_at" != "null" && -n "$run_started_at" && -n "$run_updated_at" ]]; then
+            local start_epoch updated_epoch
+            start_epoch=$(date -d "$run_started_at" +%s 2>/dev/null || echo "0")
+            updated_epoch=$(date -d "$run_updated_at" +%s 2>/dev/null || echo "0")
+            if [[ $start_epoch -gt 0 && $updated_epoch -gt 0 && $updated_epoch -gt $start_epoch ]]; then
+                workflow_run_duration=$(( (updated_epoch - start_epoch + 59) / 60 ))  # Round up to minutes
+            fi
+        fi
+        
+        # WHY: Extract clean workflow file name from path
+        local workflow_file_name
+        workflow_file_name=$(basename "$workflow_path" .yml)
+        workflow_file_name=$(basename "$workflow_file_name" .yaml)
         
         # WHY: Use cache to avoid redundant API calls
         local cache_file="${CACHE_DIR}/${repo_owner//\//_}_${repo_name//\//_}_${run_id}.json"
@@ -180,8 +199,8 @@ analyze_workflow_jobs() {
                     
                     local billable_minutes=$((duration_minutes * multiplier))
                     
-                    # WHY: Output in parseable format for analysis
-                    echo "${workflow_name}|${run_id}|${job_name}|${billable_minutes}|${duration_minutes}|${multiplier}|${started_at}"
+                    # WHY: Output in parseable format with workflow run duration and clean workflow file name
+                    echo "${workflow_name}|${run_id}|${job_name}|${billable_minutes}|${duration_minutes}|${multiplier}|${started_at}|${workflow_run_duration}|${workflow_file_name}"
                 fi
             done >> "$results_file"
         else

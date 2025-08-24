@@ -147,6 +147,18 @@ main() {
     # WHY: Generate report using external module to keep this script focused
     generate_consumption_report "$results_file" "$repo"
     
+    # WHY: Debug mode - show sample data format for troubleshooting
+    if [[ "${DEBUG:-}" == "true" || "${1:-}" == "--debug" ]]; then
+        print_status "🔍 Debug: Sample data format from results file:"
+        echo "Header:" 
+        head -1 "$results_file"
+        echo "First 5 data rows:"
+        tail -n +2 "$results_file" | head -5
+        echo ""
+        echo "Debug files preserved in: $temp_dir"
+        return 0
+    fi
+    
     # WHY: Optionally preserve debug files if DEBUG environment variable is set
     if [[ "${DEBUG:-}" == "true" ]]; then
         print_info "Debug mode: preserving temp files in $TEMP_DIR"
