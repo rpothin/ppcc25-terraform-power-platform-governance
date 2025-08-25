@@ -54,7 +54,6 @@ generate_consumption_report() {
     
     # WHY: Show top consuming workflows for optimization targeting
     _show_top_workflows "$results_file"
-    _show_top_jobs "$results_file"
     _show_workflow_duration_stats "$results_file"
     _show_runner_distribution "$results_file"
     _show_optimization_recommendations "$results_file"
@@ -74,56 +73,6 @@ _show_top_workflows() {
         awk -F'|' '{workflow[$1]+=$2} END {for (w in workflow) print workflow[w] "|" w}' | \
         sort -nr | head -10 | \
         awk -F'|' 'BEGIN {printf "%-8s %s\n", "Minutes", "Workflow"} {printf "%-8d %s\n", $1, $2}'
-    echo ""
-}
-
-# Display top consuming individual jobs across all workflows
-# Parameters:
-#   $1 - results file path
-_show_top_jobs() {
-    local results_file="$1"
-    
-    echo "⚡ Top 10 Jobs by Total Monthly Consumption:"
-    echo "--------------------------------------------"
-    
-    # WHY: Simple job aggregation showing total consumption only
-    # Header: workflow_name|run_id|job_name|billable_minutes|job_duration_minutes|runner_multiplier|started_at|workflow_run_duration_minutes|workflow_file_name
-    
-    # Show basic statistics about the data
-    local total_job_rows=$(tail -n +2 "$results_file" | wc -l)
-    local unique_jobs=$(tail -n +2 "$results_file" | cut -d'|' -f9,3 | sort -u | wc -l)
-    echo "📊 Processing $total_job_rows job records ($unique_jobs unique workflow→job combinations)"
-    echo ""
-    
-    # Debug: Check if billable_minutes field has data
-    local non_zero_billable=$(tail -n +2 "$results_file" | cut -d'|' -f4 | awk '$1 > 0 {count++} END {print count+0}')
-    echo "🔍 Debug: Found $non_zero_billable jobs with non-zero billable minutes"
-    
-    if ! tail -n +2 "$results_file" | cut -d'|' -f9,3,4 | \
-        awk -F'|' '{
-            # Process rows with valid billable minutes
-            if ($3 != "" && $3 >= 0) {  # Changed from > 0 to >= 0 to see all data
-                workflow_clean = $1
-                gsub(/.*\//, "", workflow_clean)  # Remove path, keep just filename
-                gsub(/\.yml$/, "", workflow_clean)  # Remove .yml extension
-                job_key=workflow_clean " → " $2
-                job_consumption[job_key]+=$3
-                if ($3 > 0) job_counts_nonzero[job_key]++
-            }
-        } END {
-            if (length(job_consumption) == 0) {
-                print "No job consumption data found" > "/dev/stderr"
-                exit 1
-            }
-            # Output aggregated data - total consumption only
-            for (j in job_consumption) {
-                printf "%d|%s\n", job_consumption[j], j
-            }
-        }' 2>/dev/null | \
-        sort -nr | head -10 | \
-        awk -F'|' 'BEGIN {printf "%-8s %s\n", "Total Min", "Workflow → Job"} {printf "%-8d %s\n", $1, $2}'; then
-        print_warning "Failed to generate job consumption statistics - check data format"
-    fi
     echo ""
 }
 
