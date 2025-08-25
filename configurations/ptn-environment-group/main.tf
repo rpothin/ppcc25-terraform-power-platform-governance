@@ -66,6 +66,23 @@ module "environments" {
 }
 
 # ============================================================================
+# MANAGED ENVIRONMENT MODULE ORCHESTRATION
+# ============================================================================
+
+# Configure managed environment settings using template-processed configurations
+# Applies workspace-level defaults with environment-specific overrides
+module "managed_environment" {
+  source   = "../res-managed-environment"
+  for_each = local.template_environments
+
+  # Environment ID from created environments
+  environment_id = module.environments[each.key].environment_id
+
+  # Explicit dependency chain: group → environments → managed_environment
+  depends_on = [module.environments]
+}
+
+# ============================================================================
 # ENVIRONMENT SETTINGS MODULE ORCHESTRATION
 # ============================================================================
 
@@ -84,7 +101,7 @@ module "environment_settings" {
   feature_settings  = each.value.settings.feature_settings
   email_settings    = each.value.settings.email_settings
 
-  # Explicit dependency chain: group → environments → settings
-  depends_on = [module.environments]
+  # Explicit dependency chain: group → environments → managed_environment → settings
+  depends_on = [module.managed_environment]
 }
 

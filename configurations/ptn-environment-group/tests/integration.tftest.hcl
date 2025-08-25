@@ -169,8 +169,22 @@ run "plan_validation" {
 
   # Settings dependency chain validation
   assert {
+    condition     = length(regexall("depends_on.*module\\.managed_environment", file("${path.module}/main.tf"))) > 0
+    error_message = "Environment settings should depend on managed_environment module"
+  }
+
+  # === MANAGED ENVIRONMENT MODULE ORCHESTRATION VALIDATION (2 assertions) ===
+
+  # Module orchestration structure validation (file-based)
+  assert {
+    condition     = length(regexall("module\\s+\"managed_environment\"", file("${path.module}/main.tf"))) > 0
+    error_message = "Pattern must orchestrate managed_environment module"
+  }
+
+  # Managed environment dependency chain validation
+  assert {
     condition     = length(regexall("depends_on.*module\\.environments", file("${path.module}/main.tf"))) > 0
-    error_message = "Environment settings should depend on environments module"
+    error_message = "Managed environment should depend on environments module"
   }
 
   # === PATTERN ORCHESTRATION VALIDATION (5 assertions) ===
@@ -357,6 +371,18 @@ run "apply_validation" {
   }
 
   # === SETTINGS MODULE ORCHESTRATION VALIDATION (5 assertions) ===
+
+  # Managed environment modules deployment validation
+  assert {
+    condition     = can(module.managed_environment)
+    error_message = "Managed environment modules must be deployed and accessible"
+  }
+
+  # Managed environment modules count validation
+  assert {
+    condition     = length(module.managed_environment) == length(local.template_environments)
+    error_message = "Should create one managed environment module per template environment"
+  }
 
   # Settings modules deployment validation
   assert {
