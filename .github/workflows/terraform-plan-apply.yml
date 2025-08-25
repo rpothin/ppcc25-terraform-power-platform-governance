@@ -139,26 +139,3 @@ jobs:
       timeout-minutes: 10
       state-key-override: '${{ github.event.inputs.configuration }}-${{ github.event.inputs.tfvars_file }}.tfstate'
     secrets: inherit
-
-  # === PHASE 4: EXECUTION SUMMARY ===
-  # Generates comprehensive execution summary with troubleshooting and technical details
-  # Provides insights into plan/apply operations and optional output extraction
-  execution-summary:
-    name: 📊 Execution Summary
-    if: always()  # Always execute for comprehensive reporting
-    needs:
-      - terraform-plan
-      - terraform-apply
-      - terraform-outputs
-    uses: ./.github/workflows/reusable-execution-summary.yml
-    with:
-      workflow-name: "terraform-plan-apply"
-      operation-type: "plan-apply"
-      configuration: ${{ github.event.inputs.configuration }}
-      job-results: ${{ toJSON(needs) }}
-      workflow-inputs: ${{ github.event_name == 'workflow_dispatch' && toJSON(inputs) || '{}' }}
-      include-troubleshooting: true
-      include-technical-details: true
-      summary-level: "detailed"
-      artifact-retention-days: 14
-    secrets: inherit

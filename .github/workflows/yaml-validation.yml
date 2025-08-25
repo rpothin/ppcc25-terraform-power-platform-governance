@@ -33,18 +33,26 @@ concurrency:
 
 on:
   pull_request:
+    types: [opened, synchronize, ready_for_review]  # Skip draft PRs for optimization
     branches: main
     paths:
       - '.github/**/*.yml'
       - '.github/**/*.yaml'
       - '.yamllint'
-      - 'scripts/utils/validate-yaml.sh'
+      # Exclude documentation to reduce GitHub Actions consumption
+      - '!**/*.md'
+      - '!docs/**'
+      - '!plans/**'
   push:
     branches: main
     paths:
       - '.github/**/*.yml'
       - '.github/**/*.yaml'
       - '.yamllint'
+      # Exclude documentation to reduce GitHub Actions consumption
+      - '!**/*.md'
+      - '!docs/**'
+      - '!plans/**'
   workflow_dispatch:
 
 run-name: "🛠️ YAML validation for ${{ github.event_name }} by @${{ github.actor }}"

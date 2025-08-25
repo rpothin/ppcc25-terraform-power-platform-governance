@@ -179,11 +179,29 @@ jobs:
           resource-group-name: ${{ secrets.TERRAFORM_RESOURCE_GROUP }}
 
       # === TERRAFORM SETUP ===
+      - name: Cache Terraform Providers
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.terraform.d/plugin-cache
+            .terraform/providers
+          # WHY: Cache key based on lock file hash for automatic invalidation on version changes
+          key: terraform-${{ runner.os }}-${{ hashFiles('.terraform.lock.hcl', '**/configurations/**/.terraform.lock.hcl') }}
+          restore-keys: |
+            terraform-${{ runner.os }}-
+
       - name: Setup Terraform CLI
         uses: hashicorp/setup-terraform@v3.1.2
         with:
           terraform_version: ${{ vars.TERRAFORM_VERSION || '1.12.2' }}
           terraform_wrapper: false
+
+      # WHY: Configure provider cache for faster initialization during destroy validation
+      - name: Configure Provider Cache
+        run: |
+          mkdir -p ~/.terraform.d/plugin-cache
+          echo 'plugin_cache_dir = "$HOME/.terraform.d/plugin-cache"' > ~/.terraform.d/terraformrc
+          echo "TF_CLI_CONFIG_FILE=$HOME/.terraform.d/terraformrc" >> $GITHUB_ENV
 
       # === TERRAFORM INITIALIZATION ===
       - name: Initialize Terraform
@@ -275,22 +293,3 @@ jobs:
       timeout-minutes: 25
       environment-name: 'production'
     secrets: inherit
-
-  # === EXECUTION SUMMARY ===
-  # Generate comprehensive execution summary for governance and audit
-  execution-summary:
-    name: "🎯 Execution Summary"
-    needs: [pre-destroy-validation, terraform-destroy]
-    uses: ./.github/workflows/reusable-execution-summary.yml
-    if: always()
-    with:
-      workflow-name: "terraform-destroy"
-      operation-type: "destroy"
-      configuration: ${{ github.event.inputs.configuration }}
-      output-filename: ""
-      job-results: ${{ toJSON(needs) }}
-      workflow-inputs: ${{ toJSON(github.event.inputs) }}
-      include-troubleshooting: true
-      include-technical-details: true
-      summary-level: "detailed"
-      artifact-retention-days: 30

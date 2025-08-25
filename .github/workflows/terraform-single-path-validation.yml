@@ -245,10 +245,28 @@ jobs:
 
       # === TERRAFORM ENVIRONMENT SETUP ===
       # WHY: Ensures consistent Terraform version for syntax validation
+      - name: Cache Terraform Providers
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.terraform.d/plugin-cache
+            .terraform/providers
+          # WHY: Cache key based on lock file hash for automatic invalidation on version changes
+          key: terraform-${{ runner.os }}-${{ hashFiles('.terraform.lock.hcl', '**/configurations/**/.terraform.lock.hcl') }}
+          restore-keys: |
+            terraform-${{ runner.os }}-
+
       - name: Setup Terraform CLI
         uses: hashicorp/setup-terraform@v3.1.2
         with:
           terraform_version: ${{ vars.TERRAFORM_VERSION || '1.12.2' }}
+
+      # WHY: Configure provider cache for performance improvement
+      - name: Configure Provider Cache
+        run: |
+          mkdir -p ~/.terraform.d/plugin-cache
+          echo 'plugin_cache_dir = "$HOME/.terraform.d/plugin-cache"' > ~/.terraform.d/terraformrc
+          echo "TF_CLI_CONFIG_FILE=$HOME/.terraform.d/terraformrc" >> $GITHUB_ENV
 
       # === EXECUTION METADATA GENERATION ===
       # Generate comprehensive metadata for audit trails and workflow tracking
@@ -373,11 +391,29 @@ jobs:
 
       # === TERRAFORM ENVIRONMENT SETUP ===
       # WHY: Ensures consistent Terraform version for integration testing
+      - name: Cache Terraform Providers
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.terraform.d/plugin-cache
+            .terraform/providers
+          # WHY: Cache key based on lock file hash prevents version mismatches
+          key: terraform-${{ runner.os }}-${{ hashFiles('.terraform.lock.hcl', '**/configurations/**/.terraform.lock.hcl') }}
+          restore-keys: |
+            terraform-${{ runner.os }}-
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3.1.2
         with:
           terraform_version: ${{ vars.TERRAFORM_VERSION || '1.12.2' }}
           terraform_wrapper: false
+
+      # WHY: Configure provider cache for faster initialization during integration tests
+      - name: Configure Provider Cache
+        run: |
+          mkdir -p ~/.terraform.d/plugin-cache
+          echo 'plugin_cache_dir = "$HOME/.terraform.d/plugin-cache"' > ~/.terraform.d/terraformrc
+          echo "TF_CLI_CONFIG_FILE=$HOME/.terraform.d/terraformrc" >> $GITHUB_ENV
 
       # === BACKEND INITIALIZATION ===
       # WHY: Initializes isolated backend state for the integration test
@@ -461,26 +497,3 @@ jobs:
   # === AVM COMPLIANCE CHECK ===
   # Ensures configurations meet AVM testing requirements (already validated in pre-flight-check)
   # No-op: AVM compliance is enforced by pre-flight-check job
-
-  # === REUSABLE EXECUTION SUMMARY GENERATION ===
-  # Generates a comprehensive summary of all validation steps and results for this path
-  execution-summary:
-    name: 📊 Execution Summary Generation
-    if: always()  # Always execute for comprehensive reporting
-    needs:
-      - pre-flight-check
-      - format-check
-      - syntax-validation
-      - security-scan
-      - integration-test
-    uses: ./.github/workflows/reusable-execution-summary.yml
-    with:
-      workflow-name: "terraform-single-path-validation"
-      operation-type: "validation"
-      configuration: ${{ inputs.target_configuration }}
-      job-results: ${{ toJSON(needs) }}
-      workflow-inputs: ${{ github.event_name == 'workflow_dispatch' && toJSON(inputs) || '{}' }}
-      include-troubleshooting: true
-      include-technical-details: true
-      summary-level: "detailed"
-      artifact-retention-days: 14

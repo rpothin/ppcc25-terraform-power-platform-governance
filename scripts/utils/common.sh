@@ -298,8 +298,27 @@ retry_with_backoff() {
     return 1
 }
 
+# Function to format duration in human-readable format
+format_duration() {
+    local duration=$1
+    
+    if [[ $duration -lt 60 ]]; then
+        echo "${duration}s"
+    elif [[ $duration -lt 3600 ]]; then
+        local minutes=$((duration / 60))
+        local seconds=$((duration % 60))
+        echo "${minutes}m ${seconds}s"
+    else
+        local hours=$((duration / 3600))
+        local minutes=$(((duration % 3600) / 60))
+        local seconds=$((duration % 60))
+        echo "${hours}h ${minutes}m ${seconds}s"
+    fi
+}
+
 # Export functions for use in other scripts
 export -f cleanup_vars handle_script_interruption setup_error_handling
 export -f prompt_continue get_user_confirmation get_deletion_confirmation
 export -f run_script_with_handling validate_json mask_sensitive_value
 export -f create_secure_temp_file cleanup_temp_files wait_with_spinner retry_with_backoff
+export -f format_duration
