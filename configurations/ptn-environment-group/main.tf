@@ -7,6 +7,7 @@
 # Pattern Components:
 # - Environment Group: Central container for organizing environments (via res-environment-group)
 # - Multiple Environments: Template-defined environments (via res-environment)
+# - Application Admin: Assigns application admin permissions to environments (via res-environment-application-admin)
 # - Template System: Predefined configurations in locals.tf
 #
 # Key Features:
@@ -21,8 +22,8 @@
 # Architecture Decisions:
 # - Template System: Predefined configurations in locals.tf
 # - Variable Simplification: Only 4 user inputs (template, name, description, location)
-# - Module Orchestration: Uses res-environment-group and res-environment modules
-# - Dependency Chain: Environment group → Template processing → Environment creation
+# - Module Orchestration: Uses res-environment-group, res-environment, and res-environment-application-admin modules
+# - Dependency Chain: Environment group → Template processing → Environment creation → Application admin assignment
 # - Governance Integration: Built for DLP policies and environment routing
 
 
