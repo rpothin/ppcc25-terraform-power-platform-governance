@@ -105,3 +105,22 @@ module "environment_settings" {
   depends_on = [module.managed_environment]
 }
 
+# ============================================================================
+# ENVIRONMENT APPLICATION ADMIN MODULE ORCHESTRATION
+# ============================================================================
+
+# Assigns the monitoring service principal as an application admin to each environment
+# This enables tenant-level monitoring and governance capabilities
+module "environment_application_admin" {
+  source   = "../res-environment-application-admin"
+  for_each = local.template_environments
+
+  # Environment ID from created environments
+  environment_id = module.environments[each.key].environment_id
+
+  # Application ID for the monitoring service principal
+  application_id = local.monitoring_service_principal_id
+
+  # Explicit dependency chain: group → environments → application_admin
+  depends_on = [module.environments]
+}

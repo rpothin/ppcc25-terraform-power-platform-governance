@@ -219,6 +219,20 @@ run "plan_validation" {
     error_message = "Pattern must output workspace_template for validation"
   }
 
+  # === ENVIRONMENT APPLICATION ADMIN MODULE ORCHESTRATION VALIDATION (2 assertions) ===
+
+  # Module orchestration structure validation (file-based)
+  assert {
+    condition     = length(regexall("module\\s+\"environment_application_admin\"", file("${path.module}/main.tf"))) > 0
+    error_message = "Pattern must orchestrate environment_application_admin module"
+  }
+
+  # Environment application admin dependency chain validation
+  assert {
+    condition     = length(regexall("depends_on.*module\\.environments", file("${path.module}/main.tf"))) > 0
+    error_message = "Environment application admin should depend on environments module"
+  }
+
   # === OUTPUT DEFINITIONS VALIDATION (5 assertions) ===
 
   # Primary outputs validation - environment group
@@ -421,6 +435,29 @@ run "apply_validation" {
       settings_module.deployment_summary.settings_applied == true
     ])
     error_message = "All environment settings should be applied successfully"
+  }
+
+  # === ENVIRONMENT APPLICATION ADMIN MODULE ORCHESTRATION VALIDATION (3 assertions) ===
+
+  # Module composition validation - environment application admin modules
+  assert {
+    condition     = can(module.environment_application_admin)
+    error_message = "Environment application admin modules must be deployed and accessible"
+  }
+
+  # Environment application admin modules count validation
+  assert {
+    condition     = length(module.environment_application_admin) == length(local.template_environments)
+    error_message = "Should create one environment application admin module per template environment"
+  }
+
+  # Environment application admin configuration validation
+  assert {
+    condition = alltrue([
+      for idx, admin_module in module.environment_application_admin :
+      admin_module.application_id == local.monitoring_service_principal_id
+    ])
+    error_message = "All environment application admin modules should be configured with the monitoring service principal"
   }
 
   # === PATTERN METADATA VALIDATION (5 assertions) ===
