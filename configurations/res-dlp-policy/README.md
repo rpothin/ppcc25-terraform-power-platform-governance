@@ -107,7 +107,7 @@ The following requirements are needed by this module:
 
 The following providers are used by this module:
 
-- <a name="provider_null"></a> [null](#provider\_null) (3.2.4)
+- <a name="provider_null"></a> [null](#provider\_null)
 
 - <a name="provider_powerplatform"></a> [powerplatform](#provider\_powerplatform) (~> 3.8)
 

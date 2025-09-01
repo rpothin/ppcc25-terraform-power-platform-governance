@@ -7,7 +7,7 @@ This pattern creates a complete environment group setup with multiple environmen
 
 - **Template-Driven**: Workspace templates (basic, simple, enterprise) with predefined environment configurations
 - **Hybrid Settings Management**: Workspace-level defaults with environment-specific overrides
-- **AVM Module Orchestration**: Uses res-environment-group, res-environment, res-managed-environment, and res-environment-settings modules
+- **AVM Module Orchestration**: Uses res-environment-group, res-environment, res-managed-environment, res-environment-settings, and res-environment-application-admin modules
 - **Multi-Resource Orchestration**: Coordinated deployment of environment groups, environments, and settings
 - **Settings Governance**: Comprehensive audit, security, feature, and email configuration per environment
 - **Template Flexibility**: Different templates support different organizational workflows
@@ -22,6 +22,7 @@ This pattern is designed for organizations that need to:
 4. **Multi-Resource Orchestration**: Show how to coordinate multiple Power Platform resources with proper dependency management and settings application
 5. **Development Team Organization**: Set up structured environment groups with appropriate settings for different environments in the development lifecycle
 6. **Compliance Automation**: Automate the creation of governable environment structures with comprehensive audit and security settings
+7. **Service Principal Integration**: Assign a monitoring service principal as an application admin to all environments for tenant-level governance.
 
 ## Pattern Components
 
@@ -32,7 +33,8 @@ This pattern is designed for organizations that need to:
 - **Environment-Specific Settings**: Targeted settings that vary by environment purpose (audit levels, security restrictions, file limits)
 - **Automatic Assignment**: Environments are automatically assigned to the group during creation
 - **Settings Application**: Environment settings are applied after environment creation with proper dependency management
-- **Dependency Management**: Proper orchestration ensures environment group → environments → managed environment → settings deployment order
+- **Application Admin Assignment**: Assigns the monitoring service principal as an application admin to each environment.
+- **Dependency Management**: Proper orchestration ensures environment group → environments → managed environment → settings → application admin assignment deployment order
 
 ## Template-Driven Configuration
 
@@ -315,6 +317,12 @@ structure. Available templates: basic, simple, enterprise.
 ## Modules
 
 The following Modules are called:
+
+### <a name="module_environment_application_admin"></a> [environment\_application\_admin](#module\_environment\_application\_admin)
+
+Source: ../res-environment-application-admin
+
+Version:
 
 ### <a name="module_environment_group"></a> [environment\_group](#module\_environment\_group)
 
