@@ -199,8 +199,9 @@ output "managed_environment_deployment_status" {
   description = "Deployment status of the managed environment settings."
   value = {
     for idx, env in local.environment_summary : env.display_name => {
-      environment_id = module.environments[idx].environment_id
-      enabled        = module.managed_environment[idx].is_managed_environment
+      environment_id    = module.environments[idx].environment_id
+      enabled           = true # Always true when managed_environment module executes successfully
+      deployment_status = module.managed_environment[idx].managed_environment_summary.deployment_status
     }
   }
 }
@@ -345,13 +346,14 @@ output "governance_ready_resources" {
 
     managed_environments = {
       for idx, managed_env in module.managed_environment : idx => {
-        environment_id   = module.environments[idx].environment_id
-        environment_name = local.environment_summary[idx].display_name
-        resource_type    = "powerplatform_managed_environment"
-        governance_ready = true
-        enabled          = managed_env.is_managed_environment
-        template_driven  = true
-        workspace_name   = var.name
+        environment_id    = module.environments[idx].environment_id
+        environment_name  = local.environment_summary[idx].display_name
+        resource_type     = "powerplatform_managed_environment"
+        governance_ready  = true
+        enabled           = true # Always true when managed_environment module executes successfully
+        deployment_status = managed_env.managed_environment_summary.deployment_status
+        template_driven   = true
+        workspace_name    = var.name
       }
     }
   }
