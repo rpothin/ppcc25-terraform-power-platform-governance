@@ -11,7 +11,7 @@ locals {
 
   # Service principal for tenant-level monitoring (hardcoded for demonstration)
   # In production, this would be managed through Azure Key Vault or similar
-  monitoring_service_principal_id = "00000000-0000-0000-0000-000000000000" # Replace with actual SP ID
+  monitoring_service_principal_id = "b4a04840-2aa7-426a-ba2b-19330b6ae3d2" # Replace with actual SP ID
 
   # Default Dataverse configuration
   default_dataverse_config = {
