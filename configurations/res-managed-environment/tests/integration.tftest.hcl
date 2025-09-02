@@ -226,8 +226,8 @@ run "default_configuration_validation" {
   }
 
   assert {
-    condition     = contains(["learn.microsoft.com"], powerplatform_managed_environment.this.maker_onboarding_url)
-    error_message = "Default should link to official Microsoft documentation"
+    condition     = can(regex("^https://learn\\.microsoft\\.com/", powerplatform_managed_environment.this.maker_onboarding_url))
+    error_message = "Default should link to official Microsoft documentation (learn.microsoft.com domain)"
   }
 }
 
