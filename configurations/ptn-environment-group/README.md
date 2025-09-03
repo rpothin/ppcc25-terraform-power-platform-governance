@@ -106,17 +106,22 @@ The following requirements are needed by this module:
 
 - <a name="requirement_powerplatform"></a> [powerplatform](#requirement\_powerplatform) (~> 3.8)
 
+- <a name="requirement_time"></a> [time](#requirement\_time) (~> 0.13)
+
 ## Providers
 
 The following providers are used by this module:
 
 - <a name="provider_null"></a> [null](#provider\_null) (~> 3.0)
 
+- <a name="provider_time"></a> [time](#provider\_time) (~> 0.13)
+
 ## Resources
 
 The following resources are used by this module:
 
 - [null_resource.managed_environment_deployment_control](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) (resource)
+- [time_sleep.environment_provisioning_buffer](https://registry.terraform.io/providers/hashicorp/time/latest/docs/resources/sleep) (resource)
 
 <!-- markdownlint-disable MD013 -->
 ## Required Inputs
