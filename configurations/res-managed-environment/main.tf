@@ -26,47 +26,15 @@
 # - Usage insights and maker onboarding
 # - Advanced security and compliance features
 
-# Local validation to catch empty environment IDs early
-locals {
-  # Validate environment ID at the local level to provide better error messages
-  validated_environment_id = (
-    length(trimspace(var.environment_id)) > 0 &&
-    can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.environment_id))
-  ) ? var.environment_id : "INVALID_ENVIRONMENT_ID_${var.environment_id}"
-
-  # Determine if we should create the managed environment
-  should_create_managed_environment = local.validated_environment_id != "INVALID_ENVIRONMENT_ID_${var.environment_id}"
-}
-
-# Environment readiness validation with time delay
-# This provides a buffer for environment creation to complete
-resource "time_sleep" "environment_creation_buffer" {
-  create_duration = "30s" # Allow 30 seconds for environment to be fully available
-
-  triggers = {
-    environment_id = var.environment_id
-  }
-
-  lifecycle {
-    precondition {
-      condition     = local.should_create_managed_environment
-      error_message = "🚨 INVALID ENVIRONMENT ID: Environment ID '${var.environment_id}' is invalid or empty. This typically occurs when: 1) The environment module hasn't completed creation, 2) There's a dependency timing issue, or 3) The environment_id output is not properly connected. Please ensure the environment is fully created and its ID is available before enabling managed environment features."
-    }
-  }
-}
+# Local validation is now handled by lifecycle preconditions
+# This approach provides better error messages and avoids count expression issues
 
 # Primary managed environment resource with comprehensive governance controls
 # Managed environments provide premium capabilities for Power Platform governance at scale
 # All configuration changes must be made through Infrastructure as Code to maintain
 # strict governance compliance and operational consistency
 resource "powerplatform_managed_environment" "this" {
-  # Only create if environment ID is valid
-  count = local.should_create_managed_environment ? 1 : 0
-
-  # Explicit dependency on time buffer
-  depends_on = [time_sleep.environment_creation_buffer]
-
-  environment_id = local.validated_environment_id
+  environment_id = var.environment_id
 
   # Sharing and collaboration controls
   is_group_sharing_disabled = var.sharing_settings.is_group_sharing_disabled
@@ -87,6 +55,12 @@ resource "powerplatform_managed_environment" "this" {
 
   # Lifecycle management for resource modules with enhanced validation
   lifecycle {
+    # Environment ID validation
+    precondition {
+      condition     = length(trimspace(var.environment_id)) > 0 && can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.environment_id))
+      error_message = "🚨 INVALID ENVIRONMENT ID: Environment ID '${var.environment_id}' is invalid or empty. This typically occurs when: 1) The environment module hasn't completed creation, 2) There's a dependency timing issue, or 3) The environment_id output is not properly connected. Please ensure the environment is fully created and its ID is available before enabling managed environment features."
+    }
+
     # Sharing settings validation
     precondition {
       condition = (

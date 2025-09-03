@@ -34,13 +34,13 @@ variables {
 }
 
 # ============================================================================
-# PLAN VALIDATION - Static Configuration Only (File-Based Validation)
+# STATIC VALIDATION - File-Based Validation During Apply Phase
 # ============================================================================
 
-# CRITICAL: Plan phase can only validate static configuration - no runtime values
-# Runtime validation (module outputs, resource attributes) must be in apply phase
-run "plan_validation" {
-  command = plan
+# CRITICAL: All tests use apply command to avoid count expression evaluation issues
+# Static validation can still be performed during apply phase using file() functions
+run "static_validation" {
+  command = apply
 
   # === FRAMEWORK VALIDATION (5 assertions) ===
 
@@ -243,7 +243,7 @@ run "plan_validation" {
 
 # CRITICAL: Apply phase validates runtime behavior - module outputs, resource creation
 # All count-dependent validations and module orchestration testing happens here
-run "apply_validation" {
+run "runtime_validation" {
   command = apply
 
   # === TEMPLATE PROCESSING VALIDATION (5 assertions) ===
