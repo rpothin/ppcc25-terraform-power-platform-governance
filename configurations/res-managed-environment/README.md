@@ -63,14 +63,11 @@ The following providers are used by this module:
 
 - <a name="provider_powerplatform"></a> [powerplatform](#provider\_powerplatform) (~> 3.8)
 
-- <a name="provider_time"></a> [time](#provider\_time) (~> 0.13)
-
 ## Resources
 
 The following resources are used by this module:
 
 - [powerplatform_managed_environment.this](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/resources/managed_environment) (resource)
-- [time_sleep.environment_creation_buffer](https://registry.terraform.io/providers/hashicorp/time/latest/docs/resources/sleep) (resource)
 
 <!-- markdownlint-disable MD013 -->
 ## Required Inputs
