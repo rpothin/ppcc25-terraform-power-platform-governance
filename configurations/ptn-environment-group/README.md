@@ -108,11 +108,15 @@ The following requirements are needed by this module:
 
 ## Providers
 
-No providers.
+The following providers are used by this module:
+
+- <a name="provider_null"></a> [null](#provider\_null) (~> 3.0)
 
 ## Resources
 
-No resources.
+The following resources are used by this module:
+
+- [null_resource.managed_environment_deployment_control](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) (resource)
 
 <!-- markdownlint-disable MD013 -->
 ## Required Inputs

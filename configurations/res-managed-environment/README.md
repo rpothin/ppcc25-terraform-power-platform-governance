@@ -59,12 +59,15 @@ The following requirements are needed by this module:
 
 The following providers are used by this module:
 
+- <a name="provider_null"></a> [null](#provider\_null)
+
 - <a name="provider_powerplatform"></a> [powerplatform](#provider\_powerplatform) (~> 3.8)
 
 ## Resources
 
 The following resources are used by this module:
 
+- [null_resource.environment_readiness_check](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) (resource)
 - [powerplatform_managed_environment.this](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/resources/managed_environment) (resource)
 
 <!-- markdownlint-disable MD013 -->
@@ -286,6 +289,10 @@ Default: `true`
 ## Outputs
 
 The following outputs are exported:
+
+### <a name="output_deployment_validation"></a> [deployment\_validation](#output\_deployment\_validation)
+
+Description: Comprehensive deployment validation and troubleshooting information for managed environment configuration
 
 ### <a name="output_environment_id"></a> [environment\_id](#output\_environment\_id)
 
