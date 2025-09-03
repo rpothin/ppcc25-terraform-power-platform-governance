@@ -9,5 +9,9 @@ terraform {
       source  = "microsoft/power-platform"
       version = "~> 3.8"
     }
+    time = {
+      source  = "hashicorp/time"
+      version = "~> 0.13"
+    }
   }
 }

@@ -35,7 +35,7 @@ in other Terraform configurations or external systems. Use this ID to:
 Format: GUID (e.g., 12345678-1234-1234-1234-123456789012)
 Note: This is the same as the environment_id but confirms successful managed environment setup
 DESCRIPTION
-  value       = powerplatform_managed_environment.this.environment_id
+  value       = local.should_create_managed_environment ? var.environment_id : null
 }
 
 output "environment_id" {
@@ -51,7 +51,7 @@ configured with managed environment capabilities. Useful for:
 
 Format: GUID (e.g., 12345678-1234-1234-1234-123456789012)
 DESCRIPTION
-  value       = powerplatform_managed_environment.this.environment_id
+  value       = local.should_create_managed_environment ? var.environment_id : null
 }
 
 # ============================================================================
@@ -60,9 +60,9 @@ DESCRIPTION
 
 output "managed_environment_summary" {
   description = "Summary of deployed managed environment configuration for validation and compliance reporting"
-  value = {
+  value = local.should_create_managed_environment ? {
     # Core identification
-    environment_id = powerplatform_managed_environment.this.environment_id
+    environment_id = powerplatform_managed_environment.this[0].environment_id
 
     # Module metadata
     resource_type     = "powerplatform_managed_environment"
@@ -75,18 +75,29 @@ output "managed_environment_summary" {
 
     # Governance configuration status
     sharing_controls_enabled    = true
-    solution_validation_mode    = powerplatform_managed_environment.this.solution_checker_mode
-    usage_insights_status       = powerplatform_managed_environment.this.is_usage_insights_disabled ? "disabled" : "enabled"
-    maker_onboarding_configured = powerplatform_managed_environment.this.maker_onboarding_markdown != null && powerplatform_managed_environment.this.maker_onboarding_url != null
+    solution_validation_mode    = powerplatform_managed_environment.this[0].solution_checker_mode
+    usage_insights_status       = powerplatform_managed_environment.this[0].is_usage_insights_disabled ? "disabled" : "enabled"
+    maker_onboarding_configured = powerplatform_managed_environment.this[0].maker_onboarding_markdown != null && powerplatform_managed_environment.this[0].maker_onboarding_url != null
 
     # Compliance indicators
-    group_sharing_restricted     = powerplatform_managed_environment.this.is_group_sharing_disabled
-    user_sharing_limit           = powerplatform_managed_environment.this.max_limit_user_sharing
-    validation_emails_configured = !powerplatform_managed_environment.this.suppress_validation_emails
+    group_sharing_restricted     = powerplatform_managed_environment.this[0].is_group_sharing_disabled
+    user_sharing_limit           = powerplatform_managed_environment.this[0].max_limit_user_sharing
+    validation_emails_configured = !powerplatform_managed_environment.this[0].suppress_validation_emails
 
     # Integration readiness
     ready_for_enterprise_policies = true # Can have enterprise policies applied
     ready_for_advanced_dlp        = true # Can use advanced DLP features
+    } : {
+    # Validation failure case
+    environment_id                = var.environment_id
+    resource_type                 = "powerplatform_managed_environment"
+    classification                = "res-*"
+    deployment_status             = "validation_failed"
+    deployment_timestamp          = timestamp()
+    module_version                = local.output_schema_version
+    validation_error              = "Environment ID validation failed - see Terraform output for details"
+    ready_for_enterprise_policies = false
+    ready_for_advanced_dlp        = false
   }
 }
 
@@ -105,14 +116,19 @@ active for the managed environment, useful for:
 - Validation of security posture
 - Documentation of current policies
 DESCRIPTION
-  value = {
-    group_sharing_disabled = powerplatform_managed_environment.this.is_group_sharing_disabled
-    sharing_mode           = powerplatform_managed_environment.this.limit_sharing_mode
-    max_users_for_sharing  = powerplatform_managed_environment.this.max_limit_user_sharing
+  value = local.should_create_managed_environment ? {
+    group_sharing_disabled = powerplatform_managed_environment.this[0].is_group_sharing_disabled
+    sharing_mode           = powerplatform_managed_environment.this[0].limit_sharing_mode
+    max_users_for_sharing  = powerplatform_managed_environment.this[0].max_limit_user_sharing
 
     # Computed status indicators
-    sharing_restriction_level = powerplatform_managed_environment.this.is_group_sharing_disabled ? "strict" : "permissive"
-    sharing_scope             = powerplatform_managed_environment.this.limit_sharing_mode
+    sharing_restriction_level = powerplatform_managed_environment.this[0].is_group_sharing_disabled ? "strict" : "permissive"
+    sharing_scope             = powerplatform_managed_environment.this[0].limit_sharing_mode
+    } : {
+    # Validation failure case
+    validation_error          = "Environment ID validation failed - sharing configuration not available"
+    sharing_restriction_level = "unknown"
+    sharing_scope             = "unknown"
   }
 }
 
@@ -127,14 +143,19 @@ currently active for solution imports, useful for:
 - Integration with ALM processes
 - Validation of governance controls
 DESCRIPTION
-  value = {
-    checker_mode              = powerplatform_managed_environment.this.solution_checker_mode
-    validation_emails_enabled = !powerplatform_managed_environment.this.suppress_validation_emails
-    rule_overrides_count      = length(powerplatform_managed_environment.this.solution_checker_rule_overrides)
+  value = local.should_create_managed_environment ? {
+    checker_mode              = powerplatform_managed_environment.this[0].solution_checker_mode
+    validation_emails_enabled = !powerplatform_managed_environment.this[0].suppress_validation_emails
+    rule_overrides_count      = length(powerplatform_managed_environment.this[0].solution_checker_rule_overrides)
 
     # Computed status indicators
-    validation_enforcement = powerplatform_managed_environment.this.solution_checker_mode == "Block" ? "strict" : powerplatform_managed_environment.this.solution_checker_mode == "Warn" ? "advisory" : "disabled"
-    quality_gate_active    = powerplatform_managed_environment.this.solution_checker_mode != "None"
+    validation_enforcement = powerplatform_managed_environment.this[0].solution_checker_mode == "Block" ? "strict" : powerplatform_managed_environment.this[0].solution_checker_mode == "Warn" ? "advisory" : "disabled"
+    quality_gate_active    = powerplatform_managed_environment.this[0].solution_checker_mode != "None"
+    } : {
+    # Validation failure case
+    validation_error       = "Environment ID validation failed - solution validation status not available"
+    validation_enforcement = "unknown"
+    quality_gate_active    = false
   }
 }
 
@@ -146,8 +167,8 @@ output "deployment_validation" {
   description = "Comprehensive deployment validation and troubleshooting information for managed environment configuration"
   value = {
     # Deployment status
-    deployment_successful = true # If this output exists, deployment succeeded
-    environment_id_valid  = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", powerplatform_managed_environment.this.environment_id))
+    deployment_successful = local.should_create_managed_environment
+    environment_id_valid  = local.should_create_managed_environment ? can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", powerplatform_managed_environment.this[0].environment_id)) : false
     configuration_applied = timestamp()
 
     # Environment readiness indicators

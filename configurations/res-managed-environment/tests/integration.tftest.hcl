@@ -64,53 +64,53 @@ run "plan_validation" {
 
   # Test Category: Framework Validation (5 assertions)
   assert {
-    condition     = powerplatform_managed_environment.this.environment_id == var.test_environment_id
+    condition     = powerplatform_managed_environment.this[0].environment_id == var.test_environment_id
     error_message = "Managed environment should be linked to the correct environment ID"
   }
 
   assert {
-    condition     = powerplatform_managed_environment.this.is_group_sharing_disabled == var.test_custom_sharing_settings.is_group_sharing_disabled
+    condition     = powerplatform_managed_environment.this[0].is_group_sharing_disabled == var.test_custom_sharing_settings.is_group_sharing_disabled
     error_message = "Group sharing setting should match input configuration"
   }
 
   assert {
-    condition     = powerplatform_managed_environment.this.limit_sharing_mode == var.test_custom_sharing_settings.limit_sharing_mode
+    condition     = powerplatform_managed_environment.this[0].limit_sharing_mode == var.test_custom_sharing_settings.limit_sharing_mode
     error_message = "Sharing mode should match input configuration"
   }
 
   assert {
-    condition     = powerplatform_managed_environment.this.max_limit_user_sharing == var.test_custom_sharing_settings.max_limit_user_sharing
+    condition     = powerplatform_managed_environment.this[0].max_limit_user_sharing == var.test_custom_sharing_settings.max_limit_user_sharing
     error_message = "User sharing limit should match input configuration"
   }
 
   assert {
-    condition     = powerplatform_managed_environment.this.is_usage_insights_disabled == var.test_custom_usage_insights_disabled
+    condition     = powerplatform_managed_environment.this[0].is_usage_insights_disabled == var.test_custom_usage_insights_disabled
     error_message = "Usage insights setting should match input configuration"
   }
 
   # Test Category: Solution Checker Configuration (5 assertions)
   assert {
-    condition     = powerplatform_managed_environment.this.solution_checker_mode == var.test_custom_solution_checker.mode
+    condition     = powerplatform_managed_environment.this[0].solution_checker_mode == var.test_custom_solution_checker.mode
     error_message = "Solution checker mode should match input configuration"
   }
 
   assert {
-    condition     = powerplatform_managed_environment.this.suppress_validation_emails == var.test_custom_solution_checker.suppress_validation_emails
+    condition     = powerplatform_managed_environment.this[0].suppress_validation_emails == var.test_custom_solution_checker.suppress_validation_emails
     error_message = "Validation email setting should match input configuration"
   }
 
   assert {
-    condition     = toset(powerplatform_managed_environment.this.solution_checker_rule_overrides) == toset(var.test_custom_solution_checker.rule_overrides)
+    condition     = toset(powerplatform_managed_environment.this[0].solution_checker_rule_overrides) == toset(var.test_custom_solution_checker.rule_overrides)
     error_message = "Solution checker rule overrides should match input configuration (order-independent comparison)"
   }
 
   assert {
-    condition     = powerplatform_managed_environment.this.maker_onboarding_markdown == var.test_custom_maker_onboarding.markdown_content
+    condition     = powerplatform_managed_environment.this[0].maker_onboarding_markdown == var.test_custom_maker_onboarding.markdown_content
     error_message = "Maker onboarding markdown should match input configuration"
   }
 
   assert {
-    condition     = powerplatform_managed_environment.this.maker_onboarding_url == var.test_custom_maker_onboarding.learn_more_url
+    condition     = powerplatform_managed_environment.this[0].maker_onboarding_url == var.test_custom_maker_onboarding.learn_more_url
     error_message = "Maker onboarding URL should match input configuration"
   }
 
@@ -181,52 +181,52 @@ run "default_configuration_validation" {
 
   # Test Category: Default Values Validation (10 assertions)
   assert {
-    condition     = powerplatform_managed_environment.this.is_group_sharing_disabled == false
+    condition     = powerplatform_managed_environment.this[0].is_group_sharing_disabled == false
     error_message = "Default should enable group sharing (governance best practice)"
   }
 
   assert {
-    condition     = powerplatform_managed_environment.this.limit_sharing_mode == "NoLimit"
+    condition     = powerplatform_managed_environment.this[0].limit_sharing_mode == "NoLimit"
     error_message = "Default should allow unrestricted sharing with security groups"
   }
 
   assert {
-    condition     = powerplatform_managed_environment.this.max_limit_user_sharing == -1
+    condition     = powerplatform_managed_environment.this[0].max_limit_user_sharing == -1
     error_message = "Default should set unlimited user sharing when group sharing enabled"
   }
 
   assert {
-    condition     = powerplatform_managed_environment.this.is_usage_insights_disabled == true
+    condition     = powerplatform_managed_environment.this[0].is_usage_insights_disabled == true
     error_message = "Default should disable usage insights to avoid admin email spam"
   }
 
   assert {
-    condition     = powerplatform_managed_environment.this.solution_checker_mode == "Warn"
+    condition     = powerplatform_managed_environment.this[0].solution_checker_mode == "Warn"
     error_message = "Default should use Warn mode for balanced governance approach"
   }
 
   assert {
-    condition     = powerplatform_managed_environment.this.suppress_validation_emails == true
+    condition     = powerplatform_managed_environment.this[0].suppress_validation_emails == true
     error_message = "Default should suppress validation emails to reduce noise"
   }
 
   assert {
-    condition     = length(powerplatform_managed_environment.this.solution_checker_rule_overrides) == 0
+    condition     = length(powerplatform_managed_environment.this[0].solution_checker_rule_overrides) == 0
     error_message = "Default should not override any solution checker rules"
   }
 
   assert {
-    condition     = length(powerplatform_managed_environment.this.maker_onboarding_markdown) > 0
+    condition     = length(powerplatform_managed_environment.this[0].maker_onboarding_markdown) > 0
     error_message = "Default should provide basic maker onboarding content"
   }
 
   assert {
-    condition     = can(regex("^https://", powerplatform_managed_environment.this.maker_onboarding_url))
+    condition     = can(regex("^https://", powerplatform_managed_environment.this[0].maker_onboarding_url))
     error_message = "Default should provide secure HTTPS URL for maker guidance"
   }
 
   assert {
-    condition     = can(regex("^https://learn\\.microsoft\\.com/", powerplatform_managed_environment.this.maker_onboarding_url))
+    condition     = can(regex("^https://learn\\.microsoft\\.com/", powerplatform_managed_environment.this[0].maker_onboarding_url))
     error_message = "Default should link to official Microsoft documentation (learn.microsoft.com domain)"
   }
 }
@@ -248,27 +248,27 @@ run "apply_validation" {
 
   # Test Category: Runtime Resource Validation (5 assertions)
   assert {
-    condition     = can(powerplatform_managed_environment.this.environment_id)
+    condition     = can(powerplatform_managed_environment.this[0].environment_id)
     error_message = "Managed environment resource should be created successfully"
   }
 
   assert {
-    condition     = powerplatform_managed_environment.this.environment_id != null
+    condition     = powerplatform_managed_environment.this[0].environment_id != null
     error_message = "Managed environment should have a valid environment ID"
   }
 
   assert {
-    condition     = powerplatform_managed_environment.this.is_group_sharing_disabled != null
+    condition     = powerplatform_managed_environment.this[0].is_group_sharing_disabled != null
     error_message = "Managed environment should have sharing configuration applied"
   }
 
   assert {
-    condition     = powerplatform_managed_environment.this.solution_checker_mode != null
+    condition     = powerplatform_managed_environment.this[0].solution_checker_mode != null
     error_message = "Managed environment should have solution checker configuration applied"
   }
 
   assert {
-    condition     = powerplatform_managed_environment.this.maker_onboarding_markdown != null
+    condition     = powerplatform_managed_environment.this[0].maker_onboarding_markdown != null
     error_message = "Managed environment should have maker onboarding configuration applied"
   }
 
@@ -313,27 +313,27 @@ run "minimal_configuration_test" {
 
   # Test Category: Minimal Configuration Validation (5 assertions)
   assert {
-    condition     = powerplatform_managed_environment.this.environment_id == var.test_environment_id
+    condition     = powerplatform_managed_environment.this[0].environment_id == var.test_environment_id
     error_message = "Should work with only environment_id specified"
   }
 
   assert {
-    condition     = powerplatform_managed_environment.this.is_group_sharing_disabled == false
+    condition     = powerplatform_managed_environment.this[0].is_group_sharing_disabled == false
     error_message = "Should use governance-friendly default for group sharing"
   }
 
   assert {
-    condition     = powerplatform_managed_environment.this.is_usage_insights_disabled == true
+    condition     = powerplatform_managed_environment.this[0].is_usage_insights_disabled == true
     error_message = "Should use admin-friendly default for usage insights"
   }
 
   assert {
-    condition     = powerplatform_managed_environment.this.solution_checker_mode == "Warn"
+    condition     = powerplatform_managed_environment.this[0].solution_checker_mode == "Warn"
     error_message = "Should use balanced default for solution checker mode"
   }
 
   assert {
-    condition     = powerplatform_managed_environment.this.suppress_validation_emails == true
+    condition     = powerplatform_managed_environment.this[0].suppress_validation_emails == true
     error_message = "Should use noise-reducing default for validation emails"
   }
 }

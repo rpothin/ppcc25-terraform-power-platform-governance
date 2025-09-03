@@ -70,6 +70,20 @@ module "environments" {
 # MANAGED ENVIRONMENT MODULE ORCHESTRATION WITH SEQUENTIAL DEPLOYMENT
 # ============================================================================
 
+# Buffer time for environment provisioning to complete
+# Power Platform environments need time for backend provisioning
+resource "time_sleep" "environment_provisioning_buffer" {
+  for_each = local.template_environments
+
+  create_duration = "30s" # Allow time for environment backend setup
+
+  depends_on = [module.environments]
+
+  triggers = {
+    environment_id = module.environments[each.key].environment_id
+  }
+}
+
 # Sequential deployment resource for managing rollout timing
 # This prevents overwhelming the Power Platform API with simultaneous requests
 resource "null_resource" "managed_environment_deployment_control" {
@@ -84,6 +98,7 @@ resource "null_resource" "managed_environment_deployment_control" {
       template_name  = var.workspace_template
     }))
     deployment_timestamp = timestamp()
+    buffer_complete      = time_sleep.environment_provisioning_buffer[each.key].id
   }
 
   # Validate environment is ready before managed environment configuration
@@ -99,8 +114,8 @@ resource "null_resource" "managed_environment_deployment_control" {
     }
   }
 
-  # Explicit dependency chain: group → environments → readiness_check
-  depends_on = [module.environments]
+  # Explicit dependency chain: group → environments → buffer → readiness_check
+  depends_on = [time_sleep.environment_provisioning_buffer]
 }
 
 # Configure managed environment settings using template-processed configurations

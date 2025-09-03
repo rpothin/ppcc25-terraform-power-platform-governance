@@ -26,31 +26,31 @@
 # - Usage insights and maker onboarding
 # - Advanced security and compliance features
 
-# Environment readiness validation resource
-# This ensures the environment is fully provisioned before attempting managed environment configuration
-resource "null_resource" "environment_readiness_check" {
-  # Validation triggers to ensure environment is ready
+# Local validation to catch empty environment IDs early
+locals {
+  # Validate environment ID at the local level to provide better error messages
+  validated_environment_id = (
+    length(trimspace(var.environment_id)) > 0 &&
+    can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.environment_id))
+  ) ? var.environment_id : "INVALID_ENVIRONMENT_ID_${var.environment_id}"
+
+  # Determine if we should create the managed environment
+  should_create_managed_environment = local.validated_environment_id != "INVALID_ENVIRONMENT_ID_${var.environment_id}"
+}
+
+# Environment readiness validation with time delay
+# This provides a buffer for environment creation to complete
+resource "time_sleep" "environment_creation_buffer" {
+  create_duration = "30s" # Allow 30 seconds for environment to be fully available
+
   triggers = {
-    environment_id       = var.environment_id
-    validation_timestamp = timestamp()
-    configuration_hash = sha256(jsonencode({
-      sharing_settings = var.sharing_settings
-      solution_checker = var.solution_checker
-      maker_onboarding = var.maker_onboarding
-      usage_insights   = var.usage_insights_disabled
-    }))
+    environment_id = var.environment_id
   }
 
-  # Validate environment ID format and readiness
   lifecycle {
     precondition {
-      condition     = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.environment_id))
-      error_message = "🚨 INVALID ENVIRONMENT ID FORMAT: Environment ID must be a valid GUID. Received: '${var.environment_id}'. Ensure the environment is fully created before applying managed environment settings."
-    }
-
-    precondition {
-      condition     = length(trimspace(var.environment_id)) > 0
-      error_message = "🚨 EMPTY ENVIRONMENT ID: Environment ID cannot be empty. This typically indicates the environment resource hasn't completed creation. Check the environment module dependencies and ensure 'depends_on' is properly configured."
+      condition     = local.should_create_managed_environment
+      error_message = "🚨 INVALID ENVIRONMENT ID: Environment ID '${var.environment_id}' is invalid or empty. This typically occurs when: 1) The environment module hasn't completed creation, 2) There's a dependency timing issue, or 3) The environment_id output is not properly connected. Please ensure the environment is fully created and its ID is available before enabling managed environment features."
     }
   }
 }
@@ -60,10 +60,13 @@ resource "null_resource" "environment_readiness_check" {
 # All configuration changes must be made through Infrastructure as Code to maintain
 # strict governance compliance and operational consistency
 resource "powerplatform_managed_environment" "this" {
-  # Explicit dependency on readiness check
-  depends_on = [null_resource.environment_readiness_check]
+  # Only create if environment ID is valid
+  count = local.should_create_managed_environment ? 1 : 0
 
-  environment_id = var.environment_id
+  # Explicit dependency on time buffer
+  depends_on = [time_sleep.environment_creation_buffer]
+
+  environment_id = local.validated_environment_id
 
   # Sharing and collaboration controls
   is_group_sharing_disabled = var.sharing_settings.is_group_sharing_disabled
@@ -84,12 +87,6 @@ resource "powerplatform_managed_environment" "this" {
 
   # Lifecycle management for resource modules with enhanced validation
   lifecycle {
-    # Environment ID validation at apply time
-    precondition {
-      condition     = length(trimspace(var.environment_id)) > 0 && can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.environment_id))
-      error_message = "🚨 MANAGED ENVIRONMENT CREATION FAILED: Invalid or empty environment_id '${var.environment_id}'. This error typically occurs when the environment resource hasn't completed creation or there's a dependency timing issue. Ensure environments are fully created before applying managed environment settings."
-    }
-
     # Sharing settings validation
     precondition {
       condition = (
