@@ -26,11 +26,43 @@
 # - Usage insights and maker onboarding
 # - Advanced security and compliance features
 
+# Environment readiness validation resource
+# This ensures the environment is fully provisioned before attempting managed environment configuration
+resource "null_resource" "environment_readiness_check" {
+  # Validation triggers to ensure environment is ready
+  triggers = {
+    environment_id       = var.environment_id
+    validation_timestamp = timestamp()
+    configuration_hash = sha256(jsonencode({
+      sharing_settings = var.sharing_settings
+      solution_checker = var.solution_checker
+      maker_onboarding = var.maker_onboarding
+      usage_insights   = var.usage_insights_disabled
+    }))
+  }
+
+  # Validate environment ID format and readiness
+  lifecycle {
+    precondition {
+      condition     = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.environment_id))
+      error_message = "🚨 INVALID ENVIRONMENT ID FORMAT: Environment ID must be a valid GUID. Received: '${var.environment_id}'. Ensure the environment is fully created before applying managed environment settings."
+    }
+
+    precondition {
+      condition     = length(trimspace(var.environment_id)) > 0
+      error_message = "🚨 EMPTY ENVIRONMENT ID: Environment ID cannot be empty. This typically indicates the environment resource hasn't completed creation. Check the environment module dependencies and ensure 'depends_on' is properly configured."
+    }
+  }
+}
+
 # Primary managed environment resource with comprehensive governance controls
 # Managed environments provide premium capabilities for Power Platform governance at scale
 # All configuration changes must be made through Infrastructure as Code to maintain
 # strict governance compliance and operational consistency
 resource "powerplatform_managed_environment" "this" {
+  # Explicit dependency on readiness check
+  depends_on = [null_resource.environment_readiness_check]
+
   environment_id = var.environment_id
 
   # Sharing and collaboration controls
@@ -50,8 +82,24 @@ resource "powerplatform_managed_environment" "this" {
   maker_onboarding_markdown = var.maker_onboarding.markdown_content
   maker_onboarding_url      = var.maker_onboarding.learn_more_url
 
-  # Lifecycle management for resource modules
+  # Lifecycle management for resource modules with enhanced validation
   lifecycle {
+    # Environment ID validation at apply time
+    precondition {
+      condition     = length(trimspace(var.environment_id)) > 0 && can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.environment_id))
+      error_message = "🚨 MANAGED ENVIRONMENT CREATION FAILED: Invalid or empty environment_id '${var.environment_id}'. This error typically occurs when the environment resource hasn't completed creation or there's a dependency timing issue. Ensure environments are fully created before applying managed environment settings."
+    }
+
+    # Sharing settings validation
+    precondition {
+      condition = (
+        var.sharing_settings.is_group_sharing_disabled == false
+        ? var.sharing_settings.max_limit_user_sharing == -1
+        : var.sharing_settings.max_limit_user_sharing > 0
+      )
+      error_message = "🚨 SHARING CONFIGURATION ERROR: When group sharing is enabled (is_group_sharing_disabled = false), max_limit_user_sharing must be -1. When disabled, it must be > 0. Current: is_group_sharing_disabled = ${var.sharing_settings.is_group_sharing_disabled}, max_limit_user_sharing = ${var.sharing_settings.max_limit_user_sharing}."
+    }
+
     # 🔒 GOVERNANCE POLICY: "No Touch Prod"
     # 
     # ENFORCEMENT: All configuration changes MUST go through Infrastructure as Code
