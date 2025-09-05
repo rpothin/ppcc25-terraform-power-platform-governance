@@ -248,7 +248,7 @@ object({
     suppress_validation_emails = bool
 
     # Override specific solution checker rules
-    rule_overrides = optional(set(string), [])
+    rule_overrides = optional(set(string), null)
   })
 ```
 
@@ -257,7 +257,7 @@ Default:
 ```json
 {
   "mode": "Warn",
-  "rule_overrides": [],
+  "rule_overrides": null,
   "suppress_validation_emails": true
 }
 ```
