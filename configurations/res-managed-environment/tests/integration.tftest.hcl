@@ -337,3 +337,42 @@ run "minimal_configuration_test" {
     error_message = "Should use noise-reducing default for validation emails"
   }
 }
+
+# ============================================================================
+# MINIMAL CONFIGURATION APPLY TEST - Validate defaults work at runtime
+# ============================================================================
+
+run "minimal_configuration_apply_test" {
+  command = apply
+
+  variables {
+    environment_id = var.test_environment_id
+    # Test that all default values work during actual deployment
+  }
+
+  # Test Category: Runtime Minimal Configuration (5 assertions)
+  assert {
+    condition     = can(powerplatform_managed_environment.this.environment_id)
+    error_message = "Managed environment should be created with minimal configuration"
+  }
+
+  assert {
+    condition     = powerplatform_managed_environment.this.environment_id == var.test_environment_id
+    error_message = "Applied environment ID should match input with minimal config"
+  }
+
+  assert {
+    condition     = powerplatform_managed_environment.this.solution_checker_rule_overrides != null
+    error_message = "Solution checker rule overrides should be handled gracefully (not null)"
+  }
+
+  assert {
+    condition     = output.managed_environment_id == var.test_environment_id
+    error_message = "Output should work correctly with minimal configuration"
+  }
+
+  assert {
+    condition     = output.managed_environment_summary.deployment_status == "deployed"
+    error_message = "Deployment should succeed with only environment_id specified"
+  }
+}
