@@ -66,7 +66,8 @@ module "test_managed_environment" {
     # WHY: Use warn mode to allow test deployment without blocking
     mode                       = "Warn"
     suppress_validation_emails = true
-    rule_overrides             = []
+    # NOTE: rule_overrides omitted to avoid provider consistency bug
+    # Provider plans empty set [] but returns null, causing validation failure
   }
 
   maker_onboarding = {
