@@ -66,8 +66,8 @@ module "test_managed_environment" {
     # WHY: Use warn mode to allow test deployment without blocking
     mode                       = "Warn"
     suppress_validation_emails = true
-    # NOTE: rule_overrides omitted to avoid provider consistency bug
-    # Provider plans empty set [] but returns null, causing validation failure
+    # WHY: Omit rule_overrides to let module's optional default handle provider inconsistency
+    # res-managed-environment uses optional(set(string), []) which handles null gracefully
   }
 
   maker_onboarding = {
