@@ -54,15 +54,12 @@ The following requirements are needed by this module:
 
 The following providers are used by this module:
 
-- <a name="provider_null"></a> [null](#provider\_null) (~> 3.2)
-
 - <a name="provider_powerplatform"></a> [powerplatform](#provider\_powerplatform) (~> 3.8)
 
 ## Resources
 
 The following resources are used by this module:
 
-- [null_resource.comprehensive_logging](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) (resource)
 - [powerplatform_environment.test](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/resources/environment) (resource)
 
 <!-- markdownlint-disable MD013 -->
@@ -87,22 +84,6 @@ Type: `string`
 ## Optional Inputs
 
 The following input variables are optional (have default values):
-
-### <a name="input_enable_comprehensive_logging"></a> [enable\_comprehensive\_logging](#input\_enable\_comprehensive\_logging)
-
-Description: Enable comprehensive logging for debugging sequential deployment issues.  
-
-When enabled, provides detailed logging of environment states, timing,  
-and validation checkpoints to aid in troubleshooting URL and timing errors.  
-
-Example:
-```hcl
-enable_comprehensive_logging = true
-```
-
-Type: `bool`
-
-Default: `true`
 
 ### <a name="input_location"></a> [location](#input\_location)
 
@@ -150,7 +131,7 @@ Description: The organization ID of the Dataverse instance in the test environme
 
 ### <a name="output_debug_information"></a> [debug\_information](#output\_debug\_information)
 
-Description: Detailed debugging information for troubleshooting sequential deployment issues
+Description: Simplified debugging information for troubleshooting sequential deployment
 
 ### <a name="output_deployment_timestamp"></a> [deployment\_timestamp](#output\_deployment\_timestamp)
 
