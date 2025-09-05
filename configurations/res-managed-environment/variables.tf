@@ -128,13 +128,13 @@ variable "solution_checker" {
     suppress_validation_emails = bool
 
     # Override specific solution checker rules
-    rule_overrides = optional(set(string), [])
+    rule_overrides = optional(set(string), null)
   })
 
   default = {
     mode                       = "Warn" # Balanced approach: validate but don't block
     suppress_validation_emails = true   # Reduce email noise, only send for blocked solutions
-    rule_overrides             = []     # No rule overrides by default
+    rule_overrides             = null   # No rule overrides by default (API returns null)
   }
 
   description = <<DESCRIPTION
