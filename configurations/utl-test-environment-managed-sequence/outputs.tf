@@ -47,9 +47,8 @@ output "deployment_timestamp" {
 output "test_configuration" {
   description = "Summary of the test configuration parameters"
   value = {
-    test_name             = var.test_name
-    location              = var.location
-    comprehensive_logging = var.enable_comprehensive_logging
+    test_name = var.test_name
+    location  = var.location
   }
 }
 
@@ -67,18 +66,17 @@ output "validation_checkpoints" {
   }
 }
 
-# Debugging Information
+# Debugging Information (simplified)
 output "debug_information" {
-  description = "Detailed debugging information for troubleshooting sequential deployment issues"
-  value = var.enable_comprehensive_logging ? {
-    resource_prefix           = local.resource_prefix
-    environment_resource_type = "powerplatform_environment"
-    managed_env_module_path   = "../res-managed-environment"
+  description = "Simplified debugging information for troubleshooting sequential deployment"
+  value = {
+    resource_prefix         = local.resource_prefix
+    managed_env_module_path = "../res-managed-environment"
     dependency_chain = [
       "1. powerplatform_environment.test",
       "2. module.test_managed_environment"
     ]
-  } : null
+  }
 }
 
 # Resource Summary for Cleanup

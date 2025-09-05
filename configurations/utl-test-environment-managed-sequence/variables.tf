@@ -68,21 +68,3 @@ variable "security_group_id" {
     error_message = "Security group ID must be a valid GUID format."
   }
 }
-
-
-
-variable "enable_comprehensive_logging" {
-  description = <<-HEREDOC
-    Enable comprehensive logging for debugging sequential deployment issues.
-    
-    When enabled, provides detailed logging of environment states, timing,
-    and validation checkpoints to aid in troubleshooting URL and timing errors.
-    
-    Example:
-    ```hcl
-    enable_comprehensive_logging = true
-    ```
-  HEREDOC
-  type        = bool
-  default     = true
-}

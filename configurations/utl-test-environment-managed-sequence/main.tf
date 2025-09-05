@@ -56,34 +56,3 @@ module "test_managed_environment" {
   # WHY: Explicit dependency ensures managed environment waits for environment creation
   depends_on = [powerplatform_environment.test]
 }
-
-# ==============================================================================
-# PHASE 3: COMPREHENSIVE LOGGING (CONDITIONAL)
-# ==============================================================================
-# WHY: Provide detailed logging when debugging is enabled to track state
-resource "null_resource" "comprehensive_logging" {
-  count = var.enable_comprehensive_logging ? 1 : 0
-
-  triggers = {
-    deployment_complete = timestamp()
-    environment_id      = powerplatform_environment.test.id
-    managed_env_ready   = module.test_managed_environment.managed_environment_id
-  }
-
-  provisioner "local-exec" {
-    command = <<-EOT
-      echo "=== Sequential Deployment Test Completed ==="
-      echo "Test Name: ${var.test_name}"
-      echo "Environment ID: ${powerplatform_environment.test.id}"
-      echo "Managed Environment ID: ${module.test_managed_environment.managed_environment_id}"
-      echo "Deployment Time: ${local.deployment_metadata.initiated_at}"
-
-      echo "============================================="
-    EOT
-  }
-
-  depends_on = [
-    powerplatform_environment.test,
-    module.test_managed_environment
-  ]
-}

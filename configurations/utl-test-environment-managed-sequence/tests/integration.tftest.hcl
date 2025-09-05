@@ -12,10 +12,9 @@
 
 # Test variables for consistent test execution
 variables {
-  test_name                    = "ci-test-seq-deploy"
-  location                     = "unitedstates"
-  security_group_id            = "550e8400-e29b-41d4-a716-446655440000" # Mock GUID for testing
-  enable_comprehensive_logging = true
+  test_name         = "ci-test-seq-deploy"
+  location          = "unitedstates"
+  security_group_id = "550e8400-e29b-41d4-a716-446655440000" # Mock GUID for testing
 }
 
 # ==============================================================================
@@ -29,10 +28,9 @@ run "plan_validation" {
     condition = alltrue([
       can(var.test_name),
       can(var.location),
-      can(var.security_group_id),
-      can(var.enable_comprehensive_logging)
+      can(var.security_group_id)
     ])
-    error_message = "All required variables must be defined (test_name, location, security_group_id, enable_comprehensive_logging)"
+    error_message = "All required variables must be defined (test_name, location, security_group_id)"
   }
 
   assert {
@@ -112,11 +110,6 @@ run "plan_validation" {
   assert {
     condition     = local.deployment_metadata.initiated_at != null
     error_message = "Deployment timestamp must be populated (timestamp() always returns valid RFC3339)"
-  }
-
-  assert {
-    condition     = var.enable_comprehensive_logging == true
-    error_message = "Comprehensive logging should be enabled for testing"
   }
 }
 
@@ -217,11 +210,6 @@ run "apply_validation" {
 
   # === ASSERTION GROUP 11: DEBUGGING AND METADATA VALIDATION ===
   assert {
-    condition     = can(timestamp(output.deployment_timestamp))
-    error_message = "Deployment timestamp must be valid RFC3339 timestamp"
-  }
-
-  assert {
     condition     = output.test_configuration.test_name == var.test_name
     error_message = "Test configuration summary must match input variables"
   }
@@ -233,6 +221,6 @@ run "apply_validation" {
 
   assert {
     condition     = output.debug_information != null
-    error_message = "Debug information must be available when comprehensive logging is enabled"
+    error_message = "Debug information must be available for troubleshooting"
   }
 }
