@@ -1,5 +1,8 @@
 # Unreleased
 
+### Added
+- Add utl-test-environment-managed-sequence configuration for testing sequential deployment of Power Platform environments followed by managed environment enablement to validate provider behavior and isolate URL errors
+
 ### Fixed
 - **CRITICAL**: Power Platform managed environment deployment reliability improvements to prevent "Request url must be an absolute url" errors. Enhanced res-managed-environment module with: comprehensive environment ID validation using null_resource with lifecycle preconditions, sequential deployment control in ptn-environment-group to prevent API overwhelm, explicit dependency chains (group → environments → readiness_check → managed_environment), comprehensive error handling with actionable error messages, troubleshooting guidance in module outputs with common issues and recovery procedures, validation steps and recovery procedures for failed deployments. Pattern module updated with: sequential deployment resource to control timing, environment readiness validation before managed environment creation, explicit managed environment configuration with governance-friendly defaults, improved dependency management to prevent race conditions. These improvements address timing issues where multiple managed environments fail simultaneously due to empty environment_id values passed to the Power Platform provider.
 
