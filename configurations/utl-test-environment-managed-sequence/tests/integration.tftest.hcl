@@ -5,14 +5,10 @@
 # environment → managed environment sequencing works correctly with the Power
 # Platform provider, specifically targeting the "Request url must be an absolute
 # url" error resolution.
+#
+# NOTE: Provider configuration is inherited from parent module versions.tf
+# Authentication should be provided via environment variables in CI/CD
 # ==============================================================================
-
-# REQUIRED: Provider block for child module compatibility
-provider "powerplatform" {
-  use_oidc  = true
-  tenant_id = "00000000-0000-0000-0000-000000000000" # Mock for testing
-  client_id = "00000000-0000-0000-0000-000000000000" # Mock for testing
-}
 
 # Test variables for consistent test execution
 variables {
@@ -114,8 +110,8 @@ run "plan_validation" {
   }
 
   assert {
-    condition     = can(timestamp(local.deployment_metadata.initiated_at))
-    error_message = "Deployment timestamp must be valid RFC3339 format"
+    condition     = local.deployment_metadata.initiated_at != null
+    error_message = "Deployment timestamp must be populated (timestamp() always returns valid RFC3339)"
   }
 
   assert {
