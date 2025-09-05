@@ -56,20 +56,107 @@ run "plan_validation" {
 
 
 
-  # === ASSERTION GROUP 2: RESOURCE PLANNING VALIDATION ===
+  # === ASSERTION GROUP 2: STATIC CONFIGURATION VALIDATION ===
+  assert {
+    condition     = can(regex("^test-", local.resource_prefix))
+    error_message = "Resource prefix must start with 'test-' for proper identification"
+  }
+
+  assert {
+    condition     = local.deployment_metadata.configuration == "utl-test-environment-managed-sequence"
+    error_message = "Configuration metadata must match module name"
+  }
+
+
+
+  # === ASSERTION GROUP 3: TERRAFORM CONFIGURATION VALIDATION ===
+  assert {
+    condition     = fileexists("${path.module}/main.tf")
+    error_message = "main.tf must exist in configuration directory"
+  }
+
+  assert {
+    condition     = fileexists("${path.module}/variables.tf")
+    error_message = "variables.tf must exist in configuration directory"
+  }
+
+  assert {
+    condition     = fileexists("${path.module}/outputs.tf")
+    error_message = "outputs.tf must exist in configuration directory"
+  }
+
+  assert {
+    condition     = fileexists("${path.module}/versions.tf")
+    error_message = "versions.tf must exist in configuration directory"
+  }
+
+  # === ASSERTION GROUP 4: MODULE PATH VALIDATION ===
+  assert {
+    condition     = length(local.resource_prefix) > 5
+    error_message = "Resource prefix must be properly constructed with sufficient length"
+  }
+
+  # === ASSERTION GROUP 5: LOCAL VALUES VALIDATION ===
+  assert {
+    condition     = length(regexall("test-", local.resource_prefix)) > 0
+    error_message = "Resource prefix must include 'test-' identifier"
+  }
+
+  assert {
+    condition     = local.deployment_metadata.test_purpose == "validate-sequential-deployment"
+    error_message = "Deployment metadata must indicate sequential deployment validation purpose"
+  }
+
+  # === ASSERTION GROUP 6: ADDITIONAL STATIC VALIDATION ===
+  assert {
+    condition     = local.deployment_metadata.configuration != null
+    error_message = "Configuration metadata must be populated"
+  }
+
+  assert {
+    condition     = can(timestamp(local.deployment_metadata.initiated_at))
+    error_message = "Deployment timestamp must be valid RFC3339 format"
+  }
+
+  assert {
+    condition     = var.enable_comprehensive_logging == true
+    error_message = "Comprehensive logging should be enabled for testing"
+  }
+}
+
+# ==============================================================================
+# APPLY TESTS - RUNTIME VALIDATION (ADDITIONAL ASSERTIONS FOR COMPREHENSIVE COVERAGE)
+# ==============================================================================
+run "apply_validation" {
+  command = apply
+
+  # === ASSERTION GROUP 7: RESOURCE CREATION VALIDATION ===
   assert {
     condition     = can(powerplatform_environment.test)
-    error_message = "Test environment resource must be planned for creation"
+    error_message = "Test environment resource must be available after creation"
   }
 
   assert {
     condition     = can(module.test_managed_environment)
-    error_message = "Test managed environment module must be planned for creation"
+    error_message = "Test managed environment module must be available after creation"
   }
 
+  assert {
+    condition     = length(trimspace(powerplatform_environment.test.id)) > 0
+    error_message = "Test environment must be created with valid environment_id"
+  }
 
+  assert {
+    condition     = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", powerplatform_environment.test.id))
+    error_message = "Environment ID must be valid GUID format after creation"
+  }
 
-  # === ASSERTION GROUP 3: OUTPUT STRUCTURE VALIDATION ===
+  assert {
+    condition     = length(trimspace(module.test_managed_environment.managed_environment_id)) > 0
+    error_message = "Managed environment must be created successfully after environment"
+  }
+
+  # === ASSERTION GROUP 8: OUTPUT STRUCTURE VALIDATION ===
   assert {
     condition     = can(output.test_environment_id)
     error_message = "test_environment_id output must be defined"
@@ -90,47 +177,12 @@ run "plan_validation" {
     error_message = "created_resources_summary output must be defined for cleanup"
   }
 
-  # === ASSERTION GROUP 4: SECURITY AND COMPLIANCE ===
   assert {
     condition     = can(output.dataverse_organization_id)
-    error_message = "Dataverse organization ID output must be defined"
+    error_message = "dataverse_organization_id output must be defined"
   }
 
-  # === ASSERTION GROUP 5: LOCAL VALUES VALIDATION ===
-  assert {
-    condition     = length(regexall("test-", local.resource_prefix)) > 0
-    error_message = "Resource prefix must include 'test-' identifier"
-  }
-
-  assert {
-    condition     = local.deployment_metadata.test_purpose == "validate-sequential-deployment"
-    error_message = "Deployment metadata must indicate sequential deployment validation purpose"
-  }
-}
-
-# ==============================================================================
-# APPLY TESTS - RUNTIME VALIDATION (ADDITIONAL ASSERTIONS FOR COMPREHENSIVE COVERAGE)
-# ==============================================================================
-run "apply_validation" {
-  command = apply
-
-  # === ASSERTION GROUP 6: RESOURCE CREATION VALIDATION ===
-  assert {
-    condition     = length(trimspace(powerplatform_environment.test.id)) > 0
-    error_message = "Test environment must be created with valid environment_id"
-  }
-
-  assert {
-    condition     = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", powerplatform_environment.test.id))
-    error_message = "Environment ID must be valid GUID format after creation"
-  }
-
-  assert {
-    condition     = length(trimspace(module.test_managed_environment.managed_environment_id)) > 0
-    error_message = "Managed environment must be created successfully after environment"
-  }
-
-  # === ASSERTION GROUP 7: SEQUENTIAL DEPLOYMENT SUCCESS VALIDATION ===
+  # === ASSERTION GROUP 9: SEQUENTIAL DEPLOYMENT SUCCESS VALIDATION ===
   assert {
     condition     = output.validation_checkpoints.environment_created == true
     error_message = "Environment creation checkpoint must pass"
@@ -151,7 +203,7 @@ run "apply_validation" {
     error_message = "Overall sequential deployment must be successful"
   }
 
-  # === ASSERTION GROUP 8: OUTPUT INTEGRITY VALIDATION ===
+  # === ASSERTION GROUP 10: OUTPUT INTEGRITY VALIDATION ===
   assert {
     condition     = output.test_environment_id == powerplatform_environment.test.id
     error_message = "Output environment ID must match resource environment ID"
@@ -167,7 +219,7 @@ run "apply_validation" {
     error_message = "Resource summary must contain valid environment information"
   }
 
-  # === ASSERTION GROUP 9: DEBUGGING AND METADATA VALIDATION ===
+  # === ASSERTION GROUP 11: DEBUGGING AND METADATA VALIDATION ===
   assert {
     condition     = can(timestamp(output.deployment_timestamp))
     error_message = "Deployment timestamp must be valid RFC3339 timestamp"
