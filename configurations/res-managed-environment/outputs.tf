@@ -130,7 +130,7 @@ DESCRIPTION
   value = {
     checker_mode              = powerplatform_managed_environment.this.solution_checker_mode
     validation_emails_enabled = !powerplatform_managed_environment.this.suppress_validation_emails
-    rule_overrides_count      = length(powerplatform_managed_environment.this.solution_checker_rule_overrides)
+    rule_overrides_count      = powerplatform_managed_environment.this.solution_checker_rule_overrides != null ? length(powerplatform_managed_environment.this.solution_checker_rule_overrides) : 0
 
     # Computed status indicators
     validation_enforcement = powerplatform_managed_environment.this.solution_checker_mode == "Block" ? "strict" : powerplatform_managed_environment.this.solution_checker_mode == "Warn" ? "advisory" : "disabled"

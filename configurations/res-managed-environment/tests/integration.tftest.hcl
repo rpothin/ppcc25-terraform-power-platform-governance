@@ -211,8 +211,8 @@ run "default_configuration_validation" {
   }
 
   assert {
-    condition     = length(powerplatform_managed_environment.this.solution_checker_rule_overrides) == 0
-    error_message = "Default should not override any solution checker rules"
+    condition     = powerplatform_managed_environment.this.solution_checker_rule_overrides == null || length(powerplatform_managed_environment.this.solution_checker_rule_overrides) == 0
+    error_message = "Default should not override any solution checker rules (expects null or empty set)"
   }
 
   assert {
@@ -362,8 +362,8 @@ run "minimal_configuration_apply_test" {
   }
 
   assert {
-    condition     = powerplatform_managed_environment.this.solution_checker_rule_overrides != null
-    error_message = "Solution checker rule overrides should be handled gracefully (not null)"
+    condition     = powerplatform_managed_environment.this.solution_checker_rule_overrides == null
+    error_message = "Solution checker rule overrides should be null by default (matching API behavior)"
   }
 
   assert {
