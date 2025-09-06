@@ -153,3 +153,69 @@ resource "powerplatform_environment" "this" {
     ignore_changes = []
   }
 }
+
+# ==============================================================================
+# MANAGED ENVIRONMENT CONFIGURATION (OPTIONAL)
+# ==============================================================================
+# WHY: Consolidate managed environment creation with environment creation
+# This eliminates timing issues by creating both resources in same module context
+# following the proven pattern from utl-test-environment-managed-sequence
+resource "powerplatform_managed_environment" "this" {
+  count = var.enable_managed_environment && var.environment.environment_type != "Developer" ? 1 : 0
+
+  environment_id = powerplatform_environment.this.id
+
+  # Sharing and collaboration controls
+  is_group_sharing_disabled = var.managed_environment_settings.sharing_settings.is_group_sharing_disabled
+  limit_sharing_mode        = var.managed_environment_settings.sharing_settings.limit_sharing_mode
+  max_limit_user_sharing    = var.managed_environment_settings.sharing_settings.max_limit_user_sharing
+
+  # Usage insights and monitoring
+  is_usage_insights_disabled = var.managed_environment_settings.usage_insights_disabled
+
+  # Solution validation and quality controls
+  solution_checker_mode           = var.managed_environment_settings.solution_checker.mode
+  suppress_validation_emails      = var.managed_environment_settings.solution_checker.suppress_validation_emails
+  solution_checker_rule_overrides = var.managed_environment_settings.solution_checker.rule_overrides
+
+  # Maker onboarding and guidance
+  maker_onboarding_markdown = var.managed_environment_settings.maker_onboarding.markdown_content
+  maker_onboarding_url      = var.managed_environment_settings.maker_onboarding.learn_more_url
+
+  # Lifecycle management with enhanced validation
+  lifecycle {
+    # Environment ID validation
+    precondition {
+      condition     = length(trimspace(powerplatform_environment.this.id)) > 0 && can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", powerplatform_environment.this.id))
+      error_message = "🚨 INVALID ENVIRONMENT ID: Environment ID '${powerplatform_environment.this.id}' is invalid or empty. This should not occur when using this module correctly as the environment resource is created first. If you see this error, there may be a provider issue."
+    }
+
+    # Developer environment exclusion validation
+    precondition {
+      condition     = var.environment.environment_type != "Developer"
+      error_message = "🚨 DEVELOPER ENVIRONMENTS NOT SUPPORTED: Developer environments do not support managed environment features with service principal authentication. Current environment_type: '${var.environment.environment_type}'. Please use 'Sandbox', 'Production', or 'Trial' environment types for managed environment capabilities."
+    }
+
+    # Sharing settings validation
+    precondition {
+      condition = (
+        var.managed_environment_settings.sharing_settings.is_group_sharing_disabled == false
+        ? var.managed_environment_settings.sharing_settings.max_limit_user_sharing == -1
+        : var.managed_environment_settings.sharing_settings.max_limit_user_sharing > 0
+      )
+      error_message = "🚨 SHARING CONFIGURATION ERROR: When group sharing is enabled (is_group_sharing_disabled = false), max_limit_user_sharing must be -1. When disabled, it must be > 0. Current: is_group_sharing_disabled = ${var.managed_environment_settings.sharing_settings.is_group_sharing_disabled}, max_limit_user_sharing = ${var.managed_environment_settings.sharing_settings.max_limit_user_sharing}."
+    }
+
+    # 🔒 GOVERNANCE POLICY: "No Touch Prod"
+    # 
+    # ENFORCEMENT: All managed environment changes MUST go through Infrastructure as Code
+    # DETECTION: Terraform detects and reports ANY manual changes as drift
+    # COMPLIANCE: AVM TFNFR8 compliant lifecycle block positioning
+    # EXCEPTION: Contact Platform Team for emergency change procedures
+    ignore_changes = []
+  }
+
+  # WHY: Explicit dependency ensures environment is fully created
+  # This eliminates the need for artificial time delays
+  depends_on = [powerplatform_environment.this]
+}

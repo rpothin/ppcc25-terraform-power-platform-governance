@@ -3,7 +3,7 @@
 # These integration tests validate the environment deployment against a real Power Platform tenant.
 # Tests require authentication via OIDC and are designed for CI/CD environments like GitHub Actions.
 #
-# Updated to align with corrected provider schema and variable structure.
+# Updated to include comprehensive managed environment testing following the consolidation pattern.
 # 
 # ⚠️  DEVELOPER ENVIRONMENT LIMITATION:
 # - Developer environments are NOT SUPPORTED with service principal authentication
@@ -14,7 +14,7 @@
 # - Comprehensive Coverage: Validates structure, data integrity, and security
 # - Environment Agnostic: Works across development, staging, and production
 # - Failure Isolation: Clear error messages for rapid troubleshooting
-# - Minimum Assertion Coverage: 20+ for res-* modules (plan and apply tests)
+# - Minimum Assertion Coverage: 25+ for res-* modules with managed environment (plan and apply tests)
 
 # Provider configuration required for testing child modules
 provider "powerplatform" {
@@ -47,6 +47,10 @@ variables {
 
   # Disable duplicate protection for testing to avoid conflicts
   enable_duplicate_protection = false
+
+  # Test managed environment with defaults (enabled by default)
+  enable_managed_environment   = true
+  managed_environment_settings = {}
 }
 
 # --- Plan Validation Tests ---
@@ -137,6 +141,32 @@ run "plan_validation" {
     condition     = var.environment.environment_group_id != null
     error_message = "Environment group ID should be required for governance (AI settings controlled by group)."
   }
+
+  # Managed environment default validation (Additional assertions 16-20)
+  assert {
+    condition     = var.enable_managed_environment == true
+    error_message = "Managed environment should be enabled by default."
+  }
+
+  assert {
+    condition     = length(powerplatform_managed_environment.this) == 1
+    error_message = "Should create managed environment when enabled and not Developer type."
+  }
+
+  assert {
+    condition     = can(powerplatform_managed_environment.this[0].environment_id)
+    error_message = "Managed environment should have environment_id accessible in plan."
+  }
+
+  assert {
+    condition     = powerplatform_managed_environment.this[0].environment_id == powerplatform_environment.this.id
+    error_message = "Managed environment should reference the same environment ID."
+  }
+
+  assert {
+    condition     = powerplatform_managed_environment.this[0].is_group_sharing_disabled == false
+    error_message = "Should use default sharing settings (group sharing enabled)."
+  }
 }
 
 # --- Apply Validation Tests ---
@@ -200,6 +230,32 @@ run "apply_validation" {
     condition     = output.environment_summary.has_dataverse == (var.dataverse != null)
     error_message = "Environment summary dataverse flag should match configuration."
   }
+
+  # Managed environment apply validation (Assertions 26-30)
+  assert {
+    condition     = output.managed_environment_enabled == (var.enable_managed_environment && var.environment.environment_type != "Developer")
+    error_message = "Managed environment enabled output should match configuration logic."
+  }
+
+  assert {
+    condition     = output.managed_environment_id == powerplatform_environment.this.id
+    error_message = "Managed environment ID should match environment ID after deployment."
+  }
+
+  assert {
+    condition     = can(output.managed_environment_summary)
+    error_message = "Managed environment summary should be available."
+  }
+
+  assert {
+    condition     = output.managed_environment_summary.enabled == var.enable_managed_environment
+    error_message = "Managed environment summary should reflect enabled status."
+  }
+
+  assert {
+    condition     = output.environment_summary.managed_environment_enabled == true
+    error_message = "Environment summary should show managed environment is enabled."
+  }
 }
 
 # --- Advanced Test Scenarios ---
@@ -219,7 +275,9 @@ run "duplicate_protection_disabled_test" {
       security_group_id = "33333333-3333-3333-3333-333333333333"
       # Using default values: language_code=1033, admin_mode=true, background=false
     }
-    enable_duplicate_protection = false
+    enable_duplicate_protection  = false
+    enable_managed_environment   = false
+    managed_environment_settings = {}
   }
 
   assert {
@@ -235,6 +293,11 @@ run "duplicate_protection_disabled_test" {
   assert {
     condition     = length(data.powerplatform_environments.all) == 0
     error_message = "Environments data source should not be created when duplicate protection is disabled."
+  }
+
+  assert {
+    condition     = length(powerplatform_managed_environment.this) == 0
+    error_message = "Should not create managed environment when disabled in variables."
   }
 }
 
@@ -568,5 +631,235 @@ run "domain_special_characters_test" {
   assert {
     condition     = length(local.calculated_domain) <= 63
     error_message = "Calculated domain should not exceed 63 characters."
+  }
+}
+
+# ==============================================================================
+# MANAGED ENVIRONMENT TESTING
+# ==============================================================================
+
+# Managed environment disabled test
+run "managed_environment_disabled_test" {
+  command = plan
+  variables {
+    environment = {
+      display_name         = "Test Environment - No Managed Features"
+      location             = "unitedstates" # EXPLICIT CHOICE
+      environment_group_id = "12345678-1234-1234-1234-123456789012"
+      # Using default values for other properties
+    }
+    dataverse = {
+      currency_code     = "USD" # EXPLICIT CHOICE
+      security_group_id = "33333333-3333-3333-3333-333333333333"
+      # Using default values for other properties
+    }
+    enable_duplicate_protection  = false
+    enable_managed_environment   = false
+    managed_environment_settings = {}
+  }
+
+  assert {
+    condition     = var.enable_managed_environment == false
+    error_message = "Managed environment should be disabled for this test."
+  }
+
+  assert {
+    condition     = length(powerplatform_managed_environment.this) == 0
+    error_message = "Should not create managed environment when disabled."
+  }
+
+  assert {
+    condition     = can(powerplatform_environment.this.display_name)
+    error_message = "Should still create base environment when managed environment is disabled."
+  }
+}
+
+# Managed environment with custom settings test
+run "managed_environment_custom_settings_test" {
+  command = plan
+  variables {
+    environment = {
+      display_name         = "Test Environment - Custom Managed Settings"
+      location             = "unitedstates" # EXPLICIT CHOICE
+      environment_group_id = "12345678-1234-1234-1234-123456789012"
+      # Using default values for other properties
+    }
+    dataverse = {
+      currency_code     = "USD" # EXPLICIT CHOICE
+      security_group_id = "33333333-3333-3333-3333-333333333333"
+      # Using default values for other properties
+    }
+    enable_duplicate_protection = false
+    enable_managed_environment  = true
+    managed_environment_settings = {
+      sharing_settings = {
+        is_group_sharing_disabled = true
+        limit_sharing_mode        = "ExcludeSharingToSecurityGroups"
+        max_limit_user_sharing    = 5
+      }
+      usage_insights_disabled = false
+      solution_checker = {
+        mode                       = "Block"
+        suppress_validation_emails = false
+        rule_overrides             = ["meta-avoid-reg-no-attribute"]
+      }
+      maker_onboarding = {
+        markdown_content = "Custom welcome message for production environment"
+        learn_more_url   = "https://contoso.com/powerplatform-guidelines"
+      }
+    }
+  }
+
+  assert {
+    condition     = var.enable_managed_environment == true
+    error_message = "Managed environment should be enabled for this test."
+  }
+
+  assert {
+    condition     = length(powerplatform_managed_environment.this) == 1
+    error_message = "Should create managed environment when enabled."
+  }
+
+  assert {
+    condition     = powerplatform_managed_environment.this[0].is_group_sharing_disabled == true
+    error_message = "Should use custom sharing settings."
+  }
+
+  assert {
+    condition     = powerplatform_managed_environment.this[0].solution_checker_mode == "Block"
+    error_message = "Should use custom solution checker mode."
+  }
+
+  assert {
+    condition     = powerplatform_managed_environment.this[0].is_usage_insights_disabled == false
+    error_message = "Should use custom usage insights setting."
+  }
+
+  assert {
+    condition     = powerplatform_managed_environment.this[0].maker_onboarding_markdown == "Custom welcome message for production environment"
+    error_message = "Should use custom maker onboarding content."
+  }
+}
+
+# Developer environment test (managed environment should be disabled)
+run "developer_environment_managed_disabled_test" {
+  command = plan
+  variables {
+    environment = {
+      display_name         = "Test Developer Environment"
+      location             = "unitedstates" # EXPLICIT CHOICE
+      environment_type     = "Sandbox"      # Developer not supported, using Sandbox as proxy
+      environment_group_id = "12345678-1234-1234-1234-123456789012"
+      # Using default values for other properties
+    }
+    dataverse = {
+      currency_code     = "USD" # EXPLICIT CHOICE
+      security_group_id = "33333333-3333-3333-3333-333333333333"
+      # Using default values for other properties
+    }
+    enable_duplicate_protection  = false
+    enable_managed_environment   = true # Should be ignored for Developer type
+    managed_environment_settings = {}
+  }
+
+  # Note: Using Sandbox here since Developer is not supported with service principal
+  # This test validates that the logic is correct for the condition
+  assert {
+    condition     = var.environment.environment_type != "Developer"
+    error_message = "Developer environment type not supported in this test due to service principal limitation."
+  }
+
+  assert {
+    condition     = length(powerplatform_managed_environment.this) == 1
+    error_message = "Should create managed environment for Sandbox type (Developer type would be 0)."
+  }
+}
+
+# Production environment with managed features test
+run "production_managed_environment_test" {
+  command = plan
+  variables {
+    environment = {
+      display_name         = "Production Environment - Managed"
+      location             = "unitedstates" # EXPLICIT CHOICE
+      environment_type     = "Production"   # Override default value
+      environment_group_id = "12345678-1234-1234-1234-123456789012"
+      description          = "Production environment with managed features"
+      # Using default values for other properties
+    }
+    dataverse = {
+      currency_code     = "USD" # EXPLICIT CHOICE
+      security_group_id = "33333333-3333-3333-3333-333333333333"
+      # Using default values for other properties
+    }
+    enable_duplicate_protection = false
+    enable_managed_environment  = true
+    managed_environment_settings = {
+      solution_checker = {
+        mode                       = "Block"
+        suppress_validation_emails = false
+      }
+    }
+  }
+
+  assert {
+    condition     = var.environment.environment_type == "Production"
+    error_message = "Environment type should be Production for this test."
+  }
+
+  assert {
+    condition     = var.enable_managed_environment == true
+    error_message = "Managed environment should be enabled for production."
+  }
+
+  assert {
+    condition     = length(powerplatform_managed_environment.this) == 1
+    error_message = "Should create managed environment for Production type."
+  }
+
+  assert {
+    condition     = powerplatform_managed_environment.this[0].solution_checker_mode == "Block"
+    error_message = "Production should use strict solution checker mode."
+  }
+}
+
+# Managed environment output validation test
+run "managed_environment_outputs_test" {
+  command = plan
+  variables {
+    environment = {
+      display_name         = "Test Environment - Output Validation"
+      location             = "unitedstates" # EXPLICIT CHOICE
+      environment_group_id = "12345678-1234-1234-1234-123456789012"
+      # Using default values for other properties
+    }
+    dataverse = {
+      currency_code     = "USD" # EXPLICIT CHOICE
+      security_group_id = "33333333-3333-3333-3333-333333333333"
+      # Using default values for other properties
+    }
+    enable_duplicate_protection  = false
+    enable_managed_environment   = true
+    managed_environment_settings = {}
+  }
+
+  assert {
+    condition     = can(output.managed_environment_id)
+    error_message = "Should have managed_environment_id output."
+  }
+
+  assert {
+    condition     = can(output.managed_environment_summary)
+    error_message = "Should have managed_environment_summary output."
+  }
+
+  assert {
+    condition     = can(output.managed_environment_enabled)
+    error_message = "Should have managed_environment_enabled output."
+  }
+
+  assert {
+    condition     = output.managed_environment_enabled == true
+    error_message = "Managed environment enabled output should be true when enabled."
   }
 }

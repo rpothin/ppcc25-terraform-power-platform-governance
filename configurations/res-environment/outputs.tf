@@ -68,6 +68,11 @@ output "environment_summary" {
     classification                   = "res-environment"
     terraform_managed                = true
     duplicate_protection_enabled     = var.enable_duplicate_protection
+
+    # Managed environment integration
+    managed_environment_enabled = var.enable_managed_environment && var.environment.environment_type != "Developer"
+    managed_environment_id      = length(powerplatform_managed_environment.this) > 0 ? powerplatform_managed_environment.this[0].environment_id : null
+    consolidated_governance     = length(powerplatform_managed_environment.this) > 0
   }
 }
 
@@ -130,4 +135,86 @@ output "environment_metadata" {
       dataverse   = var.dataverse
     }))
   }
+}
+
+# ============================================================================
+# MANAGED ENVIRONMENT OUTPUTS
+# ============================================================================
+
+# Primary managed environment identifier for downstream configurations
+output "managed_environment_id" {
+  description = <<DESCRIPTION
+The unique identifier of the managed environment configuration, if enabled.
+
+This output provides the primary key for referencing this managed environment
+in other Terraform configurations or external systems when managed environment
+features are enabled. Returns null when managed environment is disabled.
+
+Use this ID to:
+- Reference in enterprise policy configurations
+- Integrate with monitoring and reporting systems
+- Set up advanced governance policies
+- Configure environment-specific automation
+
+Format: GUID (e.g., 12345678-1234-1234-1234-123456789012) or null
+Note: This is the same as the environment_id but confirms successful managed environment setup
+DESCRIPTION
+  value       = length(powerplatform_managed_environment.this) > 0 ? powerplatform_managed_environment.this[0].environment_id : null
+}
+
+# Managed environment configuration summary for validation and reporting
+output "managed_environment_summary" {
+  description = "Summary of deployed managed environment configuration for validation and compliance reporting, null if disabled"
+  value = length(powerplatform_managed_environment.this) > 0 ? {
+    # Core identification
+    environment_id = powerplatform_managed_environment.this[0].environment_id
+    enabled        = var.enable_managed_environment
+
+    # Module metadata
+    resource_type     = "powerplatform_managed_environment"
+    classification    = "res-environment-consolidated"
+    deployment_status = "deployed"
+
+    # Configuration summary
+    sharing_settings = {
+      is_group_sharing_disabled = powerplatform_managed_environment.this[0].is_group_sharing_disabled
+      limit_sharing_mode        = powerplatform_managed_environment.this[0].limit_sharing_mode
+      max_limit_user_sharing    = powerplatform_managed_environment.this[0].max_limit_user_sharing
+    }
+
+    usage_insights_disabled = powerplatform_managed_environment.this[0].is_usage_insights_disabled
+
+    solution_checker = {
+      mode                       = powerplatform_managed_environment.this[0].solution_checker_mode
+      suppress_validation_emails = powerplatform_managed_environment.this[0].suppress_validation_emails
+      rule_overrides             = powerplatform_managed_environment.this[0].solution_checker_rule_overrides
+    }
+
+    maker_onboarding = {
+      markdown_content = powerplatform_managed_environment.this[0].maker_onboarding_markdown
+      learn_more_url   = powerplatform_managed_environment.this[0].maker_onboarding_url
+    }
+
+    # Operational metadata
+    deployment_timestamp = timestamp()
+    terraform_managed    = true
+    consolidated_pattern = true
+
+    # Enterprise capabilities
+    capabilities = {
+      sharing_controls    = true
+      solution_validation = true
+      usage_insights      = !powerplatform_managed_environment.this[0].is_usage_insights_disabled
+      maker_guidance      = true
+      enterprise_policies = true
+      environment_groups  = true
+      advanced_monitoring = true
+    }
+  } : null
+}
+
+# Managed environment status for conditional logic
+output "managed_environment_enabled" {
+  description = "Boolean indicating whether managed environment features are enabled for this environment"
+  value       = var.enable_managed_environment && var.environment.environment_type != "Developer"
 }
