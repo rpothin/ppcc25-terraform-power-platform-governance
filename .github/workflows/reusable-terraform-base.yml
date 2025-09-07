@@ -500,9 +500,56 @@ jobs:
                 apply_args="$apply_args -auto-approve"
               fi
 
-              # Execute the apply operation with full output capture
+              # Execute the apply operation with enhanced error detection
               apply_output_file="apply-output.txt"
-              if terraform apply $apply_args 2>&1 | tee "$apply_output_file"; then
+              
+              # Temporarily disable strict error handling to capture both exit code and output
+              set +e
+              terraform apply $apply_args 2>&1 | tee "$apply_output_file"
+              apply_exit_code=${PIPESTATUS[0]}
+              set -e  # Re-enable strict error handling
+
+              # === ENHANCED SUCCESS/ERROR ANALYSIS ===
+              # Check both exit code AND output content for comprehensive error detection
+              # This prevents false positives where Terraform returns 0 but actual errors occurred
+              
+              # Initialize error detection variables
+              has_terraform_errors=false
+              error_details=""
+
+              # PATTERN 1: Check for explicit Terraform error messages
+              if grep -q "^.*Error:" "$apply_output_file"; then
+                has_terraform_errors=true
+                error_details="Terraform reported explicit errors during apply operation"
+              fi
+
+              # PATTERN 2: Check for error blocks with box drawing characters (│ Error)
+              if grep -q "│ Error" "$apply_output_file"; then
+                has_terraform_errors=true
+                error_details="Terraform reported errors in formatted error blocks"
+              fi
+
+              # PATTERN 3: Check for provider-specific error patterns
+              if grep -q "_FAILED:" "$apply_output_file"; then
+                has_terraform_errors=true
+                error_details="Provider reported operation failures"
+              fi
+
+              # PATTERN 4: Check for API error responses
+              if grep -q '"error":\s*{' "$apply_output_file"; then
+                has_terraform_errors=true
+                error_details="API error responses detected in output"
+              fi
+
+              # PATTERN 5: Check for resource creation/update failures
+              if grep -q "Error creating\|Error updating\|Error deleting" "$apply_output_file"; then
+                has_terraform_errors=true
+                error_details="Resource operation errors detected"
+              fi
+
+              # === FINAL SUCCESS DETERMINATION ===
+              # Apply is successful ONLY if exit code is 0 AND no error patterns detected
+              if [ $apply_exit_code -eq 0 ] && [ "$has_terraform_errors" = "false" ]; then
                 echo "::notice title=Apply Success::✅ Terraform apply completed successfully"
                 echo "success=true" >> $GITHUB_OUTPUT
 
@@ -513,7 +560,44 @@ jobs:
                   echo "APPLY_OUTPUT_EOF"
                 } >> $GITHUB_OUTPUT
               else
-                echo "::error title=Apply Failed::❌ Terraform apply failed"
+                # === DETAILED ERROR REPORTING ===
+                if [ $apply_exit_code -ne 0 ]; then
+                  echo "::error title=Apply Failed::❌ Terraform apply failed with exit code $apply_exit_code"
+                elif [ "$has_terraform_errors" = "true" ]; then
+                  echo "::error title=Partial Apply Failure::❌ Terraform apply completed with errors"
+                  echo "::error title=Error Details::$error_details"
+                fi
+
+                # === ENHANCED ERROR ANALYSIS ===
+                # Extract specific error information for better troubleshooting
+                
+                # Extract the first error message for quick reference
+                first_error=$(grep -m 1 "Error:" "$apply_output_file" 2>/dev/null || echo "See output for details")
+                echo "::error title=First Error::$first_error"
+
+                # Check for common error patterns and provide guidance
+                if grep -q "non-managed environment" "$apply_output_file"; then
+                  echo "::error title=Environment Type Issue::🔍 Detected managed environment configuration applied to non-managed environment"
+                  echo "::error::This often indicates environment type mismatch - check if environment requires managed environment setup"
+                fi
+
+                if grep -q "insufficient permissions\|unauthorized\|access denied" "$apply_output_file"; then
+                  echo "::error title=Permission Issue::🔒 Insufficient permissions detected"
+                  echo "::error::Verify that the service principal has required permissions for Power Platform operations"
+                fi
+
+                if grep -q "already exists\|duplicate\|conflict" "$apply_output_file"; then
+                  echo "::error title=Resource Conflict::🔄 Resource conflict detected"
+                  echo "::error::Consider importing existing resources or resolving naming conflicts"
+                fi
+
+                # Display error context (5 lines before and after first error)
+                if grep -n "Error:" "$apply_output_file" | head -1 | cut -d: -f1 > /dev/null 2>&1; then
+                  error_line=$(grep -n "Error:" "$apply_output_file" | head -1 | cut -d: -f1)
+                  echo "::group::🔍 Error Context (Lines $((error_line-5)) to $((error_line+5)))"
+                  sed -n "$((error_line-5)),$((error_line+5))p" "$apply_output_file" 2>/dev/null || echo "Could not extract error context"
+                  echo "::endgroup::"
+                fi
 
                 # Capture error output for troubleshooting
                 {
