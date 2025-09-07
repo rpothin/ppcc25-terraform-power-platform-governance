@@ -19,16 +19,24 @@ Available templates:
 
 Example:
 workspace_template = "basic"
-
-Validation Rules:
-- Must be one of the supported template names
-- Template definitions are managed in locals.tf
-- Each template includes environment types and naming conventions
 DESCRIPTION
 
   validation {
     condition     = contains(["basic", "simple", "enterprise"], var.workspace_template)
-    error_message = "Workspace template must be one of: basic, simple, enterprise. Check available templates in locals.tf."
+    error_message = "workspace_template must be one of: basic, simple, enterprise"
+  }
+}
+
+variable "enable_pattern_duplicate_protection" {
+  type        = bool
+  description = "Enable pattern-level duplicate environment detection and prevention."
+  default     = true
+
+  validation {
+    condition = (
+      var.enable_pattern_duplicate_protection == true || var.enable_pattern_duplicate_protection == false
+    )
+    error_message = "Invalid boolean value for enable_pattern_duplicate_protection. Must be true or false. GOVERNANCE NOTE: Setting to false disables duplicate protection at pattern level - use only for testing scenarios or when importing existing environments."
   }
 }
 

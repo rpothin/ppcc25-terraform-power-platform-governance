@@ -82,7 +82,7 @@ locals {
 # Note: This will detect duplicates on fresh deployments but will not block
 # terraform operations on existing state that has already imported environments
 resource "null_resource" "pattern_duplicate_guardrail" {
-  count = local.has_external_duplicates ? 1 : 0
+  count = local.has_external_duplicates && var.enable_pattern_duplicate_protection ? 1 : 0
 
   provisioner "local-exec" {
     command = "echo 'DUPLICATE ENVIRONMENT DETECTED: This pattern would create environments with names that already exist. This is blocked for governance and consistency.'; exit 1"
