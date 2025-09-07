@@ -24,10 +24,6 @@ data "powerplatform_environments" "all" {
 
 # Domain calculation and duplicate detection logic
 locals {
-  # More reliable state checking: Use try() to safely check if resource exists in state
-  # This works during both planning and apply phases for existing resources
-  environment_exists_in_state = try(powerplatform_environment.this.id, null) != null
-
   # Always calculate domain from display_name when dataverse is enabled (for transparency and validation)
   calculated_domain = var.dataverse != null ? (
     substr(
@@ -52,25 +48,19 @@ locals {
   # Provider constraint: environment_group_id requires dataverse to be specified
   environment_group_id = var.dataverse != null ? var.environment.environment_group_id : null
 
-  # Enhanced duplicate detection logic with improved state awareness
-  # Only check for duplicates if:
-  # 1. Duplicate protection is enabled
-  # 2. Environment doesn't already exist in current Terraform state
-  # 3. Data source query was executed
+  # Simplified duplicate detection logic without circular dependencies
+  # Only check for duplicates if protection is enabled and data source was queried
   existing_environment_matches = (
     var.enable_duplicate_protection &&
-    !local.environment_exists_in_state &&
     length(data.powerplatform_environments.all) > 0
     ) ? [
     for env in try(data.powerplatform_environments.all[0].environments, []) : env
-    if env.display_name == var.environment.display_name && try(env.id, "") != try(powerplatform_environment.this.id, "")
+    if env.display_name == var.environment.display_name
   ] : []
 
-  # Determine if there's a duplicate with improved state awareness
-  # Skip duplicate detection entirely if resource already exists in state
+  # Determine if there's a duplicate
   has_duplicate = (
     var.enable_duplicate_protection &&
-    !local.environment_exists_in_state &&
     length(local.existing_environment_matches) > 0
   )
 
@@ -90,7 +80,6 @@ resource "null_resource" "environment_duplicate_guardrail" {
       Existing Environment ID: ${coalesce(local.duplicate_environment_id, "unknown")}
       
       DEBUG INFO:
-      - Resource exists in state: ${local.environment_exists_in_state}
       - Duplicate matches found: ${length(local.existing_environment_matches)}
       
       RESOLUTION OPTIONS:
@@ -108,8 +97,8 @@ resource "null_resource" "environment_duplicate_guardrail" {
   triggers = {
     display_name         = var.environment.display_name
     duplicate_protection = var.enable_duplicate_protection
-    # Add state awareness trigger to help debugging
-    state_exists = tostring(local.environment_exists_in_state)
+    # Add environment name for better tracking
+    environment_name = var.environment.display_name
   }
 }
 
@@ -152,7 +141,6 @@ resource "powerplatform_environment" "this" {
       Existing Environment ID: ${coalesce(local.duplicate_environment_id, "unknown")}
       
       DEBUG INFO:
-      - Resource exists in state: ${local.environment_exists_in_state}
       - Duplicate matches found: ${length(local.existing_environment_matches)}
       
       RESOLUTION OPTIONS:
