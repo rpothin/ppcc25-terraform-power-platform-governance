@@ -160,27 +160,56 @@ resource "powerplatform_environment" "this" {
 # WHY: Consolidate managed environment creation with environment creation
 # This eliminates timing issues by creating both resources in same module context
 # following the proven pattern from utl-test-environment-managed-sequence
+
+# Local value resolution for managed environment settings
+# WHY: Ensure nested optional object defaults are properly resolved
+# This prevents provider errors when empty objects are passed as variables
+locals {
+  # Resolve sharing settings with explicit defaults
+  managed_sharing_settings = {
+    is_group_sharing_disabled = try(var.managed_environment_settings.sharing_settings.is_group_sharing_disabled, false)
+    limit_sharing_mode        = try(var.managed_environment_settings.sharing_settings.limit_sharing_mode, "NoLimit")
+    max_limit_user_sharing    = try(var.managed_environment_settings.sharing_settings.max_limit_user_sharing, -1)
+  }
+
+  # Resolve solution checker settings with explicit defaults
+  managed_solution_checker = {
+    mode                       = try(var.managed_environment_settings.solution_checker.mode, "Warn")
+    suppress_validation_emails = try(var.managed_environment_settings.solution_checker.suppress_validation_emails, true)
+    rule_overrides             = try(var.managed_environment_settings.solution_checker.rule_overrides, null)
+  }
+
+  # Resolve maker onboarding settings with explicit defaults
+  managed_maker_onboarding = {
+    markdown_content = try(var.managed_environment_settings.maker_onboarding.markdown_content, "Welcome to our Power Platform environment. Please follow organizational guidelines when developing solutions.")
+    learn_more_url   = try(var.managed_environment_settings.maker_onboarding.learn_more_url, "https://learn.microsoft.com/power-platform/")
+  }
+
+  # Resolve usage insights setting with explicit default
+  managed_usage_insights_disabled = try(var.managed_environment_settings.usage_insights_disabled, true)
+}
+
 resource "powerplatform_managed_environment" "this" {
   count = var.enable_managed_environment && var.environment.environment_type != "Developer" ? 1 : 0
 
   environment_id = powerplatform_environment.this.id
 
-  # Sharing and collaboration controls
-  is_group_sharing_disabled = var.managed_environment_settings.sharing_settings.is_group_sharing_disabled
-  limit_sharing_mode        = var.managed_environment_settings.sharing_settings.limit_sharing_mode
-  max_limit_user_sharing    = var.managed_environment_settings.sharing_settings.max_limit_user_sharing
+  # Sharing and collaboration controls - using resolved local values
+  is_group_sharing_disabled = local.managed_sharing_settings.is_group_sharing_disabled
+  limit_sharing_mode        = local.managed_sharing_settings.limit_sharing_mode
+  max_limit_user_sharing    = local.managed_sharing_settings.max_limit_user_sharing
 
-  # Usage insights and monitoring
-  is_usage_insights_disabled = var.managed_environment_settings.usage_insights_disabled
+  # Usage insights and monitoring - using resolved local value
+  is_usage_insights_disabled = local.managed_usage_insights_disabled
 
-  # Solution validation and quality controls
-  solution_checker_mode           = var.managed_environment_settings.solution_checker.mode
-  suppress_validation_emails      = var.managed_environment_settings.solution_checker.suppress_validation_emails
-  solution_checker_rule_overrides = var.managed_environment_settings.solution_checker.rule_overrides
+  # Solution validation and quality controls - using resolved local values
+  solution_checker_mode           = local.managed_solution_checker.mode
+  suppress_validation_emails      = local.managed_solution_checker.suppress_validation_emails
+  solution_checker_rule_overrides = local.managed_solution_checker.rule_overrides
 
-  # Maker onboarding and guidance
-  maker_onboarding_markdown = var.managed_environment_settings.maker_onboarding.markdown_content
-  maker_onboarding_url      = var.managed_environment_settings.maker_onboarding.learn_more_url
+  # Maker onboarding and guidance - using resolved local values
+  maker_onboarding_markdown = local.managed_maker_onboarding.markdown_content
+  maker_onboarding_url      = local.managed_maker_onboarding.learn_more_url
 
   # Lifecycle management with enhanced validation
   lifecycle {
@@ -196,14 +225,14 @@ resource "powerplatform_managed_environment" "this" {
       error_message = "🚨 DEVELOPER ENVIRONMENTS NOT SUPPORTED: Developer environments do not support managed environment features with service principal authentication. Current environment_type: '${var.environment.environment_type}'. Please use 'Sandbox', 'Production', or 'Trial' environment types for managed environment capabilities."
     }
 
-    # Sharing settings validation
+    # Sharing settings validation - using resolved local values
     precondition {
       condition = (
-        var.managed_environment_settings.sharing_settings.is_group_sharing_disabled == false
-        ? var.managed_environment_settings.sharing_settings.max_limit_user_sharing == -1
-        : var.managed_environment_settings.sharing_settings.max_limit_user_sharing > 0
+        local.managed_sharing_settings.is_group_sharing_disabled == false
+        ? local.managed_sharing_settings.max_limit_user_sharing == -1
+        : local.managed_sharing_settings.max_limit_user_sharing > 0
       )
-      error_message = "🚨 SHARING CONFIGURATION ERROR: When group sharing is enabled (is_group_sharing_disabled = false), max_limit_user_sharing must be -1. When disabled, it must be > 0. Current: is_group_sharing_disabled = ${var.managed_environment_settings.sharing_settings.is_group_sharing_disabled}, max_limit_user_sharing = ${var.managed_environment_settings.sharing_settings.max_limit_user_sharing}."
+      error_message = "🚨 SHARING CONFIGURATION ERROR: When group sharing is enabled (is_group_sharing_disabled = false), max_limit_user_sharing must be -1. When disabled, it must be > 0. Current: is_group_sharing_disabled = ${local.managed_sharing_settings.is_group_sharing_disabled}, max_limit_user_sharing = ${local.managed_sharing_settings.max_limit_user_sharing}."
     }
 
     # 🔒 GOVERNANCE POLICY: "No Touch Prod"
