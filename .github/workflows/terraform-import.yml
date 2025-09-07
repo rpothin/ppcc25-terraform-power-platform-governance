@@ -44,7 +44,7 @@ on:
         type: choice
         options:
           - 'res-dlp-policy'
-          - 'ptn-environment'
+          - 'ptn-environment-group'
         # WHY: Scopes permissions and isolates blast radius for governance
         # VALIDATION: Must exist in configurations/ and contain .tf files
         # SECURITY: Used in state key generation to prevent cross-configuration access

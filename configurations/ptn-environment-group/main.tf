@@ -62,95 +62,11 @@ module "environments" {
   # Enable duplicate protection for production workspaces
   enable_duplicate_protection = true
 
+  # Disable managed environment module since environments auto-convert when in groups
+  enable_managed_environment = false
+
   # Explicit dependency on environment group module
   depends_on = [module.environment_group]
-}
-
-# ============================================================================
-# MANAGED ENVIRONMENT MODULE ORCHESTRATION WITH SEQUENTIAL DEPLOYMENT
-# ============================================================================
-
-# Buffer time for environment provisioning to complete
-# Power Platform environments need time for backend provisioning
-resource "time_sleep" "environment_provisioning_buffer" {
-  for_each = local.template_environments
-
-  create_duration = "30s" # Allow time for environment backend setup
-
-  depends_on = [module.environments]
-
-  triggers = {
-    environment_id = module.environments[each.key].environment_id
-  }
-}
-
-# Sequential deployment resource for managing rollout timing
-# This prevents overwhelming the Power Platform API with simultaneous requests
-resource "null_resource" "managed_environment_deployment_control" {
-  for_each = local.template_environments
-
-  # Sequential deployment triggers
-  triggers = {
-    environment_id = module.environments[each.key].environment_id
-    environment_ready_hash = sha256(jsonencode({
-      environment_id = module.environments[each.key].environment_id
-      deployment_key = each.key
-      template_name  = var.workspace_template
-    }))
-    deployment_timestamp = timestamp()
-    buffer_complete      = time_sleep.environment_provisioning_buffer[each.key].id
-  }
-
-  # Validate environment is ready before managed environment configuration
-  lifecycle {
-    precondition {
-      condition     = length(trimspace(module.environments[each.key].environment_id)) > 0
-      error_message = "Environment ${each.key} must have a valid ID before managed environment configuration. Current ID: '${module.environments[each.key].environment_id}'"
-    }
-
-    precondition {
-      condition     = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", module.environments[each.key].environment_id))
-      error_message = "Environment ${each.key} ID must be a valid GUID format. Received: '${module.environments[each.key].environment_id}'"
-    }
-  }
-
-  # Explicit dependency chain: group → environments → buffer → readiness_check
-  depends_on = [time_sleep.environment_provisioning_buffer]
-}
-
-# Configure managed environment settings using template-processed configurations
-# Applies workspace-level defaults with environment-specific overrides
-# Uses sequential deployment to prevent API overwhelm and timing issues
-module "managed_environment" {
-  source   = "../res-managed-environment"
-  for_each = local.template_environments
-
-  # Environment ID from created environments with validation
-  environment_id = module.environments[each.key].environment_id
-
-  # Use default managed environment settings for template-driven configuration
-  # These can be customized per template in the future if needed
-  sharing_settings = {
-    is_group_sharing_disabled = false     # Enable group sharing (better governance)
-    limit_sharing_mode        = "NoLimit" # Allow sharing with security groups
-    max_limit_user_sharing    = -1        # Unlimited when group sharing enabled
-  }
-
-  usage_insights_disabled = true # Disable weekly email digests for demo environments
-
-  solution_checker = {
-    mode                       = "Warn" # Validate but don't block
-    suppress_validation_emails = true   # Reduce email noise
-    rule_overrides             = []     # No rule overrides by default
-  }
-
-  maker_onboarding = {
-    markdown_content = "Welcome to the ${var.name} workspace. Please follow organizational guidelines when developing solutions."
-    learn_more_url   = "https://learn.microsoft.com/power-platform/"
-  }
-
-  # Sequential dependency chain: group → environments → readiness_check → managed_environment
-  depends_on = [null_resource.managed_environment_deployment_control]
 }
 
 # ============================================================================
@@ -172,8 +88,8 @@ module "environment_settings" {
   feature_settings  = each.value.settings.feature_settings
   email_settings    = each.value.settings.email_settings
 
-  # Explicit dependency chain: group → environments → managed_environment → settings
-  depends_on = [module.managed_environment]
+  # Explicit dependency chain: group → environments → settings
+  depends_on = [module.environments]
 }
 
 # ============================================================================
