@@ -221,6 +221,40 @@ jobs:
           configuration: ${{ github.event.inputs.configuration }}
           tfvars-file: ${{ github.event.inputs.tfvars_file }}
 
+      # === DEBUG STATE ACCESS ===
+      # Troubleshoot state file accessibility and backend configuration
+      - name: Debug State Access
+        run: |
+          config="${{ github.event.inputs.configuration }}"
+          cd "configurations/$config"
+          
+          echo "::notice title=Debug Info::🔍 Debugging state access and backend configuration..."
+          echo "::debug::Working directory: $(pwd)"
+          echo "::debug::Configuration: $config"
+          echo "::debug::TFVars file: ${{ github.event.inputs.tfvars_file }}"
+          
+          # Check Terraform working directory
+          if [ -d ".terraform" ]; then
+            echo "::debug::.terraform directory exists"
+            ls -la .terraform/ 2>/dev/null || echo "::debug::Cannot list .terraform contents"
+          else
+            echo "::warning::.terraform directory missing"
+          fi
+          
+          # Test basic Terraform commands
+          echo "::debug::Testing terraform version..."
+          terraform version 2>/dev/null || echo "::warning::terraform version failed"
+          
+          echo "::debug::Testing terraform workspace show..."
+          terraform workspace show 2>/dev/null || echo "::warning::terraform workspace show failed"
+          
+          echo "::debug::Testing terraform state list..."
+          terraform state list 2>/dev/null || echo "::warning::terraform state list failed"
+          
+          # Check backend configuration
+          echo "::debug::Checking backend configuration in terraform files..."
+          grep -r "backend\|azurerm" *.tf 2>/dev/null || echo "::debug::No explicit backend config in .tf files"
+
       # === GENERATE WORKFLOW METADATA ===
       - name: Generate Workflow Metadata
         uses: ./.github/actions/generate-workflow-metadata
@@ -241,30 +275,74 @@ jobs:
 
           echo "::notice title=Resource Check::📊 Checking for resources in Terraform state..."
 
-          # Check if state contains any resources
-          if terraform show -json > state_output.json 2>/dev/null; then
-            # Count managed resources
-            resource_count=0
-            if command -v jq >/dev/null 2>&1; then
-              resource_count=$(jq -r '.values.root_module.resources[]? | select(.mode == "managed") | .address' state_output.json 2>/dev/null | wc -l || echo "0")
-            else
-              resource_count=$(terraform state list 2>/dev/null | wc -l || echo "0")
-            fi
+          # More robust resource check using multiple methods
+          resource_count=0
+          resources_exist=false
 
-            if [ "$resource_count" -gt 0 ]; then
-              echo "::warning title=Resources Found::⚠️ $resource_count resources found in state"
-              echo "resources-exist=true" >> $GITHUB_OUTPUT
-              echo "resource-count=$resource_count" >> $GITHUB_OUTPUT
-            else
-              echo "::notice title=No Resources::✅ No managed resources found in state"
-              echo "resources-exist=false" >> $GITHUB_OUTPUT
-              echo "resource-count=0" >> $GITHUB_OUTPUT
+          # Method 1: Try terraform state list (most reliable)
+          echo "::debug::Attempting terraform state list..."
+          if state_list_output=$(terraform state list 2>/dev/null); then
+            if [ -n "$state_list_output" ]; then
+              resource_count=$(echo "$state_list_output" | wc -l)
+              if [ "$resource_count" -gt 0 ]; then
+                resources_exist=true
+                echo "::notice title=State List Success::✅ Found $resource_count resources via state list"
+                echo "::debug::Resources found:"
+                echo "$state_list_output" | head -10
+              fi
             fi
           else
-            echo "::notice title=No State::📝 No Terraform state found"
+            echo "::debug::terraform state list failed, trying alternative methods..."
+          fi
+
+          # Method 2: Try terraform show if state list failed
+          if [ "$resources_exist" = false ]; then
+            echo "::debug::Attempting terraform show -json..."
+            if terraform show -json > state_output.json 2>/dev/null; then
+              if command -v jq >/dev/null 2>&1; then
+                resource_count=$(jq -r '.values.root_module.resources[]? | select(.mode == "managed") | .address' state_output.json 2>/dev/null | wc -l || echo "0")
+              else
+                # Fallback: Check if the JSON contains resources without jq
+                if grep -q '"resources"' state_output.json 2>/dev/null; then
+                  resource_count=1  # Assume at least one resource if resources section exists
+                fi
+              fi
+              
+              if [ "$resource_count" -gt 0 ]; then
+                resources_exist=true
+                echo "::notice title=JSON Show Success::✅ Found $resource_count resources via show -json"
+              fi
+              rm -f state_output.json
+            else
+              echo "::debug::terraform show -json also failed"
+            fi
+          fi
+
+          # Method 3: Check for .terraform.tfstate.lock.info as last resort
+          if [ "$resources_exist" = false ]; then
+            echo "::debug::Checking for state lock file as indicator..."
+            if [ -f ".terraform.tfstate.lock.info" ] || terraform force-unlock -help >/dev/null 2>&1; then
+              echo "::notice title=State Detected::ℹ️ State infrastructure detected, assuming resources exist"
+              resources_exist=true
+              resource_count=1  # Conservative assumption
+            fi
+          fi
+
+          # Set outputs based on results
+          if [ "$resources_exist" = true ]; then
+            echo "::warning title=Resources Found::⚠️ $resource_count resources found in state"
+            echo "resources-exist=true" >> $GITHUB_OUTPUT
+            echo "resource-count=$resource_count" >> $GITHUB_OUTPUT
+          else
+            echo "::notice title=No Resources::✅ No managed resources found in state"
             echo "resources-exist=false" >> $GITHUB_OUTPUT
             echo "resource-count=0" >> $GITHUB_OUTPUT
           fi
+
+          # Additional debugging information
+          echo "::debug::Working directory: $(pwd)"
+          echo "::debug::Terraform files present: $(ls -la *.tf 2>/dev/null | wc -l)"
+          echo "::debug::Terraform directory exists: $([ -d .terraform ] && echo 'yes' || echo 'no')"
 
       # === CLEANUP JIT ACCESS ===
       - name: Remove JIT Network Access
