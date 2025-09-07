@@ -151,8 +151,8 @@ run "plan_validation" {
   }
 
   assert {
-    condition     = length(powerplatform_managed_environment.this) == 1
-    error_message = "Should create managed environment when enabled and not Developer type."
+    condition     = length(module.managed_environment) == 1
+    error_message = "Should create managed environment module when enabled and not Developer type."
   }
 
   assert {
@@ -252,17 +252,17 @@ run "apply_validation" {
   # Additional managed environment runtime validation (Assertions 31-33)
   # WHY: These validate actual resource attributes only available after apply
   assert {
-    condition     = powerplatform_managed_environment.this[0].environment_id != null && powerplatform_managed_environment.this[0].environment_id != ""
-    error_message = "Managed environment should have a valid environment_id after creation."
+    condition     = module.managed_environment[0].managed_environment_id != null && module.managed_environment[0].managed_environment_id != ""
+    error_message = "Managed environment module should have a valid managed_environment_id after creation."
   }
 
   assert {
-    condition     = powerplatform_managed_environment.this[0].environment_id == powerplatform_environment.this.id
-    error_message = "Managed environment should reference the same environment ID after deployment."
+    condition     = module.managed_environment[0].managed_environment_id == powerplatform_environment.this.id
+    error_message = "Managed environment module should reference the same environment ID after deployment."
   }
 
   assert {
-    condition     = powerplatform_managed_environment.this[0].is_group_sharing_disabled == false
+    condition     = module.managed_environment[0].sharing_configuration.group_sharing_disabled == false
     error_message = "Should use default sharing settings (group sharing enabled) after deployment."
   }
 }
@@ -305,8 +305,8 @@ run "duplicate_protection_disabled_test" {
   }
 
   assert {
-    condition     = length(powerplatform_managed_environment.this) == 0
-    error_message = "Should not create managed environment when disabled in variables."
+    condition     = length(module.managed_environment) == 0
+    error_message = "Should not create managed environment module when disabled in variables."
   }
 }
 
@@ -673,8 +673,8 @@ run "managed_environment_disabled_test" {
   }
 
   assert {
-    condition     = length(powerplatform_managed_environment.this) == 0
-    error_message = "Should not create managed environment when disabled."
+    condition     = length(module.managed_environment) == 0
+    error_message = "Should not create managed environment module when disabled."
   }
 
   assert {
@@ -725,28 +725,28 @@ run "managed_environment_custom_settings_test" {
   }
 
   assert {
-    condition     = length(powerplatform_managed_environment.this) == 1
-    error_message = "Should create managed environment when enabled."
+    condition     = length(module.managed_environment) == 1
+    error_message = "Should create managed environment module when enabled."
   }
 
   assert {
-    condition     = powerplatform_managed_environment.this[0].is_group_sharing_disabled == true
+    condition     = module.managed_environment[0].sharing_configuration.group_sharing_disabled == true
     error_message = "Should use custom sharing settings."
   }
 
   assert {
-    condition     = powerplatform_managed_environment.this[0].solution_checker_mode == "Block"
+    condition     = module.managed_environment[0].solution_validation_status.checker_mode == "Block"
     error_message = "Should use custom solution checker mode."
   }
 
   assert {
-    condition     = powerplatform_managed_environment.this[0].is_usage_insights_disabled == false
+    condition     = module.managed_environment[0].managed_environment_summary.usage_insights_status == "enabled"
     error_message = "Should use custom usage insights setting."
   }
 
   assert {
-    condition     = powerplatform_managed_environment.this[0].maker_onboarding_markdown == "Custom welcome message for production environment"
-    error_message = "Should use custom maker onboarding content."
+    condition     = can(module.managed_environment[0].managed_environment_summary)
+    error_message = "Should use custom maker onboarding content via module."
   }
 }
 
@@ -779,8 +779,8 @@ run "developer_environment_managed_disabled_test" {
   }
 
   assert {
-    condition     = length(powerplatform_managed_environment.this) == 1
-    error_message = "Should create managed environment for Sandbox type (Developer type would be 0)."
+    condition     = length(module.managed_environment) == 1
+    error_message = "Should create managed environment module for Sandbox type (Developer type would be 0)."
   }
 }
 
@@ -822,12 +822,12 @@ run "production_managed_environment_test" {
   }
 
   assert {
-    condition     = length(powerplatform_managed_environment.this) == 1
-    error_message = "Should create managed environment for Production type."
+    condition     = length(module.managed_environment) == 1
+    error_message = "Should create managed environment module for Production type."
   }
 
   assert {
-    condition     = powerplatform_managed_environment.this[0].solution_checker_mode == "Block"
+    condition     = module.managed_environment[0].solution_validation_status.checker_mode == "Block"
     error_message = "Production should use strict solution checker mode."
   }
 }

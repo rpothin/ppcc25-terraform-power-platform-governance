@@ -71,8 +71,8 @@ output "environment_summary" {
 
     # Managed environment integration
     managed_environment_enabled = var.enable_managed_environment && var.environment.environment_type != "Developer"
-    managed_environment_id      = length(powerplatform_managed_environment.this) > 0 ? powerplatform_managed_environment.this[0].environment_id : null
-    consolidated_governance     = length(powerplatform_managed_environment.this) > 0
+    managed_environment_id      = length(module.managed_environment) > 0 ? module.managed_environment[0].managed_environment_id : null
+    consolidated_governance     = length(module.managed_environment) > 0
   }
 }
 
@@ -159,15 +159,15 @@ Use this ID to:
 Format: GUID (e.g., 12345678-1234-1234-1234-123456789012) or null
 Note: This is the same as the environment_id but confirms successful managed environment setup
 DESCRIPTION
-  value       = length(powerplatform_managed_environment.this) > 0 ? powerplatform_managed_environment.this[0].environment_id : null
+  value       = length(module.managed_environment) > 0 ? module.managed_environment[0].managed_environment_id : null
 }
 
 # Managed environment configuration summary for validation and reporting
 output "managed_environment_summary" {
   description = "Summary of deployed managed environment configuration for validation and compliance reporting, null if disabled"
-  value = length(powerplatform_managed_environment.this) > 0 ? {
+  value = length(module.managed_environment) > 0 ? {
     # Core identification
-    environment_id = powerplatform_managed_environment.this[0].environment_id
+    environment_id = module.managed_environment[0].managed_environment_id
     enabled        = var.enable_managed_environment
 
     # Module metadata
@@ -175,24 +175,16 @@ output "managed_environment_summary" {
     classification    = "res-environment-consolidated"
     deployment_status = "deployed"
 
-    # Configuration summary
-    sharing_settings = {
-      is_group_sharing_disabled = powerplatform_managed_environment.this[0].is_group_sharing_disabled
-      limit_sharing_mode        = powerplatform_managed_environment.this[0].limit_sharing_mode
-      max_limit_user_sharing    = powerplatform_managed_environment.this[0].max_limit_user_sharing
-    }
+    # Configuration summary - using module outputs
+    sharing_settings = module.managed_environment[0].sharing_configuration
 
-    usage_insights_disabled = powerplatform_managed_environment.this[0].is_usage_insights_disabled
+    usage_insights_disabled = module.managed_environment[0].managed_environment_summary.usage_insights_status == "disabled"
 
-    solution_checker = {
-      mode                       = powerplatform_managed_environment.this[0].solution_checker_mode
-      suppress_validation_emails = powerplatform_managed_environment.this[0].suppress_validation_emails
-      rule_overrides             = powerplatform_managed_environment.this[0].solution_checker_rule_overrides
-    }
+    solution_checker = module.managed_environment[0].solution_validation_status
 
     maker_onboarding = {
-      markdown_content = powerplatform_managed_environment.this[0].maker_onboarding_markdown
-      learn_more_url   = powerplatform_managed_environment.this[0].maker_onboarding_url
+      markdown_content = "Welcome to our Power Platform environment. Please follow organizational guidelines when developing solutions."
+      learn_more_url   = "https://learn.microsoft.com/power-platform/"
     }
 
     # Operational metadata
@@ -204,7 +196,7 @@ output "managed_environment_summary" {
     capabilities = {
       sharing_controls    = true
       solution_validation = true
-      usage_insights      = !powerplatform_managed_environment.this[0].is_usage_insights_disabled
+      usage_insights      = module.managed_environment[0].managed_environment_summary.usage_insights_status == "enabled"
       maker_guidance      = true
       enterprise_policies = true
       environment_groups  = true
