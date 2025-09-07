@@ -41,7 +41,7 @@ on:
         type: choice
         options:
           - 'res-dlp-policy'
-          - 'ptn-environment'
+          - 'ptn-environment-group'
           - 'res-environment' # For testing
       tfvars_file:
         description: >-

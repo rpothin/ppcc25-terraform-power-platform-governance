@@ -46,7 +46,7 @@ on:
         type: choice
         options:
           - 'res-dlp-policy'
-          - 'ptn-environment'
+          - 'ptn-environment-group'
           - 'res-environment' # For testing
         # WHY: Only allows safe, non-foundational configs to be destroyed
         # SECURITY: Prevents destruction of critical infrastructure components
