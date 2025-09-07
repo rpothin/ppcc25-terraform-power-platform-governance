@@ -196,12 +196,12 @@ DESCRIPTION
 }
 
 output "managed_environment_deployment_status" {
-  description = "Deployment status of the managed environment settings."
+  description = "Deployment status of the managed environment settings (auto-enabled via environment group)."
   value = {
     for idx, env in local.environment_summary : env.display_name => {
       environment_id    = module.environments[idx].environment_id
-      enabled           = true # Always true when managed_environment module executes successfully
-      deployment_status = module.managed_environment[idx].managed_environment_summary.deployment_status
+      enabled           = true           # Always true when environment is in an environment group
+      deployment_status = "auto-managed" # Environments automatically become managed when in groups
     }
   }
 }
@@ -247,10 +247,10 @@ output "orchestration_summary" {
     group_assignment_valid = local.deployment_validation.group_assignment_valid
 
     # Resource metrics (including settings modules)
-    total_resources_created    = 1 + local.pattern_metadata.environment_count + length(module.managed_environment) + length(module.environment_settings) # Group + environments + managed + settings
+    total_resources_created    = 1 + local.pattern_metadata.environment_count + length(module.environment_settings) # Group + environments + settings
     environment_group_id       = module.environment_group.environment_group_id
     environments_created       = local.pattern_metadata.environment_count
-    managed_environments_count = length(module.managed_environment)
+    managed_environments_count = local.pattern_metadata.environment_count # All environments auto-managed via group
     environment_settings_count = length(module.environment_settings)
 
     # Template processing results
@@ -345,15 +345,16 @@ output "governance_ready_resources" {
     }
 
     managed_environments = {
-      for idx, managed_env in module.managed_environment : idx => {
-        environment_id    = module.environments[idx].environment_id
+      for idx, env_module in module.environments : idx => {
+        environment_id    = env_module.environment_id
         environment_name  = local.environment_summary[idx].display_name
-        resource_type     = "powerplatform_managed_environment"
+        resource_type     = "powerplatform_environment" # Auto-managed via environment group
         governance_ready  = true
-        enabled           = true # Always true when managed_environment module executes successfully
-        deployment_status = managed_env.managed_environment_summary.deployment_status
+        enabled           = true           # Always true when environment is in an environment group
+        deployment_status = "auto-managed" # Environments automatically become managed when in groups
         template_driven   = true
         workspace_name    = var.name
+        auto_managed_note = "Environment automatically becomes managed when added to environment group"
       }
     }
   }

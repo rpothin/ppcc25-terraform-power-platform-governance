@@ -62,6 +62,9 @@ module "environments" {
   # Enable duplicate protection for production workspaces
   enable_duplicate_protection = true
 
+  # Disable managed environment module since environments auto-convert when in groups
+  enable_managed_environment = false
+
   # Explicit dependency on environment group module
   depends_on = [module.environment_group]
 }
