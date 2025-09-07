@@ -298,6 +298,19 @@ variable "enable_duplicate_protection" {
   }
 }
 
+variable "parent_duplicate_validation_passed" {
+  type        = bool
+  description = "Pattern-level duplicate validation status passed from parent configuration."
+  default     = true
+
+  validation {
+    condition = (
+      var.parent_duplicate_validation_passed == true || var.parent_duplicate_validation_passed == false
+    )
+    error_message = "Invalid boolean value for parent_duplicate_validation_passed. Must be true or false. This variable is controlled by parent pattern configurations to enable proper governance chaining."
+  }
+}
+
 variable "enable_managed_environment" {
   type        = bool
   default     = true

@@ -1,6 +1,8 @@
 # Power Platform Environment Group Pattern Configuration
 #
-# Template-driven pattern for creating environment groups with predefined
+# Template-driven pattern for creating environment groups with predef# Environment Group Pattern Configuration
+#
+# Template-driven pattern for creating Power Platform environment groups with standardized
 # workspace templates. Provides standardized environment configurations
 # for PPCC25 demonstration scenarios.
 # 
@@ -46,6 +48,73 @@ module "environment_group" {
 # ENVIRONMENT MODULE ORCHESTRATION
 # ============================================================================
 
+# Query existing environments for pattern-level duplicate detection
+# This provides governance at the pattern level while avoiding state context issues
+data "powerplatform_environments" "all" {
+  # Only query when we need to check for duplicates across the pattern
+}
+
+# Pattern-level duplicate detection logic
+locals {
+  # Extract all environment names that this pattern will create
+  planned_environment_names = [
+    for key, env in local.template_environments : env.environment.display_name
+  ]
+
+  # Check if any planned environments already exist in Power Platform
+  external_environment_matches = [
+    for env in try(data.powerplatform_environments.all.environments, []) : env
+    if contains(local.planned_environment_names, env.display_name)
+  ]
+
+  # Simple duplicate detection - flag if any environments with same names exist
+  # This provides governance while allowing for state import scenarios
+  has_external_duplicates = length(local.external_environment_matches) > 0
+
+  # Extract duplicate details for error reporting
+  duplicate_environment_details = {
+    for env in local.external_environment_matches : env.display_name => env.id
+  }
+}
+
+# Pattern-level duplicate protection guardrail
+# Duplicate detection guardrail - prevents creation of environments that already exist
+# Note: This will detect duplicates on fresh deployments but will not block
+# terraform operations on existing state that has already imported environments
+resource "null_resource" "pattern_duplicate_guardrail" {
+  count = local.has_external_duplicates ? 1 : 0
+
+  provisioner "local-exec" {
+    command = "echo 'DUPLICATE ENVIRONMENT DETECTED: This pattern would create environments with names that already exist. This is blocked for governance and consistency.'; exit 1"
+  }
+
+  lifecycle {
+    precondition {
+      condition     = !local.has_external_duplicates
+      error_message = <<-EOF
+        PATTERN-LEVEL DUPLICATE DETECTION FAILURE:
+        
+        This pattern configuration would create environments with display names that already exist
+        in your Power Platform tenant. This is blocked to maintain governance and prevent
+        resource conflicts.
+        
+        Detected duplicate environments:
+        ${jsonencode(local.duplicate_environment_details)}
+        
+        RESOLUTION OPTIONS:
+        1. Choose different environment names in your .tfvars file
+        2. If these environments should be managed by this configuration:
+           - Use 'terraform import' to bring existing environments under management
+           - Or remove existing environments if they're not needed
+        3. If you're working with an existing state that manages these environments:
+           - This check is designed for fresh deployments and may need adjustment
+        
+        This governance check ensures environment name uniqueness across your Power Platform tenant.
+      EOF
+    }
+  }
+}
+
 # Create environments using the template-driven configuration
 module "environments" {
   source   = "../res-environment"
@@ -59,14 +128,17 @@ module "environments" {
   # Dataverse configuration with monitoring service principal
   dataverse = each.value.dataverse
 
-  # Enable duplicate protection for production workspaces
-  enable_duplicate_protection = true
+  # Pattern-level governance control - authorize child after parent validation
+  # WHY: Parent validates global state, then authorizes child execution
+  # This creates proper governance chaining: validate at pattern level, execute at child level
+  enable_duplicate_protection        = true
+  parent_duplicate_validation_passed = !local.has_external_duplicates
 
   # Disable managed environment module since environments auto-convert when in groups
   enable_managed_environment = false
 
-  # Explicit dependency on environment group module
-  depends_on = [module.environment_group]
+  # Explicit dependency on environment group module and duplicate check
+  depends_on = [module.environment_group, null_resource.pattern_duplicate_guardrail]
 }
 
 # ============================================================================

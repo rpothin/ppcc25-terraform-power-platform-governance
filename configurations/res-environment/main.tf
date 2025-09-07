@@ -48,47 +48,59 @@ locals {
   # Provider constraint: environment_group_id requires dataverse to be specified
   environment_group_id = var.dataverse != null ? var.environment.environment_group_id : null
 
-  # Simplified duplicate detection logic without circular dependencies
-  # Only check for duplicates if protection is enabled and data source was queried
+  # Governance-chained duplicate detection logic
+  # Parent pattern validates global state, child executes with parent authorization
+  # Only check for duplicates if:
+  # 1. Protection is enabled
+  # 2. Parent validation has passed (governance chaining)
+  # 3. Data source was queried successfully
   existing_environment_matches = (
     var.enable_duplicate_protection &&
+    var.parent_duplicate_validation_passed &&
     length(data.powerplatform_environments.all) > 0
     ) ? [
     for env in try(data.powerplatform_environments.all[0].environments, []) : env
     if env.display_name == var.environment.display_name
   ] : []
 
-  # Determine if there's a duplicate
+  # Determine if there's a duplicate (only when protection is enabled and parent authorized)
   has_duplicate = (
     var.enable_duplicate_protection &&
+    var.parent_duplicate_validation_passed &&
     length(local.existing_environment_matches) > 0
   )
 
   duplicate_environment_id = local.has_duplicate ? local.existing_environment_matches[0].id : null
 }
 
-# Duplicate protection guardrail with enhanced debugging
+# Governance-chained duplicate protection guardrail
+# Child module executes duplicate check only when parent pattern authorizes it
 resource "null_resource" "environment_duplicate_guardrail" {
-  count = var.enable_duplicate_protection ? 1 : 0
+  count = var.enable_duplicate_protection && var.parent_duplicate_validation_passed ? 1 : 0
 
   lifecycle {
     precondition {
       condition     = !local.has_duplicate
       error_message = <<-EOT
-      🚨 DUPLICATE ENVIRONMENT DETECTED!
+      🚨 CHILD-LEVEL DUPLICATE ENVIRONMENT DETECTED!
       Environment Name: "${var.environment.display_name}"
       Existing Environment ID: ${coalesce(local.duplicate_environment_id, "unknown")}
       
       DEBUG INFO:
+      - Parent validation passed: ${var.parent_duplicate_validation_passed}
       - Duplicate matches found: ${length(local.existing_environment_matches)}
       
+      This should not happen if parent pattern validation is working correctly.
+      The parent pattern should have caught this duplicate before authorizing child execution.
+      
       RESOLUTION OPTIONS:
-      1. Import existing environment:
+      1. Check parent pattern duplicate detection logic
+      2. Import existing environment:
          terraform import powerplatform_environment.this ${coalesce(local.duplicate_environment_id, "ENVIRONMENT_ID_HERE")}
       
-      2. Use a different display_name
+      3. Use a different display_name
       
-      3. Temporarily disable protection:
+      4. Temporarily disable protection:
          Set enable_duplicate_protection = false
       EOT
     }
