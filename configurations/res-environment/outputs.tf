@@ -71,8 +71,8 @@ output "environment_summary" {
 
     # Managed environment integration
     managed_environment_enabled = var.enable_managed_environment && var.environment.environment_type != "Developer"
-    managed_environment_id      = length(module.managed_environment) > 0 ? module.managed_environment[0].managed_environment_id : null
-    consolidated_governance     = length(module.managed_environment) > 0
+    managed_environment_id      = var.enable_managed_environment && var.environment.environment_type != "Developer" && length(module.managed_environment) > 0 ? module.managed_environment[0].managed_environment_id : null
+    consolidated_governance     = var.enable_managed_environment && var.environment.environment_type != "Developer" && length(module.managed_environment) > 0
   }
 }
 
@@ -159,13 +159,13 @@ Use this ID to:
 Format: GUID (e.g., 12345678-1234-1234-1234-123456789012) or null
 Note: This is the same as the environment_id but confirms successful managed environment setup
 DESCRIPTION
-  value       = length(module.managed_environment) > 0 ? module.managed_environment[0].managed_environment_id : null
+  value       = var.enable_managed_environment && var.environment.environment_type != "Developer" && length(module.managed_environment) > 0 ? module.managed_environment[0].managed_environment_id : null
 }
 
 # Managed environment configuration summary for validation and reporting
 output "managed_environment_summary" {
   description = "Summary of deployed managed environment configuration for validation and compliance reporting, null if disabled"
-  value = length(module.managed_environment) > 0 ? {
+  value = var.enable_managed_environment && var.environment.environment_type != "Developer" && length(module.managed_environment) > 0 ? {
     # Core identification
     environment_id = module.managed_environment[0].managed_environment_id
     enabled        = var.enable_managed_environment
