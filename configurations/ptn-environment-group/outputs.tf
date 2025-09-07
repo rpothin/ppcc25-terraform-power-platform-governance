@@ -195,17 +195,6 @@ DESCRIPTION
   }
 }
 
-output "managed_environment_deployment_status" {
-  description = "Deployment status of the managed environment settings (auto-enabled via environment group)."
-  value = {
-    for idx, env in local.environment_summary : env.display_name => {
-      environment_id    = module.environments[idx].environment_id
-      enabled           = true           # Always true when environment is in an environment group
-      deployment_status = "auto-managed" # Environments automatically become managed when in groups
-    }
-  }
-}
-
 # ============================================================================
 # TEMPLATE METADATA - Template Configuration and Validation Summary
 # ============================================================================
