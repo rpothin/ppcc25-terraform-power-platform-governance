@@ -17,7 +17,7 @@
 environment = {
   display_name         = "Secure Development Environment"       # Descriptive name
   location             = "unitedstates"                         # EXPLICIT CHOICE: Your geographic region
-  environment_group_id = "12345678-1234-1234-1234-123456789012" # REQUIRED: Azure AD group for governance
+  environment_group_id = "0675a2e2-dd4d-4ab6-8b9f-0d5048f62214" # REQUIRED: Azure AD group for governance
 
   # ⚙️ DEFAULT VALUES AUTOMATICALLY APPLIED:
   # environment_type = "Sandbox"        (lowest-privilege environment)
@@ -27,7 +27,7 @@ environment = {
 
 dataverse = {
   currency_code     = "USD"                                  # EXPLICIT CHOICE: Your organizational currency
-  security_group_id = "87654321-4321-4321-4321-210987654321" # REQUIRED: Azure AD group for data access
+  security_group_id = "6a199811-5433-4076-81e8-1ca7ad8ffb67" # REQUIRED: Azure AD group for data access
 
   # ⚙️ DEFAULT VALUES AUTOMATICALLY APPLIED:
   # language_code = 1033                (English US - most tested)
