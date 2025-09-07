@@ -88,7 +88,7 @@ module "environment_settings" {
   feature_settings  = each.value.settings.feature_settings
   email_settings    = each.value.settings.email_settings
 
-  # Explicit dependency chain: group → environments → managed_environment → settings
+  # Explicit dependency chain: group → environments → settings
   depends_on = [module.environments]
 }
 
