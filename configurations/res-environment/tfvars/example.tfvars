@@ -36,7 +36,7 @@ dataverse = {
   # domain = auto-calculated from display_name
 }
 
-enable_duplicate_protection = true # Recommended for all environments
+enable_duplicate_protection = false # Recommended for all environments
 
 # ⚙️ MANAGED ENVIRONMENT GOVERNANCE (DEFAULT: ENABLED)
 enable_managed_environment = true # Default: Enables governance features
