@@ -502,7 +502,7 @@ jobs:
 
               # Execute the apply operation with enhanced error detection
               apply_output_file="apply-output.txt"
-              
+
               # Temporarily disable strict error handling to capture both exit code and output
               set +e
               terraform apply $apply_args 2>&1 | tee "$apply_output_file"
@@ -512,7 +512,7 @@ jobs:
               # === ENHANCED SUCCESS/ERROR ANALYSIS ===
               # Check both exit code AND output content for comprehensive error detection
               # This prevents false positives where Terraform returns 0 but actual errors occurred
-              
+
               # Initialize error detection variables
               has_terraform_errors=false
               error_details=""
@@ -570,7 +570,7 @@ jobs:
 
                 # === ENHANCED ERROR ANALYSIS ===
                 # Extract specific error information for better troubleshooting
-                
+
                 # Extract the first error message for quick reference
                 first_error=$(grep -m 1 "Error:" "$apply_output_file" 2>/dev/null || echo "See output for details")
                 echo "::error title=First Error::$first_error"
