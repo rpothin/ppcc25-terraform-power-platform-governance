@@ -111,7 +111,7 @@ resource "powerplatform_environment" "this" {
     language_code                = var.dataverse.language_code
     currency_code                = var.dataverse.currency_code
     security_group_id            = var.dataverse.security_group_id
-    domain                       = local.final_domain
+    #domain                       = local.final_domain
     administration_mode_enabled  = var.dataverse.administration_mode_enabled
     background_operation_enabled = var.dataverse.background_operation_enabled
     template_metadata            = var.dataverse.template_metadata
