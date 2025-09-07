@@ -153,3 +153,47 @@ resource "powerplatform_environment" "this" {
     ignore_changes = []
   }
 }
+
+# ==============================================================================
+# MANAGED ENVIRONMENT CONFIGURATION (OPTIONAL)
+# ==============================================================================
+# WHY: Use external res-managed-environment module for managed environment creation
+# This follows the proven pattern from utl-test-environment-managed-sequence that
+# eliminates the "Request url must be an absolute url" error by using proper
+# module boundaries and dependency management
+
+# Managed environment module call (following proven working pattern)
+# WHY: This pattern eliminates the "Request url must be an absolute url" error
+# by using proper module boundaries and dependency management
+module "managed_environment" {
+  count = var.enable_managed_environment && var.environment.environment_type != "Developer" ? 1 : 0
+
+  source = "../res-managed-environment"
+
+  # Primary configuration
+  environment_id = powerplatform_environment.this.id
+
+  # Variable transformation from consolidated settings to module inputs
+  sharing_settings = {
+    is_group_sharing_disabled = try(var.managed_environment_settings.sharing_settings.is_group_sharing_disabled, false)
+    limit_sharing_mode        = try(var.managed_environment_settings.sharing_settings.limit_sharing_mode, "NoLimit")
+    max_limit_user_sharing    = try(var.managed_environment_settings.sharing_settings.max_limit_user_sharing, -1)
+  }
+
+  usage_insights_disabled = try(var.managed_environment_settings.usage_insights_disabled, true)
+
+  solution_checker = {
+    mode                       = try(var.managed_environment_settings.solution_checker.mode, "Warn")
+    suppress_validation_emails = try(var.managed_environment_settings.solution_checker.suppress_validation_emails, true)
+    rule_overrides             = try(var.managed_environment_settings.solution_checker.rule_overrides, null)
+  }
+
+  maker_onboarding = {
+    markdown_content = try(var.managed_environment_settings.maker_onboarding.markdown_content, "Welcome to our Power Platform environment. Please follow organizational guidelines when developing solutions.")
+    learn_more_url   = try(var.managed_environment_settings.maker_onboarding.learn_more_url, "https://learn.microsoft.com/power-platform/")
+  }
+
+  # WHY: Explicit dependency ensures environment is fully created before managed environment
+  # This follows the exact pattern that works in utl-test-environment-managed-sequence
+  depends_on = [powerplatform_environment.this]
+}

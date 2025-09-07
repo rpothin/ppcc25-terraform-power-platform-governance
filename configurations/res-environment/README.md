@@ -1,16 +1,102 @@
 <!-- BEGIN_TF_DOCS -->
-# Power Platform Environment Configuration
+# Power Platform Environment Configuration with Managed Environment Integration
 
-This configuration creates and manages Power Platform environments following Azure Verified Module (AVM) best practices with Power Platform provider adaptations.
+This configuration creates and manages Power Platform environments with optional managed environment features, following Azure Verified Module (AVM) best practices with Power Platform provider adaptations.
+
+## 🎯 Key Features
+
+- **Consolidated Governance**: Environment and managed environment creation in a single atomic operation
+- **Default Best Practices**: Managed environment features enabled by default for enhanced governance
+- **Flexible Configuration**: Comprehensive settings for sharing, solution checking, and maker onboarding
+- **Backward Compatibility**: Existing configurations continue to work unchanged
+- **Provider Optimization**: Eliminates timing issues from separate module orchestration
 
 ## Use Cases
 
 This configuration is designed for organizations that need to:
 
-1. **Environment Standardization**: Deploy consistent Power Platform environments with standardized naming, regions, and security settings across development, staging, and production
-2. **Lifecycle Management**: Onboard existing environments to Infrastructure as Code management while preventing accidental deletion through lifecycle protection
-3. **Governance Compliance**: Ensure environments meet organizational standards with validated configuration parameters and security-first defaults
-4. **Multi-Environment Deployment**: Support scalable environment provisioning across multiple tenants and regions with environment-specific configurations
+1. **Governed Environment Deployment**: Create environments with built-in governance controls, sharing policies, and solution validation
+2. **Consolidated Management**: Manage both environment and governance features through a single Terraform configuration
+3. **Enterprise Compliance**: Enforce organization-wide policies for maker onboarding, solution quality, and data sharing
+4. **Migration from Separate Modules**: Transition from `res-environment` + `res-managed-environment` to consolidated pattern
+5. **Production-Ready Governance**: Deploy environments with enterprise-grade controls enabled by default
+
+## 🆕 What's New: Managed Environment Integration
+
+This module now includes optional managed environment capabilities that provide:
+
+- **Enhanced Sharing Controls**: Group-based sharing policies and user limits
+- **Solution Quality Gates**: Automated solution checker validation before deployment
+- **Maker Guidance**: Customizable onboarding content for new Power Platform makers
+- **Usage Insights**: Optional weekly usage reporting for environment administrators
+- **Enterprise Policies**: Advanced governance features for organizational compliance
+
+### Default Behavior (Managed Environment Enabled)
+
+```hcl
+module "environment" {
+  source = "./configurations/res-environment"
+  environment = {
+    display_name         = "Production Finance Environment"
+    location             = "unitedstates"
+    environment_group_id = "12345678-1234-1234-1234-123456789012"
+  }
+  dataverse = {
+    currency_code     = "USD"
+    security_group_id = "your-security-group-id"
+  }
+  # Managed environment enabled by default
+  # enable_managed_environment = true (default)
+  # managed_environment_settings = {} (uses secure defaults)
+}
+```
+
+### Opt-Out for Basic Environments
+
+```hcl
+module "environment" {
+  source = "./configurations/res-environment"
+  environment = {
+    display_name = "Development Sandbox"
+    location     = "unitedstates"
+  }
+  # Disable managed features for basic development
+  enable_managed_environment = false
+}
+```
+
+### Custom Governance Configuration
+
+```hcl
+module "environment" {
+  source = "./configurations/res-environment"
+  environment = {
+    display_name         = "Strict Production Environment"
+    location             = "unitedstates"
+    environment_type     = "Production"
+    environment_group_id = "12345678-1234-1234-1234-123456789012"
+  }
+  dataverse = {
+    currency_code     = "USD"
+    security_group_id = "your-security-group-id"
+  }
+  managed_environment_settings = {
+    sharing_settings = {
+      is_group_sharing_disabled = true
+      limit_sharing_mode        = "ExcludeSharingToSecurityGroups"
+      max_limit_user_sharing    = 5
+    }
+    solution_checker = {
+      mode                       = "Block"
+      suppress_validation_emails = false
+    }
+    maker_onboarding = {
+      markdown_content = "Welcome to Production! Please review our development standards."
+      learn_more_url   = "https://company.com/powerplatform-guidelines"
+    }
+  }
+}
+```
 
 ## Usage with Resource Deployment Workflows
 
@@ -76,6 +162,7 @@ The following resources are used by this module:
 
 - [null_resource.environment_duplicate_guardrail](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) (resource)
 - [powerplatform_environment.this](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/resources/environment) (resource)
+- [powerplatform_managed_environment.this](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/resources/managed_environment) (resource)
 - [powerplatform_environments.all](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/data-sources/environments) (data source)
 
 <!-- markdownlint-disable MD013 -->
@@ -283,6 +370,137 @@ Type: `bool`
 
 Default: `true`
 
+### <a name="input_enable_managed_environment"></a> [enable\_managed\_environment](#input\_enable\_managed\_environment)
+
+Description: Enable managed environment features for enhanced governance and control.  
+Default: true (following Power Platform best practices)
+
+WHY: Managed environments are now best practice for production workloads.  
+This default ensures governance features are enabled unless explicitly disabled.
+
+When enabled (default):
+- Creates managed environment configuration automatically
+- Applies governance controls and policies
+- Enables solution checker validation
+- Provides enhanced sharing controls
+- Supports maker onboarding and guidance
+
+When disabled:
+- Environment created without managed features
+- Standard environment capabilities only
+- Manual governance configuration required
+- Typically only used for basic development scenarios
+
+Note: Developer environment types automatically disable managed environment  
+features regardless of this setting due to provider limitations.
+
+Examples:  
+enable\_managed\_environment = true   # Default: Enable governance features  
+enable\_managed\_environment = false  # Disable for basic development environments
+
+Type: `bool`
+
+Default: `true`
+
+### <a name="input_managed_environment_settings"></a> [managed\_environment\_settings](#input\_managed\_environment\_settings)
+
+Description: Managed environment configuration settings.  
+Only applied when enable\_managed\_environment is true.
+
+WHY: Provides flexible governance configuration while maintaining secure defaults.  
+All settings follow Microsoft's recommended baseline for governed environments.
+
+Configuration Groups:
+
+1. SHARING SETTINGS: Controls app and flow sharing behavior
+   - is\_group\_sharing\_disabled: When false (default), enables security group sharing
+   - limit\_sharing\_mode: "NoLimit" (default) or "ExcludeSharingToSecurityGroups"
+   - max\_limit\_user\_sharing: -1 (default, unlimited when group sharing enabled)
+
+2. USAGE INSIGHTS: Weekly usage reporting
+   - usage\_insights\_disabled: true (default) to avoid email spam
+
+3. SOLUTION CHECKER: Quality validation for solution imports
+   - mode: "Warn" (default) provides validation without blocking
+   - suppress\_validation\_emails: true (default) reduces noise
+   - rule\_overrides: null (default) applies full validation suite
+
+4. MAKER ONBOARDING: Welcome content for new makers
+   - markdown\_content: Default welcome message
+   - learn\_more\_url: Microsoft Learn documentation link
+
+Examples:
+
+# Use defaults (recommended for most environments)  
+managed\_environment\_settings = {}
+
+# Custom governance configuration  
+managed\_environment\_settings = {  
+  sharing\_settings = {  
+    is\_group\_sharing\_disabled = false  
+    limit\_sharing\_mode        = "NoLimit"  
+    max\_limit\_user\_sharing    = -1
+  }  
+  usage\_insights\_disabled = false  
+  solution\_checker = {  
+    mode                       = "Block"  
+    suppress\_validation\_emails = false  
+    rule\_overrides             = ["meta-avoid-reg-no-attribute"]
+  }  
+  maker\_onboarding = {  
+    markdown\_content = "Welcome to Production! Please review our development standards before creating solutions."  
+    learn\_more\_url   = "https://contoso.com/powerplatform-guidelines"
+  }
+}
+
+# Strict production environment  
+managed\_environment\_settings = {  
+  sharing\_settings = {  
+    is\_group\_sharing\_disabled = true  
+    limit\_sharing\_mode        = "ExcludeSharingToSecurityGroups"  
+    max\_limit\_user\_sharing    = 5
+  }  
+  solution\_checker = {  
+    mode = "Block"  
+    suppress\_validation\_emails = false
+  }
+}
+
+Validation Rules:
+- When group sharing is disabled, max\_limit\_user\_sharing must be > 0
+- When group sharing is enabled, max\_limit\_user\_sharing should be -1
+- Solution checker mode must be: None, Warn, or Block
+- Rule overrides must contain valid solution checker rule names
+
+See: https://learn.microsoft.com/power-platform/admin/managed-environment-overview
+
+Type:
+
+```hcl
+object({
+    sharing_settings = optional(object({
+      is_group_sharing_disabled = optional(bool, false)
+      limit_sharing_mode        = optional(string, "NoLimit")
+      max_limit_user_sharing    = optional(number, -1)
+    }), {})
+
+    usage_insights_disabled = optional(bool, true)
+
+    solution_checker = optional(object({
+      mode                       = optional(string, "Warn")
+      suppress_validation_emails = optional(bool, true)
+      rule_overrides             = optional(set(string), null)
+    }), {})
+
+    maker_onboarding = optional(object({
+      markdown_content = optional(string, "Welcome to our Power Platform environment. Please follow organizational guidelines when developing solutions.")
+      learn_more_url   = optional(string, "https://learn.microsoft.com/power-platform/")
+    }), {})
+  })
+```
+
+Default: `{}`
+
 ## Outputs
 
 The following outputs are exported:
@@ -334,9 +552,123 @@ This URL can be used for:
 
 Note: Returns Dataverse URL when Dataverse is enabled, otherwise null.
 
+### <a name="output_managed_environment_enabled"></a> [managed\_environment\_enabled](#output\_managed\_environment\_enabled)
+
+Description: Boolean indicating whether managed environment features are enabled for this environment
+
+### <a name="output_managed_environment_id"></a> [managed\_environment\_id](#output\_managed\_environment\_id)
+
+Description: The unique identifier of the managed environment configuration, if enabled.
+
+This output provides the primary key for referencing this managed environment  
+in other Terraform configurations or external systems when managed environment  
+features are enabled. Returns null when managed environment is disabled.
+
+Use this ID to:
+- Reference in enterprise policy configurations
+- Integrate with monitoring and reporting systems
+- Set up advanced governance policies
+- Configure environment-specific automation
+
+Format: GUID (e.g., 12345678-1234-1234-1234-123456789012) or null  
+Note: This is the same as the environment\_id but confirms successful managed environment setup
+
+### <a name="output_managed_environment_summary"></a> [managed\_environment\_summary](#output\_managed\_environment\_summary)
+
+Description: Summary of deployed managed environment configuration for validation and compliance reporting, null if disabled
+
 ## Modules
 
 No modules.
+
+## 🔄 Migration from Separate Modules
+
+If you're currently using separate `res-environment` and `res-managed-environment` modules, this consolidated approach offers several benefits:
+
+### Migration Benefits
+
+- **Eliminates Timing Issues**: No more "Request url must be an absolute url" errors
+- **Atomic Operations**: Environment and managed features created together
+- **Simplified Dependencies**: Single module instead of complex orchestration
+- **Better Performance**: Fewer API calls and state operations
+
+### Migration Steps
+
+#### Step 1: Backup Current State
+
+```bash
+# Export current Terraform state
+terraform state pull > backup-state.json
+
+# Document current environment IDs
+terraform output -json > current-outputs.json
+```
+
+#### Step 2: Update Module References
+
+**Before (Separate Modules):**
+```hcl
+module "environment" {
+  source = "./configurations/res-environment"
+  # ... environment configuration
+}
+
+module "managed_environment" {
+  source = "./configurations/res-managed-environment"
+  environment_id = module.environment.environment_id
+  # ... managed environment configuration
+}
+```
+
+**After (Consolidated Module):**
+```hcl
+module "environment" {
+  source = "./configurations/res-environment"
+  # ... existing environment configuration (unchanged)
+  # Add managed environment settings
+  enable_managed_environment = true
+  managed_environment_settings = {
+    # Transfer settings from old managed_environment module variables
+    sharing_settings = {
+      is_group_sharing_disabled = var.old_sharing_settings.is_group_sharing_disabled
+      limit_sharing_mode        = var.old_sharing_settings.limit_sharing_mode
+      max_limit_user_sharing    = var.old_sharing_settings.max_limit_user_sharing
+    }
+    # ... other settings
+  }
+}
+```
+
+#### Step 3: Remove Old Managed Environment Resources
+
+```bash
+# Remove the old managed environment from state
+terraform state rm 'module.managed_environment.powerplatform_managed_environment.this'
+
+# Plan with new configuration to see the import
+terraform plan
+```
+
+#### Step 4: Import Existing Managed Environment (If Needed)
+
+```bash
+# Import the existing managed environment into the new resource
+terraform import 'module.environment.powerplatform_managed_environment.this[0]' <environment-id>
+```
+
+### Compatibility Notes
+
+- **Environment Configuration**: All existing environment settings remain unchanged
+- **Variable Names**: Environment and Dataverse variables are identical
+- **Outputs**: New managed environment outputs added, existing outputs preserved
+- **Lifecycle**: Managed environments are protected by the same "No Touch Prod" policy
+
+### Testing Migration
+
+1. **Test in Development**: Migrate a development environment first
+2. **Validate Outputs**: Confirm all required outputs are still available
+3. **Check Dependencies**: Ensure downstream modules receive expected values
+4. **Monitor Drift**: Verify no configuration drift after migration
 
 ## Authentication
 
@@ -390,9 +722,29 @@ This configuration uses the `microsoft/power-platform` provider, which creates a
 - Consider importing existing environments: `terraform import powerplatform_environment.this {environment-id}`
 - Review environment naming conventions to avoid conflicts
 
+**Managed Environment Issues**
+- Verify the environment type supports managed features (Sandbox, Production, Trial)
+- Check that Dataverse is configured (required for managed environments)
+- Ensure proper sharing configuration: group sharing enabled requires max\_limit\_user\_sharing = -1
+- Validate solution checker mode is one of: None, Warn, Block
+
+### Migration Troubleshooting
+
+**State Import Issues**
+- Use `terraform state list` to verify resource paths
+- Check environment ID format: must be valid GUID
+- Ensure managed environment exists before import
+
+**Configuration Conflicts**
+- Review validation error messages for specific guidance
+- Verify sharing settings combinations are valid
+- Check that environment group ID is provided when needed
+
 ## Additional Links
 
 - [Power Platform Environment Resource Documentation](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/resources/environment)
+- [Power Platform Managed Environment Resource Documentation](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/resources/managed_environment)
 - [Power Platform Terraform Provider](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs)
 - [AVM Terraform Specifications](https://azure.github.io/Azure-Verified-Modules/specs/tf/)
+- [Managed Environment Overview](https://learn.microsoft.com/power-platform/admin/managed-environment-overview)
 <!-- END_TF_DOCS -->
