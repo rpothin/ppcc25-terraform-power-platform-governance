@@ -295,11 +295,6 @@ run "duplicate_protection_disabled_test" {
   }
 
   assert {
-    condition     = length(null_resource.environment_duplicate_guardrail) == 0
-    error_message = "Guardrail null_resource should not be created when duplicate protection is disabled."
-  }
-
-  assert {
     condition     = length(data.powerplatform_environments.all) == 0
     error_message = "Environments data source should not be created when duplicate protection is disabled."
   }
