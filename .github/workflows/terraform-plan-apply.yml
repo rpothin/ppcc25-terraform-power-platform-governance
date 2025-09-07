@@ -42,6 +42,7 @@ on:
         options:
           - 'res-dlp-policy'
           - 'ptn-environment'
+          - 'res-environment' # For testing
       tfvars_file:
         description: >-
           tfvars file name without extension for environment-specific deployments.

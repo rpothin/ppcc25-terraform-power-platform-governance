@@ -47,6 +47,7 @@ on:
         options:
           - 'res-dlp-policy'
           - 'ptn-environment'
+          - 'res-environment' # For testing
         # WHY: Only allows safe, non-foundational configs to be destroyed
         # SECURITY: Prevents destruction of critical infrastructure components
         # VALIDATION: Must exist in configurations/ and contain .tf files
