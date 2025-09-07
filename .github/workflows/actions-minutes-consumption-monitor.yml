@@ -51,20 +51,20 @@ jobs:
     name: Check Consumption Rate
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    
+
     steps:
       - name: Checkout Scripts
         uses: actions/checkout@v4
         with:
           sparse-checkout: scripts/utils/
           sparse-checkout-cone-mode: false
-      
+
       - name: Setup Dependencies
         run: |
           sudo apt-get update -qq && sudo apt-get install -y bc jq
           command -v gh &> /dev/null || { echo "::error::GitHub CLI not available"; exit 1; }
           echo "✅ Dependencies ready: bc, jq, gh"
-      
+
       - name: Check Consumption Rate
         id: consumption_check
         env:
@@ -72,20 +72,20 @@ jobs:
         run: |
           chmod +x scripts/utils/check-actions-minutes-consumption-rate.sh
           cmd="scripts/utils/check-actions-minutes-consumption-rate.sh"
-          
+
           if [[ -n "${{ inputs.threshold_override }}" ]]; then
             echo "🔧 Using threshold: ${{ inputs.threshold_override }}x"
             cmd="$cmd --threshold ${{ inputs.threshold_override }}"
           fi
-          
+
           echo "🚀 Executing: $cmd"
           set +e
           $cmd
           exit_code=$?
           set -e
-          
+
           echo "exit_code=$exit_code" >> $GITHUB_OUTPUT
-          
+
           if [[ "${{ inputs.dry_run }}" == "true" ]]; then
             if [[ $exit_code -eq 0 ]]; then
               echo "::notice::Dry-run: Check would PASS"
@@ -94,14 +94,14 @@ jobs:
             fi
             exit 0
           fi
-          
+
           if [[ $exit_code -ne 0 ]]; then
             echo "::error::Consumption threshold exceeded!"
             echo "consumption_failed=true" >> $GITHUB_OUTPUT
           fi
-          
+
           exit $exit_code
-      
+
       - name: Handle Consumption Alert
         if: failure() && steps.consumption_check.outputs.consumption_failed == 'true'
         run: |
@@ -114,7 +114,7 @@ jobs:
           echo "::notice::• Action required to prevent service disruption"
           echo ""
           echo "::notice title=Immediate Actions::"
-          echo "::notice::1. Review recent workflow runs for optimization"  
+          echo "::notice::1. Review recent workflow runs for optimization"
           echo "::notice::2. Check for loops, stuck runs, or unnecessary triggers"
           echo "::notice::3. Cancel non-essential running workflows"
           echo "::notice::4. Run diagnostic: scripts/utils/analyze-actions-minutes-consumption.sh"

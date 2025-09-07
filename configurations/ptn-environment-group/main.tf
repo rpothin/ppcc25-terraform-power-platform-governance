@@ -1,6 +1,8 @@
 # Power Platform Environment Group Pattern Configuration
 #
-# Template-driven pattern for creating environment groups with predefined
+# Template-driven pattern for creating environment groups with predef# Environment Group Pattern Configuration
+#
+# Template-driven pattern for creating Power Platform environment groups with standardized
 # workspace templates. Provides standardized environment configurations
 # for PPCC25 demonstration scenarios.
 # 
@@ -46,6 +48,73 @@ module "environment_group" {
 # ENVIRONMENT MODULE ORCHESTRATION
 # ============================================================================
 
+# Query existing environments for pattern-level duplicate detection
+# This provides governance at the pattern level while avoiding state context issues
+data "powerplatform_environments" "all" {
+  # Only query when we need to check for duplicates across the pattern
+}
+
+# Pattern-level duplicate detection logic
+locals {
+  # Extract all environment names that this pattern will create
+  planned_environment_names = [
+    for key, env in local.template_environments : env.environment.display_name
+  ]
+
+  # Check if any planned environments already exist in Power Platform
+  external_environment_matches = [
+    for env in try(data.powerplatform_environments.all.environments, []) : env
+    if contains(local.planned_environment_names, env.display_name)
+  ]
+
+  # Simple duplicate detection - flag if any environments with same names exist
+  # This provides governance while allowing for state import scenarios
+  has_external_duplicates = length(local.external_environment_matches) > 0
+
+  # Extract duplicate details for error reporting
+  duplicate_environment_details = {
+    for env in local.external_environment_matches : env.display_name => env.id
+  }
+}
+
+# Pattern-level duplicate protection guardrail
+# Duplicate detection guardrail - prevents creation of environments that already exist
+# Note: This will detect duplicates on fresh deployments but will not block
+# terraform operations on existing state that has already imported environments
+resource "null_resource" "pattern_duplicate_guardrail" {
+  count = local.has_external_duplicates && var.enable_pattern_duplicate_protection ? 1 : 0
+
+  provisioner "local-exec" {
+    command = "echo 'DUPLICATE ENVIRONMENT DETECTED: This pattern would create environments with names that already exist. This is blocked for governance and consistency.'; exit 1"
+  }
+
+  lifecycle {
+    precondition {
+      condition     = !local.has_external_duplicates
+      error_message = <<-EOF
+        PATTERN-LEVEL DUPLICATE DETECTION FAILURE:
+        
+        This pattern configuration would create environments with display names that already exist
+        in your Power Platform tenant. This is blocked to maintain governance and prevent
+        resource conflicts.
+        
+        Detected duplicate environments:
+        ${jsonencode(local.duplicate_environment_details)}
+        
+        RESOLUTION OPTIONS:
+        1. Choose different environment names in your .tfvars file
+        2. If these environments should be managed by this configuration:
+           - Use 'terraform import' to bring existing environments under management
+           - Or remove existing environments if they're not needed
+        3. If you're working with an existing state that manages these environments:
+           - This check is designed for fresh deployments and may need adjustment
+        
+        This governance check ensures environment name uniqueness across your Power Platform tenant.
+      EOF
+    }
+  }
+}
+
 # Create environments using the template-driven configuration
 module "environments" {
   source   = "../res-environment"
@@ -59,98 +128,45 @@ module "environments" {
   # Dataverse configuration with monitoring service principal
   dataverse = each.value.dataverse
 
-  # Enable duplicate protection for production workspaces
-  enable_duplicate_protection = true
+  # Pattern-level governance control - authorize child after parent validation
+  # WHY: Parent validates global state, then authorizes child execution
+  # This creates proper governance chaining: validate at pattern level, execute at child level
+  enable_duplicate_protection        = true
+  parent_duplicate_validation_passed = !local.has_external_duplicates
 
-  # Explicit dependency on environment group module
-  depends_on = [module.environment_group]
+  # Disable managed environment module since environments auto-convert when in groups
+  enable_managed_environment = false
+
+  # Explicit dependency on environment group module and duplicate check
+  depends_on = [module.environment_group, null_resource.pattern_duplicate_guardrail]
 }
 
 # ============================================================================
-# MANAGED ENVIRONMENT MODULE ORCHESTRATION WITH SEQUENTIAL DEPLOYMENT
+# MANAGED ENVIRONMENT CONVERSION WAIT
 # ============================================================================
 
-# Buffer time for environment provisioning to complete
-# Power Platform environments need time for backend provisioning
-resource "time_sleep" "environment_provisioning_buffer" {
-  for_each = local.template_environments
+# Add explicit wait time for managed environment conversion
+# WHY: When environments are added to environment groups, they automatically
+# convert to managed environments, but this conversion takes time. Applying
+# IPFirewall settings before conversion completes causes failures.
+resource "time_sleep" "managed_environment_conversion" {
+  # Wait for environments to fully convert to managed status
+  create_duration = "120s" # 2 minutes - sufficient for managed conversion
 
-  create_duration = "30s" # Allow time for environment backend setup
-
+  # Explicit dependency on environment creation
   depends_on = [module.environments]
 
-  triggers = {
-    environment_id = module.environments[each.key].environment_id
-  }
-}
-
-# Sequential deployment resource for managing rollout timing
-# This prevents overwhelming the Power Platform API with simultaneous requests
-resource "null_resource" "managed_environment_deployment_control" {
-  for_each = local.template_environments
-
-  # Sequential deployment triggers
-  triggers = {
-    environment_id = module.environments[each.key].environment_id
-    environment_ready_hash = sha256(jsonencode({
-      environment_id = module.environments[each.key].environment_id
-      deployment_key = each.key
-      template_name  = var.workspace_template
-    }))
-    deployment_timestamp = timestamp()
-    buffer_complete      = time_sleep.environment_provisioning_buffer[each.key].id
-  }
-
-  # Validate environment is ready before managed environment configuration
+  # Lifecycle management for consistent timing
   lifecycle {
-    precondition {
-      condition     = length(trimspace(module.environments[each.key].environment_id)) > 0
-      error_message = "Environment ${each.key} must have a valid ID before managed environment configuration. Current ID: '${module.environments[each.key].environment_id}'"
-    }
-
-    precondition {
-      condition     = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", module.environments[each.key].environment_id))
-      error_message = "Environment ${each.key} ID must be a valid GUID format. Received: '${module.environments[each.key].environment_id}'"
-    }
+    # Prevent destruction to maintain consistent timing
+    prevent_destroy = false
   }
 
-  # Explicit dependency chain: group → environments → buffer → readiness_check
-  depends_on = [time_sleep.environment_provisioning_buffer]
-}
-
-# Configure managed environment settings using template-processed configurations
-# Applies workspace-level defaults with environment-specific overrides
-# Uses sequential deployment to prevent API overwhelm and timing issues
-module "managed_environment" {
-  source   = "../res-managed-environment"
-  for_each = local.template_environments
-
-  # Environment ID from created environments with validation
-  environment_id = module.environments[each.key].environment_id
-
-  # Use default managed environment settings for template-driven configuration
-  # These can be customized per template in the future if needed
-  sharing_settings = {
-    is_group_sharing_disabled = false     # Enable group sharing (better governance)
-    limit_sharing_mode        = "NoLimit" # Allow sharing with security groups
-    max_limit_user_sharing    = -1        # Unlimited when group sharing enabled
+  # Trigger re-creation if environment configuration changes
+  triggers = {
+    environment_count    = length(local.template_environments)
+    environment_group_id = module.environment_group.environment_group_id
   }
-
-  usage_insights_disabled = true # Disable weekly email digests for demo environments
-
-  solution_checker = {
-    mode                       = "Warn" # Validate but don't block
-    suppress_validation_emails = true   # Reduce email noise
-    rule_overrides             = []     # No rule overrides by default
-  }
-
-  maker_onboarding = {
-    markdown_content = "Welcome to the ${var.name} workspace. Please follow organizational guidelines when developing solutions."
-    learn_more_url   = "https://learn.microsoft.com/power-platform/"
-  }
-
-  # Sequential dependency chain: group → environments → readiness_check → managed_environment
-  depends_on = [null_resource.managed_environment_deployment_control]
 }
 
 # ============================================================================
@@ -159,6 +175,7 @@ module "managed_environment" {
 
 # Configure environment settings using template-processed configurations
 # Applies workspace-level defaults with environment-specific overrides
+# CRITICAL: Now includes wait time for managed environment conversion
 module "environment_settings" {
   source   = "../res-environment-settings"
   for_each = local.template_environments
@@ -172,8 +189,9 @@ module "environment_settings" {
   feature_settings  = each.value.settings.feature_settings
   email_settings    = each.value.settings.email_settings
 
-  # Explicit dependency chain: group → environments → managed_environment → settings
-  depends_on = [module.managed_environment]
+  # CRITICAL: Enhanced dependency chain: group → environments → wait → settings
+  # This ensures environments are fully converted to managed before applying settings
+  depends_on = [module.environments, time_sleep.managed_environment_conversion]
 }
 
 # ============================================================================

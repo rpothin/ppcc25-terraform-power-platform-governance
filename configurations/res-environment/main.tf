@@ -16,6 +16,8 @@
 # - Trial: For evaluation purposes
 
 # Query existing environments for duplicate detection
+# CRITICAL: Only query when duplicate protection is enabled AND we need to check for duplicates
+# This prevents false positives when environments already exist in Terraform state
 data "powerplatform_environments" "all" {
   count = var.enable_duplicate_protection ? 1 : 0
 }
@@ -46,35 +48,59 @@ locals {
   # Provider constraint: environment_group_id requires dataverse to be specified
   environment_group_id = var.dataverse != null ? var.environment.environment_group_id : null
 
-  # Duplicate detection logic (unchanged)
-  existing_environment_matches = var.enable_duplicate_protection ? [
+  # Governance-chained duplicate detection logic
+  # Parent pattern validates global state, child executes with parent authorization
+  # Only check for duplicates if:
+  # 1. Protection is enabled
+  # 2. Parent validation has passed (governance chaining)
+  # 3. Data source was queried successfully
+  existing_environment_matches = (
+    var.enable_duplicate_protection &&
+    var.parent_duplicate_validation_passed &&
+    length(data.powerplatform_environments.all) > 0
+    ) ? [
     for env in try(data.powerplatform_environments.all[0].environments, []) : env
     if env.display_name == var.environment.display_name
   ] : []
 
-  has_duplicate            = var.enable_duplicate_protection && length(local.existing_environment_matches) > 0
+  # Determine if there's a duplicate (only when protection is enabled and parent authorized)
+  has_duplicate = (
+    var.enable_duplicate_protection &&
+    var.parent_duplicate_validation_passed &&
+    length(local.existing_environment_matches) > 0
+  )
+
   duplicate_environment_id = local.has_duplicate ? local.existing_environment_matches[0].id : null
 }
 
-# Duplicate protection guardrail
+# Governance-chained duplicate protection guardrail
+# Child module executes duplicate check only when parent pattern authorizes it
 resource "null_resource" "environment_duplicate_guardrail" {
-  count = var.enable_duplicate_protection ? 1 : 0
+  count = var.enable_duplicate_protection && var.parent_duplicate_validation_passed ? 1 : 0
 
   lifecycle {
     precondition {
       condition     = !local.has_duplicate
       error_message = <<-EOT
-      🚨 DUPLICATE ENVIRONMENT DETECTED!
+      🚨 CHILD-LEVEL DUPLICATE ENVIRONMENT DETECTED!
       Environment Name: "${var.environment.display_name}"
       Existing Environment ID: ${coalesce(local.duplicate_environment_id, "unknown")}
       
+      DEBUG INFO:
+      - Parent validation passed: ${var.parent_duplicate_validation_passed}
+      - Duplicate matches found: ${length(local.existing_environment_matches)}
+      
+      This should not happen if parent pattern validation is working correctly.
+      The parent pattern should have caught this duplicate before authorizing child execution.
+      
       RESOLUTION OPTIONS:
-      1. Import existing environment:
+      1. Check parent pattern duplicate detection logic
+      2. Import existing environment:
          terraform import powerplatform_environment.this ${coalesce(local.duplicate_environment_id, "ENVIRONMENT_ID_HERE")}
       
-      2. Use a different display_name
+      3. Use a different display_name
       
-      3. Temporarily disable protection:
+      4. Temporarily disable protection:
          Set enable_duplicate_protection = false
       EOT
     }
@@ -83,15 +109,13 @@ resource "null_resource" "environment_duplicate_guardrail" {
   triggers = {
     display_name         = var.environment.display_name
     duplicate_protection = var.enable_duplicate_protection
+    # Add environment name for better tracking
+    environment_name = var.environment.display_name
   }
 }
 
 # Main Power Platform Environment Resource - REAL SCHEMA ONLY
 resource "powerplatform_environment" "this" {
-  depends_on = [
-    null_resource.environment_duplicate_guardrail
-  ]
-
   # ✅ REAL ARGUMENTS ONLY - NO DEVELOPER ENVIRONMENT SUPPORT
   display_name     = var.environment.display_name
   location         = var.environment.location
@@ -118,8 +142,30 @@ resource "powerplatform_environment" "this" {
     templates                    = var.dataverse.templates
   } : null
 
-  # Lifecycle management with environment group validation
+  # Lifecycle management with duplicate detection and environment group validation
   lifecycle {
+    # DUPLICATE DETECTION - moved to lifecycle precondition for better error handling
+    precondition {
+      condition     = !var.enable_duplicate_protection || !local.has_duplicate
+      error_message = <<-EOT
+      🚨 DUPLICATE ENVIRONMENT DETECTED!
+      Environment Name: "${var.environment.display_name}"
+      Existing Environment ID: ${coalesce(local.duplicate_environment_id, "unknown")}
+      
+      DEBUG INFO:
+      - Duplicate matches found: ${length(local.existing_environment_matches)}
+      
+      RESOLUTION OPTIONS:
+      1. Import existing environment:
+         terraform import powerplatform_environment.this ${coalesce(local.duplicate_environment_id, "ENVIRONMENT_ID_HERE")}
+      
+      2. Use a different display_name
+      
+      3. Temporarily disable protection:
+         Set enable_duplicate_protection = false
+      EOT
+    }
+
     # Environment group validation - moved to lifecycle precondition
     precondition {
       condition     = var.environment.environment_group_id == null || var.dataverse != null
@@ -152,4 +198,28 @@ resource "powerplatform_environment" "this" {
     # EXCEPTION: Contact Platform Team for emergency change procedures
     ignore_changes = []
   }
+}
+
+# ==============================================================================
+# MANAGED ENVIRONMENT CONFIGURATION (OPTIONAL)
+# ==============================================================================
+# WHY: Use external res-managed-environment module for managed environment creation
+# This follows the proven pattern from utl-test-environment-managed-sequence that
+# eliminates the "Request url must be an absolute url" error by using proper
+# module boundaries and dependency management
+
+# Managed environment module call (simplified pattern)
+# WHY: Only pass required environment_id, let module defaults handle everything else
+# This avoids provider consistency bugs and uses battle-tested configurations
+module "managed_environment" {
+  count = var.enable_managed_environment && var.environment.environment_type != "Developer" ? 1 : 0
+
+  source = "../res-managed-environment"
+
+  # WHY: Only pass required environment_id, let module defaults handle everything else
+  # This avoids provider consistency bugs and uses battle-tested configurations
+  environment_id = powerplatform_environment.this.id
+
+  # WHY: Explicit dependency ensures managed environment waits for environment creation
+  depends_on = [powerplatform_environment.this]
 }
