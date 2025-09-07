@@ -13,14 +13,4 @@ terraform {
       version = "~> 3.0"
     }
   }
-
-  # Azure backend with OIDC for secure, keyless authentication
-  backend "azurerm" {
-    use_oidc = true
-  }
-}
-
-# Provider configuration using OIDC for enhanced security
-provider "powerplatform" {
-  use_oidc = true
 }
