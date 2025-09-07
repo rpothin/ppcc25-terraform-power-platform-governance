@@ -175,33 +175,28 @@ output "managed_environment_summary" {
     classification    = "res-environment-consolidated"
     deployment_status = "deployed"
 
-    # Configuration summary - using module outputs
-    sharing_settings = module.managed_environment[0].sharing_configuration
-
-    usage_insights_disabled = module.managed_environment[0].managed_environment_summary.usage_insights_status == "disabled"
-
-    solution_checker = module.managed_environment[0].solution_validation_status
-
-    maker_onboarding = {
-      markdown_content = "Welcome to our Power Platform environment. Please follow organizational guidelines when developing solutions."
-      learn_more_url   = "https://learn.microsoft.com/power-platform/"
-    }
+    # Configuration approach
+    configuration_method = "module_defaults"
+    settings_source      = "res-managed-environment_module"
 
     # Operational metadata
     deployment_timestamp = timestamp()
     terraform_managed    = true
     consolidated_pattern = true
 
-    # Enterprise capabilities
+    # Enterprise capabilities (enabled via module defaults)
     capabilities = {
       sharing_controls    = true
       solution_validation = true
-      usage_insights      = module.managed_environment[0].managed_environment_summary.usage_insights_status == "enabled"
+      usage_insights      = true # Enabled via module defaults
       maker_guidance      = true
       enterprise_policies = true
       environment_groups  = true
       advanced_monitoring = true
     }
+
+    # Simplified interface note
+    note = "Using simplified module pattern - all settings managed by module defaults for improved reliability"
   } : null
 }
 

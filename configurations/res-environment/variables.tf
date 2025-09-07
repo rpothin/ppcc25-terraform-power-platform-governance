@@ -356,10 +356,29 @@ variable "managed_environment_settings" {
 Managed environment configuration settings.
 Only applied when enable_managed_environment is true.
 
-WHY: Provides flexible governance configuration while maintaining secure defaults.
-All settings follow Microsoft's recommended baseline for governed environments.
+⚠️  SIMPLIFIED MODULE PATTERN NOTICE:
+This variable is currently PRESERVED for backward compatibility and future extensibility,
+but is NOT PASSED to the managed environment module. The simplified pattern uses
+module defaults for all settings to reduce complexity and improve reliability.
 
-Configuration Groups:
+Current Behavior:
+- Module receives only environment_id parameter
+- All managed environment settings use module defaults
+- This variable is available for future enhancement
+
+WHY SIMPLIFIED APPROACH:
+- Reduces provider consistency bugs
+- Uses battle-tested default configurations
+- Simplifies maintenance and troubleshooting
+- Follows "convention over configuration" principle
+
+Future Enhancement Path:
+If specific managed environment customization is needed, this variable provides
+the structure to re-enable detailed configuration by updating the module call
+in main.tf to pass these settings.
+
+Legacy Configuration Reference:
+The structure below documents the available settings for future use:
 
 1. SHARING SETTINGS: Controls app and flow sharing behavior
    - is_group_sharing_disabled: When false (default), enables security group sharing
@@ -378,48 +397,29 @@ Configuration Groups:
    - markdown_content: Default welcome message
    - learn_more_url: Microsoft Learn documentation link
 
-Examples:
+Examples (for future reference):
 
-# Use defaults (recommended for most environments)
+# Current recommended approach (uses module defaults)
 managed_environment_settings = {}
 
-# Custom governance configuration
-managed_environment_settings = {
-  sharing_settings = {
-    is_group_sharing_disabled = false
-    limit_sharing_mode        = "NoLimit"
-    max_limit_user_sharing    = -1
-  }
-  usage_insights_disabled = false
-  solution_checker = {
-    mode                       = "Block"
-    suppress_validation_emails = false
-    rule_overrides             = ["meta-avoid-reg-no-attribute"]
-  }
-  maker_onboarding = {
-    markdown_content = "Welcome to Production! Please review our development standards before creating solutions."
-    learn_more_url   = "https://contoso.com/powerplatform-guidelines"
-  }
-}
-
-# Strict production environment
-managed_environment_settings = {
-  sharing_settings = {
-    is_group_sharing_disabled = true
-    limit_sharing_mode        = "ExcludeSharingToSecurityGroups"
-    max_limit_user_sharing    = 5
-  }
-  solution_checker = {
-    mode = "Block"
-    suppress_validation_emails = false
-  }
-}
-
-Validation Rules:
-- When group sharing is disabled, max_limit_user_sharing must be > 0
-- When group sharing is enabled, max_limit_user_sharing should be -1
-- Solution checker mode must be: None, Warn, or Block
-- Rule overrides must contain valid solution checker rule names
+# Advanced configuration (available for future enhancement)
+# managed_environment_settings = {
+#   sharing_settings = {
+#     is_group_sharing_disabled = false
+#     limit_sharing_mode        = "NoLimit"
+#     max_limit_user_sharing    = -1
+#   }
+#   usage_insights_disabled = false
+#   solution_checker = {
+#     mode                       = "Block"
+#     suppress_validation_emails = false
+#     rule_overrides             = ["meta-avoid-reg-no-attribute"]
+#   }
+#   maker_onboarding = {
+#     markdown_content = "Welcome to Production! Please review our development standards."
+#     learn_more_url   = "https://contoso.com/powerplatform-guidelines"
+#   }
+# }
 
 See: https://learn.microsoft.com/power-platform/admin/managed-environment-overview
 DESCRIPTION

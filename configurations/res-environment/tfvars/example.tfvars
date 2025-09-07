@@ -40,7 +40,10 @@ enable_duplicate_protection = true # Recommended for all environments
 
 # ⚙️ MANAGED ENVIRONMENT GOVERNANCE (DEFAULT: ENABLED)
 enable_managed_environment = true # Default: Enables governance features
-managed_environment_settings = {}  # Default: Uses secure governance defaults
+# Managed environment configuration (optional: defaults provide secure governance)
+# SIMPLIFIED PATTERN: Module uses battle-tested defaults
+# Advanced configuration available in variables.tf for future enhancement
+# managed_environment_settings = {} # Current approach - uses module defaults
 
 # ======================================================================================
 # Example 2: MANAGED ENVIRONMENT GOVERNANCE CONFIGURATION
@@ -106,7 +109,7 @@ managed_environment_settings = {}  # Default: Uses secure governance defaults
 # 
 # enable_duplicate_protection = true
 # enable_managed_environment  = true # AI capabilities require managed environment
-# managed_environment_settings = {}  # Use defaults for AI-enabled environments
+# managed_environment_settings = {}  # Simplified: Uses module defaults
 
 # ======================================================================================
 # Example 4: PRODUCTION ENVIRONMENT (Explicit Security Configuration)
@@ -171,7 +174,7 @@ managed_environment_settings = {}  # Default: Uses secure governance defaults
 # 
 # enable_duplicate_protection = true
 # enable_managed_environment  = true # GDPR compliance requires managed environment
-# managed_environment_settings = {}  # Use secure defaults for GDPR compliance
+# managed_environment_settings = {}  # Simplified: Uses module defaults for GDPR compliance
 
 # ======================================================================================
 # 🚨 IMPORTANT GOVERNANCE AND LIMITATIONS
