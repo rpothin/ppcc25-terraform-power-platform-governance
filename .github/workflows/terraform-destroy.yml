@@ -227,12 +227,12 @@ jobs:
         run: |
           config="${{ github.event.inputs.configuration }}"
           cd "configurations/$config"
-          
+
           echo "::notice title=Debug Info::🔍 Debugging state access and backend configuration..."
           echo "::debug::Working directory: $(pwd)"
           echo "::debug::Configuration: $config"
           echo "::debug::TFVars file: ${{ github.event.inputs.tfvars_file }}"
-          
+
           # Check Terraform working directory
           if [ -d ".terraform" ]; then
             echo "::debug::.terraform directory exists"
@@ -240,17 +240,17 @@ jobs:
           else
             echo "::warning::.terraform directory missing"
           fi
-          
+
           # Test basic Terraform commands
           echo "::debug::Testing terraform version..."
           terraform version 2>/dev/null || echo "::warning::terraform version failed"
-          
+
           echo "::debug::Testing terraform workspace show..."
           terraform workspace show 2>/dev/null || echo "::warning::terraform workspace show failed"
-          
+
           echo "::debug::Testing terraform state list..."
           terraform state list 2>/dev/null || echo "::warning::terraform state list failed"
-          
+
           # Check backend configuration
           echo "::debug::Checking backend configuration in terraform files..."
           grep -r "backend\|azurerm" *.tf 2>/dev/null || echo "::debug::No explicit backend config in .tf files"
@@ -307,7 +307,7 @@ jobs:
                   resource_count=1  # Assume at least one resource if resources section exists
                 fi
               fi
-              
+
               if [ "$resource_count" -gt 0 ]; then
                 resources_exist=true
                 echo "::notice title=JSON Show Success::✅ Found $resource_count resources via show -json"
