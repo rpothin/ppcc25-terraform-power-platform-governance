@@ -14,3 +14,7 @@ terraform {
     }
   }
 }
+
+provider "powerplatform" {
+  use_oidc = true
+}
