@@ -70,11 +70,40 @@ module "environments" {
 }
 
 # ============================================================================
+# MANAGED ENVIRONMENT CONVERSION WAIT
+# ============================================================================
+
+# Add explicit wait time for managed environment conversion
+# WHY: When environments are added to environment groups, they automatically
+# convert to managed environments, but this conversion takes time. Applying
+# IPFirewall settings before conversion completes causes failures.
+resource "time_sleep" "managed_environment_conversion" {
+  # Wait for environments to fully convert to managed status
+  create_duration = "120s" # 2 minutes - sufficient for managed conversion
+
+  # Explicit dependency on environment creation
+  depends_on = [module.environments]
+
+  # Lifecycle management for consistent timing
+  lifecycle {
+    # Prevent destruction to maintain consistent timing
+    prevent_destroy = false
+  }
+
+  # Trigger re-creation if environment configuration changes
+  triggers = {
+    environment_count    = length(local.template_environments)
+    environment_group_id = module.environment_group.environment_group_id
+  }
+}
+
+# ============================================================================
 # ENVIRONMENT SETTINGS MODULE ORCHESTRATION
 # ============================================================================
 
 # Configure environment settings using template-processed configurations
 # Applies workspace-level defaults with environment-specific overrides
+# CRITICAL: Now includes wait time for managed environment conversion
 module "environment_settings" {
   source   = "../res-environment-settings"
   for_each = local.template_environments
@@ -88,8 +117,9 @@ module "environment_settings" {
   feature_settings  = each.value.settings.feature_settings
   email_settings    = each.value.settings.email_settings
 
-  # Explicit dependency chain: group → environments → settings
-  depends_on = [module.environments]
+  # CRITICAL: Enhanced dependency chain: group → environments → wait → settings
+  # This ensures environments are fully converted to managed before applying settings
+  depends_on = [module.environments, time_sleep.managed_environment_conversion]
 }
 
 # ============================================================================
