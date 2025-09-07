@@ -142,7 +142,9 @@ run "plan_validation" {
     error_message = "Environment group ID should be required for governance (AI settings controlled by group)."
   }
 
-  # Managed environment default validation (Additional assertions 16-20)
+  # Managed environment plan validation (Additional assertions 16-18)
+  # WHY: Only validate static configuration during plan phase
+  # Runtime attributes are validated in apply_validation block
   assert {
     condition     = var.enable_managed_environment == true
     error_message = "Managed environment should be enabled by default."
@@ -154,18 +156,8 @@ run "plan_validation" {
   }
 
   assert {
-    condition     = can(powerplatform_managed_environment.this[0].environment_id)
-    error_message = "Managed environment should have environment_id accessible in plan."
-  }
-
-  assert {
-    condition     = powerplatform_managed_environment.this[0].environment_id == powerplatform_environment.this.id
-    error_message = "Managed environment should reference the same environment ID."
-  }
-
-  assert {
-    condition     = powerplatform_managed_environment.this[0].is_group_sharing_disabled == false
-    error_message = "Should use default sharing settings (group sharing enabled)."
+    condition     = can(var.managed_environment_settings)
+    error_message = "Should have managed environment settings variable accessible in plan."
   }
 }
 
@@ -255,6 +247,23 @@ run "apply_validation" {
   assert {
     condition     = output.environment_summary.managed_environment_enabled == true
     error_message = "Environment summary should show managed environment is enabled."
+  }
+
+  # Additional managed environment runtime validation (Assertions 31-33)
+  # WHY: These validate actual resource attributes only available after apply
+  assert {
+    condition     = powerplatform_managed_environment.this[0].environment_id != null && powerplatform_managed_environment.this[0].environment_id != ""
+    error_message = "Managed environment should have a valid environment_id after creation."
+  }
+
+  assert {
+    condition     = powerplatform_managed_environment.this[0].environment_id == powerplatform_environment.this.id
+    error_message = "Managed environment should reference the same environment ID after deployment."
+  }
+
+  assert {
+    condition     = powerplatform_managed_environment.this[0].is_group_sharing_disabled == false
+    error_message = "Should use default sharing settings (group sharing enabled) after deployment."
   }
 }
 
