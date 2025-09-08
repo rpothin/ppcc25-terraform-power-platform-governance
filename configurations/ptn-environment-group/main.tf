@@ -51,6 +51,39 @@ module "environment_group" {
 # Following research-based approach for three-scenario detection
 data "powerplatform_environments" "all" {}
 
+# Query current Terraform state to detect managed environments
+# This works with both local and remote backends (Azure Storage, S3, etc.)
+data "external" "terraform_state" {
+  program = ["bash", "-c", <<-EOT
+    # Use terraform state list to get managed environment resources
+    # This works regardless of backend type (local, Azure Storage, S3, etc.)
+    state_resources=$(terraform state list 2>/dev/null | grep "module\.environments\[.*\]\.powerplatform_environment\.this" || echo "")
+    
+    # Initialize managed environments object
+    managed_envs=""
+    
+    # Process each resource to extract environment keys
+    if [ -n "$state_resources" ]; then
+      while IFS= read -r resource; do
+        if [ -n "$resource" ]; then
+          # Extract the environment key from the resource address (e.g., "0", "1", "2")
+          key=$(echo "$resource" | sed -n 's/.*module\.environments\["\([^"]*\)"\].*/\1/p')
+          if [ -n "$key" ]; then
+            if [ -n "$managed_envs" ]; then
+              managed_envs="$managed_envs,"
+            fi
+            managed_envs="$managed_envs\"$key\":true"
+          fi
+        fi
+      done <<< "$state_resources"
+    fi
+    
+    # Output JSON result
+    echo "{\"managed_environments\":\"{$managed_envs}\"}"
+  EOT
+  ]
+}
+
 locals {
   # Platform environment lookup (from Power Platform API)
   platform_envs = {
@@ -62,13 +95,17 @@ locals {
     }
   }
 
-  # TRUE STATE DETECTION: Environments are only considered managed if they pass the import test  
-  # This approach eliminates the assumption flag entirely and relies on actual state checking
+  # TRUE STATE DETECTION: Parse the state query results
+  # This works with remote backends like Azure Storage
+  state_managed_env_keys = jsondecode(data.external.terraform_state.result.managed_environments)
+
+  # Build the existing state managed environments map
   existing_state_managed_envs = {
-    # On fresh deployments (no state), this will be empty
-    # On subsequent runs with existing state, this will contain managed environments
-    # We can't easily query state from within the same config, so we'll let the
-    # resource creation logic handle this via proper error handling
+    for key, env_config in local.template_environments : lower(env_config.environment.display_name) => {
+      display_name = env_config.environment.display_name
+      managed_key  = key
+    }
+    if try(local.state_managed_env_keys[key], false) == true
   }
 
   # Implement true three-scenario detection for each planned environment
