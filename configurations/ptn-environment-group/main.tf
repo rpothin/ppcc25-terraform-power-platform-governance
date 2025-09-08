@@ -76,25 +76,24 @@ locals {
     }
   }
 
-  # Safely access the managed_environments output from current state
-  # If the data source fails (e.g., during initial deployment), returns empty map
+  # Safely access the terraform_state_tracking output from current state
+  # This avoids circular dependency since terraform_data resources exist independently of modules
   current_managed_environments = try(
-    data.terraform_remote_state.self.outputs.managed_environments,
+    data.terraform_remote_state.self.outputs.terraform_state_tracking,
     {}
   )
 
   # Build the existing state managed environments map
-  # Uses the managed_environments output structure as the authoritative source
+  # Uses the terraform_state_tracking output structure as the authoritative source
+  # This avoids circular dependency since terraform_data exists independently of modules
   existing_state_managed_envs = {
-    for name, details in local.current_managed_environments :
-    lower(name) => {
+    for key, details in local.current_managed_environments :
+    lower(details.display_name) => {
       display_name = details.display_name
       template_key = details.template_key
-      scenario     = details.scenario
+      scenario     = "managed_update" # All tracked environments are managed
     }
-  }
-
-  # Implement true three-scenario detection for each planned environment
+  } # Implement true three-scenario detection for each planned environment
   environment_scenarios = {
     for key, env_config in local.template_environments : key => {
       target_name_lower = lower(env_config.environment.display_name)
