@@ -449,3 +449,26 @@ why certain environments were or were not created.
 DESCRIPTION
   value       = local.environment_scenarios
 }
+
+output "terraform_state_tracking" {
+  description = <<DESCRIPTION
+Terraform state tracking information for managed environments.
+
+This output provides the actual terraform_data resource tracking information
+that enables true state-aware duplicate detection. Each managed environment
+has a corresponding terraform_data resource that persists in state.
+
+This is the definitive source of truth for which environments are managed
+by this Terraform configuration, eliminating circular dependency issues.
+DESCRIPTION
+  value = {
+    for key, tracker in terraform_data.managed_environment_tracker : key => {
+      environment_id = tracker.input.environment_id
+      display_name   = tracker.input.display_name
+      template_key   = tracker.input.template_key
+      managed_by     = tracker.input.managed_by
+      creation_time  = tracker.input.creation_time
+      state_tracked  = true
+    }
+  }
+}

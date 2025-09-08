@@ -63,26 +63,21 @@ locals {
     }
   }
 
-  # State file lookup using try() function for safe access (from research document)  
-  # This implements the true state-aware logic from the research document
-  existing_state_managed_envs = var.assume_existing_environments_are_managed ? (
-    # When user indicates existing environments should be treated as managed,
-    # we populate this with all environments that exist in the platform
-    # This implements the "managed_update" scenario from the research
-    {
-      for key, env_config in local.template_environments :
-      lower(env_config.environment.display_name) => {
-        display_name = env_config.environment.display_name
-        template_key = key
-      }
-      # Only include if the environment actually exists in the platform
-      if contains(keys(local.platform_envs), lower(env_config.environment.display_name))
+  # RESEARCH DOCUMENT IMPLEMENTATION: Simplified state-aware detection
+  # Use assume_existing_environments_are_managed as primary control mechanism
+  # This avoids circular dependency issues with module state detection
+  existing_state_managed_envs = var.assume_existing_environments_are_managed ? {
+    for key, env_config in local.template_environments :
+    lower(env_config.environment.display_name) => {
+      display_name = env_config.environment.display_name
+      template_key = key
     }
-    ) : (
-    # When user indicates fresh deployment, no environments are considered managed
-    # This implements strict duplicate detection
-    {}
-  )
+    # When assume_existing_environments_are_managed=true, treat ALL platform environments as managed
+    if contains(keys(local.platform_envs), lower(env_config.environment.display_name))
+    } : {
+    # When assume_existing_environments_are_managed=false, no environments are considered managed
+    # This forces duplicate blocking for all existing platform environments
+  }
 
   # Implement three-scenario detection for each planned environment (research pattern)
   environment_scenarios = {
@@ -287,4 +282,29 @@ module "environment_application_admin" {
 
   # Explicit dependency chain: group → environments → application_admin
   depends_on = [module.environments]
+}
+
+# ============================================================================
+# TERRAFORM STATE TRACKING (Research Document Pattern)
+# ============================================================================
+
+# Track managed environments in Terraform state using terraform_data
+# This enables true state-aware duplicate detection without circular dependencies
+resource "terraform_data" "managed_environment_tracker" {
+  for_each = module.environments
+
+  # Store environment metadata for state tracking
+  input = {
+    environment_id = each.value.environment_id
+    display_name   = each.value.environment_display_name
+    template_key   = each.key
+    managed_by     = "terraform"
+    creation_time  = timestamp()
+  }
+
+  # Lifecycle management
+  lifecycle {
+    # Recreate tracker when environment changes
+    create_before_destroy = true
+  }
 }
