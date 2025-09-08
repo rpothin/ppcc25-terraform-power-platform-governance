@@ -64,3 +64,7 @@ workspace_template = "basic"
 name               = "DemoWorkspace"
 description        = "Demonstration workspace for PPCC25 session"
 location           = "unitedstates"
+
+# State-aware duplicate detection control
+# Set to true for existing managed environments to allow updates
+assume_existing_environments_are_managed = true
