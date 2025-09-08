@@ -297,7 +297,7 @@ resource "terraform_data" "managed_environment_tracker" {
   # Store environment metadata for state tracking
   input = {
     environment_id = each.value.environment_id
-    display_name   = each.value.environment_display_name
+    display_name   = each.value.environment_summary.name
     template_key   = each.key
     managed_by     = "terraform"
     creation_time  = timestamp()
