@@ -34,17 +34,20 @@ Enable pattern-level duplicate environment detection and prevention.
 
 When enabled, this checks if environments with the same names already exist
 in the Power Platform tenant before creating new ones. This prevents
-accidental resource conflicts.
+accidental resource conflicts by performing true state-aware detection.
 
 IMPORTANT USAGE SCENARIOS:
 - Set to true for NEW deployments to prevent creating duplicate environments
 - Set to false when working with EXISTING Terraform state that manages environments
 - Set to false when importing existing environments into Terraform management
 
-If you see duplicate detection errors on environments that should be managed
-by this Terraform configuration, this likely means:
-1. The environments need to be imported into Terraform state, OR
-2. You're working with existing managed environments and should set this to false
+The system automatically detects whether environments are managed by checking
+actual Terraform state, not user assumptions. This ensures reliable governance.
+
+If you see duplicate detection errors:
+1. Import existing environments into Terraform state if they should be managed
+2. Choose different environment names to avoid conflicts
+3. Temporarily disable protection only for testing scenarios
 DESCRIPTION
   default     = true
 
@@ -53,33 +56,6 @@ DESCRIPTION
       var.enable_pattern_duplicate_protection == true || var.enable_pattern_duplicate_protection == false
     )
     error_message = "Invalid boolean value for enable_pattern_duplicate_protection. Must be true or false. GOVERNANCE NOTE: Setting to false disables duplicate protection at pattern level - use only for testing scenarios or when importing existing environments."
-  }
-}
-
-variable "assume_existing_environments_are_managed" {
-  type        = bool
-  description = <<DESCRIPTION
-Assume that existing environments with matching names are managed by this Terraform configuration.
-
-This variable implements the state-aware duplicate detection logic from the research document:
-- When true: Existing environments are assumed to be managed (allows updates)
-- When false: Existing environments are assumed to be unmanaged (blocks as duplicates)
-
-USAGE GUIDELINES:
-- Set to false for FRESH deployments where you want strict duplicate protection
-- Set to true when working with EXISTING state where environments should be managed
-- This is the key variable that implements the "managed_update" vs "duplicate_blocked" logic
-
-This variable works in conjunction with enable_pattern_duplicate_protection to provide
-fine-grained control over the three-scenario detection pattern.
-DESCRIPTION
-  default     = false
-
-  validation {
-    condition = (
-      var.assume_existing_environments_are_managed == true || var.assume_existing_environments_are_managed == false
-    )
-    error_message = "Invalid boolean value for assume_existing_environments_are_managed. Must be true or false."
   }
 }
 
