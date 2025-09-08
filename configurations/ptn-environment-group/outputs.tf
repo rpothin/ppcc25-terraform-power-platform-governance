@@ -8,13 +8,9 @@
 # OUTPUT SCHEMA VERSION
 # ============================================================================
 
-locals {
-  output_schema_version = "1.0.0"
-}
-
 output "output_schema_version" {
   description = "The version of the output schema for this template-driven pattern module."
-  value       = local.output_schema_version
+  value       = "1.0.0"
 }
 
 # ============================================================================
@@ -123,291 +119,6 @@ DESCRIPTION
 }
 
 # ============================================================================
-# ENVIRONMENT SETTINGS OUTPUTS - Template-Driven Settings Configuration
-# ============================================================================
-
-output "environment_settings_summary" {
-  description = <<DESCRIPTION
-Comprehensive summary of environment settings applied by template configuration.
-
-Shows how workspace-level defaults and environment-specific overrides were
-processed and applied to each environment. Useful for governance validation
-and compliance reporting.
-DESCRIPTION
-  value = {
-    workspace_settings = {
-      global_features = local.selected_template.workspace_settings.global_features
-      global_email    = local.selected_template.workspace_settings.global_email
-      global_security = local.selected_template.workspace_settings.global_security
-    }
-
-    environment_specific_settings = {
-      for idx, env in local.environment_summary : env.display_name => {
-        environment_type  = env.environment_type
-        audit_settings    = local.template_environment_settings[idx].merged_settings.audit_settings
-        security_settings = local.template_environment_settings[idx].merged_settings.security_settings
-        feature_settings  = local.template_environment_settings[idx].merged_settings.feature_settings
-        email_settings    = local.template_environment_settings[idx].merged_settings.email_settings
-        settings_source   = "template_${var.workspace_template}"
-      }
-    }
-
-    configuration_approach = {
-      type                  = "hybrid"
-      workspace_defaults    = "applied_to_all"
-      environment_overrides = "per_environment_type"
-      template_driven       = true
-    }
-  }
-}
-
-output "settings_deployment_status" {
-  description = <<DESCRIPTION
-Deployment status and validation of environment settings modules.
-
-Provides detailed information about the successful deployment of settings
-to each environment, including module references and configuration status.
-DESCRIPTION
-  value = {
-    settings_modules_deployed = length(module.environment_settings)
-    deployment_success = alltrue([
-      for idx, settings_module in module.environment_settings :
-      settings_module.applied_settings_summary.configuration_applied == "environment_settings"
-    ])
-
-    per_environment_status = {
-      for idx, env in local.environment_summary : env.display_name => {
-        environment_id     = module.environments[idx].environment_id
-        settings_module_id = idx
-        deployment_status  = "applied"
-        settings_applied   = module.environment_settings[idx].applied_settings_summary.configuration_applied == "environment_settings"
-        configuration_items = {
-          audit_configured    = module.environment_settings[idx].applied_settings_summary.audit_settings_configured
-          security_configured = module.environment_settings[idx].applied_settings_summary.security_settings_configured
-          features_configured = module.environment_settings[idx].applied_settings_summary.feature_settings_configured
-          email_configured    = module.environment_settings[idx].applied_settings_summary.email_settings_configured
-        }
-      }
-    }
-
-    template_source = var.workspace_template
-    last_updated    = timestamp()
-  }
-}
-
-# ============================================================================
-# TEMPLATE METADATA - Template Configuration and Validation Summary
-# ============================================================================
-
-output "template_metadata" {
-  description = "Metadata about the workspace template and its configuration"
-  value = {
-    # Template information
-    template_name        = var.workspace_template
-    template_description = local.pattern_metadata.template_description
-    environment_count    = local.pattern_metadata.environment_count
-
-    # Template validation
-    template_valid = local.deployment_validation.template_valid
-    location_valid = local.deployment_validation.location_valid
-
-    # Workspace configuration
-    workspace_name     = var.name
-    workspace_desc     = var.description
-    workspace_location = var.location
-
-    # Pattern metadata
-    pattern_type    = local.pattern_metadata.pattern_type
-    pattern_version = local.output_schema_version
-  }
-}
-
-# ============================================================================
-# ORCHESTRATION SUMMARY - Deployment Status and Validation
-# ============================================================================
-
-output "orchestration_summary" {
-  description = "Summary of template-driven pattern deployment status and results including environment settings"
-  value = {
-    # Deployment status
-    deployment_status      = "deployed"
-    pattern_complete       = local.deployment_validation.pattern_complete
-    all_environments_ready = local.deployment_validation.all_environments_created
-    group_assignment_valid = local.deployment_validation.group_assignment_valid
-
-    # Resource metrics (including settings modules)
-    total_resources_created    = 1 + local.pattern_metadata.environment_count + length(module.environment_settings) # Group + environments + settings
-    environment_group_id       = module.environment_group.environment_group_id
-    environments_created       = local.pattern_metadata.environment_count
-    managed_environments_count = local.pattern_metadata.environment_count # All environments auto-managed via group
-    environment_settings_count = length(module.environment_settings)
-
-    # Template processing results
-    template_processing = {
-      template_loaded        = true
-      location_validated     = local.deployment_validation.location_valid
-      environments_generated = length(local.template_environments)
-      settings_processed     = length(local.template_environment_settings)
-      naming_convention      = "workspace_name + template_suffix"
-    }
-
-    # Environment settings deployment summary
-    settings_deployment = {
-      settings_configured  = length(module.environment_settings)
-      workspace_settings   = local.selected_template.workspace_settings
-      hybrid_configuration = true # Workspace defaults + environment overrides
-      settings_per_environment = {
-        for idx, env in local.environment_summary : env.display_name => {
-          audit_configured    = local.template_environment_settings[idx].merged_settings.audit_settings != null
-          security_configured = length(local.template_environment_settings[idx].merged_settings.security_settings) > 0
-          features_configured = length(local.template_environment_settings[idx].merged_settings.feature_settings) > 0
-          email_configured    = length(local.template_environment_settings[idx].merged_settings.email_settings) > 0
-        }
-      }
-    }
-
-    # Environment details from template
-    environment_summary = local.environment_results
-
-    # Integration readiness
-    ready_for_governance = true
-    ready_for_policies   = true
-    ready_for_routing    = true
-    settings_applied     = true
-
-    # Timestamps
-    deployment_timestamp = timestamp()
-  }
-}
-
-# ============================================================================
-# GOVERNANCE INTEGRATION - Resources Ready for Policy Application
-# ============================================================================
-
-output "governance_ready_resources" {
-  description = "Map of resources ready for governance configuration and policy application including environment settings"
-  value = {
-    environment_group = {
-      id               = module.environment_group.environment_group_id
-      name             = module.environment_group.environment_group_name
-      resource_type    = "powerplatform_environment_group"
-      governance_ready = true
-      policy_targets   = ["dlp_policies", "routing_rules", "environment_rules"]
-      template_driven  = true
-      workspace_name   = var.name
-    }
-
-    environments = {
-      for idx, env_module in module.environments : idx => {
-        id                 = env_module.environment_id
-        name               = local.environment_summary[idx].display_name
-        resource_type      = "powerplatform_environment"
-        environment_type   = local.environment_summary[idx].environment_type
-        group_membership   = module.environment_group.environment_group_id
-        governance_ready   = true
-        policy_inheritance = "from_group"
-        template_suffix    = local.environment_summary[idx].suffix
-        workspace_name     = var.name
-
-        # Settings configuration for governance
-        settings_applied = {
-          audit_configured    = local.template_environment_settings[idx].merged_settings.audit_settings != null
-          security_configured = length(local.template_environment_settings[idx].merged_settings.security_settings) > 0
-          features_configured = length(local.template_environment_settings[idx].merged_settings.feature_settings) > 0
-          email_configured    = length(local.template_environment_settings[idx].merged_settings.email_settings) > 0
-          template_source     = var.workspace_template
-        }
-      }
-    }
-
-    environment_settings = {
-      for idx, settings_module in module.environment_settings : idx => {
-        environment_id     = module.environments[idx].environment_id
-        environment_name   = local.environment_summary[idx].display_name
-        resource_type      = "powerplatform_environment_settings"
-        governance_ready   = true
-        settings_deployed  = true
-        template_driven    = true
-        workspace_name     = var.name
-        configuration_type = "hybrid_template_driven"
-      }
-    }
-
-    managed_environments = {
-      for idx, env_module in module.environments : idx => {
-        environment_id    = env_module.environment_id
-        environment_name  = local.environment_summary[idx].display_name
-        resource_type     = "powerplatform_environment" # Auto-managed via environment group
-        governance_ready  = true
-        enabled           = true           # Always true when environment is in an environment group
-        deployment_status = "auto-managed" # Environments automatically become managed when in groups
-        template_driven   = true
-        workspace_name    = var.name
-        auto_managed_note = "Environment automatically becomes managed when added to environment group"
-      }
-    }
-  }
-}
-
-# ============================================================================
-# CONFIGURATION SUMMARY - Audit and Compliance Reporting
-# ============================================================================
-
-output "pattern_configuration_summary" {
-  description = "Comprehensive summary of template-driven pattern configuration"
-  value = {
-    # Input configuration summary
-    workspace_config = {
-      template    = var.workspace_template
-      name        = var.name
-      description = var.description
-      location    = var.location
-      name_length = length(var.name)
-      desc_length = length(var.description)
-    }
-
-    # Template processing summary
-    template_processing = {
-      template_name        = var.workspace_template
-      template_description = local.pattern_metadata.template_description
-      environments_defined = length(local.selected_template.environments)
-      location_validation  = local.deployment_validation.location_valid
-      allowed_locations    = local.selected_template.allowed_locations
-    }
-
-    # Environment generation summary
-    environment_generation = {
-      count             = local.pattern_metadata.environment_count
-      naming_pattern    = "${var.name} + template_suffix"
-      environment_types = [for env in local.environment_summary : env.environment_type]
-      generated_names   = [for env in local.environment_summary : env.display_name]
-      unique_names      = length(distinct([for env in local.environment_summary : env.display_name])) == length(local.environment_summary)
-      dataverse_enabled = true
-    }
-
-    # Pattern orchestration summary
-    orchestration_results = {
-      pattern_executed      = true
-      template_driven       = true
-      resources_deployed    = 1 + local.pattern_metadata.environment_count
-      dependency_order      = ["template_processing", "environment_group", "environments"]
-      group_assignment_mode = "automatic"
-      validation_passed     = local.deployment_validation.pattern_complete
-    }
-
-    # Compliance and audit information
-    compliance_info = {
-      avm_inspired          = true
-      template_driven       = true
-      security_model        = "oidc_only"
-      provider_version      = "~> 3.8"
-      anti_corruption_layer = true
-      monitoring_sp_enabled = true
-    }
-  }
-}
-
-# ============================================================================
 # STATE TRACKING OUTPUTS - For State-Aware Duplicate Detection
 # ============================================================================
 
@@ -474,16 +185,25 @@ DESCRIPTION
 }
 
 # ============================================================================
-# DEBUG OUTPUT - Temporary for verifying duplicate detection fix
+# DEBUG OUTPUT - Enhanced debug for verifying duplicate detection fix
 # ============================================================================
 
 output "debug_state_lookup" {
   description = "Debug information to verify duplicate detection is working correctly"
   value = {
-    current_managed_environments = local.current_managed_environments
-    existing_state_managed_envs  = local.existing_state_managed_envs
-    platform_envs_keys           = keys(local.platform_envs)
-    state_envs_keys              = keys(local.existing_state_managed_envs)
+    # Remote state access debug
+    remote_state_accessible        = length(data.terraform_remote_state.self) > 0
+    current_managed_environments   = local.current_managed_environments
+    current_state_tracking         = local.current_state_tracking
+    derived_managed_environments   = local.derived_managed_environments
+    effective_managed_environments = local.effective_managed_environments
+
+    # Final comparison keys
+    existing_state_managed_envs = local.existing_state_managed_envs
+    platform_envs_keys          = keys(local.platform_envs)
+    state_envs_keys             = keys(local.existing_state_managed_envs)
+
+    # Scenario analysis
     environment_scenarios_debug = {
       for key, scenario in local.environment_scenarios : key => {
         target_name            = local.template_environments[key].environment.display_name
@@ -492,7 +212,53 @@ output "debug_state_lookup" {
         exists_in_state        = scenario.exists_in_state
         scenario               = scenario.scenario
         should_create_resource = scenario.should_create_resource
+
+        # Debugging lookup details
+        platform_lookup_key = lower(local.template_environments[key].environment.display_name)
+        state_lookup_key    = lower(local.template_environments[key].environment.display_name)
+        found_in_platform   = contains(keys(local.platform_envs), lower(local.template_environments[key].environment.display_name))
+        found_in_state      = contains(keys(local.existing_state_managed_envs), lower(local.template_environments[key].environment.display_name))
       }
     }
+  }
+}
+
+# ============================================================================
+# ORCHESTRATION SUMMARY - Deployment Status and Validation
+# ============================================================================
+
+output "orchestration_summary" {
+  description = "Summary of template-driven pattern deployment status and results"
+  value = {
+    # Deployment status
+    deployment_status      = "deployed"
+    pattern_complete       = local.deployment_validation.pattern_complete
+    all_environments_ready = local.deployment_validation.all_environments_created
+    group_assignment_valid = local.deployment_validation.group_assignment_valid
+
+    # Resource metrics
+    total_resources_created    = 1 + local.pattern_metadata.environment_count
+    environment_group_id       = module.environment_group.environment_group_id
+    environments_created       = local.pattern_metadata.environment_count
+    managed_environments_count = local.pattern_metadata.environment_count
+
+    # Template processing results
+    template_processing = {
+      template_loaded        = true
+      location_validated     = local.deployment_validation.location_valid
+      environments_generated = length(local.template_environments)
+      naming_convention      = "workspace_name + template_suffix"
+    }
+
+    # Environment details from template
+    environment_summary = local.environment_results
+
+    # Integration readiness
+    ready_for_governance = true
+    ready_for_policies   = true
+    ready_for_routing    = true
+
+    # Timestamps
+    deployment_timestamp = timestamp()
   }
 }

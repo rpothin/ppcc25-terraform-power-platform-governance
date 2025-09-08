@@ -63,6 +63,9 @@ data "terraform_remote_state" "self" {
     key                  = "powerplatform/governance/ptn-environment-group-regional-examples.tfstate"
     use_oidc             = true
   }
+
+  # Only attempt to read if not in initial deployment state
+  count = 1 # Always try to read, but handle gracefully
 }
 
 locals {
@@ -78,14 +81,35 @@ locals {
 
   # Access the managed_environments output which has the correct key format
   # The managed_environments output already uses lowercase display names as keys
+  # Handle case where this is initial deployment or state is empty
   current_managed_environments = try(
-    data.terraform_remote_state.self.outputs.managed_environments,
+    data.terraform_remote_state.self[0].outputs.managed_environments,
     {}
   )
 
-  # The managed_environments output already uses lowercase display names as keys,
-  # so we can use it directly for comparison
-  existing_state_managed_envs = local.current_managed_environments # Implement true three-scenario detection for each planned environment
+  # For debugging: also try terraform_state_tracking as backup
+  current_state_tracking = try(
+    data.terraform_remote_state.self[0].outputs.terraform_state_tracking,
+    {}
+  )
+
+  # If managed_environments is empty, try to derive from terraform_state_tracking
+  # This handles the case where managed_environments output is filtered out due to circular dependency
+  derived_managed_environments = {
+    for key, details in local.current_state_tracking :
+    lower(details.display_name) => {
+      id           = details.environment_id
+      display_name = details.display_name
+      template_key = details.template_key
+      scenario     = "managed_update"
+    }
+  }
+
+  # Use managed_environments if available, otherwise fall back to derived from state tracking
+  effective_managed_environments = length(local.current_managed_environments) > 0 ? local.current_managed_environments : local.derived_managed_environments
+
+  # Use the effective managed environments (either direct or derived from state tracking)
+  existing_state_managed_envs = local.effective_managed_environments # Implement true three-scenario detection for each planned environment
   environment_scenarios = {
     for key, env_config in local.template_environments : key => {
       target_name_lower = lower(env_config.environment.display_name)
