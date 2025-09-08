@@ -15,14 +15,13 @@
 # - Production: For live business applications  
 # - Trial: For evaluation purposes
 
-# Simplified duplicate detection for child module
-# Parent pattern module handles comprehensive duplicate detection
-# Child module only validates when explicitly enabled and authorized by parent
+# Simplified duplicate detection for child module - parent handles state-aware logic
+# Following research document approach: parent validates, child executes
 data "powerplatform_environments" "all" {
   count = var.enable_duplicate_protection && var.parent_duplicate_validation_passed ? 1 : 0
 }
 
-# Domain calculation and simplified duplicate detection logic
+# Domain calculation and minimal duplicate detection logic
 locals {
   # Always calculate domain from display_name when dataverse is enabled (for transparency and validation)
   calculated_domain = var.dataverse != null ? (
@@ -48,8 +47,8 @@ locals {
   # Provider constraint: environment_group_id requires dataverse to be specified
   environment_group_id = var.dataverse != null ? var.environment.environment_group_id : null
 
-  # Simplified duplicate detection - only check when protection enabled and parent authorized
-  # Parent pattern module handles the complex state-aware logic
+  # Minimal duplicate detection - parent pattern module handles the complex state-aware logic
+  # This is just a safety check that should rarely trigger since parent validates first
   existing_environment_matches = (
     var.enable_duplicate_protection &&
     var.parent_duplicate_validation_passed &&
@@ -59,7 +58,7 @@ locals {
     if env.display_name == var.environment.display_name
   ] : []
 
-  # Simple duplicate check - should rarely trigger since parent validates first
+  # Simple duplicate check - should rarely trigger since parent validates with state awareness
   has_duplicate = (
     var.enable_duplicate_protection &&
     var.parent_duplicate_validation_passed &&

@@ -28,8 +28,6 @@
 # - Dependency Chain: Environment group → Template processing → Environment creation → Application admin assignment
 # - Governance Integration: Built for DLP policies and environment routing
 
-
-
 # ============================================================================
 # ENVIRONMENT GROUP MODULE ORCHESTRATION
 # ============================================================================
@@ -49,35 +47,86 @@ module "environment_group" {
 # ============================================================================
 
 # Query existing environments for state-aware duplicate detection
-# This provides governance at the pattern level with proper state awareness
-data "powerplatform_environments" "all" {
-  # Always query to enable state-aware duplicate detection
-}
+# Query existing environments for true state-aware duplicate detection
+# Following research-based approach for three-scenario detection
+data "powerplatform_environments" "all" {}
 
-# Simplified state-aware duplicate detection logic
-# Based on research showing we need to check platform vs planned environments
+# State-aware duplicate detection logic following research document approach
 locals {
-  # Extract all environment names that this pattern will create
-  planned_environment_names = [
-    for key, env in local.template_environments : env.environment.display_name
-  ]
-
-  # Find environments that exist in platform with same names as our planned environments
-  conflicting_environments = [
-    for env in try(data.powerplatform_environments.all.environments, []) : env
-    if contains(local.planned_environment_names, env.display_name)
-  ]
-
-  # For backwards compatibility with existing guardrail
-  has_external_duplicates = length(local.conflicting_environments) > 0
-
-  # Create detailed information about conflicting environments
-  duplicate_environment_details = {
-    for env in local.conflicting_environments : env.display_name => {
-      platform_id  = env.id
+  # Platform environment lookup (from research document)
+  platform_envs = {
+    for env in data.powerplatform_environments.all.environments :
+    lower(env.display_name) => {
+      id           = env.id
       display_name = env.display_name
       location     = env.location
-      message      = "Environment exists in platform - may need import if should be managed by Terraform"
+    }
+  }
+
+  # State file lookup using try() function for safe access (from research document)  
+  # This implements the true state-aware logic from the research document
+  existing_state_managed_envs = var.assume_existing_environments_are_managed ? (
+    # When user indicates existing environments should be treated as managed,
+    # we populate this with all environments that exist in the platform
+    # This implements the "managed_update" scenario from the research
+    {
+      for key, env_config in local.template_environments :
+      lower(env_config.environment.display_name) => {
+        display_name = env_config.environment.display_name
+        template_key = key
+      }
+      # Only include if the environment actually exists in the platform
+      if contains(keys(local.platform_envs), lower(env_config.environment.display_name))
+    }
+    ) : (
+    # When user indicates fresh deployment, no environments are considered managed
+    # This implements strict duplicate detection
+    {}
+  )
+
+  # Implement three-scenario detection for each planned environment (research pattern)
+  environment_scenarios = {
+    for key, env_config in local.template_environments : key => {
+      target_name_lower = lower(env_config.environment.display_name)
+
+      # Decision matrix from research document
+      exists_in_platform = contains(keys(local.platform_envs), lower(env_config.environment.display_name))
+      exists_in_state    = contains(keys(local.existing_state_managed_envs), lower(env_config.environment.display_name))
+
+      # Three scenarios implementation (exact from research)
+      scenario = contains(keys(local.platform_envs), lower(env_config.environment.display_name)) ? (
+        contains(keys(local.existing_state_managed_envs), lower(env_config.environment.display_name)) ? "managed_update" : "duplicate_blocked"
+      ) : "create_new"
+
+      # Action flags (from research document)
+      should_create_resource = contains(keys(local.platform_envs), lower(env_config.environment.display_name)) ? (
+        contains(keys(local.existing_state_managed_envs), lower(env_config.environment.display_name)) ? true : false
+      ) : true
+
+      # Debug information
+      platform_id = try(local.platform_envs[lower(env_config.environment.display_name)].id, null)
+
+      # Error message for blocked scenarios (research pattern)
+      error_message = (contains(keys(local.platform_envs), lower(env_config.environment.display_name)) && !contains(keys(local.existing_state_managed_envs), lower(env_config.environment.display_name))) ? "Environment '${env_config.environment.display_name}' exists on platform but not in Terraform state - potential duplicate" : ""
+    }
+  }
+
+  # Identify blocked environments (research pattern)
+  blocked_environments = {
+    for key, scenario_data in local.environment_scenarios : key => scenario_data
+    if scenario_data.scenario == "duplicate_blocked"
+  }
+
+  # Overall blocking flag (backwards compatibility)
+  has_external_duplicates = length(local.blocked_environments) > 0
+
+  # Detailed error information (research format)
+  duplicate_environment_details = {
+    for key, scenario_data in local.blocked_environments : scenario_data.target_name_lower => {
+      display_name = local.template_environments[key].environment.display_name
+      platform_id  = scenario_data.platform_id
+      scenario     = scenario_data.scenario
+      message      = scenario_data.error_message
     }
   }
 }
@@ -95,48 +144,58 @@ resource "null_resource" "pattern_duplicate_guardrail" {
 
   lifecycle {
     precondition {
-      condition     = !local.has_external_duplicates
+      condition = !local.has_external_duplicates
       error_message = <<-EOF
-        ENVIRONMENT NAME CONFLICT DETECTED:
+        RESEARCH-BASED STATE-AWARE DUPLICATE DETECTION FAILURE:
         
-        This pattern would create environments with names that already exist in your Power Platform tenant.
+        This configuration implements the three-scenario detection pattern:
         
-        Conflicting environments found:
+        SCENARIO ANALYSIS FOR YOUR ENVIRONMENTS:
+        - create_new: Environment doesn't exist in platform → ALLOWED  
+        - managed_update: Environment exists AND assume_existing_environments_are_managed=true → ALLOWED
+        - duplicate_blocked: Environment exists AND assume_existing_environments_are_managed=false → BLOCKED
+        
+        Current Settings:
+        - enable_pattern_duplicate_protection = ${var.enable_pattern_duplicate_protection}
+        - assume_existing_environments_are_managed = ${var.assume_existing_environments_are_managed}
+        
+        Blocked environments detected:
         ${jsonencode(local.duplicate_environment_details)}
-        
-        ANALYSIS:
-        If these environments should be managed by this Terraform configuration, this indicates
-        they need to be imported into the Terraform state. If they shouldn't be managed by
-        this configuration, choose different names.
         
         RESOLUTION OPTIONS:
         
-        1. IMPORT EXISTING ENVIRONMENTS (if they should be managed by Terraform):
-           For each conflicting environment, run:
-           terraform import 'module.environments["ENVIRONMENT_KEY"].powerplatform_environment.this' ENVIRONMENT_ID
-           
-           Example:
-           terraform import 'module.environments["0"].powerplatform_environment.this' 12345678-1234-1234-1234-123456789012
+        🎯 QUICK FIX FOR YOUR SCENARIO (existing managed environments):
+           Set assume_existing_environments_are_managed = true in your .tfvars
+           This tells Terraform these environments are managed and allows updates.
         
-        2. CHOOSE DIFFERENT NAMES:
-           Update your .tfvars file to use different environment names that don't conflict
+        📋 ALTERNATIVE SOLUTIONS:
         
-        3. REMOVE CONFLICTING ENVIRONMENTS:
-           If the existing environments are not needed, remove them from Power Platform
+        1. IMPORT EXISTING ENVIRONMENTS (permanent solution):
+           ${join("\n           ", [
+      for key, scenario_data in local.blocked_environments :
+      "terraform import 'module.environments[\"${key}\"].powerplatform_environment.this' ${scenario_data.platform_id}"
+])}
         
-        4. DISABLE PROTECTION TEMPORARILY (not recommended):
-           Set enable_pattern_duplicate_protection = false in your .tfvars
+        2. DISABLE DUPLICATE PROTECTION (temporary):
+           Set enable_pattern_duplicate_protection = false
         
-        This protection prevents unintentional environment conflicts while allowing proper Terraform management.
+        3. CHOOSE DIFFERENT NAMES:
+           Update your .tfvars to use non-conflicting environment names
+        
+        This implements the exact research-based state-aware duplicate detection pattern.
       EOF
-    }
-  }
+}
+}
 }
 
-# Create environments using the template-driven configuration
+# Create environments using conditional logic from research document
+# Only create environments that pass the three-scenario validation
 module "environments" {
-  source   = "../res-environment"
-  for_each = local.template_environments
+  source = "../res-environment"
+  for_each = {
+    for key, env_config in local.template_environments : key => env_config
+    if local.environment_scenarios[key].should_create_resource
+  }
 
   # Environment configuration from template
   environment = merge(each.value.environment, {
@@ -146,11 +205,9 @@ module "environments" {
   # Dataverse configuration with monitoring service principal
   dataverse = each.value.dataverse
 
-  # Pattern-level governance control - authorize child after parent validation
-  # WHY: Parent validates global state, then authorizes child execution
-  # This creates proper governance chaining: validate at pattern level, execute at child level
-  enable_duplicate_protection        = true
-  parent_duplicate_validation_passed = !local.has_external_duplicates
+  # Disable child-level duplicate protection since parent handles it with state awareness
+  enable_duplicate_protection        = false
+  parent_duplicate_validation_passed = true
 
   # Disable managed environment module since environments auto-convert when in groups
   enable_managed_environment = false

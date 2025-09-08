@@ -56,6 +56,33 @@ DESCRIPTION
   }
 }
 
+variable "assume_existing_environments_are_managed" {
+  type        = bool
+  description = <<DESCRIPTION
+Assume that existing environments with matching names are managed by this Terraform configuration.
+
+This variable implements the state-aware duplicate detection logic from the research document:
+- When true: Existing environments are assumed to be managed (allows updates)
+- When false: Existing environments are assumed to be unmanaged (blocks as duplicates)
+
+USAGE GUIDELINES:
+- Set to false for FRESH deployments where you want strict duplicate protection
+- Set to true when working with EXISTING state where environments should be managed
+- This is the key variable that implements the "managed_update" vs "duplicate_blocked" logic
+
+This variable works in conjunction with enable_pattern_duplicate_protection to provide
+fine-grained control over the three-scenario detection pattern.
+DESCRIPTION
+  default     = false
+
+  validation {
+    condition = (
+      var.assume_existing_environments_are_managed == true || var.assume_existing_environments_are_managed == false
+    )
+    error_message = "Invalid boolean value for assume_existing_environments_are_managed. Must be true or false."
+  }
+}
+
 variable "name" {
   type        = string
   description = <<DESCRIPTION

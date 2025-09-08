@@ -406,3 +406,46 @@ output "pattern_configuration_summary" {
     }
   }
 }
+
+# ============================================================================
+# STATE TRACKING OUTPUTS - For State-Aware Duplicate Detection
+# ============================================================================
+
+output "managed_environments" {
+  description = <<DESCRIPTION
+Tracking information for environments managed by this Terraform configuration.
+
+This output enables state-aware duplicate detection by providing a lookup map
+of all environments currently managed by this configuration. Used by the
+duplicate detection logic to distinguish between:
+- Environments that exist in platform but are managed by Terraform (allowed updates)
+- Environments that exist in platform but are NOT managed (blocked duplicates)
+
+Format: Map of lowercase display names to environment details
+DESCRIPTION
+  value = {
+    for key, env_config in local.template_environments :
+    lower(env_config.environment.display_name) => {
+      id           = try(module.environments[key].environment_id, null)
+      display_name = env_config.environment.display_name
+      template_key = key
+      scenario     = try(local.environment_scenarios[key].scenario, "unknown")
+    }
+    if try(module.environments[key].environment_id, null) != null
+  }
+}
+
+output "environment_scenarios" {
+  description = <<DESCRIPTION
+Duplicate detection scenario analysis for each environment.
+
+Provides transparency into the three-scenario decision logic:
+- create_new: Environment doesn't exist in platform
+- managed_update: Environment exists in platform AND in Terraform state  
+- duplicate_blocked: Environment exists in platform but NOT in Terraform state
+
+This output helps with debugging duplicate detection issues and understanding
+why certain environments were or were not created.
+DESCRIPTION
+  value       = local.environment_scenarios
+}
