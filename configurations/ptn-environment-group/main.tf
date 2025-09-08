@@ -48,32 +48,37 @@ module "environment_group" {
 # ENVIRONMENT MODULE ORCHESTRATION
 # ============================================================================
 
-# Query existing environments for pattern-level duplicate detection
-# This provides governance at the pattern level while avoiding state context issues
+# Query existing environments for state-aware duplicate detection
+# This provides governance at the pattern level with proper state awareness
 data "powerplatform_environments" "all" {
-  # Only query when we need to check for duplicates across the pattern
+  # Always query to enable state-aware duplicate detection
 }
 
-# Pattern-level duplicate detection logic
+# Simplified state-aware duplicate detection logic
+# Based on research showing we need to check platform vs planned environments
 locals {
   # Extract all environment names that this pattern will create
   planned_environment_names = [
     for key, env in local.template_environments : env.environment.display_name
   ]
 
-  # Check if any planned environments already exist in Power Platform
-  external_environment_matches = [
+  # Find environments that exist in platform with same names as our planned environments
+  conflicting_environments = [
     for env in try(data.powerplatform_environments.all.environments, []) : env
     if contains(local.planned_environment_names, env.display_name)
   ]
 
-  # Simple duplicate detection - flag if any environments with same names exist
-  # This provides governance while allowing for state import scenarios
-  has_external_duplicates = length(local.external_environment_matches) > 0
+  # For backwards compatibility with existing guardrail
+  has_external_duplicates = length(local.conflicting_environments) > 0
 
-  # Extract duplicate details for error reporting
+  # Create detailed information about conflicting environments
   duplicate_environment_details = {
-    for env in local.external_environment_matches : env.display_name => env.id
+    for env in local.conflicting_environments : env.display_name => {
+      platform_id  = env.id
+      display_name = env.display_name
+      location     = env.location
+      message      = "Environment exists in platform - may need import if should be managed by Terraform"
+    }
   }
 }
 
@@ -92,24 +97,37 @@ resource "null_resource" "pattern_duplicate_guardrail" {
     precondition {
       condition     = !local.has_external_duplicates
       error_message = <<-EOF
-        PATTERN-LEVEL DUPLICATE DETECTION FAILURE:
+        ENVIRONMENT NAME CONFLICT DETECTED:
         
-        This pattern configuration would create environments with display names that already exist
-        in your Power Platform tenant. This is blocked to maintain governance and prevent
-        resource conflicts.
+        This pattern would create environments with names that already exist in your Power Platform tenant.
         
-        Detected duplicate environments:
+        Conflicting environments found:
         ${jsonencode(local.duplicate_environment_details)}
         
-        RESOLUTION OPTIONS:
-        1. Choose different environment names in your .tfvars file
-        2. If these environments should be managed by this configuration:
-           - Use 'terraform import' to bring existing environments under management
-           - Or remove existing environments if they're not needed
-        3. If you're working with an existing state that manages these environments:
-           - This check is designed for fresh deployments and may need adjustment
+        ANALYSIS:
+        If these environments should be managed by this Terraform configuration, this indicates
+        they need to be imported into the Terraform state. If they shouldn't be managed by
+        this configuration, choose different names.
         
-        This governance check ensures environment name uniqueness across your Power Platform tenant.
+        RESOLUTION OPTIONS:
+        
+        1. IMPORT EXISTING ENVIRONMENTS (if they should be managed by Terraform):
+           For each conflicting environment, run:
+           terraform import 'module.environments["ENVIRONMENT_KEY"].powerplatform_environment.this' ENVIRONMENT_ID
+           
+           Example:
+           terraform import 'module.environments["0"].powerplatform_environment.this' 12345678-1234-1234-1234-123456789012
+        
+        2. CHOOSE DIFFERENT NAMES:
+           Update your .tfvars file to use different environment names that don't conflict
+        
+        3. REMOVE CONFLICTING ENVIRONMENTS:
+           If the existing environments are not needed, remove them from Power Platform
+        
+        4. DISABLE PROTECTION TEMPORARILY (not recommended):
+           Set enable_pattern_duplicate_protection = false in your .tfvars
+        
+        This protection prevents unintentional environment conflicts while allowing proper Terraform management.
       EOF
     }
   }

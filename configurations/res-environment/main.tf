@@ -15,14 +15,14 @@
 # - Production: For live business applications  
 # - Trial: For evaluation purposes
 
-# Query existing environments for duplicate detection
-# CRITICAL: Only query when duplicate protection is enabled AND we need to check for duplicates
-# This prevents false positives when environments already exist in Terraform state
+# Simplified duplicate detection for child module
+# Parent pattern module handles comprehensive duplicate detection
+# Child module only validates when explicitly enabled and authorized by parent
 data "powerplatform_environments" "all" {
-  count = var.enable_duplicate_protection ? 1 : 0
+  count = var.enable_duplicate_protection && var.parent_duplicate_validation_passed ? 1 : 0
 }
 
-# Domain calculation and duplicate detection logic
+# Domain calculation and simplified duplicate detection logic
 locals {
   # Always calculate domain from display_name when dataverse is enabled (for transparency and validation)
   calculated_domain = var.dataverse != null ? (
@@ -48,12 +48,8 @@ locals {
   # Provider constraint: environment_group_id requires dataverse to be specified
   environment_group_id = var.dataverse != null ? var.environment.environment_group_id : null
 
-  # Governance-chained duplicate detection logic
-  # Parent pattern validates global state, child executes with parent authorization
-  # Only check for duplicates if:
-  # 1. Protection is enabled
-  # 2. Parent validation has passed (governance chaining)
-  # 3. Data source was queried successfully
+  # Simplified duplicate detection - only check when protection enabled and parent authorized
+  # Parent pattern module handles the complex state-aware logic
   existing_environment_matches = (
     var.enable_duplicate_protection &&
     var.parent_duplicate_validation_passed &&
@@ -63,7 +59,7 @@ locals {
     if env.display_name == var.environment.display_name
   ] : []
 
-  # Determine if there's a duplicate (only when protection is enabled and parent authorized)
+  # Simple duplicate check - should rarely trigger since parent validates first
   has_duplicate = (
     var.enable_duplicate_protection &&
     var.parent_duplicate_validation_passed &&
@@ -71,47 +67,6 @@ locals {
   )
 
   duplicate_environment_id = local.has_duplicate ? local.existing_environment_matches[0].id : null
-}
-
-# Governance-chained duplicate protection guardrail
-# Child module executes duplicate check only when parent pattern authorizes it
-resource "null_resource" "environment_duplicate_guardrail" {
-  count = var.enable_duplicate_protection && var.parent_duplicate_validation_passed ? 1 : 0
-
-  lifecycle {
-    precondition {
-      condition     = !local.has_duplicate
-      error_message = <<-EOT
-      🚨 CHILD-LEVEL DUPLICATE ENVIRONMENT DETECTED!
-      Environment Name: "${var.environment.display_name}"
-      Existing Environment ID: ${coalesce(local.duplicate_environment_id, "unknown")}
-      
-      DEBUG INFO:
-      - Parent validation passed: ${var.parent_duplicate_validation_passed}
-      - Duplicate matches found: ${length(local.existing_environment_matches)}
-      
-      This should not happen if parent pattern validation is working correctly.
-      The parent pattern should have caught this duplicate before authorizing child execution.
-      
-      RESOLUTION OPTIONS:
-      1. Check parent pattern duplicate detection logic
-      2. Import existing environment:
-         terraform import powerplatform_environment.this ${coalesce(local.duplicate_environment_id, "ENVIRONMENT_ID_HERE")}
-      
-      3. Use a different display_name
-      
-      4. Temporarily disable protection:
-         Set enable_duplicate_protection = false
-      EOT
-    }
-  }
-
-  triggers = {
-    display_name         = var.environment.display_name
-    duplicate_protection = var.enable_duplicate_protection
-    # Add environment name for better tracking
-    environment_name = var.environment.display_name
-  }
 }
 
 # Main Power Platform Environment Resource - REAL SCHEMA ONLY
@@ -144,25 +99,23 @@ resource "powerplatform_environment" "this" {
 
   # Lifecycle management with duplicate detection and environment group validation
   lifecycle {
-    # DUPLICATE DETECTION - moved to lifecycle precondition for better error handling
+    # DUPLICATE DETECTION - simplified for child module
     precondition {
       condition     = !var.enable_duplicate_protection || !local.has_duplicate
       error_message = <<-EOT
-      🚨 DUPLICATE ENVIRONMENT DETECTED!
+      🚨 CHILD MODULE DUPLICATE DETECTED!
       Environment Name: "${var.environment.display_name}"
       Existing Environment ID: ${coalesce(local.duplicate_environment_id, "unknown")}
       
-      DEBUG INFO:
-      - Duplicate matches found: ${length(local.existing_environment_matches)}
+      This should rarely occur since the parent pattern module handles duplicate detection.
+      If you see this error, it may indicate:
       
-      RESOLUTION OPTIONS:
-      1. Import existing environment:
-         terraform import powerplatform_environment.this ${coalesce(local.duplicate_environment_id, "ENVIRONMENT_ID_HERE")}
+      1. The environment was created outside of Terraform after parent validation
+      2. There's a timing issue between parent and child validation
+      3. The environment needs to be imported into Terraform state
       
-      2. Use a different display_name
-      
-      3. Temporarily disable protection:
-         Set enable_duplicate_protection = false
+      RESOLUTION:
+      terraform import powerplatform_environment.this ${coalesce(local.duplicate_environment_id, "ENVIRONMENT_ID_HERE")}
       EOT
     }
 

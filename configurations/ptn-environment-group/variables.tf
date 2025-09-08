@@ -29,7 +29,23 @@ DESCRIPTION
 
 variable "enable_pattern_duplicate_protection" {
   type        = bool
-  description = "Enable pattern-level duplicate environment detection and prevention."
+  description = <<DESCRIPTION
+Enable pattern-level duplicate environment detection and prevention.
+
+When enabled, this checks if environments with the same names already exist
+in the Power Platform tenant before creating new ones. This prevents
+accidental resource conflicts.
+
+IMPORTANT USAGE SCENARIOS:
+- Set to true for NEW deployments to prevent creating duplicate environments
+- Set to false when working with EXISTING Terraform state that manages environments
+- Set to false when importing existing environments into Terraform management
+
+If you see duplicate detection errors on environments that should be managed
+by this Terraform configuration, this likely means:
+1. The environments need to be imported into Terraform state, OR
+2. You're working with existing managed environments and should set this to false
+DESCRIPTION
   default     = true
 
   validation {
