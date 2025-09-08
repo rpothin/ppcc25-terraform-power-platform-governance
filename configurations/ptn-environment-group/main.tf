@@ -78,8 +78,8 @@ data "external" "terraform_state" {
       done <<< "$state_resources"
     fi
     
-    # Output JSON result
-    echo "{\"managed_environments\":\"{$managed_envs}\"}"
+    # Output properly formatted JSON (not double-encoded)
+    echo "{\"managed_environments\":{$managed_envs}}"
   EOT
   ]
 }
@@ -97,7 +97,7 @@ locals {
 
   # TRUE STATE DETECTION: Parse the state query results
   # This works with remote backends like Azure Storage
-  state_managed_env_keys = jsondecode(data.external.terraform_state.result.managed_environments)
+  state_managed_env_keys = data.external.terraform_state.result.managed_environments
 
   # Build the existing state managed environments map
   existing_state_managed_envs = {
