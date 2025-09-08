@@ -482,16 +482,16 @@ output "debug_state_lookup" {
   value = {
     current_managed_environments = local.current_managed_environments
     existing_state_managed_envs  = local.existing_state_managed_envs
-    platform_envs_keys          = keys(local.platform_envs)
-    state_envs_keys             = keys(local.existing_state_managed_envs)
+    platform_envs_keys           = keys(local.platform_envs)
+    state_envs_keys              = keys(local.existing_state_managed_envs)
     environment_scenarios_debug = {
       for key, scenario in local.environment_scenarios : key => {
-        target_name             = local.template_environments[key].environment.display_name
-        target_name_lower       = lower(local.template_environments[key].environment.display_name)
-        exists_in_platform      = scenario.exists_in_platform
-        exists_in_state         = scenario.exists_in_state
-        scenario                = scenario.scenario
-        should_create_resource  = scenario.should_create_resource
+        target_name            = local.template_environments[key].environment.display_name
+        target_name_lower      = lower(local.template_environments[key].environment.display_name)
+        exists_in_platform     = scenario.exists_in_platform
+        exists_in_state        = scenario.exists_in_state
+        scenario               = scenario.scenario
+        should_create_resource = scenario.should_create_resource
       }
     }
   }
