@@ -51,37 +51,18 @@ module "environment_group" {
 # Following research-based approach for three-scenario detection
 data "powerplatform_environments" "all" {}
 
-# Query current Terraform state to detect managed environments
-# This works with both local and remote backends (Azure Storage, S3, etc.)
-data "external" "terraform_state" {
-  program = ["bash", "-c", <<-EOT
-    # Use terraform state list to get managed environment resources
-    # This works regardless of backend type (local, Azure Storage, S3, etc.)
-    state_resources=$(terraform state list 2>/dev/null | grep "module\.environments\[.*\]\.powerplatform_environment\.this" || echo "")
-    
-    # Initialize managed environments object
-    managed_envs=""
-    
-    # Process each resource to extract environment keys
-    if [ -n "$state_resources" ]; then
-      while IFS= read -r resource; do
-        if [ -n "$resource" ]; then
-          # Extract the environment key from the resource address (e.g., "0", "1", "2")
-          key=$(echo "$resource" | sed -n 's/.*module\.environments\["\([^"]*\)"\].*/\1/p')
-          if [ -n "$key" ]; then
-            if [ -n "$managed_envs" ]; then
-              managed_envs="$managed_envs,"
-            fi
-            managed_envs="$managed_envs\"$key\":true"
-          fi
-        fi
-      done <<< "$state_resources"
-    fi
-    
-    # Output as string value (external data source requires string values only)
-    echo "{\"managed_environments\":\"{$managed_envs}\"}"
-  EOT
-  ]
+# Self-referencing state approach for reliable duplicate detection
+# This reads the current state's managed_environments output to determine what's already managed
+data "terraform_remote_state" "self" {
+  backend = "azurerm"
+  config = {
+    # Use the actual backend configuration for this environment
+    resource_group_name  = "rg-terraform-powerplatform-governance"
+    storage_account_name = "stterraformpp2cc7945b"
+    container_name       = "terraform-state"
+    key                  = "powerplatform/governance/ptn-environment-group-regional-examples.tfstate"
+    use_oidc             = true
+  }
 }
 
 locals {
@@ -95,18 +76,22 @@ locals {
     }
   }
 
-  # TRUE STATE DETECTION: Parse the state query results
-  # This works with remote backends like Azure Storage
-  # External data source returns strings, so we need to parse the JSON string
-  state_managed_env_keys = jsondecode(data.external.terraform_state.result.managed_environments)
+  # Safely access the managed_environments output from current state
+  # If the data source fails (e.g., during initial deployment), returns empty map
+  current_managed_environments = try(
+    data.terraform_remote_state.self.outputs.managed_environments,
+    {}
+  )
 
   # Build the existing state managed environments map
+  # Uses the managed_environments output structure as the authoritative source
   existing_state_managed_envs = {
-    for key, env_config in local.template_environments : lower(env_config.environment.display_name) => {
-      display_name = env_config.environment.display_name
-      managed_key  = key
+    for name, details in local.current_managed_environments :
+    lower(name) => {
+      display_name = details.display_name
+      template_key = details.template_key
+      scenario     = details.scenario
     }
-    if try(local.state_managed_env_keys[key], false) == true
   }
 
   # Implement true three-scenario detection for each planned environment
