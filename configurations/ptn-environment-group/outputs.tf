@@ -189,15 +189,12 @@ DESCRIPTION
 # ============================================================================
 
 output "debug_state_lookup" {
-  description = "Debug information to verify duplicate detection is working correctly"
+  description = "Debug information to verify the new Terraform-compliant duplicate detection is working correctly"
   value = {
-    # Remote state access debug
-    remote_state_accessible        = length(data.terraform_remote_state.self) > 0
-    current_managed_environments   = local.current_managed_environments
-    current_state_tracking         = local.current_state_tracking
-    managed_envs_from_state        = local.managed_envs_from_state
-    state_tracking_converted       = local.state_tracking_converted
-    effective_managed_environments = local.effective_managed_environments
+    # New Terraform-compliant approach debug
+    naming_pattern_detection   = true
+    expected_environment_names = local.expected_environment_names
+    managed_envs_from_naming   = local.managed_envs_from_naming_pattern
 
     # Final comparison keys
     existing_state_managed_envs = local.existing_state_managed_envs
@@ -214,11 +211,12 @@ output "debug_state_lookup" {
         scenario               = scenario.scenario
         should_create_resource = scenario.should_create_resource
 
-        # Debugging lookup details
-        platform_lookup_key = lower(local.template_environments[key].environment.display_name)
-        state_lookup_key    = lower(local.template_environments[key].environment.display_name)
-        found_in_platform   = contains(keys(local.platform_envs), lower(local.template_environments[key].environment.display_name))
-        found_in_state      = contains(keys(local.existing_state_managed_envs), lower(local.template_environments[key].environment.display_name))
+        # New debugging lookup details
+        platform_lookup_key    = lower(local.template_environments[key].environment.display_name)
+        state_lookup_key       = lower(local.template_environments[key].environment.display_name)
+        found_in_platform      = contains(keys(local.platform_envs), lower(local.template_environments[key].environment.display_name))
+        found_in_state         = contains(keys(local.existing_state_managed_envs), lower(local.template_environments[key].environment.display_name))
+        matches_naming_pattern = contains(local.expected_environment_names, lower(local.template_environments[key].environment.display_name))
       }
     }
   }

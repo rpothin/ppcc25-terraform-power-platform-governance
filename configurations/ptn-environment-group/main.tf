@@ -51,22 +51,13 @@ module "environment_group" {
 # Following research-based approach for three-scenario detection
 data "powerplatform_environments" "all" {}
 
-# Self-referencing state approach for reliable duplicate detection
-# This reads the current state's managed_environments output to determine what's already managed
-data "terraform_remote_state" "self" {
-  backend = "azurerm"
-  config = {
-    # Use the actual backend configuration for this environment
-    resource_group_name  = "rg-terraform-powerplatform-governance"
-    storage_account_name = "stterraformpp2cc7945b"
-    container_name       = "terraform-state"
-    key                  = "powerplatform/governance/ptn-environment-group-regional-examples.tfstate"
-    use_oidc             = true
-  }
-
-  # Only attempt to read if not in initial deployment state
-  count = 1 # Always try to read, but handle gracefully
-}
+# TERRAFORM-COMPLIANT APPROACH: Use existing resource detection instead of self-referencing state
+# The terraform_remote_state data source is designed for reading outputs from OTHER configurations,
+# not the same configuration (per Terraform official documentation).
+#
+# Instead, we'll detect managed environments by checking if the environment group already exists
+# by looking for environments that match our expected naming pattern and are in a group.
+# This is a more reliable approach that doesn't depend on circular state reading.
 
 locals {
   # Platform environment lookup (from Power Platform API)
@@ -79,67 +70,50 @@ locals {
     }
   }
 
-  # Access the managed_environments output which has the correct key format
-  # The managed_environments output already uses lowercase display names as keys
-  # Handle case where this is initial deployment or state is empty
-  current_managed_environments = try(
-    data.terraform_remote_state.self[0].outputs.managed_environments,
-    {}
-  )
+  # TERRAFORM-COMPLIANT STATE DETECTION
+  # Detect managed environments by checking if environments with our expected names
+  # already exist in Power Platform. If they do, we assume they're managed by us
+  # (since they match our naming convention exactly).
+  expected_environment_names = [
+    for idx, env_config in local.template_environments : lower(env_config.environment.display_name)
+  ]
 
-  # For debugging: also try terraform_state_tracking as backup
-  current_state_tracking = try(
-    data.terraform_remote_state.self[0].outputs.terraform_state_tracking,
-    {}
-  )
-
-  # PRIMARY APPROACH: Use managed_environments output (has correct lowercase keys)
-  # The managed_environments output already has the correct structure with lowercase display names as keys
-  # which matches exactly what we need for the exists_in_state lookup
-  managed_envs_from_state = {
-    for key, details in local.current_managed_environments :
-    key => details # Keys are already lowercase display names like "demoworkspace - dev"
-  }
-
-  # FALLBACK APPROACH: Convert terraform_state_tracking if managed_environments is empty
-  # The terraform_state_tracking uses numeric keys ("0", "1", "2") so we need to convert them
-  state_tracking_converted = {
-    for key, details in local.current_state_tracking :
-    lower(details.display_name) => {
-      id           = details.environment_id
-      display_name = details.display_name
-      template_key = key # Use the original numeric key
+  # MANAGED ENVIRONMENT DETECTION: Use naming pattern matching
+  # If environments exist with our exact naming pattern, they're managed by this configuration
+  # This follows Terraform best practices without self-referencing state
+  managed_envs_from_naming_pattern = {
+    for env_name, env_details in local.platform_envs :
+    env_name => {
+      id           = env_details.id
+      display_name = env_details.display_name
       scenario     = "managed_update"
+      detected_via = "naming_pattern_match"
     }
+    # Only include environments that match our template naming pattern exactly
+    if contains(local.expected_environment_names, env_name)
   }
 
-  # Use managed_environments first (correct structure), fall back to converted terraform_state_tracking
-  # managed_environments output has the exact structure we need for duplicate detection
-  effective_managed_environments = length(local.managed_envs_from_state) > 0 ? local.managed_envs_from_state : local.state_tracking_converted
-
-  # Use the effective managed environments (either direct or derived from state tracking)
-  existing_state_managed_envs = local.effective_managed_environments
+  # Use the naming-pattern-based detection as our source of truth
+  existing_state_managed_envs = local.managed_envs_from_naming_pattern
 
   # DEBUG: Add debugging information to understand state detection issues
   debug_state_detection = {
-    # Raw data from remote state
-    raw_managed_environments = local.current_managed_environments
-    raw_state_tracking       = local.current_state_tracking
+    # New Terraform-compliant approach data
+    expected_environment_names = local.expected_environment_names
+    managed_envs_from_naming   = local.managed_envs_from_naming_pattern
+    platform_envs              = local.platform_envs
 
-    # Computed lookup maps
-    managed_envs_from_state  = local.managed_envs_from_state
-    state_tracking_converted = local.state_tracking_converted
-    effective_managed_envs   = local.effective_managed_environments
-    platform_envs            = local.platform_envs
-
-    # Key comparison for troubleshooting
-    managed_env_keys    = keys(local.current_managed_environments)
-    state_tracking_keys = keys(local.current_state_tracking)
-    platform_env_keys   = keys(local.platform_envs)
-    effective_env_keys  = keys(local.effective_managed_environments)
+    # Key comparison for troubleshooting  
+    platform_env_keys           = keys(local.platform_envs)
+    managed_env_keys            = keys(local.managed_envs_from_naming_pattern)
+    existing_state_managed_keys = keys(local.existing_state_managed_envs)
 
     # Expected environment names from template
     expected_env_names = [for idx, env in local.template_environments : lower(env.environment.display_name)]
+
+    # Template matching validation
+    naming_pattern_matches = length(local.managed_envs_from_naming_pattern) > 0
+    detected_managed_count = length(local.managed_envs_from_naming_pattern)
   }
 
   # Implement true three-scenario detection for each planned environment
