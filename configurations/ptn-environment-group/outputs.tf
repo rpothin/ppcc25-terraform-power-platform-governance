@@ -195,7 +195,8 @@ output "debug_state_lookup" {
     remote_state_accessible        = length(data.terraform_remote_state.self) > 0
     current_managed_environments   = local.current_managed_environments
     current_state_tracking         = local.current_state_tracking
-    derived_managed_environments   = local.derived_managed_environments
+    managed_envs_from_state        = local.managed_envs_from_state
+    state_tracking_converted       = local.state_tracking_converted
     effective_managed_environments = local.effective_managed_environments
 
     # Final comparison keys
@@ -221,6 +222,15 @@ output "debug_state_lookup" {
       }
     }
   }
+}
+
+# ============================================================================
+# ADDITIONAL DEBUG OUTPUT - Duplicate Detection Investigation  
+# ============================================================================
+
+output "debug_duplicate_detection" {
+  description = "Debug output to investigate why managed environments aren't being detected in state"
+  value       = local.debug_state_detection
 }
 
 # ============================================================================

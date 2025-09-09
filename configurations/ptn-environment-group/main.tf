@@ -93,23 +93,56 @@ locals {
     {}
   )
 
-  # If managed_environments is empty, try to derive from terraform_state_tracking
-  # This handles the case where managed_environments output is filtered out due to circular dependency
-  derived_managed_environments = {
+  # PRIMARY APPROACH: Use managed_environments output (has correct lowercase keys)
+  # The managed_environments output already has the correct structure with lowercase display names as keys
+  # which matches exactly what we need for the exists_in_state lookup
+  managed_envs_from_state = {
+    for key, details in local.current_managed_environments :
+    key => details # Keys are already lowercase display names like "demoworkspace - dev"
+  }
+
+  # FALLBACK APPROACH: Convert terraform_state_tracking if managed_environments is empty
+  # The terraform_state_tracking uses numeric keys ("0", "1", "2") so we need to convert them
+  state_tracking_converted = {
     for key, details in local.current_state_tracking :
     lower(details.display_name) => {
       id           = details.environment_id
       display_name = details.display_name
-      template_key = details.template_key
+      template_key = key # Use the original numeric key
       scenario     = "managed_update"
     }
   }
 
-  # Use managed_environments if available, otherwise fall back to derived from state tracking
-  effective_managed_environments = length(local.current_managed_environments) > 0 ? local.current_managed_environments : local.derived_managed_environments
+  # Use managed_environments first (correct structure), fall back to converted terraform_state_tracking
+  # managed_environments output has the exact structure we need for duplicate detection
+  effective_managed_environments = length(local.managed_envs_from_state) > 0 ? local.managed_envs_from_state : local.state_tracking_converted
 
   # Use the effective managed environments (either direct or derived from state tracking)
-  existing_state_managed_envs = local.effective_managed_environments # Implement true three-scenario detection for each planned environment
+  existing_state_managed_envs = local.effective_managed_environments
+
+  # DEBUG: Add debugging information to understand state detection issues
+  debug_state_detection = {
+    # Raw data from remote state
+    raw_managed_environments = local.current_managed_environments
+    raw_state_tracking       = local.current_state_tracking
+
+    # Computed lookup maps
+    managed_envs_from_state  = local.managed_envs_from_state
+    state_tracking_converted = local.state_tracking_converted
+    effective_managed_envs   = local.effective_managed_environments
+    platform_envs            = local.platform_envs
+
+    # Key comparison for troubleshooting
+    managed_env_keys    = keys(local.current_managed_environments)
+    state_tracking_keys = keys(local.current_state_tracking)
+    platform_env_keys   = keys(local.platform_envs)
+    effective_env_keys  = keys(local.effective_managed_environments)
+
+    # Expected environment names from template
+    expected_env_names = [for idx, env in local.template_environments : lower(env.environment.display_name)]
+  }
+
+  # Implement true three-scenario detection for each planned environment
   environment_scenarios = {
     for key, env_config in local.template_environments : key => {
       target_name_lower = lower(env_config.environment.display_name)
