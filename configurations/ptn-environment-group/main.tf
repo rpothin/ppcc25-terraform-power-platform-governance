@@ -118,11 +118,11 @@ resource "null_resource" "managed_environment_deployment_control" {
   depends_on = [time_sleep.environment_provisioning_buffer]
 }
 
-# Configure managed environment settings using template-processed configurations
-# Applies workspace-level defaults with environment-specific overrides
-# Uses sequential deployment to prevent API overwhelm and timing issues
+# TODO: CONSOLIDATION PENDING - This module call needs to be migrated to integrated res-environment approach
+# The res-managed-environment module has been removed in favor of consolidated functionality
+# This configuration requires updating to use res-environment with enable_managed_environment = true
 module "managed_environment" {
-  source   = "../res-managed-environment"
+  source   = "../res-managed-environment"  # MODULE REMOVED - needs migration
   for_each = local.template_environments
 
   # Environment ID from created environments with validation

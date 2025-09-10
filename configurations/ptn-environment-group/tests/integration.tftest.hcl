@@ -579,7 +579,7 @@ run "runtime_validation" {
 # that depend on unknown values during plan phase cause test failures.
 #
 # ROOT CAUSE:
-# - res-managed-environment uses count = local.should_create_managed_environment ? 1 : 0
+# - Managed environment functionality integrated into res-environment module
 # - This count depends on var.environment_id from module outputs
 # - During plan phase, module outputs are not available
 # - Terraform cannot determine count value, causing "Invalid count argument" error

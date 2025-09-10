@@ -6,7 +6,7 @@ This pattern creates a complete environment group setup with multiple environmen
 
 - **Template-Driven**: Workspace templates (basic, simple, enterprise) with predefined environment configurations
 - **Hybrid Settings Management**: Workspace-level defaults with environment-specific overrides
-- **AVM Module Orchestration**: Uses res-environment-group, res-environment, res-managed-environment, res-environment-settings, and res-environment-application-admin modules
+- **AVM Module Orchestration**: Uses res-environment-group, res-environment (with managed environment capabilities), res-environment-settings, and res-environment-application-admin modules
 - **Multi-Resource Orchestration**: Coordinated deployment of environment groups, environments, and settings
 - **Settings Governance**: Comprehensive audit, security, feature, and email configuration per environment
 - **Template Flexibility**: Different templates support different organizational workflows
