@@ -13,7 +13,7 @@ This guide shows you how to quickly regenerate the README documentation for any 
 ```bash
 cd /workspaces/ppcc25-terraform-power-platform-governance/configurations/<your-config-folder>
 ```
-Replace `<your-config-folder>` with the name of the configuration you want to update (e.g., `res-managed-environment`).
+Replace `<your-config-folder>` with the name of the configuration you want to update (e.g., `res-environment`).
 
 ### 2. Run terraform-docs to Update README
 
