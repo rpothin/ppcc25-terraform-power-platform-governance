@@ -59,9 +59,6 @@ module "environments" {
   # Dataverse configuration with monitoring service principal
   dataverse = each.value.dataverse
 
-  # Enable duplicate protection for production workspaces
-  enable_duplicate_protection = true
-
   # Explicit dependency on environment group module
   depends_on = [module.environment_group]
 }
