@@ -112,15 +112,12 @@ The following requirements are needed by this module:
 
 The following providers are used by this module:
 
-- <a name="provider_null"></a> [null](#provider\_null) (~> 3.0)
-
 - <a name="provider_time"></a> [time](#provider\_time) (~> 0.13)
 
 ## Resources
 
 The following resources are used by this module:
 
-- [null_resource.managed_environment_deployment_control](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) (resource)
 - [time_sleep.environment_provisioning_buffer](https://registry.terraform.io/providers/hashicorp/time/latest/docs/resources/sleep) (resource)
 
 <!-- markdownlint-disable MD013 -->
@@ -282,10 +279,6 @@ environment as specified in the workspace template configuration.
 
 Description: Map of resources ready for governance configuration and policy application including environment settings
 
-### <a name="output_managed_environment_deployment_status"></a> [managed\_environment\_deployment\_status](#output\_managed\_environment\_deployment\_status)
-
-Description: Deployment status of the managed environment settings.
-
 ### <a name="output_orchestration_summary"></a> [orchestration\_summary](#output\_orchestration\_summary)
 
 Description: Summary of template-driven pattern deployment status and results including environment settings
@@ -348,12 +341,6 @@ Version:
 ### <a name="module_environments"></a> [environments](#module\_environments)
 
 Source: ../res-environment
-
-Version:
-
-### <a name="module_managed_environment"></a> [managed\_environment](#module\_managed\_environment)
-
-Source: ../res-managed-environment
 
 Version:
 
