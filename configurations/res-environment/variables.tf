@@ -298,165 +298,6 @@ variable "enable_duplicate_protection" {
   }
 }
 
-variable "parent_duplicate_validation_passed" {
-  type        = bool
-  description = "Pattern-level duplicate validation status passed from parent configuration."
-  default     = true
-
-  validation {
-    condition = (
-      var.parent_duplicate_validation_passed == true || var.parent_duplicate_validation_passed == false
-    )
-    error_message = "Invalid boolean value for parent_duplicate_validation_passed. Must be true or false. This variable is controlled by parent pattern configurations to enable proper governance chaining."
-  }
-}
-
-variable "enable_managed_environment" {
-  type        = bool
-  default     = true
-  description = <<DESCRIPTION
-Enable managed environment features for enhanced governance and control.
-Default: true (following Power Platform best practices)
-
-WHY: Managed environments are now best practice for production workloads.
-This default ensures governance features are enabled unless explicitly disabled.
-
-When enabled (default):
-- Creates managed environment configuration automatically
-- Applies governance controls and policies
-- Enables solution checker validation
-- Provides enhanced sharing controls
-- Supports maker onboarding and guidance
-
-When disabled:
-- Environment created without managed features
-- Standard environment capabilities only
-- Manual governance configuration required
-- Typically only used for basic development scenarios
-
-Note: Developer environment types automatically disable managed environment
-features regardless of this setting due to provider limitations.
-
-Examples:
-enable_managed_environment = true   # Default: Enable governance features
-enable_managed_environment = false  # Disable for basic development environments
-DESCRIPTION
-}
-
-variable "managed_environment_settings" {
-  type = object({
-    sharing_settings = optional(object({
-      is_group_sharing_disabled = optional(bool, false)
-      limit_sharing_mode        = optional(string, "NoLimit")
-      max_limit_user_sharing    = optional(number, -1)
-    }), {})
-
-    usage_insights_disabled = optional(bool, true)
-
-    solution_checker = optional(object({
-      mode                       = optional(string, "Warn")
-      suppress_validation_emails = optional(bool, true)
-      rule_overrides             = optional(set(string), null)
-    }), {})
-
-    maker_onboarding = optional(object({
-      markdown_content = optional(string, "Welcome to our Power Platform environment. Please follow organizational guidelines when developing solutions.")
-      learn_more_url   = optional(string, "https://learn.microsoft.com/power-platform/")
-    }), {})
-  })
-  default     = {}
-  description = <<DESCRIPTION
-Managed environment configuration settings.
-Only applied when enable_managed_environment is true.
-
-⚠️  SIMPLIFIED MODULE PATTERN NOTICE:
-This variable is currently PRESERVED for backward compatibility and future extensibility,
-but is NOT PASSED to the managed environment module. The simplified pattern uses
-module defaults for all settings to reduce complexity and improve reliability.
-
-Current Behavior:
-- Module receives only environment_id parameter
-- All managed environment settings use module defaults
-- This variable is available for future enhancement
-
-WHY SIMPLIFIED APPROACH:
-- Reduces provider consistency bugs
-- Uses battle-tested default configurations
-- Simplifies maintenance and troubleshooting
-- Follows "convention over configuration" principle
-
-Future Enhancement Path:
-If specific managed environment customization is needed, this variable provides
-the structure to re-enable detailed configuration by updating the module call
-in main.tf to pass these settings.
-
-Legacy Configuration Reference:
-The structure below documents the available settings for future use:
-
-1. SHARING SETTINGS: Controls app and flow sharing behavior
-   - is_group_sharing_disabled: When false (default), enables security group sharing
-   - limit_sharing_mode: "NoLimit" (default) or "ExcludeSharingToSecurityGroups"
-   - max_limit_user_sharing: -1 (default, unlimited when group sharing enabled)
-
-2. USAGE INSIGHTS: Weekly usage reporting
-   - usage_insights_disabled: true (default) to avoid email spam
-
-3. SOLUTION CHECKER: Quality validation for solution imports
-   - mode: "Warn" (default) provides validation without blocking
-   - suppress_validation_emails: true (default) reduces noise
-   - rule_overrides: null (default) applies full validation suite
-
-4. MAKER ONBOARDING: Welcome content for new makers
-   - markdown_content: Default welcome message
-   - learn_more_url: Microsoft Learn documentation link
-
-Examples (for future reference):
-
-# Current recommended approach (uses module defaults)
-managed_environment_settings = {}
-
-# Advanced configuration (available for future enhancement)
-# managed_environment_settings = {
-#   sharing_settings = {
-#     is_group_sharing_disabled = false
-#     limit_sharing_mode        = "NoLimit"
-#     max_limit_user_sharing    = -1
-#   }
-#   usage_insights_disabled = false
-#   solution_checker = {
-#     mode                       = "Block"
-#     suppress_validation_emails = false
-#     rule_overrides             = ["meta-avoid-reg-no-attribute"]
-#   }
-#   maker_onboarding = {
-#     markdown_content = "Welcome to Production! Please review our development standards."
-#     learn_more_url   = "https://contoso.com/powerplatform-guidelines"
-#   }
-# }
-
-See: https://learn.microsoft.com/power-platform/admin/managed-environment-overview
-DESCRIPTION
-
-  validation {
-    condition = (
-      var.managed_environment_settings.sharing_settings.is_group_sharing_disabled == false
-      ? var.managed_environment_settings.sharing_settings.max_limit_user_sharing == -1
-      : var.managed_environment_settings.sharing_settings.max_limit_user_sharing > 0
-    )
-    error_message = "SHARING CONFIGURATION ERROR: When group sharing is enabled (is_group_sharing_disabled = false), max_limit_user_sharing must be -1. When disabled, it must be > 0. Current: is_group_sharing_disabled = ${var.managed_environment_settings.sharing_settings.is_group_sharing_disabled}, max_limit_user_sharing = ${var.managed_environment_settings.sharing_settings.max_limit_user_sharing}. Please adjust your sharing configuration."
-  }
-
-  validation {
-    condition     = contains(["NoLimit", "ExcludeSharingToSecurityGroups"], var.managed_environment_settings.sharing_settings.limit_sharing_mode)
-    error_message = "limit_sharing_mode must be one of: 'NoLimit', 'ExcludeSharingToSecurityGroups'. Current value: '${var.managed_environment_settings.sharing_settings.limit_sharing_mode}'. Please use a valid sharing mode as documented in the Power Platform provider."
-  }
-
-  validation {
-    condition     = contains(["None", "Warn", "Block"], var.managed_environment_settings.solution_checker.mode)
-    error_message = "Solution checker mode must be one of: 'None', 'Warn', 'Block'. Current value: '${var.managed_environment_settings.solution_checker.mode}'. Please use a valid solution checker mode."
-  }
-}
-
 # ======================================================================================
 # 🔒 SECURITY VALIDATION SUMMARY
 # ======================================================================================
@@ -466,22 +307,18 @@ DESCRIPTION
 # 1. GOVERNANCE ENFORCEMENT:
 #    - Requires valid environment group ID for organizational governance
 #    - AI settings controlled through environment group rules (not individual environments)
-#    - Managed environment features enabled by default for governance compliance
 # 
 # 2. OPERATIONAL SAFETY:
 #    - Prevents conflicting Dataverse operational modes
 #    - Validates currency and language code compatibility
-#    - Ensures proper managed environment sharing configuration
 # 
 # 3. DATAVERSE GOVERNANCE:
 #    - Requires proper Azure AD group assignments
 #    - Recommends duplicate protection for operational safety
-#    - Managed environments provide enhanced governance capabilities
 # 
 # 4. ENVIRONMENT GROUP INTEGRATION:
 #    - AI capabilities managed centrally through environment group policies
 #    - Eliminates conflicts between individual and group settings
-#    - Managed environment features complement environment group governance
 # 
 # All validation error messages include actionable guidance for resolution.
 # ======================================================================================

@@ -19,43 +19,16 @@ Available templates:
 
 Example:
 workspace_template = "basic"
+
+Validation Rules:
+- Must be one of the supported template names
+- Template definitions are managed in locals.tf
+- Each template includes environment types and naming conventions
 DESCRIPTION
 
   validation {
     condition     = contains(["basic", "simple", "enterprise"], var.workspace_template)
-    error_message = "workspace_template must be one of: basic, simple, enterprise"
-  }
-}
-
-variable "enable_pattern_duplicate_protection" {
-  type        = bool
-  description = <<DESCRIPTION
-Enable pattern-level duplicate environment detection and prevention.
-
-When enabled, this checks if environments with the same names already exist
-in the Power Platform tenant before creating new ones. This prevents
-accidental resource conflicts by performing true state-aware detection.
-
-IMPORTANT USAGE SCENARIOS:
-- Set to true for NEW deployments to prevent creating duplicate environments
-- Set to false when working with EXISTING Terraform state that manages environments
-- Set to false when importing existing environments into Terraform management
-
-The system automatically detects whether environments are managed by checking
-actual Terraform state, not user assumptions. This ensures reliable governance.
-
-If you see duplicate detection errors:
-1. Import existing environments into Terraform state if they should be managed
-2. Choose different environment names to avoid conflicts
-3. Temporarily disable protection only for testing scenarios
-DESCRIPTION
-  default     = true
-
-  validation {
-    condition = (
-      var.enable_pattern_duplicate_protection == true || var.enable_pattern_duplicate_protection == false
-    )
-    error_message = "Invalid boolean value for enable_pattern_duplicate_protection. Must be true or false. GOVERNANCE NOTE: Setting to false disables duplicate protection at pattern level - use only for testing scenarios or when importing existing environments."
+    error_message = "Workspace template must be one of: basic, simple, enterprise. Check available templates in locals.tf."
   }
 }
 

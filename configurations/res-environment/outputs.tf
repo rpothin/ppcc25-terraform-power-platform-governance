@@ -68,11 +68,6 @@ output "environment_summary" {
     classification                   = "res-environment"
     terraform_managed                = true
     duplicate_protection_enabled     = var.enable_duplicate_protection
-
-    # Managed environment integration
-    managed_environment_enabled = var.enable_managed_environment && var.environment.environment_type != "Developer"
-    managed_environment_id      = var.enable_managed_environment && var.environment.environment_type != "Developer" && length(module.managed_environment) > 0 ? module.managed_environment[0].managed_environment_id : null
-    consolidated_governance     = var.enable_managed_environment && var.environment.environment_type != "Developer" && length(module.managed_environment) > 0
   }
 }
 
@@ -135,73 +130,4 @@ output "environment_metadata" {
       dataverse   = var.dataverse
     }))
   }
-}
-
-# ============================================================================
-# MANAGED ENVIRONMENT OUTPUTS
-# ============================================================================
-
-# Primary managed environment identifier for downstream configurations
-output "managed_environment_id" {
-  description = <<DESCRIPTION
-The unique identifier of the managed environment configuration, if enabled.
-
-This output provides the primary key for referencing this managed environment
-in other Terraform configurations or external systems when managed environment
-features are enabled. Returns null when managed environment is disabled.
-
-Use this ID to:
-- Reference in enterprise policy configurations
-- Integrate with monitoring and reporting systems
-- Set up advanced governance policies
-- Configure environment-specific automation
-
-Format: GUID (e.g., 12345678-1234-1234-1234-123456789012) or null
-Note: This is the same as the environment_id but confirms successful managed environment setup
-DESCRIPTION
-  value       = var.enable_managed_environment && var.environment.environment_type != "Developer" && length(module.managed_environment) > 0 ? module.managed_environment[0].managed_environment_id : null
-}
-
-# Managed environment configuration summary for validation and reporting
-output "managed_environment_summary" {
-  description = "Summary of deployed managed environment configuration for validation and compliance reporting, null if disabled"
-  value = var.enable_managed_environment && var.environment.environment_type != "Developer" && length(module.managed_environment) > 0 ? {
-    # Core identification
-    environment_id = module.managed_environment[0].managed_environment_id
-    enabled        = var.enable_managed_environment
-
-    # Module metadata
-    resource_type     = "powerplatform_managed_environment"
-    classification    = "res-environment-consolidated"
-    deployment_status = "deployed"
-
-    # Configuration approach
-    configuration_method = "module_defaults"
-    settings_source      = "res-managed-environment_module"
-
-    # Operational metadata
-    deployment_timestamp = timestamp()
-    terraform_managed    = true
-    consolidated_pattern = true
-
-    # Enterprise capabilities (enabled via module defaults)
-    capabilities = {
-      sharing_controls    = true
-      solution_validation = true
-      usage_insights      = true # Enabled via module defaults
-      maker_guidance      = true
-      enterprise_policies = true
-      environment_groups  = true
-      advanced_monitoring = true
-    }
-
-    # Simplified interface note
-    note = "Using simplified module pattern - all settings managed by module defaults for improved reliability"
-  } : null
-}
-
-# Managed environment status for conditional logic
-output "managed_environment_enabled" {
-  description = "Boolean indicating whether managed environment features are enabled for this environment"
-  value       = var.enable_managed_environment && var.environment.environment_type != "Developer"
 }

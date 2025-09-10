@@ -1,8 +1,6 @@
 # Power Platform Environment Group Pattern Configuration
 #
-# Template-driven pattern for creating environment groups with predef# Environment Group Pattern Configuration
-#
-# Template-driven pattern for creating Power Platform environment groups with standardized
+# Template-driven pattern for creating environment groups with predefined
 # workspace templates. Provides standardized environment configurations
 # for PPCC25 demonstration scenarios.
 # 
@@ -28,6 +26,8 @@
 # - Dependency Chain: Environment group → Template processing → Environment creation → Application admin assignment
 # - Governance Integration: Built for DLP policies and environment routing
 
+
+
 # ============================================================================
 # ENVIRONMENT GROUP MODULE ORCHESTRATION
 # ============================================================================
@@ -46,167 +46,10 @@ module "environment_group" {
 # ENVIRONMENT MODULE ORCHESTRATION
 # ============================================================================
 
-# Query existing environments for state-aware duplicate detection
-# Query existing environments for true state-aware duplicate detection
-# Following research-based approach for three-scenario detection
-data "powerplatform_environments" "all" {}
-
-# TERRAFORM-COMPLIANT APPROACH: Use existing resource detection instead of self-referencing state
-# The terraform_remote_state data source is designed for reading outputs from OTHER configurations,
-# not the same configuration (per Terraform official documentation).
-#
-# Instead, we'll detect managed environments by checking if the environment group already exists
-# by looking for environments that match our expected naming pattern and are in a group.
-# This is a more reliable approach that doesn't depend on circular state reading.
-
-locals {
-  # Platform environment lookup (from Power Platform API)
-  platform_envs = {
-    for env in data.powerplatform_environments.all.environments :
-    lower(env.display_name) => {
-      id           = env.id
-      display_name = env.display_name
-      location     = env.location
-    }
-  }
-
-  # TERRAFORM-COMPLIANT STATE DETECTION
-  # Detect managed environments by checking if environments with our expected names
-  # already exist in Power Platform. If they do, we assume they're managed by us
-  # (since they match our naming convention exactly).
-  expected_environment_names = [
-    for idx, env_config in local.template_environments : lower(env_config.environment.display_name)
-  ]
-
-  # MANAGED ENVIRONMENT DETECTION: Use naming pattern matching
-  # If environments exist with our exact naming pattern, they're managed by this configuration
-  # This follows Terraform best practices without self-referencing state
-  managed_envs_from_naming_pattern = {
-    for env_name, env_details in local.platform_envs :
-    env_name => {
-      id           = env_details.id
-      display_name = env_details.display_name
-      scenario     = "managed_update"
-      detected_via = "naming_pattern_match"
-    }
-    # Only include environments that match our template naming pattern exactly
-    if contains(local.expected_environment_names, env_name)
-  }
-
-  # Use the naming-pattern-based detection as our source of truth
-  existing_state_managed_envs = local.managed_envs_from_naming_pattern
-
-  # DEBUG: Add debugging information to understand state detection issues
-  debug_state_detection = {
-    # New Terraform-compliant approach data
-    expected_environment_names = local.expected_environment_names
-    managed_envs_from_naming   = local.managed_envs_from_naming_pattern
-    platform_envs              = local.platform_envs
-
-    # Key comparison for troubleshooting  
-    platform_env_keys           = keys(local.platform_envs)
-    managed_env_keys            = keys(local.managed_envs_from_naming_pattern)
-    existing_state_managed_keys = keys(local.existing_state_managed_envs)
-
-    # Expected environment names from template
-    expected_env_names = [for idx, env in local.template_environments : lower(env.environment.display_name)]
-
-    # Template matching validation
-    naming_pattern_matches = length(local.managed_envs_from_naming_pattern) > 0
-    detected_managed_count = length(local.managed_envs_from_naming_pattern)
-  }
-
-  # Implement true three-scenario detection for each planned environment
-  environment_scenarios = {
-    for key, env_config in local.template_environments : key => {
-      target_name_lower = lower(env_config.environment.display_name)
-
-      # TRUE SCENARIO DETECTION: Based on platform existence and actual state
-      exists_in_platform = contains(keys(local.platform_envs), lower(env_config.environment.display_name))
-      exists_in_state    = contains(keys(local.existing_state_managed_envs), lower(env_config.environment.display_name))
-
-      # THREE SCENARIOS (corrected logic):
-      # 1. create_new: Environment doesn't exist in platform
-      # 2. managed_update: Environment exists in platform AND in current Terraform state
-      # 3. duplicate_blocked: Environment exists in platform but NOT in current Terraform state
-      scenario = contains(keys(local.platform_envs), lower(env_config.environment.display_name)) ? (
-        contains(keys(local.existing_state_managed_envs), lower(env_config.environment.display_name)) ? "managed_update" : "duplicate_blocked"
-      ) : "create_new"
-
-      # RESOURCE CREATION LOGIC: Only create if NOT blocked
-      should_create_resource = !contains(keys(local.platform_envs), lower(env_config.environment.display_name)) || contains(keys(local.existing_state_managed_envs), lower(env_config.environment.display_name))
-
-      # Debug information
-      platform_id = try(local.platform_envs[lower(env_config.environment.display_name)].id, null)
-
-      # Error message for blocked scenarios
-      error_message = contains(keys(local.platform_envs), lower(env_config.environment.display_name)) && !contains(keys(local.existing_state_managed_envs), lower(env_config.environment.display_name)) ? "Environment '${env_config.environment.display_name}' exists in Power Platform but is not managed by this Terraform configuration. This is a duplicate that must be resolved." : ""
-    }
-  }
-
-  # Identify blocked environments (research pattern)
-  blocked_environments = {
-    for key, scenario_data in local.environment_scenarios : key => scenario_data
-    if scenario_data.scenario == "duplicate_blocked"
-  }
-
-  # Overall blocking flag (backwards compatibility)
-  has_external_duplicates = length(local.blocked_environments) > 0
-
-  # Detailed error information (research format)
-  duplicate_environment_details = {
-    for key, scenario_data in local.blocked_environments : scenario_data.target_name_lower => {
-      display_name = local.template_environments[key].environment.display_name
-      platform_id  = scenario_data.platform_id
-      scenario     = scenario_data.scenario
-      message      = scenario_data.error_message
-    }
-  }
-}
-
-# Pattern-level duplicate protection guardrail
-# Prevents creation of environments that already exist in platform but aren't in Terraform state
-resource "null_resource" "pattern_duplicate_guardrail" {
-  count = local.has_external_duplicates && var.enable_pattern_duplicate_protection ? 1 : 0
-
-  provisioner "local-exec" {
-    command = "echo 'DUPLICATE ENVIRONMENT DETECTED: This pattern would create environments with names that already exist in Power Platform but are not managed by this Terraform configuration.'; exit 1"
-  }
-
-  lifecycle {
-    precondition {
-      condition     = !local.has_external_duplicates || !var.enable_pattern_duplicate_protection
-      error_message = <<-EOF
-        DUPLICATE ENVIRONMENTS DETECTED:
-        
-        The following environments exist in Power Platform but are not in this Terraform state:
-        ${join("\n", [for name, details in local.duplicate_environment_details : "- ${details.display_name} (Platform ID: ${details.platform_id})"])}
-        
-        RESOLUTION OPTIONS:
-        
-        1. IMPORT EXISTING ENVIRONMENTS (if they should be managed):
-${join("\n", [for key, scenario_data in local.blocked_environments : "           terraform import 'module.environments[\"${key}\"].powerplatform_environment.this' ${scenario_data.platform_id}"])}
-        
-        2. DISABLE DUPLICATE PROTECTION (temporary, for testing only):
-           Set enable_pattern_duplicate_protection = false
-        
-        3. CHOOSE DIFFERENT NAMES:
-           Update your .tfvars to use non-conflicting environment names
-        
-        This implements true state-aware duplicate detection without assumption flags.
-      EOF
-    }
-  }
-}
-
-# Create environments using conditional logic from research document
-# Only create environments that pass the three-scenario validation
+# Create environments using the template-driven configuration
 module "environments" {
-  source = "../res-environment"
-  for_each = {
-    for key, env_config in local.template_environments : key => env_config
-    if local.environment_scenarios[key].should_create_resource
-  }
+  source   = "../res-environment"
+  for_each = local.template_environments
 
   # Environment configuration from template
   environment = merge(each.value.environment, {
@@ -216,43 +59,98 @@ module "environments" {
   # Dataverse configuration with monitoring service principal
   dataverse = each.value.dataverse
 
-  # Disable child-level duplicate protection since parent handles it with state awareness
-  enable_duplicate_protection        = false
-  parent_duplicate_validation_passed = true
+  # Enable duplicate protection for production workspaces
+  enable_duplicate_protection = true
 
-  # Disable managed environment module since environments auto-convert when in groups
-  enable_managed_environment = false
-
-  # Explicit dependency on environment group module and duplicate check
-  depends_on = [module.environment_group, null_resource.pattern_duplicate_guardrail]
+  # Explicit dependency on environment group module
+  depends_on = [module.environment_group]
 }
 
 # ============================================================================
-# MANAGED ENVIRONMENT CONVERSION WAIT
+# MANAGED ENVIRONMENT MODULE ORCHESTRATION WITH SEQUENTIAL DEPLOYMENT
 # ============================================================================
 
-# Add explicit wait time for managed environment conversion
-# WHY: When environments are added to environment groups, they automatically
-# convert to managed environments, but this conversion takes time. Applying
-# IPFirewall settings before conversion completes causes failures.
-resource "time_sleep" "managed_environment_conversion" {
-  # Wait for environments to fully convert to managed status
-  create_duration = "120s" # 2 minutes - sufficient for managed conversion
+# Buffer time for environment provisioning to complete
+# Power Platform environments need time for backend provisioning
+resource "time_sleep" "environment_provisioning_buffer" {
+  for_each = local.template_environments
 
-  # Explicit dependency on environment creation
+  create_duration = "30s" # Allow time for environment backend setup
+
   depends_on = [module.environments]
 
-  # Lifecycle management for consistent timing
-  lifecycle {
-    # Prevent destruction to maintain consistent timing
-    prevent_destroy = false
+  triggers = {
+    environment_id = module.environments[each.key].environment_id
+  }
+}
+
+# Sequential deployment resource for managing rollout timing
+# This prevents overwhelming the Power Platform API with simultaneous requests
+resource "null_resource" "managed_environment_deployment_control" {
+  for_each = local.template_environments
+
+  # Sequential deployment triggers
+  triggers = {
+    environment_id = module.environments[each.key].environment_id
+    environment_ready_hash = sha256(jsonencode({
+      environment_id = module.environments[each.key].environment_id
+      deployment_key = each.key
+      template_name  = var.workspace_template
+    }))
+    deployment_timestamp = timestamp()
+    buffer_complete      = time_sleep.environment_provisioning_buffer[each.key].id
   }
 
-  # Trigger re-creation if environment configuration changes
-  triggers = {
-    environment_count    = length(local.template_environments)
-    environment_group_id = module.environment_group.environment_group_id
+  # Validate environment is ready before managed environment configuration
+  lifecycle {
+    precondition {
+      condition     = length(trimspace(module.environments[each.key].environment_id)) > 0
+      error_message = "Environment ${each.key} must have a valid ID before managed environment configuration. Current ID: '${module.environments[each.key].environment_id}'"
+    }
+
+    precondition {
+      condition     = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", module.environments[each.key].environment_id))
+      error_message = "Environment ${each.key} ID must be a valid GUID format. Received: '${module.environments[each.key].environment_id}'"
+    }
   }
+
+  # Explicit dependency chain: group → environments → buffer → readiness_check
+  depends_on = [time_sleep.environment_provisioning_buffer]
+}
+
+# Configure managed environment settings using template-processed configurations
+# Applies workspace-level defaults with environment-specific overrides
+# Uses sequential deployment to prevent API overwhelm and timing issues
+module "managed_environment" {
+  source   = "../res-managed-environment"
+  for_each = local.template_environments
+
+  # Environment ID from created environments with validation
+  environment_id = module.environments[each.key].environment_id
+
+  # Use default managed environment settings for template-driven configuration
+  # These can be customized per template in the future if needed
+  sharing_settings = {
+    is_group_sharing_disabled = false     # Enable group sharing (better governance)
+    limit_sharing_mode        = "NoLimit" # Allow sharing with security groups
+    max_limit_user_sharing    = -1        # Unlimited when group sharing enabled
+  }
+
+  usage_insights_disabled = true # Disable weekly email digests for demo environments
+
+  solution_checker = {
+    mode                       = "Warn" # Validate but don't block
+    suppress_validation_emails = true   # Reduce email noise
+    rule_overrides             = []     # No rule overrides by default
+  }
+
+  maker_onboarding = {
+    markdown_content = "Welcome to the ${var.name} workspace. Please follow organizational guidelines when developing solutions."
+    learn_more_url   = "https://learn.microsoft.com/power-platform/"
+  }
+
+  # Sequential dependency chain: group → environments → readiness_check → managed_environment
+  depends_on = [null_resource.managed_environment_deployment_control]
 }
 
 # ============================================================================
@@ -261,7 +159,6 @@ resource "time_sleep" "managed_environment_conversion" {
 
 # Configure environment settings using template-processed configurations
 # Applies workspace-level defaults with environment-specific overrides
-# CRITICAL: Now includes wait time for managed environment conversion
 module "environment_settings" {
   source   = "../res-environment-settings"
   for_each = local.template_environments
@@ -275,9 +172,8 @@ module "environment_settings" {
   feature_settings  = each.value.settings.feature_settings
   email_settings    = each.value.settings.email_settings
 
-  # CRITICAL: Enhanced dependency chain: group → environments → wait → settings
-  # This ensures environments are fully converted to managed before applying settings
-  depends_on = [module.environments, time_sleep.managed_environment_conversion]
+  # Explicit dependency chain: group → environments → managed_environment → settings
+  depends_on = [module.managed_environment]
 }
 
 # ============================================================================
@@ -298,29 +194,4 @@ module "environment_application_admin" {
 
   # Explicit dependency chain: group → environments → application_admin
   depends_on = [module.environments]
-}
-
-# ============================================================================
-# TERRAFORM STATE TRACKING (Research Document Pattern)
-# ============================================================================
-
-# Track managed environments in Terraform state using terraform_data
-# This enables true state-aware duplicate detection without circular dependencies
-resource "terraform_data" "managed_environment_tracker" {
-  for_each = module.environments
-
-  # Store environment metadata for state tracking
-  input = {
-    environment_id = each.value.environment_id
-    display_name   = each.value.environment_summary.name
-    template_key   = each.key
-    managed_by     = "terraform"
-    creation_time  = timestamp()
-  }
-
-  # Lifecycle management
-  lifecycle {
-    # Recreate tracker when environment changes
-    create_before_destroy = true
-  }
 }

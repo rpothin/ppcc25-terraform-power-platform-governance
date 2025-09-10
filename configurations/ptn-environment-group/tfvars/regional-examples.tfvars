@@ -64,7 +64,3 @@ workspace_template = "basic"
 name               = "DemoWorkspace"
 description        = "Demonstration workspace for PPCC25 session"
 location           = "unitedstates"
-
-# Duplicate protection control
-# Set to false only for testing scenarios or when importing existing environments
-# enable_pattern_duplicate_protection = true
