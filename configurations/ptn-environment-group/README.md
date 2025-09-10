@@ -353,7 +353,7 @@ Version:
 
 ### <a name="module_managed_environment"></a> [managed\_environment](#module\_managed\_environment)
 
-Source: ../res-managed-environment (DEPRECATED - pending migration to res-environment)
+Source: ../res-managed-environment
 
 Version:
 
