@@ -150,11 +150,7 @@ run "static_validation" {
     error_message = "Pattern must orchestrate environment_settings module"
   }
 
-  # Managed environment module orchestration validation
-  assert {
-    condition     = length(regexall("module\\s+\"managed_environment\"", file("${path.module}/main.tf"))) > 0
-    error_message = "Pattern must orchestrate managed_environment module"
-  }
+
 
   # Environment application admin module orchestration validation
   assert {
@@ -186,17 +182,13 @@ run "static_validation" {
     error_message = "Environment group ID should be assigned from module output"
   }
 
-  # Settings dependency chain validation
+  # Settings dependency chain validation - updated for new structure
   assert {
-    condition     = length(regexall("depends_on.*module\\.managed_environment", file("${path.module}/main.tf"))) > 0
-    error_message = "Environment settings should depend on managed_environment module"
+    condition     = length(regexall("depends_on.*time_sleep\\.environment_provisioning_buffer", file("${path.module}/main.tf"))) > 0
+    error_message = "Environment settings should depend on environment provisioning buffer"
   }
 
-  # Managed environment dependency chain validation
-  assert {
-    condition     = length(regexall("depends_on.*module\\.environments", file("${path.module}/main.tf"))) > 0
-    error_message = "Managed environment should depend on environments module"
-  }
+
 
   # Environment application admin dependency chain validation
   assert {
@@ -356,19 +348,11 @@ run "runtime_validation" {
     error_message = "All environments should be assigned to the created environment group"
   }
 
-  # === SETTINGS MODULE ORCHESTRATION VALIDATION (5 assertions) ===
+  # === SETTINGS MODULE ORCHESTRATION VALIDATION (3 assertions) ===
 
-  # Managed environment modules deployment validation
-  assert {
-    condition     = can(module.managed_environment)
-    error_message = "Managed environment modules must be deployed and accessible"
-  }
 
-  # Managed environment modules count validation
-  assert {
-    condition     = length(module.managed_environment) == length(local.template_environments)
-    error_message = "Should create one managed environment module per template environment"
-  }
+
+
 
   # Settings modules deployment validation
   assert {
@@ -579,7 +563,7 @@ run "runtime_validation" {
 # that depend on unknown values during plan phase cause test failures.
 #
 # ROOT CAUSE:
-# - Managed environment functionality integrated into res-environment module
+
 # - This count depends on var.environment_id from module outputs
 # - During plan phase, module outputs are not available
 # - Terraform cannot determine count value, causing "Invalid count argument" error
