@@ -73,6 +73,8 @@ jobs:
   # Replaces inline change detection logic with proven, centralized implementation
   detect-changes:
     name: 🔍 Detect Terraform Changes
+    # Skip this job for draft PRs to prevent unnecessary processing
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     uses: ./.github/workflows/reusable-change-detection.yml
     with:
       # === PASS-THROUGH WORKFLOW INPUTS ===
