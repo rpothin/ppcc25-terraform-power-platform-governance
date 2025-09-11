@@ -285,19 +285,6 @@ DESCRIPTION
   }
 }
 
-variable "enable_duplicate_protection" {
-  type        = bool
-  description = "Enable duplicate environment detection and prevention for operational safety."
-  default     = true
-
-  validation {
-    condition = (
-      var.enable_duplicate_protection == true || var.enable_duplicate_protection == false
-    )
-    error_message = "Invalid boolean value for enable_duplicate_protection. Must be true or false. GOVERNANCE NOTE: enable_duplicate_protection=true is strongly recommended for production environments to prevent accidental duplicates and improve operational safety. Setting to false is acceptable for testing scenarios."
-  }
-}
-
 # ======================================================================================
 # 🔒 SECURITY VALIDATION SUMMARY
 # ======================================================================================
@@ -314,7 +301,7 @@ variable "enable_duplicate_protection" {
 # 
 # 3. DATAVERSE GOVERNANCE:
 #    - Requires proper Azure AD group assignments
-#    - Recommends duplicate protection for operational safety
+#    - Ensures comprehensive environment configuration
 # 
 # 4. ENVIRONMENT GROUP INTEGRATION:
 #    - AI capabilities managed centrally through environment group policies

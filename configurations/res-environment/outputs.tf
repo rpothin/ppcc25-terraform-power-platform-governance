@@ -67,7 +67,6 @@ output "environment_summary" {
     resource_type                    = "powerplatform_environment"
     classification                   = "res-environment"
     terraform_managed                = true
-    duplicate_protection_enabled     = var.enable_duplicate_protection
   }
 }
 
@@ -129,5 +128,22 @@ output "environment_metadata" {
       environment = var.environment
       dataverse   = var.dataverse
     }))
+  }
+}
+
+# Resource module summary for pattern orchestration
+output "resource_summary" {
+  description = "Summary information for pattern module orchestration and compliance reporting"
+  value = {
+    module_type          = "res-environment"
+    resource_type        = "powerplatform_environment"
+    resource_id          = powerplatform_environment.this.id
+    resource_name        = powerplatform_environment.this.display_name
+    deployment_status    = "deployed"
+    has_dataverse        = var.dataverse != null
+    environment_group_id = local.environment_group_id
+    governance_compliant = true
+    terraform_managed    = true
+    last_modified        = timestamp()
   }
 }

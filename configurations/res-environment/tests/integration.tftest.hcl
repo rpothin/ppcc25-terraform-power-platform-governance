@@ -45,8 +45,7 @@ variables {
     # background_operation_enabled defaults to false - using default value
   }
 
-  # Disable duplicate protection for testing to avoid conflicts
-  enable_duplicate_protection = false
+
 }
 
 # --- Plan Validation Tests ---
@@ -112,10 +111,7 @@ run "plan_validation" {
     error_message = "Planned environment type should match input variable."
   }
 
-  assert {
-    condition     = can(var.enable_duplicate_protection) && (var.enable_duplicate_protection == true || var.enable_duplicate_protection == false)
-    error_message = "Enable duplicate protection should be a valid boolean value."
-  }
+
 
   assert {
     condition     = var.environment.environment_group_id == "0675a2e2-dd4d-4ab6-8b9f-0d5048f62214"
@@ -204,39 +200,7 @@ run "apply_validation" {
 
 # --- Advanced Test Scenarios ---
 
-# Duplicate protection disabled test
-run "duplicate_protection_disabled_test" {
-  command = plan
-  variables {
-    environment = {
-      display_name         = "Test No Duplicate Check"
-      location             = "unitedstates" # EXPLICIT CHOICE
-      environment_group_id = "12345678-1234-1234-1234-123456789012"
-      # Using default values: environment_type="Sandbox", cadence="Moderate", AI=false
-    }
-    dataverse = {
-      currency_code     = "USD" # EXPLICIT CHOICE
-      security_group_id = "33333333-3333-3333-3333-333333333333"
-      # Using default values: language_code=1033, admin_mode=true, background=false
-    }
-    enable_duplicate_protection = false
-  }
 
-  assert {
-    condition     = var.enable_duplicate_protection == false
-    error_message = "Duplicate protection should be disabled for this test."
-  }
-
-  assert {
-    condition     = length(null_resource.environment_duplicate_guardrail) == 0
-    error_message = "Guardrail null_resource should not be created when duplicate protection is disabled."
-  }
-
-  assert {
-    condition     = length(data.powerplatform_environments.all) == 0
-    error_message = "Environments data source should not be created when duplicate protection is disabled."
-  }
-}
 
 # New provider properties test
 run "new_provider_properties_test" {
@@ -257,7 +221,6 @@ run "new_provider_properties_test" {
       security_group_id = "33333333-3333-3333-3333-333333333333"
       # Using secure defaults for other properties
     }
-    enable_duplicate_protection = false
   }
 
   assert {
@@ -304,7 +267,6 @@ run "production_environment_test" {
       security_group_id = "33333333-3333-3333-3333-333333333333"
       # Using secure defaults for other properties
     }
-    enable_duplicate_protection = false
   }
 
   assert {
@@ -340,7 +302,6 @@ run "trial_environment_test" {
       security_group_id = "33333333-3333-3333-3333-333333333333"
       # Using secure defaults for other properties
     }
-    enable_duplicate_protection = false
   }
 
   assert {
@@ -369,7 +330,6 @@ run "minimum_display_name_test" {
       security_group_id = "33333333-3333-3333-3333-333333333333"
       # Using secure defaults for other properties
     }
-    enable_duplicate_protection = false
   }
 
   assert {
@@ -398,7 +358,6 @@ run "maximum_display_name_test" {
       security_group_id = "33333333-3333-3333-3333-333333333333"
       # Using secure defaults for other properties
     }
-    enable_duplicate_protection = false
   }
 
   assert {
@@ -432,7 +391,6 @@ run "comprehensive_dataverse_test" {
       template_metadata            = "test-metadata"
       templates                    = ["template1", "template2"]
     }
-    enable_duplicate_protection = false
   }
 
   assert {
@@ -477,7 +435,6 @@ run "domain_auto_calculation_test" {
       domain            = null # Should auto-calculate
       # Using secure defaults for other properties
     }
-    enable_duplicate_protection = false
   }
 
   assert {
@@ -517,7 +474,6 @@ run "domain_manual_override_test" {
       domain            = "custom-domain-override"
       # Using secure defaults for other properties
     }
-    enable_duplicate_protection = false
   }
 
   assert {
@@ -552,7 +508,6 @@ run "domain_special_characters_test" {
       domain            = null
       # Using secure defaults for other properties
     }
-    enable_duplicate_protection = false
   }
 
   assert {
