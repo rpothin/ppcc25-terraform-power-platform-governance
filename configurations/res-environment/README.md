@@ -66,17 +66,13 @@ The following requirements are needed by this module:
 
 The following providers are used by this module:
 
-- <a name="provider_null"></a> [null](#provider\_null) (~> 3.0)
-
 - <a name="provider_powerplatform"></a> [powerplatform](#provider\_powerplatform) (~> 3.8)
 
 ## Resources
 
 The following resources are used by this module:
 
-- [null_resource.environment_duplicate_guardrail](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) (resource)
 - [powerplatform_environment.this](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/resources/environment) (resource)
-- [powerplatform_environments.all](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/data-sources/environments) (data source)
 
 <!-- markdownlint-disable MD013 -->
 ## Required Inputs
@@ -273,15 +269,7 @@ object({
 
 ## Optional Inputs
 
-The following input variables are optional (have default values):
-
-### <a name="input_enable_duplicate_protection"></a> [enable\_duplicate\_protection](#input\_enable\_duplicate\_protection)
-
-Description: Enable duplicate environment detection and prevention for operational safety.
-
-Type: `bool`
-
-Default: `true`
+No optional inputs.
 
 ## Outputs
 
@@ -333,6 +321,10 @@ This URL can be used for:
 - API endpoint construction
 
 Note: Returns Dataverse URL when Dataverse is enabled, otherwise null.
+
+### <a name="output_resource_summary"></a> [resource\_summary](#output\_resource\_summary)
+
+Description: Summary information for pattern module orchestration and compliance reporting
 
 ## Modules
 
