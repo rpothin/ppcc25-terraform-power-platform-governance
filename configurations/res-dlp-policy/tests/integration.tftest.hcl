@@ -15,7 +15,7 @@ variables {
   display_name                      = "Test DLP Policy - Integration"
   default_connectors_classification = "Blocked"
   environment_type                  = "OnlyEnvironments"
-  environments                      = []
+  environments                      = ["Default-7e7df62f-7cc4-4e63-a250-a277063e1be7"]
   business_connectors               = []
   non_business_connectors           = []
   blocked_connectors                = []
@@ -56,6 +56,11 @@ run "plan_validation" {
   assert {
     condition     = length(var.custom_connectors_patterns) > 0
     error_message = "Custom connector patterns should be defined for governance"
+  }
+
+  assert {
+    condition     = var.environment_type == "OnlyEnvironments" ? length(var.environments) > 0 : true
+    error_message = "OnlyEnvironments type requires at least one environment ID to be specified"
   }
 
   # Resource configuration validation (5 assertions)
