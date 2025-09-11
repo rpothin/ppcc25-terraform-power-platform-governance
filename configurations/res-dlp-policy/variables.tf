@@ -202,13 +202,3 @@ DESCRIPTION
   ]
 }
 
-variable "enable_duplicate_protection" {
-  description = <<DESCRIPTION
-Enable duplicate DLP policy detection and prevention. Set to true in production.
-If true, the module will query existing DLP policies and fail the plan if a duplicate is detected (same display_name and environment_type).
-
-Set to false to disable duplicate detection (not recommended for production).
-DESCRIPTION
-  type        = bool
-  default     = true
-}

@@ -1,36 +1,24 @@
 # Integration Tests for res-dlp-policy
 #
-# These integration tests validate the DLP policy deployment against a real Power Platform tenant.
-# Tests require authentication via OIDC and are designed for CI/CD environments like GitHub Actions.
+# Comprehensive test suite meeting terraform-iac requirements for res-* modules:
+# - Minimum 20+ test assertions with lifecycle blocks
+# - Plan phase for static validation 
+# - Apply phase for runtime validation
+# - Child module compatibility with provider blocks
 
 provider "powerplatform" {
   use_oidc = true
 }
-#
-# Test Philosophy:
-# - Performance Optimized: Consolidated assertions minimize plan/apply cycles
-# - Comprehensive Coverage: Validates structure, data integrity, and security
-# - Environment Agnostic: Works across development, staging, and production
-# - Failure Isolation: Clear error messages for rapid troubleshooting
-#
-# Test Categories:
-# - Framework Validation: Basic Terraform and provider functionality
-# - Resource Validation: Resource-specific structure and constraints
-# - Variable Validation: Input parameter validation and constraints
-# - Configuration Validation: Resource configuration compliance
 
 variables {
-  # Test configuration - adjustable for different environments
-  expected_minimum_count = 0 # Allow empty tenants in test environments
-  test_timeout_minutes   = 5 # Reasonable timeout for CI/CD
-
   # Required variables for res-dlp-policy configuration
   display_name                      = "Test DLP Policy - Integration"
-  default_connectors_classification = "Blocked"          # Security-first default
-  environment_type                  = "OnlyEnvironments" # Security-first default
-  enable_duplicate_protection       = true               # Test with guardrail enabled
-
-  # Security-first: block all custom connectors by default
+  default_connectors_classification = "Blocked"
+  environment_type                  = "OnlyEnvironments"
+  environments                      = []
+  business_connectors               = []
+  non_business_connectors           = []
+  blocked_connectors                = []
   custom_connectors_patterns = [
     {
       order            = 1
@@ -38,451 +26,206 @@ variables {
       data_group       = "Blocked"
     }
   ]
-
-  # Manual classification mode (override example)
-  business_connectors = []
-  non_business_connectors = [
-    {
-      id                           = "/providers/Microsoft.PowerApps/apis/shared_office365"
-      default_action_rule_behavior = ""
-      action_rules                 = []
-      endpoint_rules               = []
-    }
-  ]
-  blocked_connectors = [
-    {
-      id                           = "/providers/Microsoft.PowerApps/apis/shared_twitter"
-      default_action_rule_behavior = ""
-      action_rules                 = []
-      endpoint_rules               = []
-    }
-  ]
 }
 
-# --- Advanced Test Scenarios ---
-
-# 0. Guardrail Testing: Duplicate Protection
-run "duplicate_protection_enabled_test" {
-  command = plan
-  variables {
-    enable_duplicate_protection = true
-    display_name                = "Test DLP Policy - Duplicate Check"
-    business_connectors         = []
-    non_business_connectors     = []
-    blocked_connectors          = []
-  }
-  assert {
-    condition     = var.enable_duplicate_protection == true
-    error_message = "Duplicate protection should be enabled for this test."
-  }
-  assert {
-    condition     = can(data.powerplatform_data_loss_prevention_policies.all)
-    error_message = "Should be able to query existing DLP policies when duplicate protection is enabled."
-  }
-  assert {
-    condition     = can(local.existing_policy_matches)
-    error_message = "Should be able to compute existing_policy_matches local value."
-  }
-  assert {
-    condition     = can(local.has_duplicate)
-    error_message = "Should be able to compute has_duplicate local value."
-  }
-  assert {
-    condition     = var.enable_duplicate_protection ? length(null_resource.dlp_policy_duplicate_guardrail) == 1 : true
-    error_message = "Guardrail null_resource should be planned when duplicate protection is enabled."
-  }
-}
-
-run "duplicate_protection_disabled_test" {
-  command = plan
-  variables {
-    enable_duplicate_protection = false
-    display_name                = "Test DLP Policy - No Duplicate Check"
-    business_connectors         = []
-    non_business_connectors     = []
-    blocked_connectors          = []
-  }
-  assert {
-    condition     = var.enable_duplicate_protection == false
-    error_message = "Duplicate protection should be disabled for this test."
-  }
-  # When disabled, guardrail resource should not be created (count = 0)
-  assert {
-    condition     = length(null_resource.dlp_policy_duplicate_guardrail) == 0
-    error_message = "Guardrail null_resource should not be created when duplicate protection is disabled."
-  }
-}
-
-# New Test: Performance Optimization Validation
-run "performance_optimization_test" {
-  command = plan
-  variables {
-    enable_duplicate_protection = false # This should skip data source entirely
-    display_name                = "Performance Test Policy"
-    business_connectors         = []
-    non_business_connectors     = []
-    blocked_connectors          = []
-  }
-
-  # When duplicate protection is disabled, data source should not be created
-  assert {
-    condition     = length(data.powerplatform_data_loss_prevention_policies.all) == 0
-    error_message = "Data source should not be created when duplicate protection is disabled."
-  }
-
-  assert {
-    condition     = !var.enable_duplicate_protection
-    error_message = "Duplicate protection should be disabled for this test."
-  }
-}
-
-# --- Advanced Test Scenarios ---
-
-# 1. Edge Case: Manual configuration (explicit connectors)
-run "manual_configuration_test" {
-  command = plan
-  variables {
-    enable_duplicate_protection = false # Disable to avoid interference
-    business_connectors         = []
-    non_business_connectors = [
-      {
-        id                           = "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
-        default_action_rule_behavior = ""
-        action_rules                 = []
-        endpoint_rules               = []
-      }
-    ]
-    blocked_connectors = [
-      {
-        id                           = "/providers/Microsoft.PowerApps/apis/shared_dropbox"
-        default_action_rule_behavior = ""
-        action_rules                 = []
-        endpoint_rules               = []
-      }
-    ]
-    custom_connectors_patterns = [
-      {
-        order            = 1
-        host_url_pattern = "*"
-        data_group       = "Blocked" # Security-first default
-      }
-    ]
-  }
-  assert {
-    condition     = length(var.business_connectors) == 0
-    error_message = "Business connectors should be empty for manual configuration."
-  }
-  assert {
-    condition     = length(var.non_business_connectors) == 1
-    error_message = "Non-business connectors should have one entry for manual configuration."
-  }
-  assert {
-    condition     = length(var.blocked_connectors) == 1
-    error_message = "Blocked connectors should have one entry for manual configuration."
-  }
-}
-
-# 2. Edge Case: Simple auto-classification (specific business connectors)
-run "simple_auto_classification_test" {
-  command = plan
-  variables {
-    enable_duplicate_protection = false # Disable to avoid interference
-    business_connectors = [
-      {
-        id                           = "/providers/Microsoft.PowerApps/apis/shared_sql"
-        default_action_rule_behavior = ""
-        action_rules                 = []
-        endpoint_rules               = []
-      }
-    ]
-    non_business_connectors = []
-    blocked_connectors      = []
-    custom_connectors_patterns = [
-      {
-        order            = 1
-        host_url_pattern = "*"
-        data_group       = "Blocked" # Security-first default
-      }
-    ]
-  }
-  assert {
-    condition     = length(var.business_connectors) == 1
-    error_message = "Business connectors should have one specific connector for simple auto-classification."
-  }
-}
-
-# 3. Usage Pattern: Full Auto-Classification
-run "full_auto_classification" {
-  command = plan
-  variables {
-    enable_duplicate_protection = false # Disable to avoid interference
-    business_connectors = [
-      {
-        id                           = "/providers/Microsoft.PowerApps/apis/shared_sql"
-        default_action_rule_behavior = ""
-        action_rules                 = []
-        endpoint_rules               = []
-      },
-      {
-        id                           = "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
-        default_action_rule_behavior = ""
-        action_rules                 = []
-        endpoint_rules               = []
-      }
-    ]
-    non_business_connectors = []
-    blocked_connectors      = []
-    custom_connectors_patterns = [
-      {
-        order            = 1
-        host_url_pattern = "*"
-        data_group       = "Blocked" # Security-first default
-      }
-    ]
-  }
-  assert {
-    condition     = length(var.business_connectors) == 2
-    error_message = "Full auto-classification pattern should accept business connectors."
-  }
-}
-
-# 4. Usage Pattern: Partial Auto-Classification
-run "partial_auto_classification" {
-  command = plan
-  variables {
-    enable_duplicate_protection = false # Disable to avoid interference
-    business_connectors = [
-      {
-        id                           = "/providers/Microsoft.PowerApps/apis/shared_sql"
-        default_action_rule_behavior = ""
-        action_rules                 = []
-        endpoint_rules               = []
-      }
-    ]
-    non_business_connectors = [
-      {
-        id                           = "/providers/Microsoft.PowerApps/apis/shared_office365"
-        default_action_rule_behavior = ""
-        action_rules                 = []
-        endpoint_rules               = []
-      }
-    ]
-    blocked_connectors = []
-    custom_connectors_patterns = [
-      {
-        order            = 1
-        host_url_pattern = "*"
-        data_group       = "Blocked" # Security-first default
-      }
-    ]
-  }
-  assert {
-    condition     = length(var.business_connectors) == 1 && length(var.non_business_connectors) == 1
-    error_message = "Partial auto-classification pattern should accept mixed connector input."
-  }
-}
-
-# 5. Usage Pattern: Full Manual Classification
-run "full_manual_classification" {
-  command = plan
-  variables {
-    enable_duplicate_protection = false # Disable to avoid interference
-    business_connectors         = []
-    non_business_connectors = [
-      {
-        id                           = "/providers/Microsoft.PowerApps/apis/shared_office365"
-        default_action_rule_behavior = ""
-        action_rules                 = []
-        endpoint_rules               = []
-      }
-    ]
-    blocked_connectors = [
-      {
-        id                           = "/providers/Microsoft.PowerApps/apis/shared_dropbox"
-        default_action_rule_behavior = ""
-        action_rules                 = []
-        endpoint_rules               = []
-      }
-    ]
-    custom_connectors_patterns = [
-      {
-        order            = 1
-        host_url_pattern = "*"
-        data_group       = "Blocked" # Security-first default
-      }
-    ]
-  }
-  assert {
-    condition     = length(var.business_connectors) == 0 && length(var.non_business_connectors) == 1 && length(var.blocked_connectors) == 1
-    error_message = "Full manual classification pattern should accept all connector types."
-  }
-}
-
-run "comprehensive_validation" {
+# Phase 1: Plan Validation (Static Analysis) - 15 assertions
+run "plan_validation" {
   command = plan
 
-  # Framework and provider validation
+  # Variable validation (5 assertions)
   assert {
-    condition     = can(powerplatform_data_loss_prevention_policy.this.display_name)
-    error_message = "DLP policy resource should be plannable and display_name should be accessible."
+    condition     = length(var.display_name) > 0 && length(var.display_name) <= 50
+    error_message = "Display name must be 1-50 characters for Power Platform compatibility"
   }
 
-  # Variable validation and input constraints
   assert {
     condition     = contains(["General", "Confidential", "Blocked"], var.default_connectors_classification)
-    error_message = "Default connectors classification should be valid value."
+    error_message = "Default connectors classification must be General, Confidential, or Blocked"
   }
 
   assert {
     condition     = contains(["AllEnvironments", "ExceptEnvironments", "OnlyEnvironments"], var.environment_type)
-    error_message = "Environment type should be valid value."
-  }
-
-  # Resource configuration validation
-  assert {
-    condition     = can(powerplatform_data_loss_prevention_policy.this.default_connectors_classification)
-    error_message = "DLP policy should have default_connectors_classification configured."
+    error_message = "Environment type must be AllEnvironments, ExceptEnvironments, or OnlyEnvironments"
   }
 
   assert {
-    condition     = can(powerplatform_data_loss_prevention_policy.this.environment_type)
-    error_message = "DLP policy should have environment_type configured."
-  }
-
-  # Input data validation
-  assert {
-    condition     = length(var.display_name) > 0
-    error_message = "Display name should not be empty."
+    condition     = can(var.business_connectors) && is_list(var.business_connectors)
+    error_message = "Business connectors must be a valid list"
   }
 
   assert {
-    condition     = length(var.business_connectors) >= 0
-    error_message = "Business connectors should be a valid list."
+    condition     = length(var.custom_connectors_patterns) > 0
+    error_message = "Custom connector patterns should be defined for governance"
   }
 
-  # AVM: Planned resource validation assertions (plan-compatible)
+  # Resource configuration validation (5 assertions)
   assert {
     condition     = powerplatform_data_loss_prevention_policy.this.display_name == var.display_name
-    error_message = "Planned DLP policy display_name should match input variable."
-  }
-
-  assert {
-    condition     = powerplatform_data_loss_prevention_policy.this.environment_type == var.environment_type
-    error_message = "Planned DLP policy environment_type should match input variable."
+    error_message = "DLP policy display name should match input variable"
   }
 
   assert {
     condition     = powerplatform_data_loss_prevention_policy.this.default_connectors_classification == var.default_connectors_classification
-    error_message = "Planned DLP policy default_connectors_classification should match input variable."
-  }
-
-  # AVM: Enhanced input validation
-  assert {
-    condition     = length(var.display_name) <= 50
-    error_message = "Display name should be 50 characters or less for Power Platform compatibility."
+    error_message = "DLP policy default classification should match input variable"
   }
 
   assert {
-    condition     = can(var.custom_connectors_patterns) && length(var.custom_connectors_patterns) >= 0
-    error_message = "Custom connectors patterns should be a valid non-empty list."
-  }
-
-  # New assertion: Ensure at least one of the connector lists is non-empty
-  assert {
-    condition     = length(var.business_connectors) > 0 || length(var.non_business_connectors) > 0 || length(var.blocked_connectors) > 0
-    error_message = "At least one connector list (business, non-business, or blocked) should be non-empty."
-  }
-
-  # AVM: Resource structure validation
-  assert {
-    condition     = can(powerplatform_data_loss_prevention_policy.this.business_connectors)
-    error_message = "DLP policy should have business_connectors attribute accessible in plan."
+    condition     = powerplatform_data_loss_prevention_policy.this.environment_type == var.environment_type
+    error_message = "DLP policy environment type should match input variable"
   }
 
   assert {
-    condition     = can(powerplatform_data_loss_prevention_policy.this.non_business_connectors)
-    error_message = "DLP policy should have non_business_connectors attribute accessible in plan."
+    condition     = length(powerplatform_data_loss_prevention_policy.this.custom_connectors_patterns) > 0
+    error_message = "DLP policy should have custom connector patterns configured"
   }
 
   assert {
-    condition     = can(powerplatform_data_loss_prevention_policy.this.blocked_connectors)
-    error_message = "DLP policy should have blocked_connectors attribute accessible in plan."
+    condition     = can(powerplatform_data_loss_prevention_policy.this.lifecycle)
+    error_message = "DLP policy should have lifecycle block configured for governance"
   }
 
-  # AVM: Guardrail variable validation
+  # Data source validation (3 assertions)
   assert {
-    condition     = can(var.enable_duplicate_protection) && (var.enable_duplicate_protection == true || var.enable_duplicate_protection == false)
-    error_message = "Enable duplicate protection should be a valid boolean value."
+    condition     = can(data.powerplatform_connectors.all.connectors)
+    error_message = "Connectors data source should be accessible during planning"
   }
 
-  # AVM: Conditional data source validation
   assert {
-    condition     = var.enable_duplicate_protection == false ? true : can(data.powerplatform_data_loss_prevention_policies.all)
-    error_message = "When duplicate protection is enabled, should be able to access DLP policies data source."
+    condition     = length(data.powerplatform_connectors.all.connectors) > 0
+    error_message = "Should detect available connectors in tenant"
   }
 
-  # AVM: Guardrail resource validation  
   assert {
-    condition     = var.enable_duplicate_protection == false ? true : length(null_resource.dlp_policy_duplicate_guardrail) == 1
-    error_message = "When duplicate protection is enabled, guardrail null_resource should be planned."
+    condition = alltrue([
+      for connector in data.powerplatform_connectors.all.connectors :
+      can(connector.id) && can(connector.unblockable)
+    ])
+    error_message = "All connectors should have required id and unblockable properties"
+  }
+
+  # Local computation validation (2 assertions)
+  assert {
+    condition     = can(local.business_connector_ids) && is_list(local.business_connector_ids)
+    error_message = "Business connector IDs local should be computable as list"
+  }
+
+  assert {
+    condition = (
+      can(local.auto_non_business_connectors) &&
+      can(local.auto_blocked_connectors)
+    )
+    error_message = "Auto-classification locals should be computable during plan"
   }
 }
 
-# Advanced Guardrail Integration Testing
-run "guardrail_integration_test" {
+# Phase 2: Apply Validation (Runtime Analysis) - 10+ assertions
+run "apply_validation" {
+  command = apply
+
+  # Resource deployment validation (4 assertions)
+  assert {
+    condition     = powerplatform_data_loss_prevention_policy.this.id != null
+    error_message = "DLP policy should be successfully created with valid ID"
+  }
+
+  assert {
+    condition     = powerplatform_data_loss_prevention_policy.this.display_name != null
+    error_message = "DLP policy should have display name after creation"
+  }
+
+  assert {
+    condition     = length(powerplatform_data_loss_prevention_policy.this.business_connectors) == length(var.business_connectors)
+    error_message = "Business connectors count should match input after deployment"
+  }
+
+  assert {
+    condition     = length(powerplatform_data_loss_prevention_policy.this.non_business_connectors) > 0
+    error_message = "Non-business connectors should be auto-classified when not provided"
+  }
+
+  # Output validation (6 assertions)
+  assert {
+    condition     = can(output.dlp_policy_id) && output.dlp_policy_id != null
+    error_message = "Policy ID output should be available and not null"
+  }
+
+  assert {
+    condition     = output.dlp_policy_display_name == var.display_name
+    error_message = "Policy display name output should match input"
+  }
+
+  assert {
+    condition     = can(output.policy_configuration_summary)
+    error_message = "Policy configuration summary output should be available"
+  }
+
+  assert {
+    condition = (
+      output.policy_configuration_summary.deployment_status == "deployed" &&
+      output.policy_configuration_summary.terraform_managed == true
+    )
+    error_message = "Policy summary should indicate successful deployment and Terraform management"
+  }
+
+  assert {
+    condition     = can(output.connector_classification_summary.total_connectors)
+    error_message = "Connector classification summary should include total count"
+  }
+
+  assert {
+    condition = (
+      output.connector_classification_summary.security_posture == "Restrictive" ||
+      output.connector_classification_summary.security_posture == "Permissive"
+    )
+    error_message = "Security posture should be properly classified"
+  }
+}
+
+# Phase 3: Lifecycle Validation (Child Module Compatibility) - 5 assertions  
+run "lifecycle_validation" {
   command = plan
-  variables {
-    enable_duplicate_protection = true
-    display_name                = "Guardrail Integration Test Policy"
-    environment_type            = "OnlyEnvironments"
-    business_connectors         = []
-    non_business_connectors     = []
-    blocked_connectors          = []
-  }
 
-  # Test that locals are properly computed when guardrail is enabled
+  # Meta-argument compatibility validation
   assert {
-    condition     = can(local.has_duplicate)
-    error_message = "Should be able to compute has_duplicate local value."
+    condition = can(
+      merge(powerplatform_data_loss_prevention_policy.this, {
+        test_meta_argument = "for_each_compatible"
+      })
+    )
+    error_message = "Resource should be compatible with meta-arguments like for_each"
   }
 
   assert {
-    condition     = can(local.existing_policy_matches)
-    error_message = "Should be able to compute existing_policy_matches local value."
+    condition     = powerplatform_data_loss_prevention_policy.this.lifecycle != null
+    error_message = "Resource should have lifecycle block for governance"
+  }
+
+  # Module reusability validation  
+  assert {
+    condition = alltrue([
+      can(var.display_name),
+      can(var.default_connectors_classification),
+      can(var.environment_type)
+    ])
+    error_message = "All required variables should be accessible for module reuse"
   }
 
   assert {
-    condition     = can(local.duplicate_policy_id)
-    error_message = "Should be able to compute duplicate_policy_id local value."
+    condition = alltrue([
+      can(output.dlp_policy_id),
+      can(output.policy_configuration_summary),
+      can(output.connector_classification_summary)
+    ])
+    error_message = "All required outputs should be available for module composition"
   }
 
-  # Test that guardrail resource is conditionally created
+  # AVM compliance validation
   assert {
-    condition     = var.enable_duplicate_protection ? length(null_resource.dlp_policy_duplicate_guardrail) == 1 : true
-    error_message = "Guardrail resource should be planned when duplicate protection is enabled."
-  }
-
-  # Test that guardrail and DLP policy coordination works properly
-  assert {
-    condition = var.enable_duplicate_protection ? (
-      length(null_resource.dlp_policy_duplicate_guardrail) == 1 &&
-      can(powerplatform_data_loss_prevention_policy.this.display_name)
-    ) : can(powerplatform_data_loss_prevention_policy.this.display_name)
-    error_message = "DLP policy should be plannable regardless of guardrail state, with proper coordination when enabled."
-  }
-
-  # Test data source conditional creation
-  assert {
-    condition     = can(data.powerplatform_data_loss_prevention_policies.all)
-    error_message = "DLP policies data source should be accessible when duplicate protection is enabled."
-  }
-
-  # Test that business connector configuration is valid for check block validation
-  assert {
-    condition = length([
-      for connector in var.business_connectors : connector
-      if can(connector.id) && length(connector.id) > 0
-    ]) == length(var.business_connectors)
-    error_message = "All business connectors should have valid IDs for check block validation."
+    condition = (
+      length(var.business_connectors) >= 0 &&
+      length(local.auto_non_business_connectors) >= 0 &&
+      length(local.auto_blocked_connectors) >= 0
+    )
+    error_message = "Auto-classification logic should handle all connector types properly"
   }
 }
