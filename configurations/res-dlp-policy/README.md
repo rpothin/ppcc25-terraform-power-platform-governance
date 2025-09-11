@@ -107,18 +107,14 @@ The following requirements are needed by this module:
 
 The following providers are used by this module:
 
-- <a name="provider_null"></a> [null](#provider\_null)
-
 - <a name="provider_powerplatform"></a> [powerplatform](#provider\_powerplatform) (~> 3.8)
 
 ## Resources
 
 The following resources are used by this module:
 
-- [null_resource.dlp_policy_duplicate_guardrail](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) (resource)
 - [powerplatform_data_loss_prevention_policy.this](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/resources/data_loss_prevention_policy) (resource)
 - [powerplatform_connectors.all](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/data-sources/connectors) (data source)
-- [powerplatform_data_loss_prevention_policies.all](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/data-sources/data_loss_prevention_policies) (data source)
 
 <!-- markdownlint-disable MD013 -->
 ## Required Inputs
@@ -262,17 +258,6 @@ Type: `string`
 
 Default: `"Blocked"`
 
-### <a name="input_enable_duplicate_protection"></a> [enable\_duplicate\_protection](#input\_enable\_duplicate\_protection)
-
-Description: Enable duplicate DLP policy detection and prevention. Set to true in production.  
-If true, the module will query existing DLP policies and fail the plan if a duplicate is detected (same display\_name and environment\_type).
-
-Set to false to disable duplicate detection (not recommended for production).
-
-Type: `bool`
-
-Default: `true`
-
 ### <a name="input_environment_type"></a> [environment\_type](#input\_environment\_type)
 
 Description: Default environment handling for the policy ("AllEnvironments", "ExceptEnvironments", "OnlyEnvironments").
@@ -327,6 +312,12 @@ Default: `[]`
 
 The following outputs are exported:
 
+### <a name="output_connector_classification_summary"></a> [connector\_classification\_summary](#output\_connector\_classification\_summary)
+
+Description: Summary of connector classifications applied by the DLP policy for audit and compliance reporting.  
+Provides detailed breakdown of connectors by data group classification with security posture analysis.  
+Used for governance dashboards and compliance auditing systems.
+
 ### <a name="output_dlp_policy_display_name"></a> [dlp\_policy\_display\_name](#output\_dlp\_policy\_display\_name)
 
 Description: The display name of the DLP policy.
@@ -339,6 +330,12 @@ Description: The environment type for the DLP policy.
 
 Description: The unique identifier of the DLP policy.  
 This output provides the primary key for referencing this resource in other Terraform configurations or external systems. The ID format follows Power Platform standards.
+
+### <a name="output_policy_configuration_summary"></a> [policy\_configuration\_summary](#output\_policy\_configuration\_summary)
+
+Description: Comprehensive summary of deployed DLP policy configuration for validation and governance reporting.  
+This output aggregates key configuration details following the AVM pattern for resource modules.  
+Used by pattern modules and governance systems for compliance monitoring.
 
 ## Modules
 
