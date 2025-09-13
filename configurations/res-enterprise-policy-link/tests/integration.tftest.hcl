@@ -46,10 +46,10 @@ run "plan_validation" {
     error_message = "Resource should reference correct system ID"
   }
 
-  # Resource type validation
+  # System ID provider validation
   assert {
-    condition     = can(powerplatform_enterprise_policy.this)
-    error_message = "Resource should be properly configured"
+    condition     = can(regex("Microsoft\\.PowerPlatform", var.system_id))
+    error_message = "System ID should reference Microsoft.PowerPlatform provider"
   }
 
   # Variable structure validation
