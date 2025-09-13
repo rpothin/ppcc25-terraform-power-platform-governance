@@ -71,6 +71,20 @@ run "plan_validation" {
   # Static validation count: 10 assertions
 }
 
+run "invalid_environment_test" {
+  command = plan
+
+  variables {
+    environment_id = "invalid-guid"
+    policy_type    = "NetworkInjection"
+    system_id      = "/regions/unitedstates/providers/Microsoft.PowerPlatform/enterprisePolicies/test"
+  }
+
+  expect_failures = [
+    var.environment_id
+  ]
+}
+
 run "apply_validation" {
   command = apply
 
@@ -159,18 +173,4 @@ run "apply_validation" {
 
   # Runtime validation count: 15 assertions
   # Total: 10 (plan) + 15 (apply) = 25 assertions (exceeds 22+ requirement)
-}
-
-run "invalid_environment_test" {
-  command = plan
-
-  variables {
-    environment_id = "invalid-guid"
-    policy_type    = "NetworkInjection"
-    system_id      = "/regions/unitedstates/providers/Microsoft.PowerPlatform/enterprisePolicies/test"
-  }
-
-  expect_failures = [
-    var.environment_id
-  ]
 }
