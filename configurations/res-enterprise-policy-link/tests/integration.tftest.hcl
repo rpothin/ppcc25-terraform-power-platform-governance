@@ -6,7 +6,7 @@ provider "powerplatform" {
 }
 
 variables {
-  environment_id = "12345678-1234-5678-9abc-123456789012"
+  environment_id = "36f603f9-0af2-e33d-98a5-64b02c1bac19"
   policy_type    = "NetworkInjection"
   system_id      = "/regions/unitedstates/providers/Microsoft.PowerPlatform/enterprisePolicies/abcdef12-3456-789a-bcde-f123456789ab"
 }

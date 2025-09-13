@@ -20,7 +20,7 @@
 
 # Target Power Platform environment for VNet integration
 # Replace with your actual environment GUID
-environment_id = "12345678-1234-5678-9abc-123456789012"
+environment_id = "36f603f9-0af2-e33d-98a5-64b02c1bac19"
 
 # Policy type for VNet integration and subnet delegation
 policy_type = "NetworkInjection"
@@ -28,7 +28,7 @@ policy_type = "NetworkInjection"
 # Azure enterprise policy resource identifier
 # Format: /regions/<location>/providers/Microsoft.PowerPlatform/enterprisePolicies/<policy-id>
 # Replace with your actual NetworkInjection policy system ID
-system_id = "/regions/unitedstates/providers/Microsoft.PowerPlatform/enterprisePolicies/vnet-policy-12345678-1234-5678-9abc-123456789012"
+system_id = "/regions/unitedstates/providers/Microsoft.PowerPlatform/enterprisePolicies/vnet-policy-36f603f9-0af2-e33d-98a5-64b02c1bac19"
 
 # =============================================================================
 # OPTIONAL CONFIGURATION - Environment Validation

@@ -35,7 +35,7 @@ Validation Rules:
 - For Encryption: Environment must be configured as managed environment
 
 Example Values:
-- "12345678-1234-5678-9abc-123456789012" (development environment)
+- "36f603f9-0af2-e33d-98a5-64b02c1bac19" (development environment)
 - "abcdef12-3456-789a-bcde-f123456789ab" (production environment)
 
 Security Considerations:
@@ -49,7 +49,7 @@ DESCRIPTION
 Environment ID must be a valid GUID format.
 
 Current value: "${var.environment_id}"
-Expected format: "12345678-1234-5678-9abc-123456789012"
+Expected format: "36f603f9-0af2-e33d-98a5-64b02c1bac19"
 
 To find valid environment IDs:
 1. Use Power Platform Admin Center: https://admin.powerplatform.microsoft.com/
@@ -127,7 +127,7 @@ Usage Context:
 - Policy must be pre-created in Azure before assignment
 
 Example Values:
-- "/regions/unitedstates/providers/Microsoft.PowerPlatform/enterprisePolicies/12345678-1234-5678-9abc-123456789012"
+- "/regions/unitedstates/providers/Microsoft.PowerPlatform/enterprisePolicies/36f603f9-0af2-e33d-98a5-64b02c1bac19"
 - "/regions/europe/providers/Microsoft.PowerPlatform/enterprisePolicies/abcdef12-3456-789a-bcde-f123456789ab"
 
 Validation Rules:
@@ -155,7 +155,7 @@ Format breakdown:
 - /providers/Microsoft.PowerPlatform/enterprisePolicies/ - Fixed resource provider path
 - <policy-id> - GUID of the Azure enterprise policy resource
 
-Example: "/regions/unitedstates/providers/Microsoft.PowerPlatform/enterprisePolicies/12345678-1234-5678-9abc-123456789012"
+Example: "/regions/unitedstates/providers/Microsoft.PowerPlatform/enterprisePolicies/36f603f9-0af2-e33d-98a5-64b02c1bac19"
 
 To find valid system IDs:
 1. Check Azure Portal under Enterprise Policies

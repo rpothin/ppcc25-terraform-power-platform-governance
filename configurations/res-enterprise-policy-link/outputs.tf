@@ -30,7 +30,7 @@ Usage Examples:
 - Include in governance reporting and audit trails
 
 Format: Typically a GUID assigned by the Power Platform service
-Example: "12345678-1234-5678-9abc-123456789012"
+Example: "36f603f9-0af2-e33d-98a5-64b02c1bac19"
 
 Security Note: This ID is not sensitive and can be safely logged or exported.
 DESCRIPTION
@@ -151,7 +151,7 @@ Usage Examples:
 - Integration with environment management systems
 
 Format: GUID string representing the Power Platform environment
-Example: "12345678-1234-5678-9abc-123456789012"
+Example: "36f603f9-0af2-e33d-98a5-64b02c1bac19"
 Source: Directly from the powerplatform_enterprise_policy resource
 DESCRIPTION
   value       = powerplatform_enterprise_policy.this.environment_id
