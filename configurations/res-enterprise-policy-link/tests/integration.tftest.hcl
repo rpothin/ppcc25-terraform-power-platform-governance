@@ -1,5 +1,5 @@
 # Integration Tests for res-enterprise-policy-link
-# 22 total assertions exceeding 20+ requirement for res-* modules
+# 28 total assertions exceeding 20+ requirement for res-* modules
 
 provider "powerplatform" {
   use_oidc = true
@@ -77,11 +77,39 @@ run "invalid_environment_test" {
   variables {
     environment_id = "invalid-guid"
     policy_type    = "NetworkInjection"
-    system_id      = "/regions/unitedstates/providers/Microsoft.PowerPlatform/enterprisePolicies/test"
+    system_id      = "/regions/unitedstates/providers/Microsoft.PowerPlatform/enterprisePolicies/12345678-1234-5678-9abc-123456789012"
   }
 
   expect_failures = [
     var.environment_id
+  ]
+}
+
+run "invalid_system_id_test" {
+  command = plan
+
+  variables {
+    environment_id = "12345678-1234-5678-9abc-123456789012"
+    policy_type    = "NetworkInjection"
+    system_id      = "/regions/unitedstates/providers/Microsoft.PowerPlatform/enterprisePolicies/test"
+  }
+
+  expect_failures = [
+    var.system_id
+  ]
+}
+
+run "invalid_policy_type_test" {
+  command = plan
+
+  variables {
+    environment_id = "12345678-1234-5678-9abc-123456789012"
+    policy_type    = "InvalidType"
+    system_id      = "/regions/unitedstates/providers/Microsoft.PowerPlatform/enterprisePolicies/12345678-1234-5678-9abc-123456789012"
+  }
+
+  expect_failures = [
+    var.policy_type
   ]
 }
 
@@ -172,5 +200,6 @@ run "apply_validation" {
   }
 
   # Runtime validation count: 15 assertions
-  # Total: 10 (plan) + 15 (apply) = 25 assertions (exceeds 22+ requirement)
+  # Negative test count: 3 assertions (environment_id, system_id, policy_type)
+  # Total: 10 (plan) + 15 (apply) + 3 (negative) = 28 assertions (exceeds 22+ requirement)
 }
