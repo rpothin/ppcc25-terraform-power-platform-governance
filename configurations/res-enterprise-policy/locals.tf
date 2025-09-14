@@ -85,6 +85,6 @@ locals {
     # Network injection fields (null for Encryption type)
     virtual_networks_count = null
     virtual_network_ids    = null
-    subnet_names          = null
+    subnet_names           = null
   }
 }

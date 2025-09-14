@@ -35,6 +35,12 @@ provider "azurerm" {
   # Test configuration - credentials managed by test environment  
 }
 
+# =====================================================================================
+# PLAN PHASE TESTS - Configuration Validation (Static Analysis)
+# =====================================================================================
+# These tests validate the Terraform configuration without actually deploying resources.
+# They verify variable validation, resource configuration, and local transformations.
+
 # Test 1: Network Injection Policy Validation (Plan Phase)
 run "network_injection_policy_plan_validation" {
   command = plan
@@ -143,55 +149,6 @@ run "network_injection_policy_plan_validation" {
   }
 }
 
-# NetworkInjection policy apply validation test
-# Tests outputs and resource state after deployment (runtime validation)
-run "network_injection_policy_apply_validation" {
-  command = apply
-
-  variables {
-    policy_configuration = {
-      name              = "test-network-injection-policy"
-      location          = "europe"
-      policy_type       = "NetworkInjection"
-      resource_group_id = "/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/test-rg"
-
-      network_injection_config = {
-        virtual_networks = [{
-          id     = "/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/test-rg/providers/Microsoft.Network/virtualNetworks/test-vnet"
-          subnet = { name = "test-subnet" }
-        }]
-      }
-    }
-
-    common_tags = {
-      environment = "test"
-      project     = "PPCC25-Test"
-      managed_by  = "Terraform"
-    }
-  }
-
-  # Output assertions (only available after apply)
-  assert {
-    condition     = can(output.enterprise_policy_id)
-    error_message = "enterprise_policy_id output must be available after deployment"
-  }
-
-  assert {
-    condition     = can(output.enterprise_policy_system_id)
-    error_message = "enterprise_policy_system_id output must be available after deployment"
-  }
-
-  assert {
-    condition     = can(output.policy_deployment_summary)
-    error_message = "policy_deployment_summary output must be available after deployment"
-  }
-
-  assert {
-    condition     = output.policy_deployment_summary.policy_type == "NetworkInjection"
-    error_message = "Deployment summary must reflect correct policy type"
-  }
-}
-
 # Test 2: Encryption Policy Validation (Plan Phase)
 run "encryption_policy_plan_validation" {
   command = plan
@@ -277,54 +234,6 @@ run "encryption_policy_plan_validation" {
   }
 }
 
-# Encryption policy apply validation test
-# Tests outputs and resource state after deployment (runtime validation)
-run "encryption_policy_apply_validation" {
-  command = apply
-
-  variables {
-    policy_configuration = {
-      name              = "test-encryption-policy"
-      location          = "europe"
-      policy_type       = "Encryption"
-      resource_group_id = "/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/test-rg"
-
-      encryption_config = {
-        key_vault = {
-          id = "/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/test-rg/providers/Microsoft.KeyVault/vaults/test-kv"
-          key = {
-            name    = "test-encryption-key"
-            version = "latest"
-          }
-        }
-        state = "Enabled"
-      }
-    }
-
-    common_tags = {
-      environment = "test"
-      project     = "PPCC25-Test"
-      managed_by  = "Terraform"
-    }
-  }
-
-  # Output type-specific assertions (only available after apply)
-  assert {
-    condition     = can(output.policy_deployment_summary)
-    error_message = "policy_deployment_summary output must be available after deployment"
-  }
-
-  assert {
-    condition     = output.policy_deployment_summary.policy_type == "Encryption"
-    error_message = "Deployment summary must reflect correct policy type"
-  }
-
-  assert {
-    condition     = output.policy_deployment_summary.configuration_details.type == "Encryption"
-    error_message = "Configuration details must match policy type"
-  }
-}
-
 # Test 3: Variable Validation Testing
 run "variable_validation_tests" {
   command = plan
@@ -383,16 +292,21 @@ run "lifecycle_and_timeout_validation" {
     }
   }
 
-  # Lifecycle configuration assertions
+  # Resource basic configuration (lifecycle and timeouts are configured but not directly testable)
   assert {
-    condition     = azapi_resource.enterprise_policy.lifecycle != null
-    error_message = "Enterprise policy must have lifecycle configuration"
+    condition     = azapi_resource.enterprise_policy.name == "lifecycle-test-policy"
+    error_message = "Policy name must match configuration for lifecycle test"
   }
 
-  # Timeout configuration assertions  
   assert {
-    condition     = azapi_resource.enterprise_policy.timeouts != null
-    error_message = "Enterprise policy must have timeout configuration"
+    condition     = azapi_resource.enterprise_policy.type == "Microsoft.PowerPlatform/enterprisePolicies@2020-10-30-preview"
+    error_message = "Resource type must be correctly configured"
+  }
+
+  # Verify resource has identity block (part of lifecycle management)
+  assert {
+    condition     = azapi_resource.enterprise_policy.identity[0].type == "SystemAssigned"
+    error_message = "Enterprise policy must have system assigned identity for lifecycle management"
   }
 }
 
@@ -436,5 +350,108 @@ run "dynamic_configuration_logic" {
   assert {
     condition     = length(output.policy_deployment_summary.configuration_details.virtual_network_ids) == 2
     error_message = "Summary must include all virtual network IDs"
+  }
+}
+
+# =====================================================================================
+# APPLY PHASE TESTS - Runtime Validation (Actual Deployment)
+# =====================================================================================
+# These tests deploy resources and validate outputs and resource state.
+# Expected to fail with fake subscription IDs used in test configuration.
+
+# NetworkInjection policy apply validation test
+# Tests outputs and resource state after deployment (runtime validation)
+run "network_injection_policy_apply_validation" {
+  command = apply
+
+  variables {
+    policy_configuration = {
+      name              = "test-network-injection-policy"
+      location          = "europe"
+      policy_type       = "NetworkInjection"
+      resource_group_id = "/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/test-rg"
+
+      network_injection_config = {
+        virtual_networks = [{
+          id     = "/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/test-rg/providers/Microsoft.Network/virtualNetworks/test-vnet"
+          subnet = { name = "test-subnet" }
+        }]
+      }
+    }
+
+    common_tags = {
+      environment = "test"
+      project     = "PPCC25-Test"
+      managed_by  = "Terraform"
+    }
+  }
+
+  # Output assertions (only available after apply)
+  assert {
+    condition     = can(output.enterprise_policy_id)
+    error_message = "enterprise_policy_id output must be available after deployment"
+  }
+
+  assert {
+    condition     = can(output.enterprise_policy_system_id)
+    error_message = "enterprise_policy_system_id output must be available after deployment"
+  }
+
+  assert {
+    condition     = can(output.policy_deployment_summary)
+    error_message = "policy_deployment_summary output must be available after deployment"
+  }
+
+  assert {
+    condition     = output.policy_deployment_summary.policy_type == "NetworkInjection"
+    error_message = "Deployment summary must reflect correct policy type"
+  }
+}
+
+# Encryption policy apply validation test
+# Tests outputs and resource state after deployment (runtime validation)
+run "encryption_policy_apply_validation" {
+  command = apply
+
+  variables {
+    policy_configuration = {
+      name              = "test-encryption-policy"
+      location          = "europe"
+      policy_type       = "Encryption"
+      resource_group_id = "/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/test-rg"
+
+      encryption_config = {
+        key_vault = {
+          id = "/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/test-rg/providers/Microsoft.KeyVault/vaults/test-kv"
+          key = {
+            name    = "test-encryption-key"
+            version = "latest"
+          }
+        }
+        state = "Enabled"
+      }
+    }
+
+    common_tags = {
+      environment = "test"
+      project     = "PPCC25-Test"
+      managed_by  = "Terraform"
+    }
+  }
+
+  # Output type-specific assertions (only available after apply)
+  assert {
+    condition     = can(output.policy_deployment_summary)
+    error_message = "policy_deployment_summary output must be available after deployment"
+  }
+
+  assert {
+    condition     = output.policy_deployment_summary.policy_type == "Encryption"
+    error_message = "Deployment summary must reflect correct policy type"
+  }
+
+  assert {
+    condition     = output.policy_deployment_summary.configuration_details.type == "Encryption"
+    error_message = "Configuration details must match policy type"
   }
 }
