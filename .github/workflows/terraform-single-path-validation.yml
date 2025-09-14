@@ -22,6 +22,8 @@
 # - Relies on composite actions for backend init, metadata, and JIT network access
 # - Requires Azure OIDC identity federation and GitHub environment protection
 # - Generates AVM-compliant artifacts for audit and compliance
+# - Supports both azapi (AVM-compliant) and power-platform (with exception) providers
+# - Uses POWER_PLATFORM_PROVIDER_VERSION GitHub variable for power-platform version control
 # ═══════════════════════════════════════════════════════════════════════════════════════════════════════
 name: "Terraform Single Path Validation"
 
@@ -126,14 +128,34 @@ jobs:
 
           # === AVM GUARDRAILS: Provider version, variable typing, lifecycle, test coverage ===
           avm_violations=""
-          # Provider version check (centralized via GitHub variable)
+          # Provider version check - supports both azapi and power-platform providers (AVM-compliant)
           if [ -f "versions.tf" ]; then
-            expected_version="${{ vars.POWER_PLATFORM_PROVIDER_VERSION || '~> 3.8' }}"
-            if ! grep -q "version *= *\"$expected_version\"" versions.tf; then
-              avm_violations="${avm_violations}Provider version not $expected_version in versions.tf. "
-              echo "::error title=AVM Violation::Provider version must be '$expected_version' in versions.tf (set via POWER_PLATFORM_PROVIDER_VERSION variable)"
+            # Detect which provider is being used
+            if grep -q 'source *= *"[Aa]zure/azapi"' versions.tf; then
+              # AZAPI Provider - AVM-approved provider (TFFR3)
+              provider_type="azapi"
+              # Validate against AVM-approved version range (>= 2.0, < 3.0)
+              if grep -q 'version *= *"~> 2\.[0-9]"' versions.tf; then
+                detected_version=$(grep 'version *= *"~> 2\.[0-9]"' versions.tf | sed 's/.*version *= *"\([^"]*\)".*/\1/')
+                echo "::notice title=Provider Version::Using AVM-compliant AZAPI provider version $detected_version (within approved range >= 2.0, < 3.0)"
+              else
+                avm_violations="${avm_violations}AZAPI provider version not in AVM-approved range (>= 2.0, < 3.0) in versions.tf. "
+                echo "::error title=AVM Violation::AZAPI provider version must be within AVM-approved range (>= 2.0, < 3.0) in versions.tf"
+              fi
+            elif grep -q 'source *= *"microsoft/power-platform"' versions.tf; then
+              # Power Platform Provider - requires exception documentation
+              provider_type="power-platform"
+              expected_version="${{ vars.POWER_PLATFORM_PROVIDER_VERSION || '~> 3.8' }}"
+              if ! grep -q "version *= *\"$expected_version\"" versions.tf; then
+                avm_violations="${avm_violations}Power Platform provider version not $expected_version in versions.tf. "
+                echo "::error title=AVM Violation::Power Platform provider version must be '$expected_version' in versions.tf (set via POWER_PLATFORM_PROVIDER_VERSION variable)"
+              else
+                echo "::notice title=Provider Version::Using Power Platform provider version $expected_version (requires AVM exception)"
+              fi
             else
-              echo "::notice title=Provider Version::Using Power Platform provider version $expected_version"
+              # No recognized Power Platform-capable provider found
+              avm_violations="${avm_violations}No recognized Power Platform provider found in versions.tf (azapi or power-platform required). "
+              echo "::error title=AVM Violation::Must use either 'azure/azapi' (AVM-compliant) or 'microsoft/power-platform' (with exception) for Power Platform resources"
             fi
           fi
           # Variable typing check (no 'any')
