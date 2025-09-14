@@ -22,14 +22,11 @@ locals {
   # WHY: Dynamic policy configuration based on type
   # This ensures only relevant properties are included in the azapi request
   # and provides clear separation between NetworkInjection and Encryption policies
+  # FIXED: Removed invalid properties (displayName, description) per API schema
+  # NOTE: azapi v2.x expects HCL objects, not JSON strings
   policy_body_configuration = {
     kind = var.policy_configuration.policy_type
     properties = merge(
-      # Base properties always included
-      {
-        displayName = var.policy_configuration.name
-        description = "Enterprise policy for Power Platform governance - managed by Terraform"
-      },
 
       # Network injection properties (conditional)
       var.policy_configuration.policy_type == "NetworkInjection" ? {
@@ -64,6 +61,7 @@ locals {
 
   # WHY: Configuration-specific summary for comprehensive reporting
   # Provides type-safe access to configuration details in outputs
+  # FIXED: Both conditional branches now have consistent object structure
   configuration_summary = var.policy_configuration.policy_type == "NetworkInjection" ? {
     type                   = "NetworkInjection"
     virtual_networks_count = length(var.policy_configuration.network_injection_config.virtual_networks)
@@ -73,11 +71,20 @@ locals {
     subnet_names = [
       for vnet in var.policy_configuration.network_injection_config.virtual_networks : vnet.subnet.name
     ]
+    # Encryption fields (null for NetworkInjection type)
+    key_vault_id     = null
+    key_name         = null
+    key_version      = null
+    encryption_state = null
     } : {
     type             = "Encryption"
     key_vault_id     = var.policy_configuration.encryption_config.key_vault.id
     key_name         = var.policy_configuration.encryption_config.key_vault.key.name
     key_version      = var.policy_configuration.encryption_config.key_vault.key.version
     encryption_state = var.policy_configuration.encryption_config.state
+    # Network injection fields (null for Encryption type)
+    virtual_networks_count = null
+    virtual_network_ids    = null
+    subnet_names          = null
   }
 }

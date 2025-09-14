@@ -120,20 +120,70 @@ run "network_injection_policy_plan_validation" {
     error_message = "Managed by tag must be set correctly"
   }
 
-  # Output assertions
+  # Local configuration validation (always available in plan phase)
+  assert {
+    condition     = local.policy_body_configuration.kind == "NetworkInjection"
+    error_message = "Local policy body kind must match configured policy type"
+  }
+
+  assert {
+    condition     = can(local.policy_body_configuration.properties.networkInjection)
+    error_message = "Network injection configuration must be present in locals"
+  }
+
+  assert {
+    condition     = length(local.policy_body_configuration.properties.networkInjection.virtualNetworks) == 1
+    error_message = "Local configuration must have exactly one virtual network"
+  }
+
+  # Variable validation (always available in plan phase)
+  assert {
+    condition     = var.policy_configuration.policy_type == "NetworkInjection"
+    error_message = "Policy type must be NetworkInjection for this test"
+  }
+}
+
+# NetworkInjection policy apply validation test
+# Tests outputs and resource state after deployment (runtime validation)
+run "network_injection_policy_apply_validation" {
+  command = apply
+
+  variables {
+    policy_configuration = {
+      name              = "test-network-injection-policy"
+      location          = "europe"
+      policy_type       = "NetworkInjection"
+      resource_group_id = "/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/test-rg"
+
+      network_injection_config = {
+        virtual_networks = [{
+          id     = "/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/test-rg/providers/Microsoft.Network/virtualNetworks/test-vnet"
+          subnet = { name = "test-subnet" }
+        }]
+      }
+    }
+
+    common_tags = {
+      environment = "test"
+      project     = "PPCC25-Test"
+      managed_by  = "Terraform"
+    }
+  }
+
+  # Output assertions (only available after apply)
   assert {
     condition     = can(output.enterprise_policy_id)
-    error_message = "enterprise_policy_id output must be available"
+    error_message = "enterprise_policy_id output must be available after deployment"
   }
 
   assert {
     condition     = can(output.enterprise_policy_system_id)
-    error_message = "enterprise_policy_system_id output must be available"
+    error_message = "enterprise_policy_system_id output must be available after deployment"
   }
 
   assert {
     condition     = can(output.policy_deployment_summary)
-    error_message = "policy_deployment_summary output must be available"
+    error_message = "policy_deployment_summary output must be available after deployment"
   }
 
   assert {
@@ -204,7 +254,66 @@ run "encryption_policy_plan_validation" {
     error_message = "Key name must match input configuration"
   }
 
-  # Output type-specific assertions
+  # Local configuration validation (always available in plan phase)
+  assert {
+    condition     = local.policy_body_configuration.kind == "Encryption"
+    error_message = "Local policy body kind must match configured policy type"
+  }
+
+  assert {
+    condition     = can(local.policy_body_configuration.properties.encryption)
+    error_message = "Encryption configuration must be present in locals"
+  }
+
+  assert {
+    condition     = local.policy_body_configuration.properties.encryption.state == "Enabled"
+    error_message = "Local encryption state must match configuration"
+  }
+
+  # Variable validation (always available in plan phase)
+  assert {
+    condition     = var.policy_configuration.policy_type == "Encryption"
+    error_message = "Policy type must be Encryption for this test"
+  }
+}
+
+# Encryption policy apply validation test
+# Tests outputs and resource state after deployment (runtime validation)
+run "encryption_policy_apply_validation" {
+  command = apply
+
+  variables {
+    policy_configuration = {
+      name              = "test-encryption-policy"
+      location          = "europe"
+      policy_type       = "Encryption"
+      resource_group_id = "/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/test-rg"
+
+      encryption_config = {
+        key_vault = {
+          id = "/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/test-rg/providers/Microsoft.KeyVault/vaults/test-kv"
+          key = {
+            name    = "test-encryption-key"
+            version = "latest"
+          }
+        }
+        state = "Enabled"
+      }
+    }
+
+    common_tags = {
+      environment = "test"
+      project     = "PPCC25-Test"
+      managed_by  = "Terraform"
+    }
+  }
+
+  # Output type-specific assertions (only available after apply)
+  assert {
+    condition     = can(output.policy_deployment_summary)
+    error_message = "policy_deployment_summary output must be available after deployment"
+  }
+
   assert {
     condition     = output.policy_deployment_summary.policy_type == "Encryption"
     error_message = "Deployment summary must reflect correct policy type"
