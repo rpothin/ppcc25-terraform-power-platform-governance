@@ -115,14 +115,14 @@ output "network_planning_summary" {
     # CONTEXT: Demonstrates dynamic IP calculation from base address spaces
     # IMPACT: Helps validate non-overlapping IP allocation across environments
     environment_networks = {
-      for idx, env_name in keys(local.processed_environments) : env_name => {
-        primary_vnet_cidr                = local.network_configuration[idx].primary_vnet_address_space
-        primary_power_platform_subnet    = local.network_configuration[idx].primary_power_platform_subnet_cidr
-        primary_private_endpoint_subnet  = local.network_configuration[idx].primary_private_endpoint_subnet_cidr
-        failover_vnet_cidr               = local.network_configuration[idx].failover_vnet_address_space
-        failover_power_platform_subnet   = local.network_configuration[idx].failover_power_platform_subnet_cidr
-        failover_private_endpoint_subnet = local.network_configuration[idx].failover_private_endpoint_subnet_cidr
-        environment_index                = idx
+      for env_name in keys(local.processed_environments) : env_name => {
+        primary_vnet_cidr                = local.network_configuration[env_name].primary_vnet_address_space
+        primary_power_platform_subnet    = local.network_configuration[env_name].primary_power_platform_subnet_cidr
+        primary_private_endpoint_subnet  = local.network_configuration[env_name].primary_private_endpoint_subnet_cidr
+        failover_vnet_cidr               = local.network_configuration[env_name].failover_vnet_address_space
+        failover_power_platform_subnet   = local.network_configuration[env_name].failover_power_platform_subnet_cidr
+        failover_private_endpoint_subnet = local.network_configuration[env_name].failover_private_endpoint_subnet_cidr
+        environment_index                = local.environment_numeric_mapping[env_name]
       }
     }
 

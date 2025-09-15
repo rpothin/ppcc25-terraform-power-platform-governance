@@ -184,6 +184,17 @@ locals {
 # NETWORK CONFIGURATION - Dynamic Per-Environment IP Allocation
 # ============================================================================
 
+# Create numeric index mapping for CIDR calculations
+# WHY: cidrsubnet() requires numeric indices, but environment keys are names
+# CONTEXT: Maps "dev"->0, "test"->1, "prod"->2 for deterministic IP allocation
+# IMPACT: Enables stable IP calculation regardless of environment naming
+locals {
+  # Generate numeric indices for environments in alphabetical order (deterministic)
+  environment_numeric_mapping = {
+    for i, env_name in sort(keys(local.processed_environments)) : env_name => i
+  }
+}
+
 # WHY: Calculate unique IP ranges for each environment to prevent conflicts
 # CONTEXT: Each environment gets dedicated /16 subnet from base address space
 # IMPACT: Supports 2-N environments with automatic non-overlapping IP allocation
@@ -194,19 +205,19 @@ locals {
       # WHY: Calculate per-environment /16 from base /12 address space
       # CONTEXT: Environment 0 gets 10.100.0.0/16, env 1 gets 10.101.0.0/16, etc.
       # IMPACT: Each environment gets 65,536 IPs with guaranteed non-overlap
-      primary_vnet_address_space  = cidrsubnet(var.network_configuration.primary.vnet_address_space_base, 4, idx)
-      failover_vnet_address_space = cidrsubnet(var.network_configuration.failover.vnet_address_space_base, 4, idx)
+      primary_vnet_address_space  = cidrsubnet(var.network_configuration.primary.vnet_address_space_base, 4, local.environment_numeric_mapping[idx])
+      failover_vnet_address_space = cidrsubnet(var.network_configuration.failover.vnet_address_space_base, 4, local.environment_numeric_mapping[idx])
 
       # WHY: Calculate consistent subnet layout within each environment's /16
       # CONTEXT: Power Platform gets .1.0/24, private endpoints get .2.0/24
       # IMPACT: Standardized addressing across all environments
       primary_power_platform_subnet_cidr = cidrsubnet(
-        cidrsubnet(var.network_configuration.primary.vnet_address_space_base, 4, idx),
+        cidrsubnet(var.network_configuration.primary.vnet_address_space_base, 4, local.environment_numeric_mapping[idx]),
         var.network_configuration.subnet_allocation.power_platform_subnet_size - 16,
         var.network_configuration.subnet_allocation.power_platform_offset
       )
       primary_private_endpoint_subnet_cidr = cidrsubnet(
-        cidrsubnet(var.network_configuration.primary.vnet_address_space_base, 4, idx),
+        cidrsubnet(var.network_configuration.primary.vnet_address_space_base, 4, local.environment_numeric_mapping[idx]),
         var.network_configuration.subnet_allocation.private_endpoint_subnet_size - 16,
         var.network_configuration.subnet_allocation.private_endpoint_offset
       )
@@ -215,12 +226,12 @@ locals {
       # CONTEXT: Same subnet layout pattern in different IP range
       # IMPACT: Consistent network architecture across regions
       failover_power_platform_subnet_cidr = cidrsubnet(
-        cidrsubnet(var.network_configuration.failover.vnet_address_space_base, 4, idx),
+        cidrsubnet(var.network_configuration.failover.vnet_address_space_base, 4, local.environment_numeric_mapping[idx]),
         var.network_configuration.subnet_allocation.power_platform_subnet_size - 16,
         var.network_configuration.subnet_allocation.power_platform_offset
       )
       failover_private_endpoint_subnet_cidr = cidrsubnet(
-        cidrsubnet(var.network_configuration.failover.vnet_address_space_base, 4, idx),
+        cidrsubnet(var.network_configuration.failover.vnet_address_space_base, 4, local.environment_numeric_mapping[idx]),
         var.network_configuration.subnet_allocation.private_endpoint_subnet_size - 16,
         var.network_configuration.subnet_allocation.private_endpoint_offset
       )
@@ -268,9 +279,29 @@ locals {
 # CONTEXT: Dual VNet architecture requires validation of both regions
 # IMPACT: Prevents deployment failures and ensures proper network design
 locals {
-  # Network validation helpers
-  primary_subnet_within_vnet  = can(cidrsubnet(var.network_configuration.primary.power_platform_subnet_cidr, 0, 0)) && can(cidrsubnet(var.network_configuration.primary.vnet_address_space, 0, 0))
-  failover_subnet_within_vnet = can(cidrsubnet(var.network_configuration.failover.power_platform_subnet_cidr, 0, 0)) && can(cidrsubnet(var.network_configuration.failover.vnet_address_space, 0, 0))
+  # Network validation helpers for dynamic IP allocation
+  # WHY: Validate that base address spaces are large enough for environment scaling
+  # CONTEXT: /12 base allows 16 environments, each with /16 VNet containing /24 subnets
+  # IMPACT: Prevents IP conflicts and ensures sufficient capacity
+  base_address_capacity_valid = (
+    # Primary base address space must be /12 or larger (supports 16 environments)
+    tonumber(split("/", var.network_configuration.primary.vnet_address_space_base)[1]) <= 12 &&
+    tonumber(split("/", var.network_configuration.failover.vnet_address_space_base)[1]) <= 12
+  )
+
+  # Check that base address spaces don't overlap  
+  base_address_ranges_non_overlapping = (
+    # Validate that primary and failover base addresses are different
+    var.network_configuration.primary.vnet_address_space_base != var.network_configuration.failover.vnet_address_space_base &&
+    # For /12 ranges, check that they don't overlap
+    # Primary range: starts at primary_octet, covers 16 values (primary_octet to primary_octet+15)
+    # Failover range: starts at failover_octet, covers 16 values (failover_octet to failover_octet+15)
+    # No overlap if: primary_end < failover_start OR failover_end < primary_start
+    (tonumber(split(".", var.network_configuration.primary.vnet_address_space_base)[1]) + 15 <
+    tonumber(split(".", var.network_configuration.failover.vnet_address_space_base)[1])) ||
+    (tonumber(split(".", var.network_configuration.failover.vnet_address_space_base)[1]) + 15 <
+    tonumber(split(".", var.network_configuration.primary.vnet_address_space_base)[1]))
+  )
 }
 
 # ============================================================================
@@ -292,9 +323,9 @@ locals {
     # Subscription validation
     subscriptions_different = var.production_subscription_id != var.non_production_subscription_id
 
-    # Network validation - updated for dual VNet architecture
-    primary_subnet_within_vnet  = local.primary_subnet_within_vnet
-    failover_subnet_within_vnet = local.failover_subnet_within_vnet
+    # Network validation - updated for dynamic IP allocation
+    primary_subnet_within_vnet  = local.base_address_capacity_valid
+    failover_subnet_within_vnet = local.base_address_ranges_non_overlapping
 
     # Naming validation
     names_generated = length(local.environment_resource_names) > 0
@@ -315,8 +346,8 @@ locals {
     !local.configuration_validation.remote_state_valid ? "Remote state from ptn-environment-group is invalid or incomplete" : "",
     !local.configuration_validation.environments_found ? "No environments found in remote state" : "",
     !local.configuration_validation.subscriptions_different ? "Production and non-production subscriptions must be different" : "",
-    !local.configuration_validation.primary_subnet_within_vnet ? "Primary Power Platform subnet is not within primary VNet address space" : "",
-    !local.configuration_validation.failover_subnet_within_vnet ? "Failover Power Platform subnet is not within failover VNet address space" : "",
+    !local.configuration_validation.primary_subnet_within_vnet ? "Base address spaces are too small (must be /12 or larger to support multiple environments)" : "",
+    !local.configuration_validation.failover_subnet_within_vnet ? "Primary and failover base address spaces overlap (must use non-overlapping ranges)" : "",
     !local.configuration_validation.names_generated ? "Resource names could not be generated" : ""
   ]
 

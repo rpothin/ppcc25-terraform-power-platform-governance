@@ -24,7 +24,7 @@ resource "terraform_data" "configuration_validation" {
   lifecycle {
     precondition {
       condition     = local.configuration_valid
-      error_message = "Configuration validation failed: ${join(", ", local.actual_validation_errors)}"
+      error_message = "Configuration validation failed: ${join(", ", nonsensitive(local.actual_validation_errors))}"
     }
 
     precondition {

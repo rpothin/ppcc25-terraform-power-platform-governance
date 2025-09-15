@@ -35,19 +35,21 @@ variables {
   production_subscription_id     = "11111111-1111-1111-1111-111111111111"
   non_production_subscription_id = "22222222-2222-2222-2222-222222222222"
 
-  # Dual VNet network configuration
+  # Dynamic dual VNet network configuration with per-environment scaling
   network_configuration = {
     primary = {
-      location                     = "Canada Central"
-      vnet_address_space           = "10.100.0.0/16"
-      power_platform_subnet_cidr   = "10.100.1.0/24"
-      private_endpoint_subnet_cidr = "10.100.2.0/24"
+      location                = "Canada Central"
+      vnet_address_space_base = "10.96.0.0/12" # Properly aligned /12 base (covers 10.96-10.111)
     }
     failover = {
-      location                     = "Canada East"
-      vnet_address_space           = "10.101.0.0/16"
-      power_platform_subnet_cidr   = "10.101.1.0/24"
-      private_endpoint_subnet_cidr = "10.101.2.0/24"
+      location                = "Canada East"
+      vnet_address_space_base = "10.112.0.0/12" # Non-overlapping aligned /12 (covers 10.112-10.127)
+    }
+    subnet_allocation = {
+      power_platform_subnet_size   = 24 # /24 = 256 IPs per environment
+      private_endpoint_subnet_size = 24 # /24 = 256 IPs per environment
+      power_platform_offset        = 1  # .1.0/24 within each /16
+      private_endpoint_offset      = 2  # .2.0/24 within each /16
     }
   }
 
@@ -88,23 +90,29 @@ run "phase1_plan_validation" {
   }
 
   assert {
-    condition     = can(cidrhost(var.network_configuration.primary.vnet_address_space, 0))
-    error_message = "Primary VNet address space should be valid CIDR notation"
+    condition     = can(cidrhost(var.network_configuration.primary.vnet_address_space_base, 0))
+    error_message = "Primary VNet base address space should be valid CIDR notation"
   }
 
   assert {
-    condition     = can(cidrhost(var.network_configuration.failover.vnet_address_space, 0))
-    error_message = "Failover VNet address space should be valid CIDR notation"
+    condition     = can(cidrhost(var.network_configuration.failover.vnet_address_space_base, 0))
+    error_message = "Failover VNet base address space should be valid CIDR notation"
   }
 
   assert {
-    condition     = can(cidrhost(var.network_configuration.primary.power_platform_subnet_cidr, 0))
-    error_message = "Primary Power Platform subnet CIDR should be valid CIDR notation"
+    condition = (
+      var.network_configuration.subnet_allocation.power_platform_subnet_size >= 16 &&
+      var.network_configuration.subnet_allocation.power_platform_subnet_size <= 30
+    )
+    error_message = "Power Platform subnet size should be in valid range (16-30)"
   }
 
   assert {
-    condition     = can(cidrhost(var.network_configuration.failover.power_platform_subnet_cidr, 0))
-    error_message = "Failover Power Platform subnet CIDR should be valid CIDR notation"
+    condition = (
+      var.network_configuration.subnet_allocation.private_endpoint_subnet_size >= 16 &&
+      var.network_configuration.subnet_allocation.private_endpoint_subnet_size <= 30
+    )
+    error_message = "Private endpoint subnet size should be in valid range (16-30)"
   }
 
   assert {
@@ -224,18 +232,21 @@ run "variable_validation_edge_cases" {
     production_subscription_id     = "11111111-1111-1111-1111-111111111111"
     non_production_subscription_id = "22222222-2222-2222-2222-222222222222"
 
+    # Dynamic network configuration with minimal values
     network_configuration = {
       primary = {
-        location                     = "East US"
-        vnet_address_space           = "192.168.0.0/24"
-        power_platform_subnet_cidr   = "192.168.0.0/28"
-        private_endpoint_subnet_cidr = "192.168.0.128/28"
+        location                = "East US"
+        vnet_address_space_base = "172.16.0.0/12" # Properly aligned /12 (covers 172.16-172.31)
       }
       failover = {
-        location                     = "West US 2"
-        vnet_address_space           = "192.169.0.0/24"
-        power_platform_subnet_cidr   = "192.169.0.0/28"
-        private_endpoint_subnet_cidr = "192.169.0.128/28"
+        location                = "West US 2"
+        vnet_address_space_base = "172.32.0.0/12" # Non-overlapping aligned /12 (covers 172.32-172.47)
+      }
+      subnet_allocation = {
+        power_platform_subnet_size   = 28 # /28 = 16 IPs (minimal)
+        private_endpoint_subnet_size = 28 # /28 = 16 IPs (minimal)
+        power_platform_offset        = 1  # .1.0/28 within each /16
+        private_endpoint_offset      = 2  # .2.0/28 within each /16
       }
     }
 
@@ -250,13 +261,13 @@ run "variable_validation_edge_cases" {
   }
 
   assert {
-    condition     = var.network_configuration.primary.vnet_address_space == "192.168.0.0/24"
-    error_message = "Small primary VNet address spaces should be accepted"
+    condition     = var.network_configuration.primary.vnet_address_space_base == "172.16.0.0/12"
+    error_message = "Primary VNet base address space should match test configuration"
   }
 
   assert {
-    condition     = var.network_configuration.failover.vnet_address_space == "192.169.0.0/24"
-    error_message = "Small failover VNet address spaces should be accepted"
+    condition     = var.network_configuration.failover.vnet_address_space_base == "172.32.0.0/12"
+    error_message = "Failover VNet base address space should match test configuration"
   }
 
   assert {
