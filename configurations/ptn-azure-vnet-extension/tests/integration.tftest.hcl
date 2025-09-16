@@ -1,8 +1,10 @@
-# Integration Tests for Power Platform Azure VNet Extension Pattern - Phase 2
+# Integration Tests for Power Platform Azure VNet Extension Pattern - Phase 1 & 2
 #
-# This test file validates Phase 2 components: multi-subscription provider configuration,
-# production/non-production environment separation, Azure resource deployment planning,
-# and enterprise policy orchestration. Follows AVM testing patterns with comprehensive assertions.
+# This test file validates both Phase 1 and Phase 2 components:
+# - Phase 1: remote state reading, variable validation, locals processing, and configuration validation
+# - Phase 2: multi-subscription provider configuration, production/non-production environment separation,
+#   Azure resource deployment planning, and enterprise policy orchestration
+# Follows AVM testing patterns with comprehensive assertions.
 
 # ============================================================================
 # PROVIDER CONFIGURATION - Required for Pattern Module Testing
@@ -66,6 +68,163 @@ variables {
   tags = {
     Environment = "Test"
     Pattern     = "ptn-azure-vnet-extension"
+  }
+}
+
+# ============================================================================
+# PHASE 1 TESTS - Configuration Validation and Remote State Integration
+# ============================================================================
+
+run "phase1_plan_validation" {
+  command = plan
+
+  # ========== VARIABLE VALIDATION TESTS (10 assertions) ==========
+
+  assert {
+    condition     = length(var.workspace_name) > 0 && length(var.workspace_name) <= 50
+    error_message = "Workspace name validation should pass for valid names"
+  }
+
+  assert {
+    condition     = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.production_subscription_id))
+    error_message = "Production subscription ID should be valid GUID format"
+  }
+
+  assert {
+    condition     = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.non_production_subscription_id))
+    error_message = "Non-production subscription ID should be valid GUID format"
+  }
+
+  assert {
+    condition     = var.production_subscription_id != var.non_production_subscription_id
+    error_message = "Production and non-production subscriptions must be different"
+  }
+
+  assert {
+    condition     = can(cidrhost(var.network_configuration.primary.vnet_address_space_base, 0))
+    error_message = "Primary VNet base address space should be valid CIDR notation"
+  }
+
+  assert {
+    condition     = can(cidrhost(var.network_configuration.failover.vnet_address_space_base, 0))
+    error_message = "Failover VNet base address space should be valid CIDR notation"
+  }
+
+  assert {
+    condition = (
+      var.network_configuration.subnet_allocation.power_platform_subnet_size >= 16 &&
+      var.network_configuration.subnet_allocation.power_platform_subnet_size <= 30
+    )
+    error_message = "Power Platform subnet size should be in valid range (16-30)"
+  }
+
+  assert {
+    condition = (
+      var.network_configuration.subnet_allocation.private_endpoint_subnet_size >= 16 &&
+      var.network_configuration.subnet_allocation.private_endpoint_subnet_size <= 30
+    )
+    error_message = "Private endpoint subnet size should be in valid range (16-30)"
+  }
+
+  assert {
+    condition     = contains(["East US", "East US 2", "West US", "West US 2", "West Europe", "Southeast Asia"], var.network_configuration.primary.location)
+    error_message = "Primary location should be a valid Azure region"
+  }
+
+  assert {
+    condition     = contains(["East US", "East US 2", "West US", "West US 2", "West Europe", "Southeast Asia"], var.network_configuration.failover.location)
+    error_message = "Failover location should be a valid Azure region"
+  }
+
+  # ========== LOCALS PROCESSING TESTS (10 assertions) ==========
+
+  assert {
+    condition     = local.base_name_components.workspace != null
+    error_message = "Base naming components should be generated from workspace name"
+  }
+
+  assert {
+    condition     = local.base_name_components.location != null
+    error_message = "Location abbreviation should be generated for CAF naming"
+  }
+
+  assert {
+    condition     = length(local.region_abbreviations) > 0
+    error_message = "Region abbreviations mapping should be populated"
+  }
+
+  assert {
+    condition     = contains(keys(local.region_abbreviations), var.network_configuration.primary.location)
+    error_message = "Primary location should have abbreviation in mapping"
+  }
+
+  assert {
+    condition     = local.naming_patterns.resource_group != null
+    error_message = "Resource group naming pattern should be defined"
+  }
+
+  assert {
+    condition     = local.naming_patterns.virtual_network != null
+    error_message = "Virtual network naming pattern should be defined"
+  }
+
+  assert {
+    condition     = local.naming_patterns.subnet != null
+    error_message = "Subnet naming pattern should be defined"
+  }
+
+  assert {
+    condition     = local.naming_patterns.enterprise_policy != null
+    error_message = "Enterprise policy naming pattern should be defined"
+  }
+
+  assert {
+    condition     = local.configuration_validation != null
+    error_message = "Configuration validation locals should be defined"
+  }
+
+  assert {
+    condition     = local.deployment_status != null
+    error_message = "Deployment status tracking should be initialized"
+  }
+
+  # ========== REMOTE STATE DATA VALIDATION TESTS (2 assertions) ==========
+
+  assert {
+    condition     = local.remote_workspace_name == "TestWorkspace"
+    error_message = "Remote state should provide workspace name"
+  }
+
+  assert {
+    condition     = length(local.remote_environment_ids) > 0
+    error_message = "Remote state should provide environment IDs for VNet integration"
+  }
+
+  # ========== OUTPUT DEFINITIONS TESTS (5 assertions) ==========
+
+  assert {
+    condition     = output.output_schema_version != null
+    error_message = "Output schema version should be defined"
+  }
+
+  assert {
+    condition     = output.configuration_validation_status != null
+    error_message = "Configuration validation status output should be defined"
+  }
+
+  assert {
+    condition     = output.network_planning_summary != null
+    error_message = "Network planning summary output should be defined"
+  }
+
+  assert {
+    condition     = output.resource_naming_summary != null
+    error_message = "Resource naming summary output should be defined"
+  }
+
+  assert {
+    condition     = output.deployment_planning_summary != null
+    error_message = "Deployment planning summary output should be defined"
   }
 }
 
@@ -203,8 +362,20 @@ run "phase2_multi_subscription_validation" {
   }
 
   assert {
-    condition     = length(keys(local.production_environments)) >= 0 && length(keys(local.non_production_environments)) >= 0
+    condition     = length(keys(local.non_production_environments)) >= 0 && length(keys(local.production_environments)) >= 0
     error_message = "Environment separation should create valid collections (can be empty)"
+  }
+
+  # ========== AZURE-TO-POWER PLATFORM REGION MAPPING TESTS (2 assertions) ==========
+
+  assert {
+    condition     = local.azure_to_power_platform_regions != null
+    error_message = "Azure-to-Power Platform region mapping should be defined"
+  }
+
+  assert {
+    condition     = local.azure_to_power_platform_regions[var.network_configuration.primary.location] == "unitedstates"
+    error_message = "East US should map to unitedstates Power Platform region"
   }
 
   # ========== DEPLOYMENT STATUS TRACKING TESTS (12 assertions) ==========
@@ -360,18 +531,32 @@ run "variable_validation_edge_cases" {
 # TEST SUMMARY
 # ============================================================================
 
-# Total Assertions: 37 (exceeds minimum 25 for pattern modules)
+# Total Assertions: 66 (significantly exceeds minimum 25 for pattern modules)
+# 
+# PHASE 1 TESTS (27 assertions):
 # - Variable validation: 10 assertions
-# - Environment separation: 6 assertions  
+# - Locals processing: 10 assertions  
+# - Remote state data validation: 2 assertions
+# - Output definitions: 5 assertions
+# 
+# PHASE 2 TESTS (35 assertions):
+# - Variable validation: 10 assertions
+# - Environment separation: 6 assertions
+# - Azure-to-Power Platform region mapping: 2 assertions  
 # - Deployment status tracking: 12 assertions
 # - Output definitions: 5 assertions
-# - Edge case validation: 4 assertions
+# 
+# EDGE CASE TESTS (4 assertions):
+# - Boundary condition validation: 4 assertions
 #
 # Test Coverage:
-# ✅ All input variables validated
-# ✅ Multi-subscription provider configuration tested
-# ✅ Production/non-production environment separation verified
-# ✅ New deployment status tracking validated
-# ✅ Output structure validated
+# ✅ PHASE 1: Remote state reading from ptn-environment-group verified
+# ✅ PHASE 1: Local value processing and CAF naming validated
+# ✅ PHASE 1: Configuration validation logic tested
+# ✅ PHASE 2: Multi-subscription provider configuration tested
+# ✅ PHASE 2: Production/non-production environment separation verified
+# ✅ PHASE 2: New deployment status tracking validated
+# ✅ All input variables validated across both phases
+# ✅ Output structure validated for both phases
 # ✅ Edge cases covered
 # ✅ Provider configurations include production alias (required for multi-subscription)
