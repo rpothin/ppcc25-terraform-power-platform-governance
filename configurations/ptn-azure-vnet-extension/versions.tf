@@ -30,10 +30,23 @@ terraform {
     }
     azurerm = {
       source = "hashicorp/azurerm"
-      # WHY: Version ~> 4.0 supports latest Azure VNet and enterprise policy features
-      # CONTEXT: Required for dual region VNet deployment and private endpoint support
-      # IMPACT: Enables production-ready network infrastructure provisioning
-      version = "~> 4.0"
+      # WHY: Balanced approach - use stable 3.x series with proven AVM compatibility
+      # CONTEXT: AVM modules require 3.116+ but azurerm 4.x introduces breaking changes
+      # IMPACT: Provides latest stable features while ensuring AVM module compatibility
+      # STRATEGY: Pin to latest 3.x minor version for stability with security updates
+      version = "~> 3.117"
+      # WHY: Configuration aliases required for multi-subscription deployment
+      # CONTEXT: AVM specification TFNFR27 compliant provider alias handling
+      # IMPACT: Enables production/non-production subscription routing
+      configuration_aliases = [azurerm.production]
+    }
+    azapi = {
+      source = "azure/azapi"
+      # WHY: Use latest stable 2.x series - mature API with active development
+      # CONTEXT: Version 2.x is stable, 3.x is preview with potential breaking changes
+      # IMPACT: Access to latest Azure preview APIs while maintaining stability
+      # STRATEGY: Pin to latest 2.x minor version for new features with stability
+      version = "~> 2.6"
     }
   }
 
@@ -53,9 +66,27 @@ provider "powerplatform" {
 }
 
 # WHY: OIDC authentication with features block enables secure Azure resource management
-# CONTEXT: Dual VNet deployment requires Azure RM provider for network infrastructure
-# IMPACT: Enables secure, multi-subscription Azure resource provisioning
+# CONTEXT: Default provider for non-production environments (Dev, Test, Staging)
+# IMPACT: Enables secure Azure resource provisioning for non-production workloads
 provider "azurerm" {
-  use_oidc = true
+  use_oidc        = true
+  subscription_id = var.non_production_subscription_id
   features {}
+}
+
+# WHY: Production environments require dedicated subscription for governance
+# CONTEXT: Production workloads deployed to separate subscription for isolation
+# IMPACT: Enables proper subscription-level governance and cost management
+provider "azurerm" {
+  alias           = "production"
+  use_oidc        = true
+  subscription_id = var.production_subscription_id
+  features {}
+}
+
+# WHY: azapi provider required for res-enterprise-policy module integration
+# CONTEXT: Enterprise policy creation uses preview APIs requiring azapi resources
+# IMPACT: Enables Microsoft.PowerPlatform/enterprisePolicies deployment
+provider "azapi" {
+  use_oidc = true
 }

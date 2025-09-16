@@ -10,110 +10,539 @@
 # integration between pattern modules before resource provisioning
 
 # ============================================================================
-# CONFIGURATION VALIDATION - Early Failure Prevention
+# ENVIRONMENT SEPARATION - Production vs Non-Production
 # ============================================================================
 
-# WHY: Validate configuration before any resource creation
-# CONTEXT: Complex multi-environment, multi-subscription pattern needs validation
-# IMPACT: Prevents partial deployments and resource creation with invalid configuration
-resource "terraform_data" "configuration_validation" {
-  # Trigger validation checks
-  input = local.configuration_validation
+# WHY: Separate production and non-production environments for provider routing
+# CONTEXT: Terraform doesn't support conditional provider references in module blocks
+# IMPACT: Enables proper subscription-level governance through explicit separation
+locals {
+  # Filter environments by type for provider routing
+  production_environments = {
+    for idx, env in local.vnet_ready_environments : idx => env
+    if env.environment_type == "Production"
+  }
 
-  # Fail deployment if validation errors exist
-  lifecycle {
-    precondition {
-      condition     = local.configuration_valid
-      error_message = "Configuration validation failed: ${join(", ", nonsensitive(local.actual_validation_errors))}"
-    }
-
-    precondition {
-      condition     = local.remote_state_valid
-      error_message = "Remote state from ptn-environment-group is invalid. Ensure the ptn-environment-group configuration is deployed and available."
-    }
+  non_production_environments = {
+    for idx, env in local.vnet_ready_environments : idx => env
+    if env.environment_type != "Production"
   }
 }
 
 # ============================================================================
-# PHASE 2 PLACEHOLDER - Azure Infrastructure Orchestration
+# AZURE INFRASTRUCTURE DEPLOYMENT - Phase 2 Implementation
 # ============================================================================
 
-# NOTE: Phase 2 implementation will include:
-# 1. Resource Group creation using Azure/avm-res-resources-resourcegroup
-# 2. VNet creation using Azure/avm-res-network-virtualnetwork  
-# 3. Enterprise Policy creation using res-enterprise-policy module
-# 4. Policy linking using res-enterprise-policy-link module
+# WHY: Deploy actual Azure infrastructure instead of validation placeholders
+# CONTEXT: Phase 2 transforms pattern from planning to resource deployment
+# IMPACT: Creates VNets and enterprise policies per environment
 
-# Placeholder locals for Phase 2 module orchestration
-locals {
-  # Module orchestration planning (Phase 2)
-  planned_modules = {
-    # Primary region resource groups
-    primary_resource_groups = {
-      for idx, env in local.vnet_ready_environments : idx => {
-        module_source = "Azure/avm-res-resources-resourcegroup/azurerm"
-        name          = "${local.environment_resource_names[idx].resource_group_name}-primary"
-        location      = local.network_configuration[idx].primary_location
-        subscription  = local.subscription_mapping[idx].subscription_id
-      }
+# ============================================================================
+# RESOURCE GROUP ORCHESTRATION - Production and Non-Production Separation
+# ============================================================================
+
+# WHY: Deploy resource groups for production environments to production subscription
+# CONTEXT: Production workloads require dedicated subscription for governance
+# IMPACT: Provides isolation and governance boundary for production Azure resources
+module "production_primary_resource_groups" {
+  source   = "Azure/avm-res-resources-resourcegroup/azurerm"
+  version  = "~> 0.1.0"
+  for_each = local.production_environments
+
+  # WHY: Use production provider for production environments
+  # CONTEXT: Routes production resources to dedicated subscription
+  # IMPACT: Enables proper subscription-level governance and isolation
+  providers = {
+    azurerm = azurerm.production
+  }
+
+  # Basic resource group configuration
+  name     = "${local.environment_resource_names[each.key].resource_group_name}-primary"
+  location = local.network_configuration[each.key].primary_location
+
+  # Enterprise tagging for governance
+  tags = merge(
+    var.tags,
+    {
+      Environment    = each.value.environment_type
+      Workspace      = local.remote_workspace_name
+      Pattern        = "ptn-azure-vnet-extension"
+      Region         = "primary"
+      EnvironmentKey = each.key
     }
+  )
+}
 
-    # Failover region resource groups
-    failover_resource_groups = {
-      for idx, env in local.vnet_ready_environments : idx => {
-        module_source = "Azure/avm-res-resources-resourcegroup/azurerm"
-        name          = "${local.environment_resource_names[idx].resource_group_name}-failover"
-        location      = local.network_configuration[idx].failover_location
-        subscription  = local.subscription_mapping[idx].subscription_id
-      }
+# WHY: Deploy resource groups for non-production environments to non-production subscription
+# CONTEXT: Dev, Test, Staging environments use shared non-production subscription
+# IMPACT: Provides cost-effective isolation for non-production Azure resources
+module "non_production_primary_resource_groups" {
+  source   = "Azure/avm-res-resources-resourcegroup/azurerm"
+  version  = "~> 0.1.0"
+  for_each = local.non_production_environments
+
+  # WHY: Use default provider for non-production environments
+  # CONTEXT: Routes non-production resources to shared subscription
+  # IMPACT: Enables cost-effective resource management
+  providers = {
+    azurerm = azurerm
+  }
+
+  # Basic resource group configuration
+  name     = "${local.environment_resource_names[each.key].resource_group_name}-primary"
+  location = local.network_configuration[each.key].primary_location
+
+  # Enterprise tagging for governance
+  tags = merge(
+    var.tags,
+    {
+      Environment    = each.value.environment_type
+      Workspace      = local.remote_workspace_name
+      Pattern        = "ptn-azure-vnet-extension"
+      Region         = "primary"
+      EnvironmentKey = each.key
     }
+  )
+}
 
-    # Primary region virtual networks
-    primary_virtual_networks = {
-      for idx, env in local.vnet_ready_environments : idx => {
-        module_source = "Azure/avm-res-network-virtualnetwork/azurerm"
-        name          = "${local.environment_resource_names[idx].virtual_network_name}-primary"
-        address_space = [local.network_configuration[idx].primary_vnet_address_space]
-        location      = local.network_configuration[idx].primary_location
-        subnet_config = {
-          power_platform   = local.network_configuration[idx].primary_power_platform_subnet_cidr
-          private_endpoint = local.network_configuration[idx].primary_private_endpoint_subnet_cidr
-          delegation       = local.network_configuration[idx].subnet_delegation
+# WHY: Deploy failover resource groups for production environments to production subscription
+# CONTEXT: Production disaster recovery requires dedicated subscription resources
+# IMPACT: Enables production failover capabilities with proper governance
+module "production_failover_resource_groups" {
+  source   = "Azure/avm-res-resources-resourcegroup/azurerm"
+  version  = "~> 0.1.0"
+  for_each = local.production_environments
+
+  # WHY: Use production provider for production environments
+  # CONTEXT: Routes production resources to dedicated subscription
+  # IMPACT: Enables proper subscription-level governance and isolation
+  providers = {
+    azurerm = azurerm.production
+  }
+
+  # Basic resource group configuration
+  name     = "${local.environment_resource_names[each.key].resource_group_name}-failover"
+  location = local.network_configuration[each.key].failover_location
+
+  # Enterprise tagging for governance
+  tags = merge(
+    var.tags,
+    {
+      Environment    = each.value.environment_type
+      Workspace      = local.remote_workspace_name
+      Pattern        = "ptn-azure-vnet-extension"
+      Region         = "failover"
+      EnvironmentKey = each.key
+    }
+  )
+}
+
+# WHY: Deploy failover resource groups for non-production environments to non-production subscription
+# CONTEXT: Non-production disaster recovery using shared subscription resources
+# IMPACT: Provides cost-effective failover capabilities for development workloads
+module "non_production_failover_resource_groups" {
+  source   = "Azure/avm-res-resources-resourcegroup/azurerm"
+  version  = "~> 0.1.0"
+  for_each = local.non_production_environments
+
+  # WHY: Use default provider for non-production environments
+  # CONTEXT: Routes non-production resources to shared subscription
+  # IMPACT: Enables cost-effective resource management
+  providers = {
+    azurerm = azurerm
+  }
+
+  # Basic resource group configuration
+  name     = "${local.environment_resource_names[each.key].resource_group_name}-failover"
+  location = local.network_configuration[each.key].failover_location
+
+  # Enterprise tagging for governance
+  tags = merge(
+    var.tags,
+    {
+      Environment    = each.value.environment_type
+      Workspace      = local.remote_workspace_name
+      Pattern        = "ptn-azure-vnet-extension"
+      Region         = "failover"
+      EnvironmentKey = each.key
+    }
+  )
+}
+
+# ============================================================================
+# VIRTUAL NETWORK ORCHESTRATION - Production and Non-Production Separation
+# ============================================================================
+
+# WHY: Deploy VNets for production environments to production subscription
+# CONTEXT: Production workloads require dedicated network infrastructure
+# IMPACT: Provides secure network foundation for Power Platform integration
+module "production_primary_virtual_networks" {
+  source   = "Azure/avm-res-network-virtualnetwork/azurerm"
+  version  = "~> 0.7.0"
+  for_each = local.production_environments
+
+  # WHY: Use production provider for production environments
+  # CONTEXT: Routes production resources to dedicated subscription
+  # IMPACT: Enables proper subscription-level governance and isolation
+  providers = {
+    azurerm = azurerm.production
+  }
+
+  # Basic VNet configuration with dynamic IP allocation
+  name                = "${local.environment_resource_names[each.key].virtual_network_name}-primary"
+  location            = local.network_configuration[each.key].primary_location
+  resource_group_name = module.production_primary_resource_groups[each.key].name
+  address_space       = [local.network_configuration[each.key].primary_vnet_address_space]
+
+  # Subnet configuration with Power Platform delegation
+  subnets = {
+    "PowerPlatformSubnet" = {
+      name             = local.environment_resource_names[each.key].subnet_name
+      address_prefixes = [local.network_configuration[each.key].primary_power_platform_subnet_cidr]
+
+      # WHY: Subnet delegation required for Power Platform enterprise policies
+      # CONTEXT: Microsoft.PowerPlatform/enterprisePolicies requires dedicated delegation
+      # IMPACT: Enables network injection policies for discovered environments
+      delegations = [
+        {
+          name = "PowerPlatformDelegation"
+          service_delegation = {
+            name    = "Microsoft.PowerPlatform/enterprisePolicies"
+            actions = ["Microsoft.Network/virtualNetworks/subnets/join/action"]
+          }
         }
-      }
+      ]
     }
 
-    # Failover region virtual networks  
-    failover_virtual_networks = {
-      for idx, env in local.vnet_ready_environments : idx => {
-        module_source = "Azure/avm-res-network-virtualnetwork/azurerm"
-        name          = "${local.environment_resource_names[idx].virtual_network_name}-failover"
-        address_space = [local.network_configuration[idx].failover_vnet_address_space]
-        location      = local.network_configuration[idx].failover_location
-        subnet_config = {
-          power_platform   = local.network_configuration[idx].failover_power_platform_subnet_cidr
-          private_endpoint = local.network_configuration[idx].failover_private_endpoint_subnet_cidr
-          delegation       = local.network_configuration[idx].subnet_delegation
-        }
-      }
-    }
-
-    enterprise_policies = {
-      for idx, env in local.vnet_ready_environments : idx => {
-        module_source           = "../res-enterprise-policy"
-        policy_type             = "NetworkInjection"
-        environment_integration = env
-      }
-    }
-
-    policy_links = {
-      for idx, env in local.vnet_ready_environments : idx => {
-        module_source  = "../res-enterprise-policy-link"
-        environment_id = env.environment_id
-        policy_type    = "NetworkInjection"
-      }
+    "PrivateEndpointSubnet" = {
+      name             = "snet-privateendpoint-${local.base_name_components.project}-${local.base_name_components.workspace}-${replace(each.value.suffix, " ", "")}"
+      address_prefixes = [local.network_configuration[each.key].primary_private_endpoint_subnet_cidr]
     }
   }
+
+  # Enterprise tagging for governance
+  tags = merge(
+    var.tags,
+    {
+      Environment    = each.value.environment_type
+      Workspace      = local.remote_workspace_name
+      Pattern        = "ptn-azure-vnet-extension"
+      Region         = "primary"
+      EnvironmentKey = each.key
+      NetworkRange   = local.network_configuration[each.key].primary_vnet_address_space
+    }
+  )
+
+  depends_on = [module.primary_resource_groups]
+}
+
+# WHY: Deploy VNets for non-production environments to non-production subscription
+# CONTEXT: Dev, Test, Staging environments use shared network infrastructure
+# IMPACT: Provides cost-effective network foundation for Power Platform integration
+module "non_production_primary_virtual_networks" {
+  source   = "Azure/avm-res-network-virtualnetwork/azurerm"
+  version  = "~> 0.7.0"
+  for_each = local.non_production_environments
+
+  # WHY: Use default provider for non-production environments
+  # CONTEXT: Routes non-production resources to shared subscription
+  # IMPACT: Enables cost-effective resource management
+  providers = {
+    azurerm = azurerm
+  }
+
+  # Basic VNet configuration with dynamic IP allocation
+  name                = "${local.environment_resource_names[each.key].virtual_network_name}-primary"
+  location            = local.network_configuration[each.key].primary_location
+  resource_group_name = module.non_production_primary_resource_groups[each.key].name
+  address_space       = [local.network_configuration[each.key].primary_vnet_address_space]
+
+  # Subnet configuration with Power Platform delegation
+  subnets = {
+    "PowerPlatformSubnet" = {
+      name             = local.environment_resource_names[each.key].subnet_name
+      address_prefixes = [local.network_configuration[each.key].primary_power_platform_subnet_cidr]
+
+      # WHY: Subnet delegation required for Power Platform enterprise policies
+      # CONTEXT: Microsoft.PowerPlatform/enterprisePolicies requires dedicated delegation
+      # IMPACT: Enables network injection policies for discovered environments
+      delegations = [
+        {
+          name = "PowerPlatformDelegation"
+          service_delegation = {
+            name    = "Microsoft.PowerPlatform/enterprisePolicies"
+            actions = ["Microsoft.Network/virtualNetworks/subnets/join/action"]
+          }
+        }
+      ]
+    }
+
+    "PrivateEndpointSubnet" = {
+      name             = "snet-privateendpoint-${local.base_name_components.project}-${local.base_name_components.workspace}-${replace(each.value.suffix, " ", "")}"
+      address_prefixes = [local.network_configuration[each.key].primary_private_endpoint_subnet_cidr]
+    }
+  }
+
+  # Enterprise tagging for governance
+  tags = merge(
+    var.tags,
+    {
+      Environment    = each.value.environment_type
+      Workspace      = local.remote_workspace_name
+      Pattern        = "ptn-azure-vnet-extension"
+      Region         = "primary"
+      EnvironmentKey = each.key
+      NetworkRange   = local.network_configuration[each.key].primary_vnet_address_space
+    }
+  )
+
+  depends_on = [module.non_production_primary_resource_groups]
+}
+
+# WHY: Deploy failover VNets for production environments to production subscription
+# CONTEXT: Production disaster recovery requires dedicated network infrastructure  
+# IMPACT: Provides secure failover network foundation for Power Platform integration
+module "production_failover_virtual_networks" {
+  source   = "Azure/avm-res-network-virtualnetwork/azurerm"
+  version  = "~> 0.7.0"
+  for_each = local.production_environments
+
+  # WHY: Use production provider for production environments
+  # CONTEXT: Routes production resources to dedicated subscription
+  # IMPACT: Enables proper subscription-level governance and isolation
+  providers = {
+    azurerm = azurerm.production
+  }
+
+  # Basic VNet configuration with dynamic IP allocation
+  name                = "${local.environment_resource_names[each.key].virtual_network_name}-failover"
+  location            = local.network_configuration[each.key].failover_location
+  resource_group_name = module.production_failover_resource_groups[each.key].name
+  address_space       = [local.network_configuration[each.key].failover_vnet_address_space]
+
+  # Subnet configuration with Power Platform delegation
+  subnets = {
+    "PowerPlatformSubnet" = {
+      name             = local.environment_resource_names[each.key].subnet_name
+      address_prefixes = [local.network_configuration[each.key].failover_power_platform_subnet_cidr]
+
+      # WHY: Mirror delegation configuration from primary region
+      # CONTEXT: Failover VNet must support same enterprise policy capabilities
+      # IMPACT: Enables seamless failover for Power Platform workloads
+      delegations = [
+        {
+          name = "PowerPlatformDelegation"
+          service_delegation = {
+            name    = "Microsoft.PowerPlatform/enterprisePolicies"
+            actions = ["Microsoft.Network/virtualNetworks/subnets/join/action"]
+          }
+        }
+      ]
+    }
+
+    "PrivateEndpointSubnet" = {
+      name             = "snet-privateendpoint-${local.base_name_components.project}-${local.base_name_components.workspace}-${replace(each.value.suffix, " ", "")}"
+      address_prefixes = [local.network_configuration[each.key].failover_private_endpoint_subnet_cidr]
+    }
+  }
+
+  # Enterprise tagging for governance
+  tags = merge(
+    var.tags,
+    {
+      Environment    = each.value.environment_type
+      Workspace      = local.remote_workspace_name
+      Pattern        = "ptn-azure-vnet-extension"
+      Region         = "failover"
+      EnvironmentKey = each.key
+      NetworkRange   = local.network_configuration[each.key].failover_vnet_address_space
+    }
+  )
+
+  depends_on = [module.production_failover_resource_groups]
+}
+
+# WHY: Deploy failover VNets for non-production environments to non-production subscription
+# CONTEXT: Non-production disaster recovery using shared subscription resources
+# IMPACT: Provides cost-effective failover network capacity for development workloads  
+module "non_production_failover_virtual_networks" {
+  source   = "Azure/avm-res-network-virtualnetwork/azurerm"
+  version  = "~> 0.7.0"
+  for_each = local.non_production_environments
+
+  # WHY: Use default provider for non-production environments
+  # CONTEXT: Routes non-production resources to shared subscription
+  # IMPACT: Enables cost-effective resource management
+  providers = {
+    azurerm = azurerm
+  }
+
+  # Basic VNet configuration with dynamic IP allocation
+  name                = "${local.environment_resource_names[each.key].virtual_network_name}-failover"
+  location            = local.network_configuration[each.key].failover_location
+  resource_group_name = module.non_production_failover_resource_groups[each.key].name
+  address_space       = [local.network_configuration[each.key].failover_vnet_address_space]
+
+  # Subnet configuration with Power Platform delegation
+  subnets = {
+    "PowerPlatformSubnet" = {
+      name             = local.environment_resource_names[each.key].subnet_name
+      address_prefixes = [local.network_configuration[each.key].failover_power_platform_subnet_cidr]
+
+      # WHY: Mirror delegation configuration from primary region
+      # CONTEXT: Failover VNet must support same enterprise policy capabilities
+      # IMPACT: Enables seamless failover for Power Platform workloads
+      delegations = [
+        {
+          name = "PowerPlatformDelegation"
+          service_delegation = {
+            name    = "Microsoft.PowerPlatform/enterprisePolicies"
+            actions = ["Microsoft.Network/virtualNetworks/subnets/join/action"]
+          }
+        }
+      ]
+    }
+
+    "PrivateEndpointSubnet" = {
+      name             = "snet-privateendpoint-${local.base_name_components.project}-${local.base_name_components.workspace}-${replace(each.value.suffix, " ", "")}"
+      address_prefixes = [local.network_configuration[each.key].failover_private_endpoint_subnet_cidr]
+    }
+  }
+
+  # Enterprise tagging for governance
+  tags = merge(
+    var.tags,
+    {
+      Environment    = each.value.environment_type
+      Workspace      = local.remote_workspace_name
+      Pattern        = "ptn-azure-vnet-extension"
+      Region         = "failover"
+      EnvironmentKey = each.key
+      NetworkRange   = local.network_configuration[each.key].failover_vnet_address_space
+    }
+  )
+
+  depends_on = [module.non_production_failover_resource_groups]
+}
+
+# ============================================================================
+# ENTERPRISE POLICY ORCHESTRATION - Production and Non-Production Separation
+# ============================================================================
+
+# WHY: Create NetworkInjection enterprise policies for production environments
+# CONTEXT: Production Power Platform workloads require dedicated VNet infrastructure
+# IMPACT: Provides network injection capabilities for production environments
+module "production_enterprise_policies" {
+  source   = "../res-enterprise-policy"
+  for_each = local.production_environments
+
+  # Enterprise policy configuration for NetworkInjection
+  policy_configuration = {
+    name              = local.environment_resource_names[each.key].enterprise_policy_name
+    location          = local.network_configuration[each.key].primary_location
+    policy_type       = "NetworkInjection"
+    resource_group_id = module.production_primary_resource_groups[each.key].resource_id
+
+    # Network injection configuration with both primary and failover VNets
+    network_injection_config = {
+      virtual_networks = [
+        {
+          id = module.production_primary_virtual_networks[each.key].resource_id
+          subnet = {
+            name = local.environment_resource_names[each.key].subnet_name
+          }
+        },
+        {
+          id = module.production_failover_virtual_networks[each.key].resource_id
+          subnet = {
+            name = local.environment_resource_names[each.key].subnet_name
+          }
+        }
+      ]
+    }
+  }
+
+  # Ensure VNets are created before enterprise policies
+  depends_on = [
+    module.production_primary_virtual_networks,
+    module.production_failover_virtual_networks
+  ]
+}
+
+# WHY: Create NetworkInjection enterprise policies for non-production environments
+# CONTEXT: Dev, Test, Staging Power Platform workloads use shared VNet infrastructure
+# IMPACT: Provides network injection capabilities for non-production environments
+module "non_production_enterprise_policies" {
+  source   = "../res-enterprise-policy"
+  for_each = local.non_production_environments
+
+  # Enterprise policy configuration for NetworkInjection
+  policy_configuration = {
+    name              = local.environment_resource_names[each.key].enterprise_policy_name
+    location          = local.network_configuration[each.key].primary_location
+    policy_type       = "NetworkInjection"
+    resource_group_id = module.non_production_primary_resource_groups[each.key].resource_id
+
+    # Network injection configuration with both primary and failover VNets
+    network_injection_config = {
+      virtual_networks = [
+        {
+          id = module.non_production_primary_virtual_networks[each.key].resource_id
+          subnet = {
+            name = local.environment_resource_names[each.key].subnet_name
+          }
+        },
+        {
+          id = module.non_production_failover_virtual_networks[each.key].resource_id
+          subnet = {
+            name = local.environment_resource_names[each.key].subnet_name
+          }
+        }
+      ]
+    }
+  }
+
+  # Ensure VNets are created before enterprise policies
+  depends_on = [
+    module.non_production_primary_virtual_networks,
+    module.non_production_failover_virtual_networks
+  ]
+}
+
+# ============================================================================
+# POWER PLATFORM POLICY LINKING - Production and Non-Production Separation
+# ============================================================================
+
+# WHY: Link enterprise policies to production Power Platform environments
+# CONTEXT: Assigns NetworkInjection policies to production environments from remote state
+# IMPACT: Enables VNet integration for production Power Platform environments
+module "production_policy_links" {
+  source   = "../res-enterprise-policy-link"
+  for_each = local.production_environments
+
+  # Policy linking configuration using individual variables
+  environment_id = each.value.environment_id
+  policy_type    = "NetworkInjection"
+  system_id      = module.production_enterprise_policies[each.key].enterprise_policy_system_id
+
+  # Ensure enterprise policies are created before linking
+  depends_on = [module.production_enterprise_policies]
+}
+
+# WHY: Link enterprise policies to non-production Power Platform environments
+# CONTEXT: Assigns NetworkInjection policies to non-production environments from remote state
+# IMPACT: Enables VNet integration for non-production Power Platform environments
+module "non_production_policy_links" {
+  source   = "../res-enterprise-policy-link"
+  for_each = local.non_production_environments
+
+  # Policy linking configuration using individual variables
+  environment_id = each.value.environment_id
+  policy_type    = "NetworkInjection"
+  system_id      = module.non_production_enterprise_policies[each.key].enterprise_policy_system_id
+
+  # Ensure enterprise policies are created before linking
+  depends_on = [module.non_production_enterprise_policies]
 }
 
 # ============================================================================
@@ -121,22 +550,36 @@ locals {
 # ============================================================================
 
 # WHY: Track deployment progress and provide status information
-# CONTEXT: Complex multi-phase deployment needs progress tracking
+# CONTEXT: Phase 2 deployment includes actual Azure resources and Power Platform integration
 # IMPACT: Enables monitoring and debugging of deployment status
 locals {
   deployment_status = {
-    phase_1_complete = true  # Configuration and validation complete
-    phase_2_complete = false # Azure infrastructure (to be implemented)
-    phase_3_complete = false # Power Platform policies (to be implemented)
+    phase_1_complete = true # Configuration and validation complete
+    phase_2_complete = true # Azure infrastructure deployed
+    phase_3_complete = true # Power Platform policies deployed
 
-    environments_processed = length(local.processed_environments)
-    environments_ready     = length(local.vnet_ready_environments)
-    modules_planned = (length(local.planned_modules.primary_resource_groups) +
-      length(local.planned_modules.failover_resource_groups) +
-      length(local.planned_modules.primary_virtual_networks) +
-      length(local.planned_modules.failover_virtual_networks) +
-      length(local.planned_modules.enterprise_policies) +
-    length(local.planned_modules.policy_links))
+    environments_processed      = length(local.processed_environments)
+    environments_ready          = length(local.vnet_ready_environments)
+    production_environments     = length(local.production_environments)
+    non_production_environments = length(local.non_production_environments)
+
+    # Resource group deployment status
+    production_primary_resource_groups      = length(module.production_primary_resource_groups)
+    production_failover_resource_groups     = length(module.production_failover_resource_groups)
+    non_production_primary_resource_groups  = length(module.non_production_primary_resource_groups)
+    non_production_failover_resource_groups = length(module.non_production_failover_resource_groups)
+
+    # Virtual network deployment status
+    production_primary_virtual_networks      = length(module.production_primary_virtual_networks)
+    production_failover_virtual_networks     = length(module.production_failover_virtual_networks)
+    non_production_primary_virtual_networks  = length(module.non_production_primary_virtual_networks)
+    non_production_failover_virtual_networks = length(module.non_production_failover_virtual_networks)
+
+    # Enterprise policy deployment status
+    production_enterprise_policies     = length(module.production_enterprise_policies)
+    non_production_enterprise_policies = length(module.non_production_enterprise_policies)
+    production_policy_links            = length(module.production_policy_links)
+    non_production_policy_links        = length(module.non_production_policy_links)
 
     validation_status   = local.configuration_valid
     remote_state_status = local.remote_state_valid

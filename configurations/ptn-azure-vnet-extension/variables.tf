@@ -61,6 +61,31 @@ Validation Rules:
 DESCRIPTION
 }
 
+variable "production_subscription_id" {
+  type        = string
+  sensitive   = true
+  description = <<DESCRIPTION
+Azure subscription ID for production environments.
+
+This subscription will be used to deploy VNet infrastructure for environments
+identified as "Production" type from the remote state data. Supports multi-subscription
+governance patterns where production and non-production resources are isolated.
+
+Example:
+production_subscription_id = "87654321-4321-4321-4321-210987654321"
+
+Validation Rules:
+- Must be a valid Azure subscription GUID format
+- Must be different from non-production subscription for proper isolation
+- Will be used for all environments with type == "Production"
+DESCRIPTION
+
+  validation {
+    condition     = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.production_subscription_id))
+    error_message = "Production subscription ID must be a valid Azure subscription GUID (e.g., 87654321-4321-4321-4321-210987654321)."
+  }
+}
+
 variable "non_production_subscription_id" {
   type        = string
   sensitive   = true
@@ -83,31 +108,6 @@ DESCRIPTION
   validation {
     condition     = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.non_production_subscription_id))
     error_message = "Non-production subscription ID must be a valid Azure subscription GUID (e.g., 12345678-1234-1234-1234-123456789012)."
-  }
-}
-
-variable "production_subscription_id" {
-  type        = string
-  sensitive   = true
-  description = <<DESCRIPTION
-Azure subscription ID for production environments.
-
-This subscription will be used to deploy VNet infrastructure for environments
-identified as "Production" from the remote state data. Provides subscription-level
-isolation between production and non-production environments.
-
-Example:
-production_subscription_id = "87654321-4321-4321-4321-210987654321"
-
-Validation Rules:
-- Must be a valid Azure subscription GUID format
-- Should be different from non-production subscription for isolation
-- Will be used only for environments with type == "Production"
-DESCRIPTION
-
-  validation {
-    condition     = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.production_subscription_id))
-    error_message = "Production subscription ID must be a valid Azure subscription GUID (e.g., 87654321-4321-4321-4321-210987654321)."
   }
 }
 
