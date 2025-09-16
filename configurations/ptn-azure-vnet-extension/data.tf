@@ -50,7 +50,11 @@ locals {
   # CONTEXT: Test environments may not have access to production state backend
   # IMPACT: Enables comprehensive testing while maintaining production behavior
   mock_environment_data = {
-    environment_ids             = { "dev" = "dev-12345", "test" = "test-12345", "prod" = "prod-12345" }
+    environment_ids = {
+      "dev"  = "11111111-1111-1111-1111-111111111111" # Valid GUID format for dev
+      "test" = "22222222-2222-2222-2222-222222222222" # Valid GUID format for test  
+      "prod" = "33333333-3333-3333-3333-333333333333" # Valid GUID format for prod
+    }
     environment_names           = { "dev" = "Development", "test" = "Test", "prod" = "Production" }
     environment_types           = { "dev" = "Development", "test" = "Test", "prod" = "Production" }
     environment_suffixes        = { "dev" = "dev", "test" = "test", "prod" = "prod" }

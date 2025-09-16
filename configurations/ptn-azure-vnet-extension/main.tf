@@ -439,7 +439,7 @@ module "production_enterprise_policies" {
   # Enterprise policy configuration for NetworkInjection
   policy_configuration = {
     name              = local.environment_resource_names[each.key].enterprise_policy_name
-    location          = local.network_configuration[each.key].primary_location
+    location          = local.azure_to_power_platform_regions[local.network_configuration[each.key].primary_location]
     policy_type       = "NetworkInjection"
     resource_group_id = module.production_primary_resource_groups[each.key].resource_id
 
@@ -479,7 +479,7 @@ module "non_production_enterprise_policies" {
   # Enterprise policy configuration for NetworkInjection
   policy_configuration = {
     name              = local.environment_resource_names[each.key].enterprise_policy_name
-    location          = local.network_configuration[each.key].primary_location
+    location          = local.azure_to_power_platform_regions[local.network_configuration[each.key].primary_location]
     policy_type       = "NetworkInjection"
     resource_group_id = module.non_production_primary_resource_groups[each.key].resource_id
 

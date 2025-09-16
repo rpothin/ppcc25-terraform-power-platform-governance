@@ -84,6 +84,49 @@ locals {
     "India Central"        = "inc"
   }
 
+  # Azure region to Power Platform region mapping
+  # WHY: Enterprise policies use Power Platform regions, not Azure regions
+  # CONTEXT: Power Platform has different region names than Azure
+  # IMPACT: Enables correct enterprise policy creation with proper region mapping
+  azure_to_power_platform_regions = {
+    # United States regions
+    "East US"          = "unitedstates"
+    "East US 2"        = "unitedstates"
+    "West US"          = "unitedstates"
+    "West US 2"        = "unitedstates"
+    "West US 3"        = "unitedstates"
+    "Central US"       = "unitedstates"
+    "North Central US" = "unitedstates"
+    "South Central US" = "unitedstates"
+
+    # Europe regions
+    "West Europe"          = "europe"
+    "North Europe"         = "europe"
+    "UK South"             = "uk"
+    "UK West"              = "uk"
+    "France Central"       = "france"
+    "Germany West Central" = "germany"
+    "Switzerland North"    = "switzerland"
+
+    # Asia-Pacific regions
+    "Southeast Asia"      = "asia"
+    "East Asia"           = "asia"
+    "Australia East"      = "australia"
+    "Australia Southeast" = "australia"
+    "Japan East"          = "japan"
+    "Japan West"          = "japan"
+    "Korea Central"       = "korea"
+
+    # Other regions
+    "Canada Central"     = "canada"
+    "Canada East"        = "canada"
+    "Brazil South"       = "southamerica"
+    "South Africa North" = "southafrica"
+    "UAE North"          = "uae"
+    "India Central"      = "india"
+    "Norway East"        = "norway"
+  }
+
   # Base naming components for Cloud Adoption Framework (CAF) compliance
   base_name_components = {
     project   = "ppcc25"
