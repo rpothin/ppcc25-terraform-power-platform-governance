@@ -140,7 +140,9 @@ The following requirements are needed by this module:
 
 - <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) (>= 1.5.0)
 
-- <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) (~> 4.0)
+- <a name="requirement_azapi"></a> [azapi](#requirement\_azapi) (~> 2.6)
+
+- <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) (~> 3.117)
 
 - <a name="requirement_powerplatform"></a> [powerplatform](#requirement\_powerplatform) (~> 3.8)
 
@@ -154,7 +156,6 @@ The following providers are used by this module:
 
 The following resources are used by this module:
 
-- [terraform_data.configuration_validation](https://registry.terraform.io/providers/hashicorp/terraform/latest/docs/resources/data) (resource)
 - [terraform_remote_state.environment_group](https://registry.terraform.io/providers/hashicorp/terraform/latest/docs/data-sources/remote_state) (data source)
 
 <!-- markdownlint-disable MD013 -->
@@ -252,16 +253,16 @@ Type: `string`
 Description: Azure subscription ID for production environments.
 
 This subscription will be used to deploy VNet infrastructure for environments  
-identified as "Production" from the remote state data. Provides subscription-level  
-isolation between production and non-production environments.
+identified as "Production" type from the remote state data. Supports multi-subscription  
+governance patterns where production and non-production resources are isolated.
 
 Example:  
 production\_subscription\_id = "87654321-4321-4321-4321-210987654321"
 
 Validation Rules:
 - Must be a valid Azure subscription GUID format
-- Should be different from non-production subscription for isolation
-- Will be used only for environments with type == "Production"
+- Must be different from non-production subscription for proper isolation
+- Will be used for all environments with type == "Production"
 
 Type: `string`
 
@@ -411,7 +412,79 @@ Naming Components:
 
 ## Modules
 
-No modules.
+The following Modules are called:
+
+### <a name="module_non_production_enterprise_policies"></a> [non\_production\_enterprise\_policies](#module\_non\_production\_enterprise\_policies)
+
+Source: ../res-enterprise-policy
+
+Version:
+
+### <a name="module_non_production_failover_resource_groups"></a> [non\_production\_failover\_resource\_groups](#module\_non\_production\_failover\_resource\_groups)
+
+Source: Azure/avm-res-resources-resourcegroup/azurerm
+
+Version: ~> 0.1.0
+
+### <a name="module_non_production_failover_virtual_networks"></a> [non\_production\_failover\_virtual\_networks](#module\_non\_production\_failover\_virtual\_networks)
+
+Source: Azure/avm-res-network-virtualnetwork/azurerm
+
+Version: ~> 0.7.0
+
+### <a name="module_non_production_policy_links"></a> [non\_production\_policy\_links](#module\_non\_production\_policy\_links)
+
+Source: ../res-enterprise-policy-link
+
+Version:
+
+### <a name="module_non_production_primary_resource_groups"></a> [non\_production\_primary\_resource\_groups](#module\_non\_production\_primary\_resource\_groups)
+
+Source: Azure/avm-res-resources-resourcegroup/azurerm
+
+Version: ~> 0.1.0
+
+### <a name="module_non_production_primary_virtual_networks"></a> [non\_production\_primary\_virtual\_networks](#module\_non\_production\_primary\_virtual\_networks)
+
+Source: Azure/avm-res-network-virtualnetwork/azurerm
+
+Version: ~> 0.7.0
+
+### <a name="module_production_enterprise_policies"></a> [production\_enterprise\_policies](#module\_production\_enterprise\_policies)
+
+Source: ../res-enterprise-policy
+
+Version:
+
+### <a name="module_production_failover_resource_groups"></a> [production\_failover\_resource\_groups](#module\_production\_failover\_resource\_groups)
+
+Source: Azure/avm-res-resources-resourcegroup/azurerm
+
+Version: ~> 0.1.0
+
+### <a name="module_production_failover_virtual_networks"></a> [production\_failover\_virtual\_networks](#module\_production\_failover\_virtual\_networks)
+
+Source: Azure/avm-res-network-virtualnetwork/azurerm
+
+Version: ~> 0.7.0
+
+### <a name="module_production_policy_links"></a> [production\_policy\_links](#module\_production\_policy\_links)
+
+Source: ../res-enterprise-policy-link
+
+Version:
+
+### <a name="module_production_primary_resource_groups"></a> [production\_primary\_resource\_groups](#module\_production\_primary\_resource\_groups)
+
+Source: Azure/avm-res-resources-resourcegroup/azurerm
+
+Version: ~> 0.1.0
+
+### <a name="module_production_primary_virtual_networks"></a> [production\_primary\_virtual\_networks](#module\_production\_primary\_virtual\_networks)
+
+Source: Azure/avm-res-network-virtualnetwork/azurerm
+
+Version: ~> 0.7.0
 
 ## Authentication
 
