@@ -196,26 +196,34 @@ DESCRIPTION
 
     phase_2_planning = {
       ready_for_implementation = local.configuration_valid
-      planned_modules_count    = local.deployment_status.modules_planned
+      planned_modules_count = (
+        local.deployment_status.production_environments +
+        local.deployment_status.non_production_environments
+      ) * 6 # 6 module types per environment (2 RGs + 2 VNets + 1 EP + 1 Link)
 
       module_breakdown = {
-        primary_resource_groups   = length(local.planned_modules.primary_resource_groups)
-        failover_resource_groups  = length(local.planned_modules.failover_resource_groups)
-        primary_virtual_networks  = length(local.planned_modules.primary_virtual_networks)
-        failover_virtual_networks = length(local.planned_modules.failover_virtual_networks)
-        enterprise_policies       = length(local.planned_modules.enterprise_policies)
-        policy_links              = length(local.planned_modules.policy_links)
+        # Production modules
+        production_primary_resource_groups   = length(local.production_environments)
+        production_failover_resource_groups  = length(local.production_environments)
+        production_primary_virtual_networks  = length(local.production_environments)
+        production_failover_virtual_networks = length(local.production_environments)
+        production_enterprise_policies       = length(local.production_environments)
+        production_policy_links              = length(local.production_environments)
+
+        # Non-production modules  
+        non_production_primary_resource_groups   = length(local.non_production_environments)
+        non_production_failover_resource_groups  = length(local.non_production_environments)
+        non_production_primary_virtual_networks  = length(local.non_production_environments)
+        non_production_failover_virtual_networks = length(local.non_production_environments)
+        non_production_enterprise_policies       = length(local.non_production_environments)
+        non_production_policy_links              = length(local.non_production_environments)
       }
     }
 
     subscription_strategy = {
       multi_subscription_deployment = local.configuration_validation.subscriptions_different
-      production_environments = length([
-        for env in local.processed_environments : env if env.is_production
-      ])
-      non_production_environments = length([
-        for env in local.processed_environments : env if !env.is_production
-      ])
+      production_environments       = length(local.production_environments)
+      non_production_environments   = length(local.non_production_environments)
     }
 
     deployment_readiness = {

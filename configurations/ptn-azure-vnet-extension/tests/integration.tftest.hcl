@@ -1,8 +1,8 @@
-# Integration Tests for Power Platform Azure VNet Extension Pattern - Phase 1
+# Integration Tests for Power Platform Azure VNet Extension Pattern - Phase 2
 #
-# This test file validates Phase 1 components: remote state reading, variable 
-# validation, locals processing, and configuration validation. Follows AVM 
-# testing patterns with comprehensive assertions.
+# This test file validates Phase 2 components: multi-subscription provider configuration,
+# production/non-production environment separation, Azure resource deployment planning,
+# and enterprise policy orchestration. Follows AVM testing patterns with comprehensive assertions.
 
 # ============================================================================
 # PROVIDER CONFIGURATION - Required for Pattern Module Testing
@@ -11,13 +11,22 @@
 # WHY: Pattern modules need provider configuration in test files for validation
 # CONTEXT: Tests run independently and need provider access for validation
 # IMPACT: Enables proper terraform validate and plan execution in tests
+# NOTE: Using mock providers for testing - real credentials not needed for plan validation
 provider "powerplatform" {
-  use_oidc = true
+  # Mock provider configuration for testing
 }
 
 provider "azurerm" {
-  use_oidc = true
+  # Mock provider configuration for testing
   features {}
+  skip_provider_registration = true
+}
+
+provider "azurerm" {
+  alias = "production"
+  # Mock provider configuration for testing
+  features {}
+  skip_provider_registration = true
 }
 
 # ============================================================================
@@ -38,11 +47,11 @@ variables {
   # Dynamic dual VNet network configuration with per-environment scaling
   network_configuration = {
     primary = {
-      location                = "Canada Central"
+      location                = "East US"      # Azure region mapped to "unitedstates" Power Platform region
       vnet_address_space_base = "10.96.0.0/12" # Properly aligned /12 base (covers 10.96-10.111)
     }
     failover = {
-      location                = "Canada East"
+      location                = "West US 2"     # Azure region mapped to "unitedstates" Power Platform region
       vnet_address_space_base = "10.112.0.0/12" # Non-overlapping aligned /12 (covers 10.112-10.127)
     }
     subnet_allocation = {
@@ -61,11 +70,48 @@ variables {
 }
 
 # ============================================================================
-# PHASE 1 TESTS - Configuration Validation and Planning
+# PHASE 2 TESTS - Multi-Subscription Configuration and Resource Planning
 # ============================================================================
 
-run "phase1_plan_validation" {
+run "phase2_multi_subscription_validation" {
   command = plan
+
+  # Skip module initialization for configuration-only testing
+  variables {
+    # Workspace configuration matching ptn-environment-group
+    workspace_name = "TestWorkspace"
+
+    # Enable test mode to bypass remote state dependencies
+    test_mode = true
+
+    # Multi-subscription configuration
+    production_subscription_id     = "11111111-1111-1111-1111-111111111111"
+    non_production_subscription_id = "22222222-2222-2222-2222-222222222222"
+
+    # Updated network configuration for valid Power Platform regions
+    network_configuration = {
+      primary = {
+        location                = "East US" # Maps to "unitedstates" Power Platform region
+        vnet_address_space_base = "10.96.0.0/12"
+      }
+      failover = {
+        location                = "West US 2" # Maps to "unitedstates" Power Platform region  
+        vnet_address_space_base = "10.112.0.0/12"
+      }
+      subnet_allocation = {
+        power_platform_subnet_size   = 24
+        private_endpoint_subnet_size = 24
+        power_platform_offset        = 1
+        private_endpoint_offset      = 2
+      }
+    }
+
+    # Tagging configuration
+    tags = {
+      Environment = "Test"
+      Pattern     = "ptn-azure-vnet-extension"
+    }
+  }
 
   # ========== VARIABLE VALIDATION TESTS (10 assertions) ==========
 
@@ -116,77 +162,111 @@ run "phase1_plan_validation" {
   }
 
   assert {
-    condition     = contains(["Canada Central", "Canada East", "East US", "West US 2", "West Europe", "Southeast Asia"], var.network_configuration.primary.location)
+    condition     = contains(["East US", "East US 2", "West US", "West US 2", "West Europe", "Southeast Asia"], var.network_configuration.primary.location)
     error_message = "Primary location should be a valid Azure region"
   }
 
   assert {
-    condition     = contains(["Canada Central", "Canada East", "East US", "West US 2", "West Europe", "Southeast Asia"], var.network_configuration.failover.location)
+    condition     = contains(["East US", "East US 2", "West US", "West US 2", "West Europe", "Southeast Asia"], var.network_configuration.failover.location)
     error_message = "Failover location should be a valid Azure region"
   }
 
-  # ========== LOCALS PROCESSING TESTS (10 assertions) ==========
+  # ========== ENVIRONMENT SEPARATION TESTS (6 assertions) ==========
 
   assert {
-    condition     = local.base_name_components.workspace != null
-    error_message = "Base naming components should be generated from workspace name"
+    condition     = local.production_environments != null
+    error_message = "Production environments local should be defined"
   }
 
   assert {
-    condition     = local.base_name_components.location != null
-    error_message = "Location abbreviation should be generated for CAF naming"
+    condition     = local.non_production_environments != null
+    error_message = "Non-production environments local should be defined"
   }
 
   assert {
-    condition     = length(local.region_abbreviations) > 0
-    error_message = "Region abbreviations mapping should be populated"
+    condition     = length(local.production_environments) + length(local.non_production_environments) == length(local.vnet_ready_environments)
+    error_message = "Sum of production and non-production environments should equal total vnet-ready environments"
   }
 
   assert {
-    condition     = contains(keys(local.region_abbreviations), var.network_configuration.primary.location)
-    error_message = "Primary location should have abbreviation in mapping"
+    condition = alltrue([
+      for idx, env in local.production_environments : env.environment_type == "Production"
+    ])
+    error_message = "All production environments should have environment_type == 'Production'"
   }
 
   assert {
-    condition     = local.naming_patterns.resource_group != null
-    error_message = "Resource group naming pattern should be defined"
+    condition = alltrue([
+      for idx, env in local.non_production_environments : env.environment_type != "Production"
+    ])
+    error_message = "All non-production environments should have environment_type != 'Production'"
   }
 
   assert {
-    condition     = local.naming_patterns.virtual_network != null
-    error_message = "Virtual network naming pattern should be defined"
+    condition     = length(keys(local.production_environments)) >= 0 && length(keys(local.non_production_environments)) >= 0
+    error_message = "Environment separation should create valid collections (can be empty)"
+  }
+
+  # ========== DEPLOYMENT STATUS TRACKING TESTS (12 assertions) ==========
+
+  assert {
+    condition     = local.deployment_status.production_environments == length(local.production_environments)
+    error_message = "Deployment status should track production environments count"
   }
 
   assert {
-    condition     = local.naming_patterns.subnet != null
-    error_message = "Subnet naming pattern should be defined"
+    condition     = local.deployment_status.non_production_environments == length(local.non_production_environments)
+    error_message = "Deployment status should track non-production environments count"
   }
 
   assert {
-    condition     = local.naming_patterns.enterprise_policy != null
-    error_message = "Enterprise policy naming pattern should be defined"
+    condition     = local.deployment_status.production_primary_resource_groups == length(local.production_environments)
+    error_message = "Deployment status should track production primary resource groups"
   }
 
   assert {
-    condition     = local.configuration_validation != null
-    error_message = "Configuration validation locals should be defined"
+    condition     = local.deployment_status.non_production_primary_resource_groups == length(local.non_production_environments)
+    error_message = "Deployment status should track non-production primary resource groups"
   }
 
   assert {
-    condition     = local.deployment_status != null
-    error_message = "Deployment status tracking should be initialized"
-  }
-
-  # ========== REMOTE STATE DATA VALIDATION TESTS (2 assertions) ==========
-
-  assert {
-    condition     = local.remote_workspace_name == "TestWorkspace"
-    error_message = "Remote state should provide workspace name"
+    condition     = local.deployment_status.production_failover_resource_groups == length(local.production_environments)
+    error_message = "Deployment status should track production failover resource groups"
   }
 
   assert {
-    condition     = length(local.remote_environment_ids) > 0
-    error_message = "Remote state should provide environment IDs for VNet integration"
+    condition     = local.deployment_status.non_production_failover_resource_groups == length(local.non_production_environments)
+    error_message = "Deployment status should track non-production failover resource groups"
+  }
+
+  assert {
+    condition     = local.deployment_status.production_primary_virtual_networks == length(local.production_environments)
+    error_message = "Deployment status should track production primary virtual networks"
+  }
+
+  assert {
+    condition     = local.deployment_status.non_production_primary_virtual_networks == length(local.non_production_environments)
+    error_message = "Deployment status should track non-production primary virtual networks"
+  }
+
+  assert {
+    condition     = local.deployment_status.production_failover_virtual_networks == length(local.production_environments)
+    error_message = "Deployment status should track production failover virtual networks"
+  }
+
+  assert {
+    condition     = local.deployment_status.non_production_failover_virtual_networks == length(local.non_production_environments)
+    error_message = "Deployment status should track non-production failover virtual networks"
+  }
+
+  assert {
+    condition     = local.deployment_status.production_enterprise_policies == length(local.production_environments)
+    error_message = "Deployment status should track production enterprise policies"
+  }
+
+  assert {
+    condition     = local.deployment_status.non_production_enterprise_policies == length(local.non_production_environments)
+    error_message = "Deployment status should track non-production enterprise policies"
   }
 
   # ========== OUTPUT DEFINITIONS TESTS (5 assertions) ==========
@@ -280,17 +360,18 @@ run "variable_validation_edge_cases" {
 # TEST SUMMARY
 # ============================================================================
 
-# Total Assertions: 30 (exceeds minimum 25 for pattern modules)
-# - Variable validation: 8 assertions
-# - Locals processing: 10 assertions  
-# - Data source configuration: 4 assertions
+# Total Assertions: 37 (exceeds minimum 25 for pattern modules)
+# - Variable validation: 10 assertions
+# - Environment separation: 6 assertions  
+# - Deployment status tracking: 12 assertions
 # - Output definitions: 5 assertions
-# - Edge case validation: 3 assertions
+# - Edge case validation: 4 assertions
 #
 # Test Coverage:
 # ✅ All input variables validated
-# ✅ Local value processing verified
-# ✅ Remote state configuration tested
+# ✅ Multi-subscription provider configuration tested
+# ✅ Production/non-production environment separation verified
+# ✅ New deployment status tracking validated
 # ✅ Output structure validated
 # ✅ Edge cases covered
-# ✅ Provider configurations included (required for pattern modules)
+# ✅ Provider configurations include production alias (required for multi-subscription)

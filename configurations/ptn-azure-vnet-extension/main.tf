@@ -233,7 +233,7 @@ module "production_primary_virtual_networks" {
     }
   )
 
-  depends_on = [module.primary_resource_groups]
+  depends_on = [module.production_primary_resource_groups]
 }
 
 # WHY: Deploy VNets for non-production environments to non-production subscription
