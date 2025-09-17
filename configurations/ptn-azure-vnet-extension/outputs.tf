@@ -423,7 +423,7 @@ DESCRIPTION
       for env_key, rg in module.production_primary_resource_groups : "${env_key}_primary_production" => {
         resource_id  = rg.resource_id
         name         = rg.name
-        location     = rg.location
+        location     = local.network_configuration[env_key].primary_location
         subscription = "production"
         region_type  = "primary"
         environment  = local.processed_environments[env_key].environment_name
@@ -434,7 +434,7 @@ DESCRIPTION
       for env_key, rg in module.production_failover_resource_groups : "${env_key}_failover_production" => {
         resource_id  = rg.resource_id
         name         = rg.name
-        location     = rg.location
+        location     = local.network_configuration[env_key].failover_location
         subscription = "production"
         region_type  = "failover"
         environment  = local.processed_environments[env_key].environment_name
@@ -445,7 +445,7 @@ DESCRIPTION
       for env_key, rg in module.non_production_primary_resource_groups : "${env_key}_primary_non_production" => {
         resource_id  = rg.resource_id
         name         = rg.name
-        location     = rg.location
+        location     = local.network_configuration[env_key].primary_location
         subscription = "non_production"
         region_type  = "primary"
         environment  = local.processed_environments[env_key].environment_name
@@ -456,7 +456,7 @@ DESCRIPTION
       for env_key, rg in module.non_production_failover_resource_groups : "${env_key}_failover_non_production" => {
         resource_id  = rg.resource_id
         name         = rg.name
-        location     = rg.location
+        location     = local.network_configuration[env_key].failover_location
         subscription = "non_production"
         region_type  = "failover"
         environment  = local.processed_environments[env_key].environment_name
@@ -485,8 +485,8 @@ DESCRIPTION
       for env_key, vnet in module.production_primary_virtual_networks : "${env_key}_primary_production" => {
         resource_id   = vnet.resource_id
         name          = vnet.name
-        location      = vnet.location
-        address_space = vnet.address_space
+        location      = local.network_configuration[env_key].primary_location
+        address_space = [local.network_configuration[env_key].primary_vnet_address_space]
         subscription  = "production"
         region_type   = "primary"
         environment   = local.processed_environments[env_key].environment_name
@@ -511,8 +511,8 @@ DESCRIPTION
       for env_key, vnet in module.production_failover_virtual_networks : "${env_key}_failover_production" => {
         resource_id   = vnet.resource_id
         name          = vnet.name
-        location      = vnet.location
-        address_space = vnet.address_space
+        location      = local.network_configuration[env_key].failover_location
+        address_space = [local.network_configuration[env_key].failover_vnet_address_space]
         subscription  = "production"
         region_type   = "failover"
         environment   = local.processed_environments[env_key].environment_name
@@ -537,8 +537,8 @@ DESCRIPTION
       for env_key, vnet in module.non_production_primary_virtual_networks : "${env_key}_primary_non_production" => {
         resource_id   = vnet.resource_id
         name          = vnet.name
-        location      = vnet.location
-        address_space = vnet.address_space
+        location      = local.network_configuration[env_key].primary_location
+        address_space = [local.network_configuration[env_key].primary_vnet_address_space]
         subscription  = "non_production"
         region_type   = "primary"
         environment   = local.processed_environments[env_key].environment_name
@@ -563,8 +563,8 @@ DESCRIPTION
       for env_key, vnet in module.non_production_failover_virtual_networks : "${env_key}_failover_non_production" => {
         resource_id   = vnet.resource_id
         name          = vnet.name
-        location      = vnet.location
-        address_space = vnet.address_space
+        location      = local.network_configuration[env_key].failover_location
+        address_space = [local.network_configuration[env_key].failover_vnet_address_space]
         subscription  = "non_production"
         region_type   = "failover"
         environment   = local.processed_environments[env_key].environment_name
@@ -607,9 +607,9 @@ DESCRIPTION
     {
       for env_key, policy in module.production_enterprise_policies : "${env_key}_production" => {
         system_id        = policy.enterprise_policy_system_id
-        name             = policy.enterprise_policy_name
-        policy_type      = "NetworkInjection"
-        location         = policy.enterprise_policy_location
+        name             = policy.policy_deployment_summary.policy_name
+        policy_type      = policy.policy_deployment_summary.policy_type
+        location         = policy.policy_deployment_summary.policy_location
         environment      = local.processed_environments[env_key].environment_name
         environment_type = local.processed_environments[env_key].environment_type
         subscription     = "production"
@@ -625,9 +625,9 @@ DESCRIPTION
     {
       for env_key, policy in module.non_production_enterprise_policies : "${env_key}_non_production" => {
         system_id        = policy.enterprise_policy_system_id
-        name             = policy.enterprise_policy_name
-        policy_type      = "NetworkInjection"
-        location         = policy.enterprise_policy_location
+        name             = policy.policy_deployment_summary.policy_name
+        policy_type      = policy.policy_deployment_summary.policy_type
+        location         = policy.policy_deployment_summary.policy_location
         environment      = local.processed_environments[env_key].environment_name
         environment_type = local.processed_environments[env_key].environment_type
         subscription     = "non_production"
