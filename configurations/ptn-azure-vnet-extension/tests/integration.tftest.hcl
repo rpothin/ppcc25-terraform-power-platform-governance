@@ -13,22 +13,20 @@
 # WHY: Pattern modules need provider configuration in test files for validation
 # CONTEXT: Tests run independently and need provider access for validation
 # IMPACT: Enables proper terraform validate and plan execution in tests
-# NOTE: Using mock providers for testing - real credentials not needed for plan validation
+# NOTE: Using OIDC authentication for testing like other pattern modules
 provider "powerplatform" {
-  # Mock provider configuration for testing
+  use_oidc = true
 }
 
 provider "azurerm" {
-  # Mock provider configuration for testing
   features {}
-  skip_provider_registration = true
+  use_oidc = true
 }
 
 provider "azurerm" {
   alias = "production"
-  # Mock provider configuration for testing
   features {}
-  skip_provider_registration = true
+  use_oidc = true
 }
 
 # ============================================================================
@@ -36,8 +34,8 @@ provider "azurerm" {
 # ============================================================================
 
 variables {
-  # Workspace configuration matching ptn-environment-group
-  workspace_name = "TestWorkspace"
+  # Paired tfvars file configuration matching ptn-environment-group
+  paired_tfvars_file = "test-workspace"
 
   # Enable test mode to bypass remote state dependencies
   test_mode = true
@@ -81,8 +79,8 @@ run "phase1_plan_validation" {
   # ========== VARIABLE VALIDATION TESTS (10 assertions) ==========
 
   assert {
-    condition     = length(var.workspace_name) > 0 && length(var.workspace_name) <= 50
-    error_message = "Workspace name validation should pass for valid names"
+    condition     = length(var.paired_tfvars_file) > 0 && length(var.paired_tfvars_file) <= 50
+    error_message = "Paired tfvars file name validation should pass for valid names"
   }
 
   assert {
@@ -140,7 +138,7 @@ run "phase1_plan_validation" {
 
   assert {
     condition     = local.base_name_components.workspace != null
-    error_message = "Base naming components should be generated from workspace name"
+    error_message = "Base naming components should be generated from paired tfvars file"
   }
 
   assert {
@@ -191,8 +189,8 @@ run "phase1_plan_validation" {
   # ========== REMOTE STATE DATA VALIDATION TESTS (2 assertions) ==========
 
   assert {
-    condition     = local.remote_workspace_name == "TestWorkspace"
-    error_message = "Remote state should provide workspace name"
+    condition     = local.remote_workspace_name == "test-workspace"
+    error_message = "Remote state should provide workspace name from paired tfvars file"
   }
 
   assert {
@@ -237,8 +235,8 @@ run "phase2_multi_subscription_validation" {
 
   # Skip module initialization for configuration-only testing
   variables {
-    # Workspace configuration matching ptn-environment-group
-    workspace_name = "TestWorkspace"
+    # Paired tfvars file configuration matching ptn-environment-group
+    paired_tfvars_file = "test-workspace"
 
     # Enable test mode to bypass remote state dependencies
     test_mode = true
@@ -275,8 +273,8 @@ run "phase2_multi_subscription_validation" {
   # ========== VARIABLE VALIDATION TESTS (10 assertions) ==========
 
   assert {
-    condition     = length(var.workspace_name) > 0 && length(var.workspace_name) <= 50
-    error_message = "Workspace name validation should pass for valid names"
+    condition     = length(var.paired_tfvars_file) > 0 && length(var.paired_tfvars_file) <= 50
+    error_message = "Paired tfvars file name validation should pass for valid names"
   }
 
   assert {
@@ -477,8 +475,8 @@ run "variable_validation_edge_cases" {
 
   variables {
     # Test minimum valid values with test mode
-    workspace_name = "A"
-    test_mode      = true
+    paired_tfvars_file = "a"
+    test_mode          = true
 
     production_subscription_id     = "11111111-1111-1111-1111-111111111111"
     non_production_subscription_id = "22222222-2222-2222-2222-222222222222"
@@ -507,8 +505,8 @@ run "variable_validation_edge_cases" {
   # ========== EDGE CASE ASSERTIONS (4 assertions) ==========
 
   assert {
-    condition     = length(var.workspace_name) == 1
-    error_message = "Single character workspace names should be valid"
+    condition     = length(var.paired_tfvars_file) == 1
+    error_message = "Single character paired tfvars file names should be valid"
   }
 
   assert {
