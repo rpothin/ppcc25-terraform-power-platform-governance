@@ -248,6 +248,27 @@ Validation Rules:
 
 Type: `string`
 
+### <a name="input_paired_tfvars_file"></a> [paired\_tfvars\_file](#input\_paired\_tfvars\_file)
+
+Description: Tfvars file name (without extension) used by the paired ptn-environment-group deployment.
+
+This must exactly match the tfvars file name used when deploying ptn-environment-group  
+to ensure proper remote state reading. The pattern will construct the remote state key  
+based on the workflow naming convention: ptn-environment-group-{tfvars-file}.tfstate
+
+Example:  
+paired\_tfvars\_file = "regional-examples"
+
+Remote state key will be: "ptn-environment-group-regional-examples.tfstate"
+
+Validation Rules:
+- Must be 1-50 characters for consistency with tfvars file naming
+- Cannot be empty or contain only whitespace  
+- Should match the tfvars file name used in ptn-environment-group deployment
+- Must be a valid filename (no special characters except hyphens)
+
+Type: `string`
+
 ### <a name="input_production_subscription_id"></a> [production\_subscription\_id](#input\_production\_subscription\_id)
 
 Description: Azure subscription ID for production environments.
@@ -263,26 +284,6 @@ Validation Rules:
 - Must be a valid Azure subscription GUID format
 - Must be different from non-production subscription for proper isolation
 - Will be used for all environments with type == "Production"
-
-Type: `string`
-
-### <a name="input_workspace_name"></a> [workspace\_name](#input\_workspace\_name)
-
-Description: Workspace name to match with paired ptn-environment-group configuration.
-
-This name must exactly match the workspace name used in the paired  
-ptn-environment-group deployment to ensure proper remote state reading.  
-It's used to construct the remote state key path.
-
-Example:  
-workspace\_name = "DemoWorkspace"
-
-Remote state key will be: "ptn-environment-group/DemoWorkspace.tfstate"
-
-Validation Rules:
-- Must be 1-50 characters for consistency with environment group
-- Cannot be empty or contain only whitespace
-- Should match the workspace name from ptn-environment-group exactly
 
 Type: `string`
 
