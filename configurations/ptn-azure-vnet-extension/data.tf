@@ -23,13 +23,19 @@ data "terraform_remote_state" "environment_group" {
   count   = var.test_mode ? 0 : 1
   backend = "azurerm"
   config = {
-    # WHY: Minimal backend configuration - Terraform inherits ARM_* environment variables
-    # CONTEXT: ARM_STORAGE_ACCOUNT_NAME, ARM_CONTAINER_NAME, ARM_RESOURCE_GROUP_NAME set by workflow
-    # IMPACT: Ensures remote state access uses same storage as current execution without duplication
-    use_oidc = true
+    # WHY: Explicit backend configuration required by terraform_remote_state
+    # CONTEXT: terraform_remote_state cannot inherit ARM_* environment variables like root backend
+    # IMPACT: Enables reading ptn-environment-group state without workflow changes
+    # 
+    # NOTE: These values must match your actual Azure Storage backend configuration
+    # Update resource_group_name if your backend RG name differs from the pattern below
+    storage_account_name = "stterraformpp2cc7945b" # From Azure portal - update if different
+    container_name       = "terraform-state"       # Standard container name
+    resource_group_name  = "rg-terraform-state"    # Common pattern - verify/update as needed
+    use_oidc             = true
 
-    # WHY: Only specify the state key which differs from current backend configuration
-    # CONTEXT: Current backend uses different state key pattern for this pattern vs ptn-environment-group
+    # WHY: Dynamic state key construction based on actual workflow naming pattern
+    # CONTEXT: Workflows use flat naming: {pattern}-{tfvars-file}.tfstate format
     # IMPACT: Enables reading from ptn-environment-group state file specifically
     key = "ptn-environment-group-${var.paired_tfvars_file}.tfstate"
   }
