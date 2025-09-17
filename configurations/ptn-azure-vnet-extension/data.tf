@@ -49,64 +49,85 @@ data "terraform_remote_state" "environment_group" {
 # CONTEXT: Pattern requires specific outputs to function correctly
 # IMPACT: Early failure prevents resource creation without proper dependencies
 locals {
-  # WHY: Mock data for test mode to enable testing without backend dependencies
-  # CONTEXT: Test environments may not have access to production state backend
-  # IMPACT: Enables comprehensive testing while maintaining production behavior
-  mock_environment_data = {
-    environment_ids = {
-      "dev"  = "11111111-1111-1111-1111-111111111111" # Valid GUID format for dev
-      "test" = "22222222-2222-2222-2222-222222222222" # Valid GUID format for test  
-      "prod" = "33333333-3333-3333-3333-333333333333" # Valid GUID format for prod
-    }
-    environment_names           = { "dev" = "Development", "test" = "Test", "prod" = "Production" }
-    environment_types           = { "dev" = "Development", "test" = "Test", "prod" = "Production" }
-    environment_suffixes        = { "dev" = "dev", "test" = "test", "prod" = "prod" }
-    environment_classifications = { "dev" = "Non-Production", "test" = "Non-Production", "prod" = "Production" }
-    workspace_name              = var.paired_tfvars_file # Derived from paired tfvars file for mock data
-    template_metadata           = { created_by = "terraform", pattern = "ptn-environment-group" }
+  # WHY: Direct access to remote state outputs when available
+  # CONTEXT: Avoid type checking issues by not using conditionals with mock data
+  # IMPACT: Simplified logic that works with actual remote state structure
 
-    # WHY: Additional attributes to match actual ptn-environment-group remote state structure
-    # CONTEXT: Remote state includes these attributes that mock data must provide for type consistency
-    # IMPACT: Enables seamless switching between test mode and real remote state
-    environment_group_id            = "44444444-4444-4444-4444-444444444444" # Mock environment group ID
-    output_schema_version           = "1.0.0"                                # Schema version for compatibility
-    deployment_status_summary       = { environments_created = 3 }           # Mock deployment status
-    template_configuration          = { template = "basic" }                 # Mock template config
-    workspace_template              = "basic"                                # Mock workspace template
-    configuration_validation_status = { valid = true }                       # Mock validation status
-    resource_naming_summary         = { pattern = "mock-naming" }            # Mock naming summary
-    environment_deployment_summary  = { total = 3, successful = 3 }          # Mock deployment summary
+  # Check if we have remote state available
+  has_remote_state = !var.test_mode && length(data.terraform_remote_state.environment_group) > 0
+
+  # Direct access to remote state outputs - no mock data comparison
+  remote_outputs = local.has_remote_state ? data.terraform_remote_state.environment_group[0].outputs : {}
+
+  # Extract actual environment data from state file structure (numeric keys)
+  # The state file uses "0", "1", "2" as keys, not environment names
+  remote_environment_ids = local.has_remote_state ? try(
+    local.remote_outputs.environment_ids,
+    {}
+    ) : {
+    # Test mode mock data only used when test_mode = true
+    "0" = "11111111-1111-1111-1111-111111111111"
+    "1" = "22222222-2222-2222-2222-222222222222"
+    "2" = "33333333-3333-3333-3333-333333333333"
   }
 
-  # Conditional remote state access - use mock data in test mode
-  remote_state_data = var.test_mode ? local.mock_environment_data : data.terraform_remote_state.environment_group[0].outputs
+  remote_environment_names = local.has_remote_state ? try(
+    local.remote_outputs.environment_names,
+    {}
+    ) : {
+    "0" = "Development"
+    "1" = "Test"
+    "2" = "Production"
+  }
 
-  # Validate remote state outputs exist
+  remote_environment_types = local.has_remote_state ? try(
+    local.remote_outputs.environment_types,
+    {}
+    ) : {
+    "0" = "Sandbox"
+    "1" = "Sandbox"
+    "2" = "Production"
+  }
+
+  remote_environment_suffixes = local.has_remote_state ? try(
+    local.remote_outputs.environment_suffixes,
+    {}
+    ) : {
+    "0" = " - Dev"
+    "1" = " - Test"
+    "2" = " - Prod"
+  }
+
+  # Build classifications from environment types (not in state file directly)
+  remote_environment_classifications = {
+    for key, env_type in local.remote_environment_types :
+    key => env_type == "Production" ? "Production" : "Non-Production"
+  }
+
+  # Extract workspace name from state
+  remote_workspace_name = local.has_remote_state ? try(
+    local.remote_outputs.workspace_name,
+    var.paired_tfvars_file
+  ) : var.paired_tfvars_file
+
+  # Extract template metadata from state
+  remote_template_metadata = local.has_remote_state ? try(
+    local.remote_outputs.template_metadata,
+    {}
+    ) : {
+    pattern_type  = "ptn-environment-group"
+    template_name = "basic"
+  }
+
+  # Validation of remote state data
   remote_state_validation = {
-    environment_ids_exist      = length(try(local.remote_state_data.environment_ids, {})) > 0
-    environment_names_exist    = length(try(local.remote_state_data.environment_names, {})) > 0
-    environment_types_exist    = length(try(local.remote_state_data.environment_types, {})) > 0
-    environment_suffixes_exist = length(try(local.remote_state_data.environment_suffixes, {})) > 0
-    workspace_name_exists      = try(local.remote_state_data.workspace_name, null) != null
-    template_metadata_exists   = try(local.remote_state_data.template_metadata, null) != null
+    environment_ids_exist      = length(local.remote_environment_ids) > 0
+    environment_names_exist    = length(local.remote_environment_names) > 0
+    environment_types_exist    = length(local.remote_environment_types) > 0
+    environment_suffixes_exist = length(local.remote_environment_suffixes) > 0
+    workspace_name_exists      = local.remote_workspace_name != null && local.remote_workspace_name != ""
+    template_metadata_exists   = length(local.remote_template_metadata) > 0
   }
 
-  # Check if all required outputs are present
-  remote_state_valid = alltrue([
-    local.remote_state_validation.environment_ids_exist,
-    local.remote_state_validation.environment_names_exist,
-    local.remote_state_validation.environment_types_exist,
-    local.remote_state_validation.environment_suffixes_exist,
-    local.remote_state_validation.workspace_name_exists,
-    local.remote_state_validation.template_metadata_exists
-  ])
-
-  # Extract validated outputs or provide empty fallbacks
-  remote_environment_ids             = try(local.remote_state_data.environment_ids, {})
-  remote_environment_names           = try(local.remote_state_data.environment_names, {})
-  remote_environment_types           = try(local.remote_state_data.environment_types, {})
-  remote_environment_suffixes        = try(local.remote_state_data.environment_suffixes, {})
-  remote_environment_classifications = try(local.remote_state_data.environment_classifications, {})
-  remote_workspace_name              = try(local.remote_state_data.workspace_name, var.paired_tfvars_file)
-  remote_template_metadata           = try(local.remote_state_data.template_metadata, {})
+  remote_state_valid = alltrue(values(local.remote_state_validation))
 }
