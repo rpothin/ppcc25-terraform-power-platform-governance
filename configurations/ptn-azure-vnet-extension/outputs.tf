@@ -326,9 +326,9 @@ output "pattern_configuration_summary" {
     }
 
     workspace_config = {
-      workspace_name          = var.workspace_name
+      workspace_name          = local.remote_workspace_name
       paired_with             = "ptn-environment-group"
-      remote_state_key        = "ptn-environment-group/${var.workspace_name}.tfstate"
+      remote_state_key        = "ptn-environment-group-${var.paired_tfvars_file}.tfstate"
       environments_integrated = length(local.processed_environments)
     }
 

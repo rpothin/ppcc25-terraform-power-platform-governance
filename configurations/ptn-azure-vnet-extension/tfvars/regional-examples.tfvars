@@ -2,7 +2,7 @@
 #
 # This file pairs with the ptn-environment-group/tfvars/regional-examples.tfvars
 # to demonstrate VNet integration across different environments and regions.
-# Must use the same workspace_name as the paired environment group configuration.
+# Must use the same tfvars file name as the paired environment group configuration.
 
 # ==========================================================================
 # MINIMAL CONFIGURATION - Required Variables Only
@@ -36,13 +36,13 @@
 # ==========================================================================
 
 # ==========================================================================
-# WORKSPACE CONFIGURATION - Must Match Environment Group
+# PAIRED CONFIGURATION - Must Match Environment Group tfvars File
 # ==========================================================================
 
-# WHY: This workspace_name must exactly match the ptn-environment-group tfvars
-# CONTEXT: Remote state reading depends on consistent workspace naming
-# IMPACT: Pattern will read remote state from ptn-environment-group/{workspace_name}.tfstate
-workspace_name = "DemoWorkspace"
+# WHY: This paired_tfvars_file must exactly match the tfvars file name used for ptn-environment-group deployment
+# CONTEXT: Remote state reading depends on consistent tfvars file naming between paired patterns
+# IMPACT: Pattern will read remote state from ptn-environment-group-{paired_tfvars_file}.tfstate
+paired_tfvars_file = "regional-examples"
 
 # ==========================================================================
 # SUBSCRIPTION CONFIGURATION - Multi-Subscription Governance  

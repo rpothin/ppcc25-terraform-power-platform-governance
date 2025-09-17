@@ -9,34 +9,40 @@
 # IMPACT: Variables here determine Azure resource placement, network segmentation,
 # and enterprise policy application across production and non-production environments
 
-variable "workspace_name" {
+variable "paired_tfvars_file" {
   type        = string
   description = <<DESCRIPTION
-Workspace name to match with paired ptn-environment-group configuration.
+Tfvars file name (without extension) used by the paired ptn-environment-group deployment.
 
-This name must exactly match the workspace name used in the paired
-ptn-environment-group deployment to ensure proper remote state reading.
-It's used to construct the remote state key path.
+This must exactly match the tfvars file name used when deploying ptn-environment-group
+to ensure proper remote state reading. The pattern will construct the remote state key
+based on the workflow naming convention: ptn-environment-group-{tfvars-file}.tfstate
 
 Example:
-workspace_name = "DemoWorkspace"
+paired_tfvars_file = "regional-examples"
 
-Remote state key will be: "ptn-environment-group/DemoWorkspace.tfstate"
+Remote state key will be: "ptn-environment-group-regional-examples.tfstate"
 
 Validation Rules:
-- Must be 1-50 characters for consistency with environment group
-- Cannot be empty or contain only whitespace
-- Should match the workspace name from ptn-environment-group exactly
+- Must be 1-50 characters for consistency with tfvars file naming
+- Cannot be empty or contain only whitespace  
+- Should match the tfvars file name used in ptn-environment-group deployment
+- Must be a valid filename (no special characters except hyphens)
 DESCRIPTION
 
   validation {
-    condition     = length(var.workspace_name) >= 1 && length(var.workspace_name) <= 50
-    error_message = "Workspace name must be 1-50 characters to match ptn-environment-group constraints. Current length: ${length(var.workspace_name)}."
+    condition     = length(var.paired_tfvars_file) >= 1 && length(var.paired_tfvars_file) <= 50
+    error_message = "Paired tfvars file name must be 1-50 characters. Current length: ${length(var.paired_tfvars_file)}."
   }
 
   validation {
-    condition     = length(trimspace(var.workspace_name)) > 0
-    error_message = "Workspace name cannot be empty or contain only whitespace. Must match ptn-environment-group workspace name exactly."
+    condition     = length(trimspace(var.paired_tfvars_file)) > 0
+    error_message = "Paired tfvars file name cannot be empty or contain only whitespace."
+  }
+
+  validation {
+    condition     = can(regex("^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]$", var.paired_tfvars_file)) || length(var.paired_tfvars_file) == 1
+    error_message = "Paired tfvars file name must be a valid filename: start and end with alphanumeric, hyphens allowed in middle. Current: '${var.paired_tfvars_file}'."
   }
 }
 

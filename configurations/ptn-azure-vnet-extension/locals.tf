@@ -130,7 +130,7 @@ locals {
   # Base naming components for Cloud Adoption Framework (CAF) compliance
   base_name_components = {
     project   = "ppcc25"
-    workspace = lower(var.workspace_name)
+    workspace = lower(local.remote_workspace_name)
 
     # WHY: Support primary region as default for naming consistency
     # CONTEXT: Most resources use primary region unless specifically failover-targeted

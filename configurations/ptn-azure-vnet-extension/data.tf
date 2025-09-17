@@ -28,10 +28,10 @@ data "terraform_remote_state" "environment_group" {
     # IMPACT: Ensures consistent state storage location across pattern modules
     use_oidc = true
 
-    # WHY: Dynamic state key construction based on workspace naming pattern
-    # CONTEXT: Follows standard pattern: {pattern-type}/{workspace-name}.tfstate
-    # IMPACT: Enables flexible workspace deployment without hardcoded paths
-    key = "ptn-environment-group/${var.workspace_name}.tfstate"
+    # WHY: Dynamic state key construction based on actual workflow naming pattern
+    # CONTEXT: Workflows use flat naming: {pattern}-{tfvars-file}.tfstate format
+    # IMPACT: Enables reading from actual state files created by GitHub Actions workflow
+    key = "ptn-environment-group-${var.paired_tfvars_file}.tfstate"
 
     # Note: resource_group_name, storage_account_name, container_name inherited
     # from current backend configuration automatically by Terraform
@@ -59,7 +59,7 @@ locals {
     environment_types           = { "dev" = "Development", "test" = "Test", "prod" = "Production" }
     environment_suffixes        = { "dev" = "dev", "test" = "test", "prod" = "prod" }
     environment_classifications = { "dev" = "Non-Production", "test" = "Non-Production", "prod" = "Production" }
-    workspace_name              = var.workspace_name
+    workspace_name              = "DemoWorkspace" # Derived from tfvars file name for mock data
     template_metadata           = { created_by = "terraform", pattern = "ptn-environment-group" }
   }
 
@@ -94,6 +94,6 @@ locals {
   remote_environment_types           = try(local.remote_state_data.environment_types, {})
   remote_environment_suffixes        = try(local.remote_state_data.environment_suffixes, {})
   remote_environment_classifications = try(local.remote_state_data.environment_classifications, {})
-  remote_workspace_name              = try(local.remote_state_data.workspace_name, var.workspace_name)
+  remote_workspace_name              = try(local.remote_state_data.workspace_name, "DemoWorkspace")
   remote_template_metadata           = try(local.remote_state_data.template_metadata, {})
 }
