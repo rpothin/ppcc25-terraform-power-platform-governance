@@ -341,6 +341,34 @@ Default: `false`
 
 The following outputs are exported:
 
+### <a name="output_azure_resource_groups"></a> [azure\_resource\_groups](#output\_azure\_resource\_groups)
+
+Description: Azure Resource Group information for all deployed environments.
+
+Provides resource group IDs, names, and locations for both primary and failover  
+resource groups across production and non-production subscriptions. Essential  
+for downstream modules that need to reference these resource groups.
+
+Resource Groups:
+- Primary: Resource groups in primary Azure region for each environment
+- Failover: Resource groups in failover Azure region for disaster recovery
+- Production: Deployed to dedicated production subscription
+- Non-Production: Deployed to shared non-production subscription
+
+### <a name="output_azure_virtual_networks"></a> [azure\_virtual\_networks](#output\_azure\_virtual\_networks)
+
+Description: Azure Virtual Network information for all deployed environments.
+
+Provides VNet resource IDs, names, address spaces, and subnet information for  
+both primary and failover VNets across production and non-production subscriptions.  
+Critical for downstream modules requiring network integration or private connectivity.
+
+VNet Components:
+- Resource ID: Full Azure resource identifier for the VNet
+- Address Space: CIDR blocks allocated to each VNet (dynamically calculated)
+- Subnets: Power Platform delegated subnets and private endpoint subnets
+- Region: Primary and failover region deployment information
+
 ### <a name="output_configuration_validation_status"></a> [configuration\_validation\_status](#output\_configuration\_validation\_status)
 
 Description: Comprehensive validation status of the VNet extension pattern configuration.
@@ -356,19 +384,47 @@ Validation Components:
 - subnet\_within\_vnet: Power Platform subnet is properly allocated within VNet space
 - names\_generated: CAF-compliant resource names successfully generated
 
-### <a name="output_deployment_planning_summary"></a> [deployment\_planning\_summary](#output\_deployment\_planning\_summary)
+### <a name="output_deployment_status_summary"></a> [deployment\_status\_summary](#output\_deployment\_status\_summary)
 
-Description: Deployment planning summary showing readiness for Phase 2 implementation.
+Description: Complete deployment status summary for all phases of VNet extension pattern.
 
-Provides detailed planning information for Azure infrastructure deployment  
-including module orchestration, subscription mapping, and deployment readiness.  
-Critical for Phase 2 implementation planning and resource deployment.
+Provides comprehensive status information for Azure infrastructure deployment  
+including actual resource counts, deployment success metrics, and integration  
+status. Critical for monitoring deployment progress and validating completion.
 
-Planning Components:
-- Environments ready: Count of environments prepared for VNet integration
-- Module planning: Planned AVM modules for resource deployment
-- Subscription strategy: Multi-subscription deployment approach
-- Deployment phases: Phased deployment approach and current status
+Deployment Components:
+- Phase Status: Completion status for all deployment phases
+- Resource Counts: Actual deployed Azure resources by type and subscription
+- Integration Status: Power Platform policy assignment and VNet integration
+- Deployment Metrics: Success rates and deployment validation
+
+### <a name="output_enterprise_policies"></a> [enterprise\_policies](#output\_enterprise\_policies)
+
+Description: Power Platform Enterprise Policy information for all deployed environments.
+
+Provides enterprise policy system IDs, names, and configuration details for  
+NetworkInjection policies across production and non-production environments.  
+Essential for external integrations and policy management workflows.
+
+Enterprise Policy Components:
+- System ID: Power Platform system identifier for the enterprise policy
+- Policy Type: NetworkInjection for VNet integration capabilities
+- Virtual Networks: Associated VNet resource IDs for network injection
+- Location: Power Platform region mapping from Azure regions
+
+### <a name="output_integration_endpoints"></a> [integration\_endpoints](#output\_integration\_endpoints)
+
+Description: VNet integration endpoints for downstream consumption and private connectivity.
+
+Provides structured integration points for downstream modules requiring private  
+connectivity to the deployed VNet infrastructure. Essential for storage accounts,  
+Key Vaults, and other Azure services requiring private endpoint connectivity.
+
+Integration Components:
+- Private Endpoint Subnets: Subnet IDs for private endpoint deployment
+- VNet Integration: VNet resource IDs for service integration
+- Network Security: Security group and routing information
+- DNS Integration: Private DNS zone integration points
 
 ### <a name="output_network_planning_summary"></a> [network\_planning\_summary](#output\_network\_planning\_summary)
 
@@ -380,7 +436,21 @@ Description: The version of the output schema for this VNet extension pattern mo
 
 ### <a name="output_pattern_configuration_summary"></a> [pattern\_configuration\_summary](#output\_pattern\_configuration\_summary)
 
-Description: Comprehensive summary of VNet extension pattern configuration and compliance
+Description: Comprehensive summary of VNet extension pattern configuration, compliance, and infrastructure status
+
+### <a name="output_policy_assignments"></a> [policy\_assignments](#output\_policy\_assignments)
+
+Description: Power Platform policy assignment status for all environments.
+
+Provides policy assignment information showing which NetworkInjection enterprise  
+policies have been successfully linked to Power Platform environments. Critical  
+for validating VNet integration deployment and troubleshooting assignment issues.
+
+Policy Assignment Components:
+- Environment ID: Power Platform environment identifier from remote state
+- System ID: Associated enterprise policy system identifier
+- Policy Type: NetworkInjection for VNet integration
+- Assignment Status: Deployment and linking status information
 
 ### <a name="output_remote_state_integration_summary"></a> [remote\_state\_integration\_summary](#output\_remote\_state\_integration\_summary)
 
