@@ -64,12 +64,22 @@ locals {
     environment_classifications = { "dev" = "Non-Production", "test" = "Non-Production", "prod" = "Production" }
     workspace_name              = var.paired_tfvars_file # Derived from paired tfvars file for mock data
     template_metadata           = { created_by = "terraform", pattern = "ptn-environment-group" }
+
+    # WHY: Additional attributes to match actual ptn-environment-group remote state structure
+    # CONTEXT: Remote state includes these attributes that mock data must provide for type consistency
+    # IMPACT: Enables seamless switching between test mode and real remote state
+    environment_group_id            = "44444444-4444-4444-4444-444444444444" # Mock environment group ID
+    output_schema_version           = "1.0.0"                                # Schema version for compatibility
+    deployment_status_summary       = { environments_created = 3 }           # Mock deployment status
+    template_configuration          = { template = "basic" }                 # Mock template config
+    workspace_template              = "basic"                                # Mock workspace template
+    configuration_validation_status = { valid = true }                       # Mock validation status
+    resource_naming_summary         = { pattern = "mock-naming" }            # Mock naming summary
+    environment_deployment_summary  = { total = 3, successful = 3 }          # Mock deployment summary
   }
 
   # Conditional remote state access - use mock data in test mode
-  remote_state_data = var.test_mode ? local.mock_environment_data : (
-    length(data.terraform_remote_state.environment_group) > 0 ? data.terraform_remote_state.environment_group[0].outputs : local.mock_environment_data
-  )
+  remote_state_data = var.test_mode ? local.mock_environment_data : data.terraform_remote_state.environment_group[0].outputs
 
   # Validate remote state outputs exist
   remote_state_validation = {
