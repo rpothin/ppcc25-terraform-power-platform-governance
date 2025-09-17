@@ -5,6 +5,37 @@
 # Must use the same workspace_name as the paired environment group configuration.
 
 # ==========================================================================
+# MINIMAL CONFIGURATION - Required Variables Only
+# ==========================================================================
+
+# For users who want to start simple, uncomment this section and comment out
+# the detailed configuration below. These are the only required variables:
+
+# workspace_name = "DemoWorkspace"
+# production_subscription_id = "YOUR-PRODUCTION-SUBSCRIPTION-ID-HERE"
+# non_production_subscription_id = "YOUR-NON-PRODUCTION-SUBSCRIPTION-ID-HERE"
+# network_configuration = {
+#   primary = {
+#     location = "East US"
+#     vnet_address_space_base = "10.96.0.0/12"
+#   }
+#   failover = {
+#     location = "West US 2"  
+#     vnet_address_space_base = "10.112.0.0/12"
+#   }
+#   subnet_allocation = {
+#     power_platform_subnet_size = 24
+#     private_endpoint_subnet_size = 24
+#     power_platform_offset = 1
+#     private_endpoint_offset = 2
+#   }
+# }
+
+# ==========================================================================
+# DETAILED CONFIGURATION - With Documentation and Examples
+# ==========================================================================
+
+# ==========================================================================
 # WORKSPACE CONFIGURATION - Must Match Environment Group
 # ==========================================================================
 
@@ -13,20 +44,19 @@
 # IMPACT: Pattern will read remote state from ptn-environment-group/{workspace_name}.tfstate
 workspace_name = "DemoWorkspace"
 
-# Note: Remote state configuration is now dynamic - inherits from current backend
-# configuration automatically, no manual state_config object needed
-
 # ==========================================================================
-# SUBSCRIPTION CONFIGURATION - Multi-Subscription Governance
+# SUBSCRIPTION CONFIGURATION - Multi-Subscription Governance  
 # ==========================================================================
 
 # Production subscription for production environments
 # Replace with your actual production subscription ID
-production_subscription_id = "87654321-4321-4321-4321-210987654321"
+# Example format: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+production_subscription_id = "7d237ead-2d0d-4dda-b0d7-2a3ecf235a1c"
 
 # Non-production subscription for dev, test, staging environments  
 # Replace with your actual non-production subscription ID
-non_production_subscription_id = "12345678-1234-1234-1234-123456789012"
+# Example format: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+non_production_subscription_id = "7d237ead-2d0d-4dda-b0d7-2a3ecf235a1c"
 
 # ==========================================================================
 # DUAL VNET NETWORK CONFIGURATION - Dynamic Per-Environment Allocation
