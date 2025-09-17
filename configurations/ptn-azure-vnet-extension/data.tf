@@ -23,18 +23,15 @@ data "terraform_remote_state" "environment_group" {
   count   = var.test_mode ? 0 : 1
   backend = "azurerm"
   config = {
-    # WHY: Use current backend configuration to avoid configuration duplication
-    # CONTEXT: Terraform execution inherits backend config from versions.tf
-    # IMPACT: Ensures consistent state storage location across pattern modules
+    # WHY: Minimal backend configuration - Terraform inherits ARM_* environment variables
+    # CONTEXT: ARM_STORAGE_ACCOUNT_NAME, ARM_CONTAINER_NAME, ARM_RESOURCE_GROUP_NAME set by workflow
+    # IMPACT: Ensures remote state access uses same storage as current execution without duplication
     use_oidc = true
 
-    # WHY: Dynamic state key construction based on actual workflow naming pattern
-    # CONTEXT: Workflows use flat naming: {pattern}-{tfvars-file}.tfstate format
-    # IMPACT: Enables reading from actual state files created by GitHub Actions workflow
+    # WHY: Only specify the state key which differs from current backend configuration
+    # CONTEXT: Current backend uses different state key pattern for this pattern vs ptn-environment-group
+    # IMPACT: Enables reading from ptn-environment-group state file specifically
     key = "ptn-environment-group-${var.paired_tfvars_file}.tfstate"
-
-    # Note: resource_group_name, storage_account_name, container_name inherited
-    # from current backend configuration automatically by Terraform
   }
 }
 
@@ -94,6 +91,6 @@ locals {
   remote_environment_types           = try(local.remote_state_data.environment_types, {})
   remote_environment_suffixes        = try(local.remote_state_data.environment_suffixes, {})
   remote_environment_classifications = try(local.remote_state_data.environment_classifications, {})
-  remote_workspace_name              = try(local.remote_state_data.workspace_name, "DemoWorkspace")
+  remote_workspace_name              = try(local.remote_state_data.workspace_name, var.paired_tfvars_file)
   remote_template_metadata           = try(local.remote_state_data.template_metadata, {})
 }
