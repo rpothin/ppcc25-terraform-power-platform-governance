@@ -50,49 +50,39 @@ data "terraform_remote_state" "environment_group" {
 # IMPACT: Early failure prevents resource creation without proper dependencies
 locals {
   # WHY: Direct access to remote state outputs when available
-  # CONTEXT: Avoid type checking issues by not using conditionals with mock data
-  # IMPACT: Simplified logic that works with actual remote state structure
+  # CONTEXT: Avoid type checking issues by using null for the false branch
+  # IMPACT: Terraform won't enforce type consistency between object and null
 
   # Check if we have remote state available
   has_remote_state = !var.test_mode && length(data.terraform_remote_state.environment_group) > 0
 
-  # Direct access to remote state outputs - no mock data comparison
-  remote_outputs = local.has_remote_state ? data.terraform_remote_state.environment_group[0].outputs : {}
+  # WHY: Use null instead of {} to avoid type checking conflicts
+  # CONTEXT: Terraform doesn't type-check null against objects
+  # IMPACT: Eliminates "inconsistent conditional result types" error
+  remote_outputs = local.has_remote_state ? data.terraform_remote_state.environment_group[0].outputs : null
 
   # Extract actual environment data from state file structure (numeric keys)
   # The state file uses "0", "1", "2" as keys, not environment names
-  remote_environment_ids = local.has_remote_state ? try(
-    local.remote_outputs.environment_ids,
-    {}
-    ) : {
+  remote_environment_ids = local.has_remote_state ? local.remote_outputs.environment_ids : {
     # Test mode mock data only used when test_mode = true
     "0" = "11111111-1111-1111-1111-111111111111"
     "1" = "22222222-2222-2222-2222-222222222222"
     "2" = "33333333-3333-3333-3333-333333333333"
   }
 
-  remote_environment_names = local.has_remote_state ? try(
-    local.remote_outputs.environment_names,
-    {}
-    ) : {
+  remote_environment_names = local.has_remote_state ? local.remote_outputs.environment_names : {
     "0" = "Development"
     "1" = "Test"
     "2" = "Production"
   }
 
-  remote_environment_types = local.has_remote_state ? try(
-    local.remote_outputs.environment_types,
-    {}
-    ) : {
+  remote_environment_types = local.has_remote_state ? local.remote_outputs.environment_types : {
     "0" = "Sandbox"
     "1" = "Sandbox"
     "2" = "Production"
   }
 
-  remote_environment_suffixes = local.has_remote_state ? try(
-    local.remote_outputs.environment_suffixes,
-    {}
-    ) : {
+  remote_environment_suffixes = local.has_remote_state ? local.remote_outputs.environment_suffixes : {
     "0" = " - Dev"
     "1" = " - Test"
     "2" = " - Prod"
@@ -105,16 +95,10 @@ locals {
   }
 
   # Extract workspace name from state
-  remote_workspace_name = local.has_remote_state ? try(
-    local.remote_outputs.workspace_name,
-    var.paired_tfvars_file
-  ) : var.paired_tfvars_file
+  remote_workspace_name = local.has_remote_state ? local.remote_outputs.workspace_name : var.paired_tfvars_file
 
   # Extract template metadata from state
-  remote_template_metadata = local.has_remote_state ? try(
-    local.remote_outputs.template_metadata,
-    {}
-    ) : {
+  remote_template_metadata = local.has_remote_state ? local.remote_outputs.template_metadata : {
     pattern_type  = "ptn-environment-group"
     template_name = "basic"
   }
