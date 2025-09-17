@@ -42,7 +42,7 @@ on:
         options:
           - 'res-dlp-policy'
           - 'ptn-environment-group'
-          - 'res-environment' # For testing
+          - 'ptn-azure-vnet-extension'
       tfvars_file:
         description: >-
           tfvars file name without extension for environment-specific deployments.

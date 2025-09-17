@@ -45,10 +45,7 @@ on:
         options:
           - 'res-dlp-policy'
           - 'ptn-environment-group'
-        # WHY: Scopes permissions and isolates blast radius for governance
-        # VALIDATION: Must exist in configurations/ and contain .tf files
-        # SECURITY: Used in state key generation to prevent cross-configuration access
-        # EXAMPLES: 'res-dlp-policy', 'ptn-environment'
+          - 'ptn-azure-vnet-extension'
       tfvars_file:
         description: 'tfvars file name without extension (e.g., dlp-finance, env-production)'
         required: true
