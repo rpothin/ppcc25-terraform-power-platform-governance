@@ -29,9 +29,9 @@ data "terraform_remote_state" "environment_group" {
     # 
     # NOTE: These values must match your actual Azure Storage backend configuration
     # Update resource_group_name if your backend RG name differs from the pattern below
-    storage_account_name = "stterraformpp2cc7945b" # From Azure portal - update if different
-    container_name       = "terraform-state"       # Standard container name
-    resource_group_name  = "rg-terraform-state"    # Common pattern - verify/update as needed
+    storage_account_name = "stterraformpp2cc7945b"                 # From Azure portal - update if different
+    container_name       = "terraform-state"                       # Standard container name
+    resource_group_name  = "rg-terraform-powerplatform-governance" # Common pattern - verify/update as needed
     use_oidc             = true
 
     # WHY: Dynamic state key construction based on actual workflow naming pattern
