@@ -223,8 +223,8 @@ run "phase1_plan_validation" {
   }
 
   assert {
-    condition     = output.deployment_planning_summary != null
-    error_message = "Deployment planning summary output should be defined"
+    condition     = output.deployment_status_summary != null
+    error_message = "Deployment status summary output should be defined"
   }
 }
 
@@ -463,8 +463,8 @@ run "phase2_multi_subscription_validation" {
   }
 
   assert {
-    condition     = output.deployment_planning_summary != null
-    error_message = "Deployment planning summary output should be defined"
+    condition     = output.deployment_status_summary != null
+    error_message = "Deployment status summary output should be defined"
   }
 }
 
