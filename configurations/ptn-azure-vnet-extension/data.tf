@@ -59,7 +59,7 @@ locals {
     environment_types           = { "dev" = "Development", "test" = "Test", "prod" = "Production" }
     environment_suffixes        = { "dev" = "dev", "test" = "test", "prod" = "prod" }
     environment_classifications = { "dev" = "Non-Production", "test" = "Non-Production", "prod" = "Production" }
-    workspace_name              = "DemoWorkspace" # Derived from tfvars file name for mock data
+    workspace_name              = var.paired_tfvars_file # Derived from paired tfvars file for mock data
     template_metadata           = { created_by = "terraform", pattern = "ptn-environment-group" }
   }
 
