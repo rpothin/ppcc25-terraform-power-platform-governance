@@ -495,7 +495,7 @@ Version:
 
 Source: Azure/avm-res-network-virtualnetwork/azurerm
 
-Version: ~> 0.7.0
+Version: ~> 0.7.2
 
 ### <a name="module_non_production_policy_links"></a> [non\_production\_policy\_links](#module\_non\_production\_policy\_links)
 
@@ -507,7 +507,7 @@ Version:
 
 Source: Azure/avm-res-network-virtualnetwork/azurerm
 
-Version: ~> 0.7.0
+Version: ~> 0.7.2
 
 ### <a name="module_non_production_resource_groups"></a> [non\_production\_resource\_groups](#module\_non\_production\_resource\_groups)
 
@@ -525,7 +525,7 @@ Version:
 
 Source: Azure/avm-res-network-virtualnetwork/azurerm
 
-Version: ~> 0.7.0
+Version: ~> 0.7.2
 
 ### <a name="module_production_policy_links"></a> [production\_policy\_links](#module\_production\_policy\_links)
 
@@ -537,7 +537,7 @@ Version:
 
 Source: Azure/avm-res-network-virtualnetwork/azurerm
 
-Version: ~> 0.7.0
+Version: ~> 0.7.2
 
 ### <a name="module_production_resource_groups"></a> [production\_resource\_groups](#module\_production\_resource\_groups)
 
