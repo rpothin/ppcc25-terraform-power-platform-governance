@@ -346,14 +346,14 @@ The following outputs are exported:
 
 Description: Azure Resource Group information for all deployed environments.
 
-Provides resource group IDs, names, and locations for both primary and failover  
-resource groups across production and non-production subscriptions. Essential  
-for downstream modules that need to reference these resource groups.
+Single resource group per Power Platform environment containing both primary  
+and failover VNets. Provides resource group IDs, names, and locations across  
+production and non-production subscriptions for cleaner governance.
 
 Resource Groups:
-- Primary: Resource groups in primary Azure region for each environment
-- Failover: Resource groups in failover Azure region for disaster recovery
-- Production: Deployed to dedicated production subscription
+- Single RG per Environment: All environment resources in one resource group
+- Primary Location: Resource group created in primary Azure region
+- Production: Deployed to dedicated production subscription  
 - Non-Production: Deployed to shared non-production subscription
 
 ### <a name="output_azure_virtual_networks"></a> [azure\_virtual\_networks](#output\_azure\_virtual\_networks)
@@ -491,12 +491,6 @@ Source: ../res-enterprise-policy
 
 Version:
 
-### <a name="module_non_production_failover_resource_groups"></a> [non\_production\_failover\_resource\_groups](#module\_non\_production\_failover\_resource\_groups)
-
-Source: Azure/avm-res-resources-resourcegroup/azurerm
-
-Version: ~> 0.1.0
-
 ### <a name="module_non_production_failover_virtual_networks"></a> [non\_production\_failover\_virtual\_networks](#module\_non\_production\_failover\_virtual\_networks)
 
 Source: Azure/avm-res-network-virtualnetwork/azurerm
@@ -509,29 +503,23 @@ Source: ../res-enterprise-policy-link
 
 Version:
 
-### <a name="module_non_production_primary_resource_groups"></a> [non\_production\_primary\_resource\_groups](#module\_non\_production\_primary\_resource\_groups)
-
-Source: Azure/avm-res-resources-resourcegroup/azurerm
-
-Version: ~> 0.1.0
-
 ### <a name="module_non_production_primary_virtual_networks"></a> [non\_production\_primary\_virtual\_networks](#module\_non\_production\_primary\_virtual\_networks)
 
 Source: Azure/avm-res-network-virtualnetwork/azurerm
 
 Version: ~> 0.7.0
 
+### <a name="module_non_production_resource_groups"></a> [non\_production\_resource\_groups](#module\_non\_production\_resource\_groups)
+
+Source: Azure/avm-res-resources-resourcegroup/azurerm
+
+Version: ~> 0.1.0
+
 ### <a name="module_production_enterprise_policies"></a> [production\_enterprise\_policies](#module\_production\_enterprise\_policies)
 
 Source: ../res-enterprise-policy
 
 Version:
-
-### <a name="module_production_failover_resource_groups"></a> [production\_failover\_resource\_groups](#module\_production\_failover\_resource\_groups)
-
-Source: Azure/avm-res-resources-resourcegroup/azurerm
-
-Version: ~> 0.1.0
 
 ### <a name="module_production_failover_virtual_networks"></a> [production\_failover\_virtual\_networks](#module\_production\_failover\_virtual\_networks)
 
@@ -545,17 +533,17 @@ Source: ../res-enterprise-policy-link
 
 Version:
 
-### <a name="module_production_primary_resource_groups"></a> [production\_primary\_resource\_groups](#module\_production\_primary\_resource\_groups)
-
-Source: Azure/avm-res-resources-resourcegroup/azurerm
-
-Version: ~> 0.1.0
-
 ### <a name="module_production_primary_virtual_networks"></a> [production\_primary\_virtual\_networks](#module\_production\_primary\_virtual\_networks)
 
 Source: Azure/avm-res-network-virtualnetwork/azurerm
 
 Version: ~> 0.7.0
+
+### <a name="module_production_resource_groups"></a> [production\_resource\_groups](#module\_production\_resource\_groups)
+
+Source: Azure/avm-res-resources-resourcegroup/azurerm
+
+Version: ~> 0.1.0
 
 ## Authentication
 
