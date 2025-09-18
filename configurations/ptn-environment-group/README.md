@@ -233,7 +233,7 @@ Format: GUID (e.g., 12345678-1234-1234-1234-123456789012)
 
 Description: The display name of the created environment group.
 
-Generated from workspace name with " - Environment Group" suffix.  
+Generated from workspace name.  
 Useful for validation, reporting, and cross-reference with environment IDs.
 
 ### <a name="output_environment_ids"></a> [environment\_ids](#output\_environment\_ids)
