@@ -114,7 +114,7 @@ module "non_production_resource_groups" {
 # IMPACT: Secure network foundation for Power Platform integration
 module "production_primary_virtual_networks" {
   source   = "Azure/avm-res-network-virtualnetwork/azurerm"
-  version  = "~> 0.7.0"
+  version  = "~> 0.7.2"
   for_each = local.production_environments
 
   # WHY: Use production provider for production environments
@@ -139,12 +139,11 @@ module "production_primary_virtual_networks" {
       # WHY: Subnet delegation required for Power Platform enterprise policies
       # CONTEXT: Microsoft.PowerPlatform/enterprisePolicies requires dedicated delegation
       # IMPACT: Enables network injection policies for discovered environments
-      delegations = [
+      delegation = [
         {
           name = "PowerPlatformDelegation"
           service_delegation = {
-            name    = "Microsoft.PowerPlatform/enterprisePolicies"
-            actions = ["Microsoft.Network/virtualNetworks/subnets/join/action"]
+            name = "Microsoft.PowerPlatform/enterprisePolicies"
           }
         }
       ]
@@ -177,7 +176,7 @@ module "production_primary_virtual_networks" {
 # IMPACT: Cost-effective network foundation for Power Platform integration
 module "non_production_primary_virtual_networks" {
   source   = "Azure/avm-res-network-virtualnetwork/azurerm"
-  version  = "~> 0.7.0"
+  version  = "~> 0.7.2"
   for_each = local.non_production_environments
 
   # WHY: Use default provider for non-production environments
@@ -202,12 +201,11 @@ module "non_production_primary_virtual_networks" {
       # WHY: Subnet delegation required for Power Platform enterprise policies
       # CONTEXT: Microsoft.PowerPlatform/enterprisePolicies requires dedicated delegation
       # IMPACT: Enables network injection policies for discovered environments
-      delegations = [
+      delegation = [
         {
           name = "PowerPlatformDelegation"
           service_delegation = {
-            name    = "Microsoft.PowerPlatform/enterprisePolicies"
-            actions = ["Microsoft.Network/virtualNetworks/subnets/join/action"]
+            name = "Microsoft.PowerPlatform/enterprisePolicies"
           }
         }
       ]
@@ -238,7 +236,7 @@ module "non_production_primary_virtual_networks" {
 # IMPACT: Simplified governance with all environment resources in one place
 module "production_failover_virtual_networks" {
   source   = "Azure/avm-res-network-virtualnetwork/azurerm"
-  version  = "~> 0.7.0"
+  version  = "~> 0.7.2"
   for_each = local.production_environments
 
   # WHY: Use production provider for production environments
@@ -263,12 +261,11 @@ module "production_failover_virtual_networks" {
       # WHY: Mirror delegation configuration from primary region
       # CONTEXT: Failover VNet must support same enterprise policy capabilities
       # IMPACT: Enables seamless failover for Power Platform workloads
-      delegations = [
+      delegation = [
         {
           name = "PowerPlatformDelegation"
           service_delegation = {
-            name    = "Microsoft.PowerPlatform/enterprisePolicies"
-            actions = ["Microsoft.Network/virtualNetworks/subnets/join/action"]
+            name = "Microsoft.PowerPlatform/enterprisePolicies"
           }
         }
       ]
@@ -301,7 +298,7 @@ module "production_failover_virtual_networks" {
 # IMPACT: Cost-effective resource organization with all environment resources in one place
 module "non_production_failover_virtual_networks" {
   source   = "Azure/avm-res-network-virtualnetwork/azurerm"
-  version  = "~> 0.7.0"
+  version  = "~> 0.7.2"
   for_each = local.non_production_environments
 
   # WHY: Use default provider for non-production environments
@@ -326,12 +323,11 @@ module "non_production_failover_virtual_networks" {
       # WHY: Mirror delegation configuration from primary region
       # CONTEXT: Failover VNet must support same enterprise policy capabilities
       # IMPACT: Enables seamless failover for Power Platform workloads
-      delegations = [
+      delegation = [
         {
           name = "PowerPlatformDelegation"
           service_delegation = {
-            name    = "Microsoft.PowerPlatform/enterprisePolicies"
-            actions = ["Microsoft.Network/virtualNetworks/subnets/join/action"]
+            name = "Microsoft.PowerPlatform/enterprisePolicies"
           }
         }
       ]
