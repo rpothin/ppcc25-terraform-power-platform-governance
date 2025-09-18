@@ -41,7 +41,7 @@ output "environment_group_name" {
   description = <<DESCRIPTION
 The display name of the created environment group.
 
-Generated from workspace name with " - Environment Group" suffix.
+Generated from workspace name.
 Useful for validation, reporting, and cross-reference with environment IDs.
 DESCRIPTION
   value       = module.environment_group.environment_group_name

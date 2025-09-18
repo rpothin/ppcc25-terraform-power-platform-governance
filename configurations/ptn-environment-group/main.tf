@@ -38,7 +38,7 @@ module "environment_group" {
   source = "../res-environment-group"
 
   # Simple mapping from pattern variables to module interface
-  display_name = "${var.name} - Environment Group"
+  display_name = var.name
   description  = "${var.description} (${local.selected_template.description})"
 }
 
