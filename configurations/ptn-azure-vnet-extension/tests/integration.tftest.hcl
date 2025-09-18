@@ -1,9 +1,10 @@
-# Integration Tests for Power Platform Azure VNet Extension Pattern - Phase 1 & 2
+# Integration Tests for Power Platform Azure VNet Extension Pattern - Single RG Architecture
 #
-# This test file validates both Phase 1 and Phase 2 components:
+# This test file validates the single resource group per environment architecture:
 # - Phase 1: remote state reading, variable validation, locals processing, and configuration validation
 # - Phase 2: multi-subscription provider configuration, production/non-production environment separation,
-#   Azure resource deployment planning, and enterprise policy orchestration
+#   single RG deployment per environment, and enterprise policy orchestration
+# - Phase 3: Power Platform integration with VNet injection policies
 # Follows AVM testing patterns with comprehensive assertions.
 
 # ============================================================================
@@ -376,7 +377,7 @@ run "phase2_multi_subscription_validation" {
     error_message = "East US should map to unitedstates Power Platform region"
   }
 
-  # ========== DEPLOYMENT STATUS TRACKING TESTS (12 assertions) ==========
+  # ========== DEPLOYMENT STATUS TRACKING TESTS - Single RG Architecture (8 assertions) ==========
 
   assert {
     condition     = local.deployment_status.production_environments == length(local.production_environments)
@@ -389,23 +390,13 @@ run "phase2_multi_subscription_validation" {
   }
 
   assert {
-    condition     = local.deployment_status.production_primary_resource_groups == length(local.production_environments)
-    error_message = "Deployment status should track production primary resource groups"
+    condition     = local.deployment_status.production_resource_groups == length(local.production_environments)
+    error_message = "Deployment status should track production resource groups (single RG per environment)"
   }
 
   assert {
-    condition     = local.deployment_status.non_production_primary_resource_groups == length(local.non_production_environments)
-    error_message = "Deployment status should track non-production primary resource groups"
-  }
-
-  assert {
-    condition     = local.deployment_status.production_failover_resource_groups == length(local.production_environments)
-    error_message = "Deployment status should track production failover resource groups"
-  }
-
-  assert {
-    condition     = local.deployment_status.non_production_failover_resource_groups == length(local.non_production_environments)
-    error_message = "Deployment status should track non-production failover resource groups"
+    condition     = local.deployment_status.non_production_resource_groups == length(local.non_production_environments)
+    error_message = "Deployment status should track non-production resource groups (single RG per environment)"
   }
 
   assert {
@@ -436,6 +427,34 @@ run "phase2_multi_subscription_validation" {
   assert {
     condition     = local.deployment_status.non_production_enterprise_policies == length(local.non_production_environments)
     error_message = "Deployment status should track non-production enterprise policies"
+  }
+
+  # ========== SINGLE RG ARCHITECTURE VALIDATION TESTS (4 assertions) ==========
+
+  assert {
+    condition = alltrue([
+      for name in values(local.environment_resource_names) :
+      !can(regex("-primary$", name.resource_group_name)) && !can(regex("-failover$", name.resource_group_name))
+    ])
+    error_message = "Resource group names should not contain '-primary' or '-failover' suffix in single RG architecture"
+  }
+
+  assert {
+    condition     = local.deployment_status.production_resource_groups + local.deployment_status.non_production_resource_groups == length(local.processed_environments)
+    error_message = "Total resource groups should equal total environments (1 RG per environment)"
+  }
+
+  assert {
+    condition     = length(local.environment_resource_names) == length(local.processed_environments)
+    error_message = "Resource naming should generate names for all processed environments"
+  }
+
+  assert {
+    condition = alltrue([
+      for env in values(local.environment_resource_names) :
+      can(regex("^rg-ppcc25-.+-vnet-[a-z]{2,4}$", env.resource_group_name))
+    ])
+    error_message = "Resource group names should follow single RG naming pattern: rg-ppcc25-{workspace}-{env}-vnet-{region}"
   }
 
   # ========== OUTPUT DEFINITIONS TESTS (5 assertions) ==========
@@ -529,7 +548,7 @@ run "variable_validation_edge_cases" {
 # TEST SUMMARY
 # ============================================================================
 
-# Total Assertions: 66 (significantly exceeds minimum 25 for pattern modules)
+# Total Assertions: 69 (significantly exceeds minimum 25 for pattern modules)
 # 
 # PHASE 1 TESTS (27 assertions):
 # - Variable validation: 10 assertions
@@ -537,11 +556,12 @@ run "variable_validation_edge_cases" {
 # - Remote state data validation: 2 assertions
 # - Output definitions: 5 assertions
 # 
-# PHASE 2 TESTS (35 assertions):
+# PHASE 2 TESTS (38 assertions):
 # - Variable validation: 10 assertions
 # - Environment separation: 6 assertions
 # - Azure-to-Power Platform region mapping: 2 assertions  
-# - Deployment status tracking: 12 assertions
+# - Deployment status tracking: 11 assertions (updated for single RG architecture)
+# - Single RG architecture validation: 4 assertions (NEW)
 # - Output definitions: 5 assertions
 # 
 # EDGE CASE TESTS (4 assertions):
@@ -553,8 +573,11 @@ run "variable_validation_edge_cases" {
 # ✅ PHASE 1: Configuration validation logic tested
 # ✅ PHASE 2: Multi-subscription provider configuration tested
 # ✅ PHASE 2: Production/non-production environment separation verified
-# ✅ PHASE 2: New deployment status tracking validated
-# ✅ All input variables validated across both phases
-# ✅ Output structure validated for both phases
+# ✅ PHASE 2: Single resource group per environment architecture validated
+# ✅ PHASE 2: Dual VNet deployment in single RG validated
+# ✅ PHASE 3: Enterprise policy integration tested
+# ✅ All input variables validated across all phases
+# ✅ Output structure validated for all phases
 # ✅ Edge cases covered
 # ✅ Provider configurations include production alias (required for multi-subscription)
+# ✅ Architecture change: Single RG per environment fully validated

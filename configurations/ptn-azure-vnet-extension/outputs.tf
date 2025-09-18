@@ -207,18 +207,11 @@ DESCRIPTION
 
     # Actual deployed resource counts
     deployed_resources = {
-      # Resource Groups
+      # Resource Groups - Single RG per environment architecture
       resource_groups = {
-        production_primary      = local.deployment_status.production_primary_resource_groups
-        production_failover     = local.deployment_status.production_failover_resource_groups
-        non_production_primary  = local.deployment_status.non_production_primary_resource_groups
-        non_production_failover = local.deployment_status.non_production_failover_resource_groups
-        total = (
-          local.deployment_status.production_primary_resource_groups +
-          local.deployment_status.production_failover_resource_groups +
-          local.deployment_status.non_production_primary_resource_groups +
-          local.deployment_status.non_production_failover_resource_groups
-        )
+        production     = local.deployment_status.production_resource_groups
+        non_production = local.deployment_status.non_production_resource_groups
+        total          = local.deployment_status.production_resource_groups + local.deployment_status.non_production_resource_groups
       }
 
       # Virtual Networks
@@ -254,16 +247,14 @@ DESCRIPTION
 
     # Deployment success metrics
     deployment_metrics = {
-      expected_modules = length(local.processed_environments) * 6 # 6 module types per environment
+      expected_modules = length(local.processed_environments) * 5 # 5 module types per environment (1 RG + 2 VNets + 1 policy + 1 link)
       actual_modules = (
-        local.deployment_status.production_primary_resource_groups +
-        local.deployment_status.production_failover_resource_groups +
+        local.deployment_status.production_resource_groups +
         local.deployment_status.production_primary_virtual_networks +
         local.deployment_status.production_failover_virtual_networks +
         local.deployment_status.production_enterprise_policies +
         local.deployment_status.production_policy_links +
-        local.deployment_status.non_production_primary_resource_groups +
-        local.deployment_status.non_production_failover_resource_groups +
+        local.deployment_status.non_production_resource_groups +
         local.deployment_status.non_production_primary_virtual_networks +
         local.deployment_status.non_production_failover_virtual_networks +
         local.deployment_status.non_production_enterprise_policies +
@@ -271,19 +262,17 @@ DESCRIPTION
       )
       deployment_success_rate = length(local.processed_environments) > 0 ? (
         (
-          local.deployment_status.production_primary_resource_groups +
-          local.deployment_status.production_failover_resource_groups +
+          local.deployment_status.production_resource_groups +
           local.deployment_status.production_primary_virtual_networks +
           local.deployment_status.production_failover_virtual_networks +
           local.deployment_status.production_enterprise_policies +
           local.deployment_status.production_policy_links +
-          local.deployment_status.non_production_primary_resource_groups +
-          local.deployment_status.non_production_failover_resource_groups +
+          local.deployment_status.non_production_resource_groups +
           local.deployment_status.non_production_primary_virtual_networks +
           local.deployment_status.non_production_failover_virtual_networks +
           local.deployment_status.non_production_enterprise_policies +
           local.deployment_status.non_production_policy_links
-        ) / (length(local.processed_environments) * 6) * 100
+        ) / (length(local.processed_environments) * 5) * 100
       ) : 0
     }
 
@@ -291,14 +280,12 @@ DESCRIPTION
     subscription_deployment = {
       multi_subscription_enabled = local.configuration_validation.subscriptions_different
       production_subscription_resources = (
-        local.deployment_status.production_primary_resource_groups +
-        local.deployment_status.production_failover_resource_groups +
+        local.deployment_status.production_resource_groups +
         local.deployment_status.production_primary_virtual_networks +
         local.deployment_status.production_failover_virtual_networks
       )
       non_production_subscription_resources = (
-        local.deployment_status.non_production_primary_resource_groups +
-        local.deployment_status.non_production_failover_resource_groups +
+        local.deployment_status.non_production_resource_groups +
         local.deployment_status.non_production_primary_virtual_networks +
         local.deployment_status.non_production_failover_virtual_networks
       )
@@ -350,10 +337,8 @@ output "pattern_configuration_summary" {
           local.deployment_status.non_production_failover_virtual_networks
         )
         resource_groups_deployed = (
-          local.deployment_status.production_primary_resource_groups +
-          local.deployment_status.production_failover_resource_groups +
-          local.deployment_status.non_production_primary_resource_groups +
-          local.deployment_status.non_production_failover_resource_groups
+          local.deployment_status.production_resource_groups +
+          local.deployment_status.non_production_resource_groups
         )
         enterprise_policies_deployed = (
           local.deployment_status.production_enterprise_policies +
@@ -407,59 +392,49 @@ output "azure_resource_groups" {
   description = <<DESCRIPTION
 Azure Resource Group information for all deployed environments.
 
-Provides resource group IDs, names, and locations for both primary and failover
-resource groups across production and non-production subscriptions. Essential
-for downstream modules that need to reference these resource groups.
+Single resource group per Power Platform environment containing both primary
+and failover VNets. Provides resource group IDs, names, and locations across
+production and non-production subscriptions for cleaner governance.
 
 Resource Groups:
-- Primary: Resource groups in primary Azure region for each environment
-- Failover: Resource groups in failover Azure region for disaster recovery
-- Production: Deployed to dedicated production subscription
+- Single RG per Environment: All environment resources in one resource group
+- Primary Location: Resource group created in primary Azure region
+- Production: Deployed to dedicated production subscription  
 - Non-Production: Deployed to shared non-production subscription
 DESCRIPTION
   value = merge(
-    # Production primary resource groups
+    # Production resource groups (single RG per environment)
     {
-      for env_key, rg in module.production_primary_resource_groups : "${env_key}_primary_production" => {
+      for env_key, rg in module.production_resource_groups : "${env_key}_production" => {
         resource_id  = rg.resource_id
         name         = rg.name
         location     = local.network_configuration[env_key].primary_location
         subscription = "production"
-        region_type  = "primary"
         environment  = local.processed_environments[env_key].environment_name
+        architecture = "single-rg-per-environment"
+
+        # Resources contained in this RG
+        contains = {
+          primary_vnet  = "${local.environment_resource_names[env_key].virtual_network_name}-primary"
+          failover_vnet = "${local.environment_resource_names[env_key].virtual_network_name}-failover"
+        }
       }
     },
-    # Production failover resource groups
+    # Non-production resource groups (single RG per environment)
     {
-      for env_key, rg in module.production_failover_resource_groups : "${env_key}_failover_production" => {
-        resource_id  = rg.resource_id
-        name         = rg.name
-        location     = local.network_configuration[env_key].failover_location
-        subscription = "production"
-        region_type  = "failover"
-        environment  = local.processed_environments[env_key].environment_name
-      }
-    },
-    # Non-production primary resource groups
-    {
-      for env_key, rg in module.non_production_primary_resource_groups : "${env_key}_primary_non_production" => {
+      for env_key, rg in module.non_production_resource_groups : "${env_key}_non_production" => {
         resource_id  = rg.resource_id
         name         = rg.name
         location     = local.network_configuration[env_key].primary_location
         subscription = "non_production"
-        region_type  = "primary"
         environment  = local.processed_environments[env_key].environment_name
-      }
-    },
-    # Non-production failover resource groups
-    {
-      for env_key, rg in module.non_production_failover_resource_groups : "${env_key}_failover_non_production" => {
-        resource_id  = rg.resource_id
-        name         = rg.name
-        location     = local.network_configuration[env_key].failover_location
-        subscription = "non_production"
-        region_type  = "failover"
-        environment  = local.processed_environments[env_key].environment_name
+        architecture = "single-rg-per-environment"
+
+        # Resources contained in this RG
+        contains = {
+          primary_vnet  = "${local.environment_resource_names[env_key].virtual_network_name}-primary"
+          failover_vnet = "${local.environment_resource_names[env_key].virtual_network_name}-failover"
+        }
       }
     }
   )

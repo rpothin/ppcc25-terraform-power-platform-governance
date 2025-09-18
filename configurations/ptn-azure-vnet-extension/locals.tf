@@ -138,7 +138,7 @@ locals {
     location = local.region_abbreviations[var.network_configuration.primary.location]
   }
 
-  # CAF-compliant naming patterns
+  # CAF-compliant naming patterns - Single RG per environment architecture
   naming_patterns = {
     resource_group    = "rg-${local.base_name_components.project}-${local.base_name_components.workspace}-{env_suffix}-vnet-${local.base_name_components.location}"
     virtual_network   = "vnet-${local.base_name_components.project}-${local.base_name_components.workspace}-{env_suffix}-${local.base_name_components.location}"
