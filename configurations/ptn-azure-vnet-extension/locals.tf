@@ -161,13 +161,17 @@ locals {
       # Clean environment suffix for use in resource names
       env_suffix_clean = lower(replace(replace(env.suffix, " ", ""), "-", ""))
 
-      # Resource names following CAF patterns
+      # Resource names following CAF patterns (with PRIMARY region code)
       resource_group_name = replace(
         local.naming_patterns.resource_group,
         "{env_suffix}",
         lower(replace(replace(env.suffix, " ", ""), "-", ""))
       )
 
+      # Base VNet name without region (region will be added per deployment)
+      virtual_network_base_name = "vnet-${local.base_name_components.project}-${local.base_name_components.workspace}-${lower(replace(replace(env.suffix, " ", ""), "-", ""))}"
+
+      # Legacy single-region name (keeping for backward compatibility)
       virtual_network_name = replace(
         local.naming_patterns.virtual_network,
         "{env_suffix}",
