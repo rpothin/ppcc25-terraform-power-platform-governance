@@ -63,4 +63,4 @@
 workspace_template = "basic"
 name               = "DemoWorkspace"
 description        = "Demonstration workspace for PPCC25 session"
-location           = "unitedstates"
+location           = "canada"
