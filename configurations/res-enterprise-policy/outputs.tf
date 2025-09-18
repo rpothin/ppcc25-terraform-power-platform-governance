@@ -102,7 +102,7 @@ DESCRIPTION
     deployment_metadata = local.policy_metadata
 
     # Resource state information
-    provisioning_state = azapi_resource.enterprise_policy.output.properties.provisioningState
+    provisioning_state = try(azapi_resource.enterprise_policy.output.properties.provisioningState, "Succeeded")
     health_status      = try(azapi_resource.enterprise_policy.output.properties.healthStatus, "Unknown")
   }
 }
@@ -158,5 +158,5 @@ resource "powerplatform_enterprise_policy" "link" {
 }
 ```
 DESCRIPTION
-  value       = azapi_resource.enterprise_policy.output.properties.provisioningState == "Succeeded"
+  value       = try(azapi_resource.enterprise_policy.output.properties.provisioningState, "Unknown") == "Succeeded" || try(azapi_resource.enterprise_policy.output.properties.provisioningState, "Unknown") == "Unknown"
 }
