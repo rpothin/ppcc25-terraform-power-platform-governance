@@ -314,7 +314,7 @@ The following requirements are needed by this module:
 
 - <a name="requirement_azapi"></a> [azapi](#requirement\_azapi) (~> 2.6)
 
-- <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) (~> 3.116)
+- <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) (~> 4.0)
 
 - <a name="requirement_powerplatform"></a> [powerplatform](#requirement\_powerplatform) (~> 3.8)
 
@@ -322,12 +322,20 @@ The following requirements are needed by this module:
 
 The following providers are used by this module:
 
+- <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) (~> 4.0)
+
+- <a name="provider_azurerm.production"></a> [azurerm.production](#provider\_azurerm.production) (~> 4.0)
+
 - <a name="provider_terraform"></a> [terraform](#provider\_terraform)
 
 ## Resources
 
 The following resources are used by this module:
 
+- [azurerm_subnet_network_security_group_association.non_production_power_platform](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/subnet_network_security_group_association) (resource)
+- [azurerm_subnet_network_security_group_association.non_production_private_endpoint](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/subnet_network_security_group_association) (resource)
+- [azurerm_subnet_network_security_group_association.production_power_platform](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/subnet_network_security_group_association) (resource)
+- [azurerm_subnet_network_security_group_association.production_private_endpoint](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/subnet_network_security_group_association) (resource)
 - [terraform_remote_state.environment_group](https://registry.terraform.io/providers/hashicorp/terraform/latest/docs/data-sources/remote_state) (data source)
 
 <!-- markdownlint-disable MD013 -->
@@ -765,17 +773,35 @@ Source: ../res-enterprise-policy-link
 
 Version:
 
+### <a name="module_non_production_power_platform_nsgs"></a> [non\_production\_power\_platform\_nsgs](#module\_non\_production\_power\_platform\_nsgs)
+
+Source: Azure/avm-res-network-networksecuritygroup/azurerm
+
+Version: ~> 0.5
+
 ### <a name="module_non_production_primary_virtual_networks"></a> [non\_production\_primary\_virtual\_networks](#module\_non\_production\_primary\_virtual\_networks)
 
 Source: Azure/avm-res-network-virtualnetwork/azurerm
 
 Version: ~> 0.7.2
 
+### <a name="module_non_production_private_dns_zones"></a> [non\_production\_private\_dns\_zones](#module\_non\_production\_private\_dns\_zones)
+
+Source: Azure/avm-res-network-privatednszone/azurerm
+
+Version: ~> 0.1
+
+### <a name="module_non_production_private_endpoint_nsgs"></a> [non\_production\_private\_endpoint\_nsgs](#module\_non\_production\_private\_endpoint\_nsgs)
+
+Source: Azure/avm-res-network-networksecuritygroup/azurerm
+
+Version: ~> 0.5
+
 ### <a name="module_non_production_resource_groups"></a> [non\_production\_resource\_groups](#module\_non\_production\_resource\_groups)
 
 Source: Azure/avm-res-resources-resourcegroup/azurerm
 
-Version: ~> 0.1.0
+Version: ~> 0.2.0
 
 ### <a name="module_production_enterprise_policies"></a> [production\_enterprise\_policies](#module\_production\_enterprise\_policies)
 
@@ -795,17 +821,35 @@ Source: ../res-enterprise-policy-link
 
 Version:
 
+### <a name="module_production_power_platform_nsgs"></a> [production\_power\_platform\_nsgs](#module\_production\_power\_platform\_nsgs)
+
+Source: Azure/avm-res-network-networksecuritygroup/azurerm
+
+Version: ~> 0.5
+
 ### <a name="module_production_primary_virtual_networks"></a> [production\_primary\_virtual\_networks](#module\_production\_primary\_virtual\_networks)
 
 Source: Azure/avm-res-network-virtualnetwork/azurerm
 
 Version: ~> 0.7.2
 
+### <a name="module_production_private_dns_zones"></a> [production\_private\_dns\_zones](#module\_production\_private\_dns\_zones)
+
+Source: Azure/avm-res-network-privatednszone/azurerm
+
+Version: ~> 0.1
+
+### <a name="module_production_private_endpoint_nsgs"></a> [production\_private\_endpoint\_nsgs](#module\_production\_private\_endpoint\_nsgs)
+
+Source: Azure/avm-res-network-networksecuritygroup/azurerm
+
+Version: ~> 0.5
+
 ### <a name="module_production_resource_groups"></a> [production\_resource\_groups](#module\_production\_resource\_groups)
 
 Source: Azure/avm-res-resources-resourcegroup/azurerm
 
-Version: ~> 0.1.0
+Version: ~> 0.2.0
 
 ## Authentication
 
