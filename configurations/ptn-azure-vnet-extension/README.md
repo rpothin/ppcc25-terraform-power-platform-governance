@@ -463,6 +463,68 @@ Type: `string`
 
 The following input variables are optional (have default values):
 
+### <a name="input_enable_zero_trust_networking"></a> [enable\_zero\_trust\_networking](#input\_enable\_zero\_trust\_networking)
+
+Description: Enable zero-trust networking security rules for Power Platform subnets.
+
+WHY: Implements defense-in-depth security by controlling traffic flow at the network level,  
+following the principle of "never trust, always verify" for network communications.
+
+CONTEXT: Creates Network Security Groups with rules that allow intra-VNet communication  
+and Power Platform services while blocking internet traffic and unauthorized access.
+
+Security Rules Applied When Enabled:
+- Allow VirtualNetwork to VirtualNetwork (intra-VNet communication)
+- Allow PowerPlatform service tag traffic (Power Platform service communication)
+- Deny Internet inbound traffic (blocks external access)
+- Deny Internet outbound traffic (prevents data exfiltration)
+
+Example:  
+enable\_zero\_trust\_networking = true   # Apply zero-trust security (recommended)  
+enable\_zero\_trust\_networking = false  # Allow all traffic (development only)
+
+Default: true (security by design principle)
+
+Validation Rules:
+- Boolean value only
+- When true, NSGs are created and associated with PowerPlatform and PrivateEndpoint subnets
+- When false, subnets have no NSG restrictions
+
+Type: `bool`
+
+Default: `true`
+
+### <a name="input_private_dns_zones"></a> [private\_dns\_zones](#input\_private\_dns\_zones)
+
+Description: List of private DNS zone domain names to create on-demand for testing and demo scenarios.
+
+WHY: Enables flexible private endpoint DNS resolution during demonstrations without  
+pre-creating zones for services that may not be used in every demo scenario.
+
+CONTEXT: Private endpoints created manually during demos require corresponding DNS zones  
+for proper name resolution. This variable allows adding zones as needed.
+
+Example:  
+private\_dns\_zones = [
+  "privatelink.vaultcore.azure.net",      # Azure Key Vault
+  "privatelink.blob.core.windows.net",    # Azure Storage Blob  
+  "privatelink.documents.azure.com",      # Azure Cosmos DB
+  "privatelink.database.windows.net",     # Azure SQL Database
+  "privatelink.servicebus.windows.net"    # Azure Service Bus
+]
+
+Default: [] (no DNS zones - add only what you test)
+
+Validation Rules:
+- Must be valid DNS domain names
+- Each zone will be created in all environments
+- Zones are automatically linked to primary and failover VNets
+- Maximum 10 zones to prevent excessive resource creation
+
+Type: `set(string)`
+
+Default: `[]`
+
 ### <a name="input_tags"></a> [tags](#input\_tags)
 
 Description: Tags to be applied to all Azure resources created by this pattern.
