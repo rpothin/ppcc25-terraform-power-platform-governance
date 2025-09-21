@@ -92,9 +92,10 @@ primary_vnet_address_space = cidrsubnet(
 - Check for tenant-level restrictions on automation across Azure and Power Platform
 
 **Remote State Access Issues**
-- Verify workspace_name matches exactly with ptn-environment-group deployment
+- Verify `paired_tfvars_file` matches exactly with ptn-environment-group deployment
 - Confirm remote state storage account permissions and network access
 - Check that ptn-environment-group has completed deployment before running this pattern
+- Validate backend configuration includes all required Azure Storage parameters
 
 ### Network Configuration Issues
 
@@ -121,6 +122,37 @@ primary_vnet_address_space = cidrsubnet(
 - Verify Power Platform environments exist before applying network injection policies
 - Check for existing enterprise policies that might conflict with network injection
 - Ensure each environment gets properly linked to its dedicated VNet resources
+- **Power Platform Region Alignment**: Ensure Azure regions map to correct Power Platform regions (Canada Central/Canada East → "canada")
+
+### Performance and Timing Considerations
+
+**Deployment Duration (Based on Validated Experience)**
+- **Complete Pattern Deployment**: 8-12 minutes end-to-end
+- **Azure Infrastructure Phase**: 4-6 minutes (Resource Groups + VNets)
+- **Enterprise Policy Phase**: 3-5 minutes (Policy creation + linking)
+- **Remote State Reading**: ~30 seconds (including validation)
+
+**Environment Group Prerequisites**
+- **Timing Window**: Allow 2-5 minutes after `ptn-environment-group` completion before running VNet extension
+- **Race Condition Management**: Environment group assignment automatically converts environments to managed status asynchronously
+- **State File Availability**: Verify `ptn-environment-group-{paired_tfvars_file}.tfstate` exists before deployment
+
+**Concurrent Deployment Limitations**
+- **Sequential Pattern Deployment**: Deploy `ptn-environment-group` first, then `ptn-azure-vnet-extension`
+- **Regional Deployment Order**: Primary and failover regions deploy in parallel for efficiency
+- **Subscription Isolation**: Production and non-production subscriptions deploy concurrently
+
+### Capacity and Scaling Performance
+
+**Environment Count Impact on Deployment Time**
+- **2-3 Environments**: 8-10 minutes total deployment
+- **4-6 Environments**: 10-12 minutes total deployment  
+- **7+ Environments**: Add ~1 minute per additional environment
+
+**IP Allocation Performance**
+- **Dynamic Calculation**: Instantaneous during planning phase
+- **Validation Overhead**: ~5-10 seconds per environment for IP range validation
+- **Zero Network Scanning**: No existing network discovery required (mathematical allocation)
 
 ## Additional Links
 
