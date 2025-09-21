@@ -314,7 +314,7 @@ The following requirements are needed by this module:
 
 - <a name="requirement_azapi"></a> [azapi](#requirement\_azapi) (~> 2.6)
 
-- <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) (~> 3.117)
+- <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) (~> 3.116)
 
 - <a name="requirement_powerplatform"></a> [powerplatform](#requirement\_powerplatform) (~> 3.8)
 
@@ -665,6 +665,20 @@ Integration Components:
 
 Description: Summary of network configuration planning for dual VNet architecture validation
 
+### <a name="output_network_security_groups"></a> [network\_security\_groups](#output\_network\_security\_groups)
+
+Description: Network Security Group information for zero-trust networking implementation.
+
+Provides NSG resource IDs, names, security rules, and subnet associations for  
+both Power Platform and Private Endpoint subnets. Security rules are applied  
+conditionally based on the enable\_zero\_trust\_networking variable setting.
+
+Network Security Components:
+- Power Platform NSGs: Applied to subnets with Power Platform delegation
+- Private Endpoint NSGs: Applied to subnets designated for private endpoints
+- Security Rules: Zero-trust rules (allow VNet, PowerPlatform service tag, deny Internet)
+- Subnet Associations: Automatic association with respective subnet types
+
 ### <a name="output_output_schema_version"></a> [output\_schema\_version](#output\_output\_schema\_version)
 
 Description: The version of the output schema for this VNet extension pattern module.
@@ -686,6 +700,20 @@ Policy Assignment Components:
 - System ID: Associated enterprise policy system identifier
 - Policy Type: NetworkInjection for VNet integration
 - Assignment Status: Deployment and linking status information
+
+### <a name="output_private_dns_zones"></a> [private\_dns\_zones](#output\_private\_dns\_zones)
+
+Description: Private DNS zone information for all deployed environments and requested DNS zones.
+
+Provides DNS zone resource IDs, domain names, and VNet link information for  
+private endpoint connectivity. Only created when private\_dns\_zones variable  
+contains domain names, enabling on-demand DNS infrastructure for demo scenarios.
+
+Private DNS Components:
+- Domain Name: DNS zone domain (e.g., privatelink.vault.core.windows.net)
+- Resource ID: Full Azure resource identifier for the DNS zone
+- VNet Links: Automatic linking to both primary and failover VNets per environment
+- Demo Ready: DNS zones are immediately available for private endpoint creation
 
 ### <a name="output_remote_state_integration_summary"></a> [remote\_state\_integration\_summary](#output\_remote\_state\_integration\_summary)
 
