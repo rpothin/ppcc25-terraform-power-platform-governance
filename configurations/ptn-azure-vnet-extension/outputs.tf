@@ -769,28 +769,43 @@ Private DNS Components:
 DESCRIPTION
 
   value = {
-    # Phase 2 Implementation: DNS zones will be available when AVM modules are integrated
-    # Current Status: Phase 1 completed (variables and conditional logic), Phase 2 blocked by provider conflicts
-
     zones_configured   = length(var.private_dns_zones)
     zero_trust_enabled = var.enable_zero_trust_networking
 
-    # DNS zone names ready for implementation
-    dns_zones_planned = {
-      for zone_name in var.private_dns_zones : zone_name => {
-        domain_name = zone_name
-        status      = "planned"
-        target_environments = {
-          production     = length(local.production_environments)
-          non_production = length(local.non_production_environments)
+    # Phase 2 Complete: Deployed DNS zones
+    dns_zones_deployed = var.private_dns_zones != null && length(var.private_dns_zones) > 0 ? {
+      production_zones = {
+        for zone_key, zone_config in local.production_dns_zone_combinations : zone_key => {
+          domain_name = zone_config.zone_name
+          resource_id = module.production_private_dns_zones[zone_key].resource_id
+          environment = zone_config.env_key
+          location    = zone_config.location
+          vnet_links  = 1 # Primary VNet linked
+          status      = "deployed"
         }
       }
+      non_production_zones = {
+        for zone_key, zone_config in local.non_production_dns_zone_combinations : zone_key => {
+          domain_name = zone_config.zone_name
+          resource_id = module.non_production_private_dns_zones[zone_key].resource_id
+          environment = zone_config.env_key
+          location    = zone_config.location
+          vnet_links  = 1 # Primary VNet linked
+          status      = "deployed"
+        }
+      }
+      total_zones = length(local.production_dns_zone_combinations) + length(local.non_production_dns_zone_combinations)
+      } : {
+      production_zones     = {}
+      non_production_zones = {}
+      total_zones          = 0
     }
 
     implementation_status = {
       phase_1_completed = true
-      phase_2_blocked   = "azurerm provider version conflicts between child modules (~> 3.71) and AVM modules (~> 4.0)"
-      next_action       = "resolve provider version conflicts to enable AVM module integration"
+      phase_2_completed = true
+      azure_resources   = "deployed"
+      next_action       = "ready for private endpoint creation"
     }
   }
 }
@@ -815,15 +830,56 @@ Network Security Components:
 DESCRIPTION
 
   value = {
-    # Phase 2 Implementation: NSGs will be available when AVM modules are integrated
-    # Current Status: Phase 1 completed (zero-trust rules and conditional logic), Phase 2 blocked by provider conflicts
-
     zero_trust_enabled        = var.enable_zero_trust_networking
     security_rules_configured = length(keys(local.zero_trust_nsg_rules))
     security_rules_applied    = length(keys(local.environment_nsg_rules))
 
-    # Security rules ready for implementation
-    nsg_rules_planned = {
+    # Phase 2 Complete: Deployed NSGs
+    nsgs_deployed = {
+      production_power_platform_nsgs = {
+        for env_key in keys(local.production_environments) : env_key => {
+          name           = "nsg-powerplatform-${local.environment_resource_names[env_key].env_suffix_clean}"
+          resource_id    = module.production_power_platform_nsgs[env_key].resource_id
+          subnet_type    = "PowerPlatform"
+          environment    = env_key
+          security_rules = var.enable_zero_trust_networking ? length(keys(local.zero_trust_nsg_rules)) : 0
+          status         = "deployed"
+        }
+      }
+      non_production_power_platform_nsgs = {
+        for env_key in keys(local.non_production_environments) : env_key => {
+          name           = "nsg-powerplatform-${local.environment_resource_names[env_key].env_suffix_clean}"
+          resource_id    = module.non_production_power_platform_nsgs[env_key].resource_id
+          subnet_type    = "PowerPlatform"
+          environment    = env_key
+          security_rules = var.enable_zero_trust_networking ? length(keys(local.zero_trust_nsg_rules)) : 0
+          status         = "deployed"
+        }
+      }
+      production_private_endpoint_nsgs = {
+        for env_key in keys(local.production_environments) : env_key => {
+          name           = "nsg-privateendpoint-${local.environment_resource_names[env_key].env_suffix_clean}"
+          resource_id    = module.production_private_endpoint_nsgs[env_key].resource_id
+          subnet_type    = "PrivateEndpoint"
+          environment    = env_key
+          security_rules = var.enable_zero_trust_networking ? length(keys(local.zero_trust_nsg_rules)) : 0
+          status         = "deployed"
+        }
+      }
+      non_production_private_endpoint_nsgs = {
+        for env_key in keys(local.non_production_environments) : env_key => {
+          name           = "nsg-privateendpoint-${local.environment_resource_names[env_key].env_suffix_clean}"
+          resource_id    = module.non_production_private_endpoint_nsgs[env_key].resource_id
+          subnet_type    = "PrivateEndpoint"
+          environment    = env_key
+          security_rules = var.enable_zero_trust_networking ? length(keys(local.zero_trust_nsg_rules)) : 0
+          status         = "deployed"
+        }
+      }
+    }
+
+    # Zero-trust security rules as configured
+    security_rules_detail = {
       for rule_name, rule in local.zero_trust_nsg_rules : rule_name => {
         access                     = rule.access
         direction                  = rule.direction
@@ -831,20 +887,16 @@ DESCRIPTION
         protocol                   = rule.protocol
         source_address_prefix      = rule.source_address_prefix
         destination_address_prefix = rule.destination_address_prefix
-        status                     = var.enable_zero_trust_networking ? "enabled" : "disabled"
+        enabled                    = var.enable_zero_trust_networking
       }
-    }
-
-    target_environments = {
-      production     = length(local.production_environments)
-      non_production = length(local.non_production_environments)
     }
 
     implementation_status = {
       phase_1_completed         = true
+      phase_2_completed         = true
       conditional_logic_working = var.enable_zero_trust_networking ? "zero-trust rules applied" : "zero-trust rules disabled"
-      phase_2_blocked           = "azurerm provider version conflicts between child modules (~> 3.71) and AVM modules (~> 4.0)"
-      next_action               = "resolve provider version conflicts to enable AVM module integration"
+      azure_resources           = "deployed"
+      next_action               = "ready for subnet association and traffic filtering"
     }
   }
 }

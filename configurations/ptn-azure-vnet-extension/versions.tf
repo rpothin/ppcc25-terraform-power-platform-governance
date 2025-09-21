@@ -30,11 +30,11 @@ terraform {
     }
     azurerm = {
       source = "hashicorp/azurerm"
-      # WHY: Balanced approach - use stable 3.x series with proven compatibility
-      # CONTEXT: Child modules require 3.x series for compatibility
-      # IMPACT: Provides stable features while ensuring module compatibility
-      # STRATEGY: Use compatible version that works with existing child modules
-      version = "~> 3.116"
+      # WHY: Use AVM-compatible version 4.x for DNS and NSG module integration
+      # CONTEXT: AVM modules require provider version 4.x for latest features
+      # IMPACT: Enables full AVM module compatibility with latest Azure features
+      # STRATEGY: Migrate to 4.x series for AVM module compatibility
+      version = "~> 4.0"
       # WHY: Configuration aliases required for multi-subscription deployment
       # CONTEXT: AVM specification TFNFR27 compliant provider alias handling
       # IMPACT: Enables production/non-production subscription routing

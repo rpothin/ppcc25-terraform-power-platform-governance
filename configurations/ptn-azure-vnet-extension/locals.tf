@@ -530,4 +530,26 @@ locals {
   # CONTEXT: Production should use zero-trust, development might need more flexibility
   # IMPACT: Provides security by default while maintaining development usability
   environment_nsg_rules = var.enable_zero_trust_networking ? local.zero_trust_nsg_rules : {}
+
+  # Phase 2: DNS Zone Combinations for Outputs
+  # WHY: Create combinations of environments and DNS zones for output mapping
+  # CONTEXT: Outputs need to map DNS zones to environments in a structured way
+  # IMPACT: Enables proper output structure matching the module for_each patterns
+  production_dns_zone_combinations = {
+    for combo in setproduct(keys(local.production_environments), var.private_dns_zones) :
+    "${combo[0]}-${replace(combo[1], ".", "-")}" => {
+      env_key   = combo[0]
+      zone_name = combo[1]
+      location  = local.network_configuration[combo[0]].primary_location
+    }
+  }
+
+  non_production_dns_zone_combinations = {
+    for combo in setproduct(keys(local.non_production_environments), var.private_dns_zones) :
+    "${combo[0]}-${replace(combo[1], ".", "-")}" => {
+      env_key   = combo[0]
+      zone_name = combo[1]
+      location  = local.network_configuration[combo[0]].primary_location
+    }
+  }
 }
