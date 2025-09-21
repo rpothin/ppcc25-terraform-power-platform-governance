@@ -224,6 +224,80 @@ DESCRIPTION
 # Note: location variable removed - now specified within network_configuration object
 # This allows primary and failover VNets to be deployed in different Azure regions
 
+variable "private_dns_zones" {
+  type        = set(string)
+  default     = []
+  description = <<DESCRIPTION
+List of private DNS zone domain names to create on-demand for testing and demo scenarios.
+
+WHY: Enables flexible private endpoint DNS resolution during demonstrations without
+pre-creating zones for services that may not be used in every demo scenario.
+
+CONTEXT: Private endpoints created manually during demos require corresponding DNS zones
+for proper name resolution. This variable allows adding zones as needed.
+
+Example:
+private_dns_zones = [
+  "privatelink.vaultcore.azure.net",      # Azure Key Vault
+  "privatelink.blob.core.windows.net",    # Azure Storage Blob  
+  "privatelink.documents.azure.com",      # Azure Cosmos DB
+  "privatelink.database.windows.net",     # Azure SQL Database
+  "privatelink.servicebus.windows.net"    # Azure Service Bus
+]
+
+Default: [] (no DNS zones - add only what you test)
+
+Validation Rules:
+- Must be valid DNS domain names
+- Each zone will be created in all environments
+- Zones are automatically linked to primary and failover VNets
+- Maximum 10 zones to prevent excessive resource creation
+DESCRIPTION
+
+  validation {
+    condition = alltrue([
+      for zone in var.private_dns_zones : can(regex("^[a-z0-9.-]+\\.[a-z]{2,}$", zone))
+    ])
+    error_message = "All private DNS zones must be valid domain names (lowercase, dots allowed). Invalid zones found. Check domain name format."
+  }
+
+  validation {
+    condition     = length(var.private_dns_zones) <= 10
+    error_message = "Maximum 10 private DNS zones allowed to prevent resource sprawl. Current count: ${length(var.private_dns_zones)}. Remove unused zones."
+  }
+}
+
+variable "enable_zero_trust_networking" {
+  type        = bool
+  default     = true
+  description = <<DESCRIPTION
+Enable zero-trust networking security rules for Power Platform subnets.
+
+WHY: Implements defense-in-depth security by controlling traffic flow at the network level,
+following the principle of "never trust, always verify" for network communications.
+
+CONTEXT: Creates Network Security Groups with rules that allow intra-VNet communication
+and Power Platform services while blocking internet traffic and unauthorized access.
+
+Security Rules Applied When Enabled:
+- Allow VirtualNetwork to VirtualNetwork (intra-VNet communication)
+- Allow PowerPlatform service tag traffic (Power Platform service communication)
+- Deny Internet inbound traffic (blocks external access)
+- Deny Internet outbound traffic (prevents data exfiltration)
+
+Example:
+enable_zero_trust_networking = true   # Apply zero-trust security (recommended)
+enable_zero_trust_networking = false  # Allow all traffic (development only)
+
+Default: true (security by design principle)
+
+Validation Rules:
+- Boolean value only
+- When true, NSGs are created and associated with PowerPlatform and PrivateEndpoint subnets
+- When false, subnets have no NSG restrictions
+DESCRIPTION
+}
+
 variable "tags" {
   type        = map(string)
   default     = {}

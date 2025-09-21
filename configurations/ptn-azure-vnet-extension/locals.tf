@@ -401,3 +401,133 @@ locals {
   # Filter out empty error messages
   actual_validation_errors = [for err in local.validation_errors : err if err != ""]
 }
+
+# ============================================================================
+# ZERO-TRUST SECURITY CONFIGURATION - Network Security Group Rules
+# ============================================================================
+
+# WHY: Implement zero-trust networking principles for Power Platform environments
+# CONTEXT: Follow "never trust, always verify" by explicitly allowing required traffic
+# IMPACT: Prevents unauthorized network access while maintaining Power Platform functionality
+locals {
+  # Zero-trust NSG rules configuration - applied when enable_zero_trust_networking = true
+  zero_trust_nsg_rules = {
+    # Allow intra-VNet communication
+    # WHY: Power Platform components need to communicate within the VNet
+    # CONTEXT: VirtualNetwork service tag covers all VNet address spaces
+    # IMPACT: Enables internal connectivity while blocking external access
+    "allow_vnet_inbound" = {
+      name                       = "AllowVNetInbound"
+      access                     = "Allow"
+      direction                  = "Inbound"
+      priority                   = 100
+      protocol                   = "*"
+      source_address_prefix      = "VirtualNetwork"
+      destination_address_prefix = "VirtualNetwork"
+      source_port_range          = "*"
+      destination_port_range     = "*"
+    }
+
+    "allow_vnet_outbound" = {
+      name                       = "AllowVNetOutbound"
+      access                     = "Allow"
+      direction                  = "Outbound"
+      priority                   = 100
+      protocol                   = "*"
+      source_address_prefix      = "VirtualNetwork"
+      destination_address_prefix = "VirtualNetwork"
+      source_port_range          = "*"
+      destination_port_range     = "*"
+    }
+
+    # Allow Power Platform service communication
+    # WHY: Power Platform services need to communicate with injected environments
+    # CONTEXT: PowerPlatform service tag represents Microsoft Power Platform endpoints
+    # IMPACT: Maintains Power Platform functionality while enforcing network security
+    "allow_powerplatform_inbound" = {
+      name                       = "AllowPowerPlatformInbound"
+      access                     = "Allow"
+      direction                  = "Inbound"
+      priority                   = 110
+      protocol                   = "*"
+      source_address_prefix      = "PowerPlatform"
+      destination_address_prefix = "*"
+      source_port_range          = "*"
+      destination_port_range     = "*"
+    }
+
+    "allow_powerplatform_outbound" = {
+      name                       = "AllowPowerPlatformOutbound"
+      access                     = "Allow"
+      direction                  = "Outbound"
+      priority                   = 110
+      protocol                   = "*"
+      source_address_prefix      = "*"
+      destination_address_prefix = "PowerPlatform"
+      source_port_range          = "*"
+      destination_port_range     = "*"
+    }
+
+    # Allow Azure services that Power Platform depends on
+    # WHY: Power Platform requires access to core Azure services for authentication, storage, etc.
+    # CONTEXT: AzureActiveDirectory and Storage service tags are essential for functionality
+    # IMPACT: Ensures Power Platform can authenticate and access required Azure services
+    "allow_azuread_outbound" = {
+      name                       = "AllowAzureADOutbound"
+      access                     = "Allow"
+      direction                  = "Outbound"
+      priority                   = 120
+      protocol                   = "*"
+      source_address_prefix      = "*"
+      destination_address_prefix = "AzureActiveDirectory"
+      source_port_range          = "*"
+      destination_port_range     = "*"
+    }
+
+    "allow_storage_outbound" = {
+      name                       = "AllowStorageOutbound"
+      access                     = "Allow"
+      direction                  = "Outbound"
+      priority                   = 130
+      protocol                   = "*"
+      source_address_prefix      = "*"
+      destination_address_prefix = "Storage"
+      source_port_range          = "*"
+      destination_port_range     = "*"
+    }
+
+    # Deny all internet traffic (zero-trust principle)
+    # WHY: Block all unauthorized external communication by default
+    # CONTEXT: Internet service tag represents all public internet addresses
+    # IMPACT: Prevents data exfiltration and unauthorized external access
+    "deny_internet_inbound" = {
+      name                       = "DenyInternetInbound"
+      access                     = "Deny"
+      direction                  = "Inbound"
+      priority                   = 4000
+      protocol                   = "*"
+      source_address_prefix      = "Internet"
+      destination_address_prefix = "*"
+      source_port_range          = "*"
+      destination_port_range     = "*"
+    }
+
+    "deny_internet_outbound" = {
+      name                       = "DenyInternetOutbound"
+      access                     = "Deny"
+      direction                  = "Outbound"
+      priority                   = 4000
+      protocol                   = "*"
+      source_address_prefix      = "*"
+      destination_address_prefix = "Internet"
+      source_port_range          = "*"
+      destination_port_range     = "*"
+    }
+  }
+
+  # NSG configuration per environment - conditional based on zero_trust_networking variable
+  # WHY: Allow users to disable zero-trust for development scenarios
+  # CONTEXT: Production should use zero-trust, development might need more flexibility
+  # IMPACT: Provides security by default while maintaining development usability
+  environment_nsg_rules = var.enable_zero_trust_networking ? local.zero_trust_nsg_rules : {}
+}
