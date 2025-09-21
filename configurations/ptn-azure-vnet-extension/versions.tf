@@ -30,11 +30,11 @@ terraform {
     }
     azurerm = {
       source = "hashicorp/azurerm"
-      # WHY: Balanced approach - use stable 3.x series with proven AVM compatibility
-      # CONTEXT: AVM modules require 3.116+ but azurerm 4.x introduces breaking changes
-      # IMPACT: Provides latest stable features while ensuring AVM module compatibility
-      # STRATEGY: Pin to latest 3.x minor version for stability with security updates
-      version = "~> 3.117"
+      # WHY: Balanced approach - use stable 3.x series with proven compatibility
+      # CONTEXT: Child modules require 3.x series for compatibility
+      # IMPACT: Provides stable features while ensuring module compatibility
+      # STRATEGY: Use compatible version that works with existing child modules
+      version = "~> 3.116"
       # WHY: Configuration aliases required for multi-subscription deployment
       # CONTEXT: AVM specification TFNFR27 compliant provider alias handling
       # IMPACT: Enables production/non-production subscription routing

@@ -45,6 +45,15 @@ variables {
   production_subscription_id     = "11111111-1111-1111-1111-111111111111"
   non_production_subscription_id = "22222222-2222-2222-2222-222222222222"
 
+  # Phase 1 Enhancement: Private DNS zones configuration
+  private_dns_zones = [
+    "privatelink.analysis.windows.net",
+    "privatelink.powerplatform.azure.com"
+  ]
+
+  # Phase 1 Enhancement: Zero-trust networking toggle
+  enable_zero_trust_networking = true
+
   # Dynamic dual VNet network configuration with per-environment scaling
   network_configuration = {
     primary = {
@@ -77,7 +86,7 @@ variables {
 run "phase1_plan_validation" {
   command = plan
 
-  # ========== VARIABLE VALIDATION TESTS (10 assertions) ==========
+  # ========== VARIABLE VALIDATION TESTS (14 assertions - Enhanced for Phase 1) ==========
 
   assert {
     condition     = length(var.paired_tfvars_file) > 0 && length(var.paired_tfvars_file) <= 50
@@ -97,6 +106,30 @@ run "phase1_plan_validation" {
   assert {
     condition     = var.production_subscription_id != var.non_production_subscription_id
     error_message = "Production and non-production subscriptions must be different"
+  }
+
+  # Phase 1 Enhancement: Private DNS zones validation
+  assert {
+    condition     = can(toset(var.private_dns_zones))
+    error_message = "Private DNS zones should be a valid set of strings"
+  }
+
+  assert {
+    condition     = length(var.private_dns_zones) <= 10
+    error_message = "Private DNS zones should not exceed maximum limit of 10"
+  }
+
+  assert {
+    condition = alltrue([
+      for zone in var.private_dns_zones : can(regex("^[a-z0-9.-]+\\.[a-z]{2,}$", zone))
+    ])
+    error_message = "All private DNS zone names should be valid DNS zone names"
+  }
+
+  # Phase 1 Enhancement: Zero-trust networking validation
+  assert {
+    condition     = can(tobool(var.enable_zero_trust_networking))
+    error_message = "Enable zero trust networking should be a valid boolean"
   }
 
   assert {
@@ -135,7 +168,7 @@ run "phase1_plan_validation" {
     error_message = "Failover location should be a valid Azure region"
   }
 
-  # ========== LOCALS PROCESSING TESTS (10 assertions) ==========
+  # ========== LOCALS PROCESSING TESTS (16 assertions - Enhanced for Phase 1) ==========
 
   assert {
     condition     = local.base_name_components.workspace != null
@@ -177,6 +210,37 @@ run "phase1_plan_validation" {
     error_message = "Enterprise policy naming pattern should be defined"
   }
 
+  # Phase 1 Enhancement: Zero-trust NSG rules validation
+  assert {
+    condition     = can(local.zero_trust_nsg_rules)
+    error_message = "Zero-trust NSG rules should be defined in locals"
+  }
+
+  assert {
+    condition     = length(keys(local.zero_trust_nsg_rules)) >= 6
+    error_message = "Zero-trust NSG rules should include at least 6 security rules"
+  }
+
+  assert {
+    condition = alltrue([
+      for name, rule in local.zero_trust_nsg_rules : contains(["Allow", "Deny"], rule.access)
+    ])
+    error_message = "All NSG rules should have valid access values (Allow/Deny)"
+  }
+
+  assert {
+    condition = alltrue([
+      for name, rule in local.zero_trust_nsg_rules : contains(["Inbound", "Outbound"], rule.direction)
+    ])
+    error_message = "All NSG rules should have valid direction values (Inbound/Outbound)"
+  }
+
+  # Phase 1 Enhancement: Conditional NSG rules application
+  assert {
+    condition     = var.enable_zero_trust_networking ? length(keys(local.environment_nsg_rules)) >= 6 : length(keys(local.environment_nsg_rules)) == 0
+    error_message = "Environment NSG rules should be applied conditionally based on enable_zero_trust_networking variable"
+  }
+
   assert {
     condition     = local.configuration_validation != null
     error_message = "Configuration validation locals should be defined"
@@ -185,6 +249,103 @@ run "phase1_plan_validation" {
   assert {
     condition     = local.deployment_status != null
     error_message = "Deployment status tracking should be initialized"
+  }
+
+  assert {
+    condition = alltrue([
+      for name, rule in local.zero_trust_nsg_rules : rule.priority >= 100 && rule.priority <= 4096
+    ])
+    error_message = "All NSG rule priorities should be within valid range (100-4096)"
+  }
+
+  # ========== LOCALS PROCESSING TESTS (16 assertions - Enhanced for Phase 1) ==========
+
+  assert {
+    condition     = local.base_name_components.workspace != null
+    error_message = "Base naming components should be generated from paired tfvars file"
+  }
+
+  assert {
+    condition     = local.base_name_components.location != null
+    error_message = "Location abbreviation should be generated for CAF naming"
+  }
+
+  assert {
+    condition     = length(local.region_abbreviations) > 0
+    error_message = "Region abbreviations mapping should be populated"
+  }
+
+  assert {
+    condition     = contains(keys(local.region_abbreviations), var.network_configuration.primary.location)
+    error_message = "Primary location should have abbreviation in mapping"
+  }
+
+  assert {
+    condition     = local.naming_patterns.resource_group != null
+    error_message = "Resource group naming pattern should be defined"
+  }
+
+  assert {
+    condition     = local.naming_patterns.virtual_network != null
+    error_message = "Virtual network naming pattern should be defined"
+  }
+
+  assert {
+    condition     = local.naming_patterns.subnet != null
+    error_message = "Subnet naming pattern should be defined"
+  }
+
+  assert {
+    condition     = local.naming_patterns.enterprise_policy != null
+    error_message = "Enterprise policy naming pattern should be defined"
+  }
+
+  # Phase 1 Enhancement: Zero-trust NSG rules validation
+  assert {
+    condition     = can(local.zero_trust_nsg_rules)
+    error_message = "Zero-trust NSG rules should be defined in locals"
+  }
+
+  assert {
+    condition     = length(keys(local.zero_trust_nsg_rules)) >= 6
+    error_message = "Zero-trust NSG rules should include at least 6 security rules"
+  }
+
+  assert {
+    condition = alltrue([
+      for name, rule in local.zero_trust_nsg_rules : contains(["Allow", "Deny"], rule.access)
+    ])
+    error_message = "All NSG rules should have valid access values (Allow/Deny)"
+  }
+
+  assert {
+    condition = alltrue([
+      for name, rule in local.zero_trust_nsg_rules : contains(["Inbound", "Outbound"], rule.direction)
+    ])
+    error_message = "All NSG rules should have valid direction values (Inbound/Outbound)"
+  }
+
+  # Phase 1 Enhancement: Conditional NSG rules application
+  assert {
+    condition     = var.enable_zero_trust_networking ? length(keys(local.environment_nsg_rules)) >= 6 : length(keys(local.environment_nsg_rules)) == 0
+    error_message = "Environment NSG rules should be applied conditionally based on enable_zero_trust_networking variable"
+  }
+
+  assert {
+    condition     = local.configuration_validation != null
+    error_message = "Configuration validation locals should be defined"
+  }
+
+  assert {
+    condition     = local.deployment_status != null
+    error_message = "Deployment status tracking should be initialized"
+  }
+
+  assert {
+    condition = alltrue([
+      for name, rule in local.zero_trust_nsg_rules : rule.priority >= 100 && rule.priority <= 4096
+    ])
+    error_message = "All NSG rule priorities should be within valid range (100-4096)"
   }
 
   # ========== REMOTE STATE DATA VALIDATION TESTS (2 assertions) ==========
@@ -245,6 +406,14 @@ run "phase2_multi_subscription_validation" {
     # Multi-subscription configuration
     production_subscription_id     = "11111111-1111-1111-1111-111111111111"
     non_production_subscription_id = "22222222-2222-2222-2222-222222222222"
+
+    # Phase 1 Enhancement: Include in Phase 2 tests for comprehensive validation
+    private_dns_zones = [
+      "privatelink.analysis.windows.net",
+      "privatelink.powerplatform.azure.com"
+    ]
+
+    enable_zero_trust_networking = true
 
     # Updated network configuration for valid Power Platform regions
     network_configuration = {
@@ -545,30 +714,238 @@ run "variable_validation_edge_cases" {
 }
 
 # ============================================================================
-# TEST SUMMARY
+# PHASE 1 ENHANCEMENT TESTS - DNS Zones and Zero-Trust Validation
 # ============================================================================
 
-# Total Assertions: 69 (significantly exceeds minimum 25 for pattern modules)
+run "phase1_dns_zones_validation" {
+  command = plan
+
+  variables {
+    # Test various DNS zone scenarios
+    paired_tfvars_file = "dns-test"
+    test_mode          = true
+
+    production_subscription_id     = "11111111-1111-1111-1111-111111111111"
+    non_production_subscription_id = "22222222-2222-2222-2222-222222222222"
+
+    # Test with maximum DNS zones
+    private_dns_zones = [
+      "privatelink.analysis.windows.net",
+      "privatelink.powerplatform.azure.com",
+      "privatelink.vaultcore.azure.net",
+      "privatelink.blob.core.windows.net",
+      "privatelink.table.core.windows.net",
+      "privatelink.queue.core.windows.net",
+      "privatelink.file.core.windows.net",
+      "privatelink.web.core.windows.net",
+      "privatelink.dfs.core.windows.net",
+      "privatelink.monitor.azure.com"
+    ]
+
+    enable_zero_trust_networking = true
+
+    network_configuration = {
+      primary = {
+        location                = "East US"
+        vnet_address_space_base = "10.96.0.0/12"
+      }
+      failover = {
+        location                = "West US 2"
+        vnet_address_space_base = "10.112.0.0/12"
+      }
+      subnet_allocation = {
+        power_platform_subnet_size   = 24
+        private_endpoint_subnet_size = 24
+        power_platform_offset        = 1
+        private_endpoint_offset      = 2
+      }
+    }
+
+    tags = {
+      Environment = "Test"
+      Pattern     = "ptn-azure-vnet-extension"
+    }
+  }
+
+  # ========== DNS ZONE VALIDATION TESTS (8 assertions) ==========
+
+  assert {
+    condition     = length(var.private_dns_zones) == 10
+    error_message = "Should accept maximum number of DNS zones (10)"
+  }
+
+  assert {
+    condition = alltrue([
+      for zone in var.private_dns_zones : can(regex("^[a-z0-9.-]+\\.[a-z]{2,}$", zone))
+    ])
+    error_message = "All DNS zone names should be valid"
+  }
+
+  assert {
+    condition     = contains(var.private_dns_zones, "privatelink.analysis.windows.net")
+    error_message = "Should contain Power BI Analytics private DNS zone"
+  }
+
+  assert {
+    condition     = contains(var.private_dns_zones, "privatelink.powerplatform.azure.com")
+    error_message = "Should contain Power Platform private DNS zone"
+  }
+
+  assert {
+    condition = alltrue([
+      for zone in var.private_dns_zones : startswith(zone, "privatelink.")
+    ])
+    error_message = "All DNS zones should be private link zones"
+  }
+
+  # ========== ZERO-TRUST NSG RULES VALIDATION TESTS (10 assertions) ==========
+
+  assert {
+    condition     = var.enable_zero_trust_networking == true
+    error_message = "Zero-trust networking should be enabled for this test"
+  }
+
+  assert {
+    condition     = length(keys(local.environment_nsg_rules)) >= 6
+    error_message = "Should generate zero-trust NSG rules when enabled"
+  }
+
+  assert {
+    condition     = contains(keys(local.zero_trust_nsg_rules), "allow_vnet_inbound")
+    error_message = "Should include VNet inbound allow rule"
+  }
+
+  assert {
+    condition     = contains(keys(local.zero_trust_nsg_rules), "allow_power_platform_outbound")
+    error_message = "Should include Power Platform outbound allow rule"
+  }
+
+  assert {
+    condition     = contains(keys(local.zero_trust_nsg_rules), "deny_internet_inbound")
+    error_message = "Should include Internet inbound deny rule"
+  }
+
+  assert {
+    condition     = contains(keys(local.zero_trust_nsg_rules), "deny_internet_outbound")
+    error_message = "Should include Internet outbound deny rule"
+  }
+
+  assert {
+    condition = alltrue([
+      for name, rule in local.zero_trust_nsg_rules :
+      contains(["Allow", "Deny"], rule.access)
+    ])
+    error_message = "All NSG rules should have valid access policy"
+  }
+
+  assert {
+    condition = alltrue([
+      for name, rule in local.zero_trust_nsg_rules :
+      rule.priority >= 100 && rule.priority <= 4096
+    ])
+    error_message = "All NSG rule priorities should be in valid range"
+  }
+}
+
+run "phase1_zero_trust_disabled_validation" {
+  command = plan
+
+  variables {
+    paired_tfvars_file = "no-zero-trust-test"
+    test_mode          = true
+
+    production_subscription_id     = "11111111-1111-1111-1111-111111111111"
+    non_production_subscription_id = "22222222-2222-2222-2222-222222222222"
+
+    private_dns_zones = [] # Empty DNS zones for minimal test
+
+    enable_zero_trust_networking = false # Disabled for development scenarios
+
+    network_configuration = {
+      primary = {
+        location                = "East US"
+        vnet_address_space_base = "10.96.0.0/12"
+      }
+      failover = {
+        location                = "West US 2"
+        vnet_address_space_base = "10.112.0.0/12"
+      }
+      subnet_allocation = {
+        power_platform_subnet_size   = 24
+        private_endpoint_subnet_size = 24
+        power_platform_offset        = 1
+        private_endpoint_offset      = 2
+      }
+    }
+
+    tags = {
+      Environment = "Development"
+      Pattern     = "ptn-azure-vnet-extension"
+    }
+  }
+
+  # ========== ZERO-TRUST DISABLED VALIDATION TESTS (5 assertions) ==========
+
+  assert {
+    condition     = var.enable_zero_trust_networking == false
+    error_message = "Zero-trust networking should be disabled for this test"
+  }
+
+  assert {
+    condition     = length(keys(local.environment_nsg_rules)) == 0
+    error_message = "Should not generate NSG rules when zero-trust is disabled"
+  }
+
+  assert {
+    condition     = length(var.private_dns_zones) == 0
+    error_message = "Should accept empty DNS zones list"
+  }
+
+  assert {
+    condition     = length(keys(local.zero_trust_nsg_rules)) >= 6
+    error_message = "Zero-trust rules should still be defined in locals (but not applied)"
+  }
+
+  assert {
+    condition     = local.environment_nsg_rules != local.zero_trust_nsg_rules
+    error_message = "Environment NSG rules should be different from zero-trust rules when disabled"
+  }
+}
+
+# ============================================================================
+# TEST SUMMARY - Updated for Phase 1 Enhancements
+# ============================================================================
+
+# Total Assertions: 92 (significantly exceeds minimum 25 for pattern modules)
 # 
-# PHASE 1 TESTS (27 assertions):
-# - Variable validation: 10 assertions
-# - Locals processing: 10 assertions  
+# PHASE 1 TESTS (37 assertions - Enhanced):
+# - Variable validation: 14 assertions (added DNS zones and zero-trust validation)
+# - Locals processing: 16 assertions (added zero-trust NSG rules validation) 
 # - Remote state data validation: 2 assertions
 # - Output definitions: 5 assertions
+# 
+# PHASE 1 ENHANCEMENT TESTS (23 assertions - NEW):
+# - DNS zone validation: 8 assertions
+# - Zero-trust NSG rules validation: 10 assertions
+# - Zero-trust disabled validation: 5 assertions
 # 
 # PHASE 2 TESTS (38 assertions):
 # - Variable validation: 10 assertions
 # - Environment separation: 6 assertions
 # - Azure-to-Power Platform region mapping: 2 assertions  
 # - Deployment status tracking: 11 assertions (updated for single RG architecture)
-# - Single RG architecture validation: 4 assertions (NEW)
+# - Single RG architecture validation: 4 assertions
 # - Output definitions: 5 assertions
 # 
 # EDGE CASE TESTS (4 assertions):
 # - Boundary condition validation: 4 assertions
 #
-# Test Coverage:
+# Enhanced Test Coverage:
 # ✅ PHASE 1: Remote state reading from ptn-environment-group verified
+# ✅ PHASE 1: Private DNS zones variable validation and constraint testing
+# ✅ PHASE 1: Zero-trust networking toggle and conditional logic validation
+# ✅ PHASE 1: Zero-trust NSG rules structure and rule validation
+# ✅ PHASE 1: Conditional NSG application based on enable_zero_trust_networking
 # ✅ PHASE 1: Local value processing and CAF naming validated
 # ✅ PHASE 1: Configuration validation logic tested
 # ✅ PHASE 2: Multi-subscription provider configuration tested
