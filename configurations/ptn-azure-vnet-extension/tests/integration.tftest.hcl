@@ -816,7 +816,7 @@ run "phase1_dns_zones_validation" {
   }
 
   assert {
-    condition     = contains(keys(local.zero_trust_nsg_rules), "allow_power_platform_outbound")
+    condition     = contains(keys(local.zero_trust_nsg_rules), "allow_powerplatform_outbound")
     error_message = "Should include Power Platform outbound allow rule"
   }
 
