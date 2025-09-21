@@ -409,12 +409,10 @@ module "production_private_dns_zones" {
     }
   )
 
-  # WHY: Use production provider for production environments
-  # CONTEXT: Routes production resources to dedicated subscription
-  # IMPACT: Enables proper subscription-level governance and isolation
-  providers = {
-    azurerm = azurerm.production
-  }
+  # WHY: AVM DNS zone modules use azapi provider internally, not azurerm
+  # CONTEXT: No need to pass azurerm provider to DNS zone modules
+  # IMPACT: Eliminates provider reference warnings
+  # NOTE: The module deploys to the correct subscription via parent_id resource group reference
 
   depends_on = [
     module.production_primary_virtual_networks,
@@ -468,12 +466,10 @@ module "non_production_private_dns_zones" {
     }
   )
 
-  # WHY: Use default provider for non-production environments
-  # CONTEXT: Routes non-production resources to shared subscription
-  # IMPACT: Enables cost-effective resource management
-  providers = {
-    azurerm = azurerm
-  }
+  # WHY: AVM DNS zone modules use azapi provider internally, not azurerm
+  # CONTEXT: No need to pass azurerm provider to DNS zone modules  
+  # IMPACT: Eliminates provider reference warnings
+  # NOTE: The module deploys to the correct subscription via parent_id resource group reference
 
   depends_on = [
     module.non_production_primary_virtual_networks,
@@ -662,7 +658,7 @@ module "non_production_private_endpoint_nsgs" {
 resource "azurerm_subnet_network_security_group_association" "production_power_platform" {
   for_each = local.production_environments
 
-  subnet_id                 = module.production_primary_virtual_networks[each.key].subnets["PowerPlatform"].resource_id
+  subnet_id                 = module.production_primary_virtual_networks[each.key].subnets["PowerPlatformSubnet"].resource_id
   network_security_group_id = module.production_power_platform_nsgs[each.key].resource_id
 
   # Use production provider for production environments
@@ -678,7 +674,7 @@ resource "azurerm_subnet_network_security_group_association" "production_power_p
 resource "azurerm_subnet_network_security_group_association" "non_production_power_platform" {
   for_each = local.non_production_environments
 
-  subnet_id                 = module.non_production_primary_virtual_networks[each.key].subnets["PowerPlatform"].resource_id
+  subnet_id                 = module.non_production_primary_virtual_networks[each.key].subnets["PowerPlatformSubnet"].resource_id
   network_security_group_id = module.non_production_power_platform_nsgs[each.key].resource_id
 
   depends_on = [
@@ -691,7 +687,7 @@ resource "azurerm_subnet_network_security_group_association" "non_production_pow
 resource "azurerm_subnet_network_security_group_association" "production_private_endpoint" {
   for_each = local.production_environments
 
-  subnet_id                 = module.production_primary_virtual_networks[each.key].subnets["PrivateEndpoint"].resource_id
+  subnet_id                 = module.production_primary_virtual_networks[each.key].subnets["PrivateEndpointSubnet"].resource_id
   network_security_group_id = module.production_private_endpoint_nsgs[each.key].resource_id
 
   # Use production provider for production environments
@@ -707,7 +703,7 @@ resource "azurerm_subnet_network_security_group_association" "production_private
 resource "azurerm_subnet_network_security_group_association" "non_production_private_endpoint" {
   for_each = local.non_production_environments
 
-  subnet_id                 = module.non_production_primary_virtual_networks[each.key].subnets["PrivateEndpoint"].resource_id
+  subnet_id                 = module.non_production_primary_virtual_networks[each.key].subnets["PrivateEndpointSubnet"].resource_id
   network_security_group_id = module.non_production_private_endpoint_nsgs[each.key].resource_id
 
   depends_on = [

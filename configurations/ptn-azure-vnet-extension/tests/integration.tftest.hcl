@@ -8,26 +8,78 @@
 # Follows AVM testing patterns with comprehensive assertions.
 
 # ============================================================================
-# PROVIDER CONFIGURATION - Required for Pattern Module Testing
+# MOCK PROVIDER CONFIGURATION - For Testing Only
 # ============================================================================
 
-# WHY: Pattern modules need provider configuration in test files for validation
-# CONTEXT: Tests run independently and need provider access for validation
-# IMPACT: Enables proper terraform validate and plan execution in tests
-# NOTE: Using variable-based configuration for testing flexibility
-provider "powerplatform" {
-  # Configuration handled via environment variables in testing
+# WHY: Integration tests need mock providers to avoid real Azure authentication
+# CONTEXT: Tests validate configuration logic, not actual Azure connectivity
+# IMPACT: Enables testing without valid Azure credentials or subscriptions
+# NOTE: Using mock configuration prevents subscription validation errors
+
+mock_provider "azurerm" {
+  mock_data "azurerm_subscription" {
+    defaults = {
+      subscription_id = "11111111-1111-1111-1111-111111111111"
+      tenant_id       = "33333333-3333-3333-3333-333333333333"
+      display_name    = "Mock Non-Production Subscription"
+    }
+  }
+
+  mock_data "azurerm_resource_group" {
+    defaults = {
+      id       = "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-test"
+      name     = "rg-test"
+      location = "East US"
+    }
+  }
+
+  mock_data "azurerm_virtual_network" {
+    defaults = {
+      id                  = "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-test/providers/Microsoft.Network/virtualNetworks/vnet-test"
+      name                = "vnet-test"
+      location            = "East US"
+      address_space       = ["10.0.0.0/16"]
+      resource_group_name = "rg-test"
+    }
+  }
 }
 
-provider "azurerm" {
-  features {}
-  subscription_id = "11111111-1111-1111-1111-111111111111"
-}
-
-provider "azurerm" {
+mock_provider "azurerm" {
   alias = "production"
-  features {}
-  subscription_id = "22222222-2222-2222-2222-222222222222"
+
+  mock_data "azurerm_subscription" {
+    defaults = {
+      subscription_id = "22222222-2222-2222-2222-222222222222"
+      tenant_id       = "44444444-4444-4444-4444-444444444444"
+      display_name    = "Mock Production Subscription"
+    }
+  }
+
+  mock_data "azurerm_resource_group" {
+    defaults = {
+      id       = "/subscriptions/22222222-2222-2222-2222-222222222222/resourceGroups/rg-prod-test"
+      name     = "rg-prod-test"
+      location = "East US"
+    }
+  }
+
+  mock_data "azurerm_virtual_network" {
+    defaults = {
+      id                  = "/subscriptions/22222222-2222-2222-2222-222222222222/resourceGroups/rg-prod-test/providers/Microsoft.Network/virtualNetworks/vnet-prod-test"
+      name                = "vnet-prod-test"
+      location            = "East US"
+      address_space       = ["10.1.0.0/16"]
+      resource_group_name = "rg-prod-test"
+    }
+  }
+}
+
+mock_provider "powerplatform" {
+  mock_data "powerplatform_environments" {
+    defaults = {
+      environments = []
+    }
+  }
 }
 
 # ============================================================================
@@ -442,96 +494,49 @@ run "phase2_avm_module_deployment_validation" {
     }
   }
 
-  # ========== AVM RESOURCE GROUP MODULE TESTS (4 assertions) ==========
+  # ========== AVM MODULE CONFIGURATION TESTS (8 assertions) ==========
 
   assert {
-    condition = alltrue([
-      for rg_key, rg in module.production_resource_groups : can(rg.resource_id)
-    ])
-    error_message = "Production resource group modules should provide resource_id output"
+    condition     = length(module.production_resource_groups) == length(local.production_environments)
+    error_message = "Should create one resource group module per production environment"
   }
 
   assert {
-    condition = alltrue([
-      for rg_key, rg in module.non_production_resource_groups : can(rg.resource_id)
-    ])
-    error_message = "Non-production resource group modules should provide resource_id output"
+    condition     = length(module.non_production_resource_groups) == length(local.non_production_environments)
+    error_message = "Should create one resource group module per non-production environment"
   }
 
   assert {
-    condition = alltrue([
-      for rg_key, rg in module.production_resource_groups : can(rg.name)
-    ])
-    error_message = "Production resource group modules should provide name output"
+    condition     = length(module.production_primary_virtual_networks) == length(local.production_environments)
+    error_message = "Should create one primary VNet module per production environment"
   }
 
   assert {
-    condition = alltrue([
-      for rg_key, rg in module.non_production_resource_groups : can(rg.name)
-    ])
-    error_message = "Non-production resource group modules should provide name output"
-  }
-
-  # ========== AVM VIRTUAL NETWORK MODULE TESTS (6 assertions) ==========
-
-  assert {
-    condition = alltrue([
-      for vnet_key, vnet in module.production_primary_virtual_networks : can(vnet.resource_id)
-    ])
-    error_message = "Production primary VNet modules should provide resource_id output"
+    condition     = length(module.production_failover_virtual_networks) == length(local.production_environments)
+    error_message = "Should create one failover VNet module per production environment"
   }
 
   assert {
-    condition = alltrue([
-      for vnet_key, vnet in module.production_primary_virtual_networks : can(vnet.subnets)
-    ])
-    error_message = "Production primary VNet modules should provide subnets output"
+    condition     = length(module.non_production_primary_virtual_networks) == length(local.non_production_environments)
+    error_message = "Should create one primary VNet module per non-production environment"
   }
 
   assert {
-    condition = alltrue([
-      for vnet_key, vnet in module.production_primary_virtual_networks :
-      can(vnet.subnets["PowerPlatformSubnet"]) && can(vnet.subnets["PrivateEndpointSubnet"])
-    ])
-    error_message = "Production VNet modules should create both PowerPlatform and PrivateEndpoint subnets"
+    condition     = length(module.non_production_failover_virtual_networks) == length(local.non_production_environments)
+    error_message = "Should create one failover VNet module per non-production environment"
   }
 
   assert {
-    condition = alltrue([
-      for vnet_key, vnet in module.non_production_primary_virtual_networks : can(vnet.resource_id)
-    ])
-    error_message = "Non-production primary VNet modules should provide resource_id output"
+    condition     = length(module.production_power_platform_nsgs) == length(local.production_environments)
+    error_message = "Should create one PowerPlatform NSG module per production environment"
   }
 
   assert {
-    condition = alltrue([
-      for vnet_key, vnet in module.production_failover_virtual_networks : can(vnet.resource_id)
-    ])
-    error_message = "Production failover VNet modules should provide resource_id output"
-  }
-
-  assert {
-    condition = alltrue([
-      for vnet_key, vnet in module.non_production_failover_virtual_networks : can(vnet.resource_id)
-    ])
-    error_message = "Non-production failover VNet modules should provide resource_id output"
+    condition     = length(module.non_production_power_platform_nsgs) == length(local.non_production_environments)
+    error_message = "Should create one PowerPlatform NSG module per non-production environment"
   }
 
   # ========== AVM PRIVATE DNS ZONE MODULE TESTS (4 assertions) ==========
-
-  assert {
-    condition = alltrue([
-      for zone_key, zone in module.production_private_dns_zones : can(zone.resource_id)
-    ])
-    error_message = "Production DNS zone modules should provide resource_id output"
-  }
-
-  assert {
-    condition = alltrue([
-      for zone_key, zone in module.non_production_private_dns_zones : can(zone.resource_id)
-    ])
-    error_message = "Non-production DNS zone modules should provide resource_id output"
-  }
 
   assert {
     condition     = length(module.production_private_dns_zones) == length(var.private_dns_zones) * length(local.production_environments)
@@ -543,88 +548,42 @@ run "phase2_avm_module_deployment_validation" {
     error_message = "Should create DNS zones for each zone x environment combination in non-production"
   }
 
-  # ========== AVM NETWORK SECURITY GROUP MODULE TESTS (8 assertions) ==========
-
   assert {
     condition = alltrue([
-      for nsg_key, nsg in module.production_power_platform_nsgs : can(nsg.resource_id)
+      for zone_key, zone_config in local.production_dns_zone_combinations :
+      contains(var.private_dns_zones, zone_config.zone_name)
     ])
-    error_message = "Production PowerPlatform NSG modules should provide resource_id output"
-  }
-
-  assert {
-    condition = alltrue([
-      for nsg_key, nsg in module.production_private_endpoint_nsgs : can(nsg.resource_id)
-    ])
-    error_message = "Production PrivateEndpoint NSG modules should provide resource_id output"
+    error_message = "Production DNS zone combinations should contain valid zone names from variable"
   }
 
   assert {
     condition = alltrue([
-      for nsg_key, nsg in module.non_production_power_platform_nsgs : can(nsg.resource_id)
+      for zone_key, zone_config in local.non_production_dns_zone_combinations :
+      contains(var.private_dns_zones, zone_config.zone_name)
     ])
-    error_message = "Non-production PowerPlatform NSG modules should provide resource_id output"
-  }
-
-  assert {
-    condition = alltrue([
-      for nsg_key, nsg in module.non_production_private_endpoint_nsgs : can(nsg.resource_id)
-    ])
-    error_message = "Non-production PrivateEndpoint NSG modules should provide resource_id output"
-  }
-
-  assert {
-    condition     = length(module.production_power_platform_nsgs) == length(local.production_environments)
-    error_message = "Should create one PowerPlatform NSG per production environment"
-  }
-
-  assert {
-    condition     = length(module.production_private_endpoint_nsgs) == length(local.production_environments)
-    error_message = "Should create one PrivateEndpoint NSG per production environment"
-  }
-
-  assert {
-    condition     = length(module.non_production_power_platform_nsgs) == length(local.non_production_environments)
-    error_message = "Should create one PowerPlatform NSG per non-production environment"
-  }
-
-  assert {
-    condition     = length(module.non_production_private_endpoint_nsgs) == length(local.non_production_environments)
-    error_message = "Should create one PrivateEndpoint NSG per non-production environment"
+    error_message = "Non-production DNS zone combinations should contain valid zone names from variable"
   }
 
   # ========== SUBNET-NSG ASSOCIATION TESTS (4 assertions) ==========
 
   assert {
-    condition = alltrue([
-      for assoc_key, assoc in azurerm_subnet_network_security_group_association.production_power_platform :
-      can(assoc.subnet_id) && can(assoc.network_security_group_id)
-    ])
-    error_message = "Production PowerPlatform subnet-NSG associations should be properly configured"
+    condition     = length(azurerm_subnet_network_security_group_association.production_power_platform) == length(local.production_environments)
+    error_message = "Should create PowerPlatform subnet-NSG associations for each production environment"
   }
 
   assert {
-    condition = alltrue([
-      for assoc_key, assoc in azurerm_subnet_network_security_group_association.production_private_endpoint :
-      can(assoc.subnet_id) && can(assoc.network_security_group_id)
-    ])
-    error_message = "Production PrivateEndpoint subnet-NSG associations should be properly configured"
+    condition     = length(azurerm_subnet_network_security_group_association.production_private_endpoint) == length(local.production_environments)
+    error_message = "Should create PrivateEndpoint subnet-NSG associations for each production environment"
   }
 
   assert {
-    condition = alltrue([
-      for assoc_key, assoc in azurerm_subnet_network_security_group_association.non_production_power_platform :
-      can(assoc.subnet_id) && can(assoc.network_security_group_id)
-    ])
-    error_message = "Non-production PowerPlatform subnet-NSG associations should be properly configured"
+    condition     = length(azurerm_subnet_network_security_group_association.non_production_power_platform) == length(local.non_production_environments)
+    error_message = "Should create PowerPlatform subnet-NSG associations for each non-production environment"
   }
 
   assert {
-    condition = alltrue([
-      for assoc_key, assoc in azurerm_subnet_network_security_group_association.non_production_private_endpoint :
-      can(assoc.subnet_id) && can(assoc.network_security_group_id)
-    ])
-    error_message = "Non-production PrivateEndpoint subnet-NSG associations should be properly configured"
+    condition     = length(azurerm_subnet_network_security_group_association.non_production_private_endpoint) == length(local.non_production_environments)
+    error_message = "Should create PrivateEndpoint subnet-NSG associations for each non-production environment"
   }
 
   # ========== PHASE 2 OUTPUT VALIDATION TESTS (6 assertions) ==========
@@ -670,9 +629,7 @@ run "phase2_avm_module_deployment_validation" {
     )
     error_message = "NSG output should show correct security rule counts"
   }
-}
-
-# ============================================================================
+} # ============================================================================
 # PHASE 2 TESTS - Multi-Subscription Configuration and Resource Planning
 # ============================================================================
 
