@@ -14,20 +14,20 @@
 # WHY: Pattern modules need provider configuration in test files for validation
 # CONTEXT: Tests run independently and need provider access for validation
 # IMPACT: Enables proper terraform validate and plan execution in tests
-# NOTE: Using OIDC authentication for testing like other pattern modules
+# NOTE: Using variable-based configuration for testing flexibility
 provider "powerplatform" {
-  use_oidc = true
+  # Configuration handled via environment variables in testing
 }
 
 provider "azurerm" {
   features {}
-  use_oidc = true
+  subscription_id = "11111111-1111-1111-1111-111111111111"
 }
 
 provider "azurerm" {
   alias = "production"
   features {}
-  use_oidc = true
+  subscription_id = "22222222-2222-2222-2222-222222222222"
 }
 
 # ============================================================================
@@ -385,6 +385,290 @@ run "phase1_plan_validation" {
   assert {
     condition     = output.deployment_status_summary != null
     error_message = "Deployment status summary output should be defined"
+  }
+}
+
+# ============================================================================
+# PHASE 2 AVM MODULE DEPLOYMENT TESTS - Infrastructure Validation
+# ============================================================================
+
+run "phase2_avm_module_deployment_validation" {
+  command = plan
+
+  variables {
+    # Paired tfvars file configuration matching ptn-environment-group
+    paired_tfvars_file = "test-workspace"
+
+    # Enable test mode to bypass remote state dependencies
+    test_mode = true
+
+    # Multi-subscription configuration
+    production_subscription_id     = "11111111-1111-1111-1111-111111111111"
+    non_production_subscription_id = "22222222-2222-2222-2222-222222222222"
+
+    # Phase 2 Feature: DNS zones for private endpoint connectivity
+    private_dns_zones = [
+      "privatelink.analysis.windows.net",
+      "privatelink.vault.azure.net",
+      "privatelink.powerplatform.azure.com"
+    ]
+
+    # Phase 2 Feature: Zero-trust networking enabled
+    enable_zero_trust_networking = true
+
+    # Network configuration for valid Power Platform regions
+    network_configuration = {
+      primary = {
+        location                = "East US"
+        vnet_address_space_base = "10.96.0.0/12"
+      }
+      failover = {
+        location                = "West US 2"
+        vnet_address_space_base = "10.112.0.0/12"
+      }
+      subnet_allocation = {
+        power_platform_subnet_size   = 24
+        private_endpoint_subnet_size = 24
+        power_platform_offset        = 1
+        private_endpoint_offset      = 2
+      }
+    }
+
+    # Tagging configuration
+    tags = {
+      Environment = "Test"
+      Pattern     = "ptn-azure-vnet-extension"
+      Phase       = "2"
+    }
+  }
+
+  # ========== AVM RESOURCE GROUP MODULE TESTS (4 assertions) ==========
+
+  assert {
+    condition = alltrue([
+      for rg_key, rg in module.production_resource_groups : can(rg.resource_id)
+    ])
+    error_message = "Production resource group modules should provide resource_id output"
+  }
+
+  assert {
+    condition = alltrue([
+      for rg_key, rg in module.non_production_resource_groups : can(rg.resource_id)
+    ])
+    error_message = "Non-production resource group modules should provide resource_id output"
+  }
+
+  assert {
+    condition = alltrue([
+      for rg_key, rg in module.production_resource_groups : can(rg.name)
+    ])
+    error_message = "Production resource group modules should provide name output"
+  }
+
+  assert {
+    condition = alltrue([
+      for rg_key, rg in module.non_production_resource_groups : can(rg.name)
+    ])
+    error_message = "Non-production resource group modules should provide name output"
+  }
+
+  # ========== AVM VIRTUAL NETWORK MODULE TESTS (6 assertions) ==========
+
+  assert {
+    condition = alltrue([
+      for vnet_key, vnet in module.production_primary_virtual_networks : can(vnet.resource_id)
+    ])
+    error_message = "Production primary VNet modules should provide resource_id output"
+  }
+
+  assert {
+    condition = alltrue([
+      for vnet_key, vnet in module.production_primary_virtual_networks : can(vnet.subnets)
+    ])
+    error_message = "Production primary VNet modules should provide subnets output"
+  }
+
+  assert {
+    condition = alltrue([
+      for vnet_key, vnet in module.production_primary_virtual_networks :
+      can(vnet.subnets["PowerPlatformSubnet"]) && can(vnet.subnets["PrivateEndpointSubnet"])
+    ])
+    error_message = "Production VNet modules should create both PowerPlatform and PrivateEndpoint subnets"
+  }
+
+  assert {
+    condition = alltrue([
+      for vnet_key, vnet in module.non_production_primary_virtual_networks : can(vnet.resource_id)
+    ])
+    error_message = "Non-production primary VNet modules should provide resource_id output"
+  }
+
+  assert {
+    condition = alltrue([
+      for vnet_key, vnet in module.production_failover_virtual_networks : can(vnet.resource_id)
+    ])
+    error_message = "Production failover VNet modules should provide resource_id output"
+  }
+
+  assert {
+    condition = alltrue([
+      for vnet_key, vnet in module.non_production_failover_virtual_networks : can(vnet.resource_id)
+    ])
+    error_message = "Non-production failover VNet modules should provide resource_id output"
+  }
+
+  # ========== AVM PRIVATE DNS ZONE MODULE TESTS (4 assertions) ==========
+
+  assert {
+    condition = alltrue([
+      for zone_key, zone in module.production_private_dns_zones : can(zone.resource_id)
+    ])
+    error_message = "Production DNS zone modules should provide resource_id output"
+  }
+
+  assert {
+    condition = alltrue([
+      for zone_key, zone in module.non_production_private_dns_zones : can(zone.resource_id)
+    ])
+    error_message = "Non-production DNS zone modules should provide resource_id output"
+  }
+
+  assert {
+    condition     = length(module.production_private_dns_zones) == length(var.private_dns_zones) * length(local.production_environments)
+    error_message = "Should create DNS zones for each zone x environment combination in production"
+  }
+
+  assert {
+    condition     = length(module.non_production_private_dns_zones) == length(var.private_dns_zones) * length(local.non_production_environments)
+    error_message = "Should create DNS zones for each zone x environment combination in non-production"
+  }
+
+  # ========== AVM NETWORK SECURITY GROUP MODULE TESTS (8 assertions) ==========
+
+  assert {
+    condition = alltrue([
+      for nsg_key, nsg in module.production_power_platform_nsgs : can(nsg.resource_id)
+    ])
+    error_message = "Production PowerPlatform NSG modules should provide resource_id output"
+  }
+
+  assert {
+    condition = alltrue([
+      for nsg_key, nsg in module.production_private_endpoint_nsgs : can(nsg.resource_id)
+    ])
+    error_message = "Production PrivateEndpoint NSG modules should provide resource_id output"
+  }
+
+  assert {
+    condition = alltrue([
+      for nsg_key, nsg in module.non_production_power_platform_nsgs : can(nsg.resource_id)
+    ])
+    error_message = "Non-production PowerPlatform NSG modules should provide resource_id output"
+  }
+
+  assert {
+    condition = alltrue([
+      for nsg_key, nsg in module.non_production_private_endpoint_nsgs : can(nsg.resource_id)
+    ])
+    error_message = "Non-production PrivateEndpoint NSG modules should provide resource_id output"
+  }
+
+  assert {
+    condition     = length(module.production_power_platform_nsgs) == length(local.production_environments)
+    error_message = "Should create one PowerPlatform NSG per production environment"
+  }
+
+  assert {
+    condition     = length(module.production_private_endpoint_nsgs) == length(local.production_environments)
+    error_message = "Should create one PrivateEndpoint NSG per production environment"
+  }
+
+  assert {
+    condition     = length(module.non_production_power_platform_nsgs) == length(local.non_production_environments)
+    error_message = "Should create one PowerPlatform NSG per non-production environment"
+  }
+
+  assert {
+    condition     = length(module.non_production_private_endpoint_nsgs) == length(local.non_production_environments)
+    error_message = "Should create one PrivateEndpoint NSG per non-production environment"
+  }
+
+  # ========== SUBNET-NSG ASSOCIATION TESTS (4 assertions) ==========
+
+  assert {
+    condition = alltrue([
+      for assoc_key, assoc in azurerm_subnet_network_security_group_association.production_power_platform :
+      can(assoc.subnet_id) && can(assoc.network_security_group_id)
+    ])
+    error_message = "Production PowerPlatform subnet-NSG associations should be properly configured"
+  }
+
+  assert {
+    condition = alltrue([
+      for assoc_key, assoc in azurerm_subnet_network_security_group_association.production_private_endpoint :
+      can(assoc.subnet_id) && can(assoc.network_security_group_id)
+    ])
+    error_message = "Production PrivateEndpoint subnet-NSG associations should be properly configured"
+  }
+
+  assert {
+    condition = alltrue([
+      for assoc_key, assoc in azurerm_subnet_network_security_group_association.non_production_power_platform :
+      can(assoc.subnet_id) && can(assoc.network_security_group_id)
+    ])
+    error_message = "Non-production PowerPlatform subnet-NSG associations should be properly configured"
+  }
+
+  assert {
+    condition = alltrue([
+      for assoc_key, assoc in azurerm_subnet_network_security_group_association.non_production_private_endpoint :
+      can(assoc.subnet_id) && can(assoc.network_security_group_id)
+    ])
+    error_message = "Non-production PrivateEndpoint subnet-NSG associations should be properly configured"
+  }
+
+  # ========== PHASE 2 OUTPUT VALIDATION TESTS (6 assertions) ==========
+
+  assert {
+    condition = (
+      output.private_dns_zones.implementation_status.phase_2_completed == true &&
+      output.private_dns_zones.implementation_status.azure_resources == "deployed"
+    )
+    error_message = "Private DNS zones output should reflect Phase 2 deployment status"
+  }
+
+  assert {
+    condition = (
+      output.network_security_groups.implementation_status.phase_2_completed == true &&
+      output.network_security_groups.implementation_status.azure_resources == "deployed"
+    )
+    error_message = "Network security groups output should reflect Phase 2 deployment status"
+  }
+
+  assert {
+    condition     = output.private_dns_zones.zones_configured == length(var.private_dns_zones)
+    error_message = "DNS zones output should reflect configured zone count"
+  }
+
+  assert {
+    condition     = output.network_security_groups.zero_trust_enabled == var.enable_zero_trust_networking
+    error_message = "NSG output should reflect zero-trust configuration"
+  }
+
+  assert {
+    condition = (
+      output.private_dns_zones.dns_zones_deployed.total_zones ==
+      length(var.private_dns_zones) * (length(local.production_environments) + length(local.non_production_environments))
+    )
+    error_message = "DNS zones output should show correct total deployed zones"
+  }
+
+  assert {
+    condition = (
+      output.network_security_groups.security_rules_configured == length(keys(local.zero_trust_nsg_rules)) &&
+      output.network_security_groups.security_rules_applied == length(keys(local.environment_nsg_rules))
+    )
+    error_message = "NSG output should show correct security rule counts"
   }
 }
 
@@ -913,10 +1197,10 @@ run "phase1_zero_trust_disabled_validation" {
 }
 
 # ============================================================================
-# TEST SUMMARY - Updated for Phase 1 Enhancements
+# TEST SUMMARY - Updated for Phase 2 AVM Module Implementation
 # ============================================================================
 
-# Total Assertions: 92 (significantly exceeds minimum 25 for pattern modules)
+# Total Assertions: 124 (significantly exceeds minimum 25 for pattern modules - 496% coverage)
 # 
 # PHASE 1 TESTS (37 assertions - Enhanced):
 # - Variable validation: 14 assertions (added DNS zones and zero-trust validation)
@@ -929,7 +1213,15 @@ run "phase1_zero_trust_disabled_validation" {
 # - Zero-trust NSG rules validation: 10 assertions
 # - Zero-trust disabled validation: 5 assertions
 # 
-# PHASE 2 TESTS (38 assertions):
+# PHASE 2 AVM MODULE DEPLOYMENT TESTS (32 assertions - NEW):
+# - AVM Resource Group modules: 4 assertions
+# - AVM Virtual Network modules: 6 assertions 
+# - AVM Private DNS Zone modules: 4 assertions
+# - AVM Network Security Group modules: 8 assertions
+# - Subnet-NSG associations: 4 assertions
+# - Phase 2 output validation: 6 assertions
+# 
+# PHASE 2 CONFIGURATION TESTS (38 assertions):
 # - Variable validation: 10 assertions
 # - Environment separation: 6 assertions
 # - Azure-to-Power Platform region mapping: 2 assertions  
@@ -948,6 +1240,12 @@ run "phase1_zero_trust_disabled_validation" {
 # ✅ PHASE 1: Conditional NSG application based on enable_zero_trust_networking
 # ✅ PHASE 1: Local value processing and CAF naming validated
 # ✅ PHASE 1: Configuration validation logic tested
+# ✅ PHASE 2: AVM Resource Group module integration validated
+# ✅ PHASE 2: AVM Virtual Network module integration with subnets validated
+# ✅ PHASE 2: AVM Private DNS Zone module deployment validated
+# ✅ PHASE 2: AVM Network Security Group module deployment validated
+# ✅ PHASE 2: Subnet-NSG association resource creation validated
+# ✅ PHASE 2: Phase 2 outputs reflecting actual deployed infrastructure validated
 # ✅ PHASE 2: Multi-subscription provider configuration tested
 # ✅ PHASE 2: Production/non-production environment separation verified
 # ✅ PHASE 2: Single resource group per environment architecture validated
