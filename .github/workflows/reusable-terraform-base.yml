@@ -631,11 +631,10 @@ jobs:
                 echo "success=true" >> $GITHUB_OUTPUT
 
                 # Capture destroy output showing what resources were removed
-                delimiter="DESTROY_OUTPUT_${RANDOM}_EOF"
                 {
-                  echo "tf-output<<$delimiter"
+                  echo "tf-output<<DESTROY_OUTPUT_EOF"
                   cat "$destroy_output_file"
-                  echo "$delimiter"
+                  echo "DESTROY_OUTPUT_EOF"
                 } >> $GITHUB_OUTPUT
               else
                 echo "::error title=Destroy Failed::❌ Terraform destroy failed"
