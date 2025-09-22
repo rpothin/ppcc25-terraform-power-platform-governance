@@ -124,3 +124,41 @@ DESCRIPTION
     error_message = "Location must be a valid Power Platform geographic region. Supported: unitedstates, europe, asia, australia, unitedkingdom, india, canada, southamerica, france, unitedarabemirates, southafrica, germany, switzerland, norway, korea, japan."
   }
 }
+
+variable "security_group_id" {
+  type        = string
+  description = <<DESCRIPTION
+Entra ID security group ID that controls user access to all environments in this workspace.
+
+This security group determines which users can access the Power Platform environments.
+The same security group will be applied to all environments created by the workspace template.
+
+Purpose:
+- Controls user membership and access to Power Platform environments
+- Applied to Dataverse configuration for proper governance
+- Enables centralized user access management through Entra ID
+
+Example:
+security_group_id = "12345678-1234-1234-1234-123456789abc"
+
+How to get Security Group ID:
+1. Open Azure Portal → Microsoft Entra ID → Groups
+2. Find your security group → Properties → Object ID
+3. Copy the Object ID (GUID format)
+
+Validation Rules:
+- Must be a valid UUID/GUID format
+- Must reference an existing Entra ID security group
+- Cannot be empty or null
+DESCRIPTION
+
+  validation {
+    condition     = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.security_group_id))
+    error_message = "Security group ID must be a valid UUID format for Entra ID security group. Get this from Azure Portal → Entra ID → Groups → [Your Group] → Properties → Object ID."
+  }
+
+  validation {
+    condition     = length(trimspace(var.security_group_id)) > 0
+    error_message = "Security group ID cannot be empty. Provide the Object ID of an Entra ID security group that should control access to Power Platform environments."
+  }
+}

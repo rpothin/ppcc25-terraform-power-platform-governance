@@ -5,6 +5,7 @@ This pattern creates a complete environment group setup with multiple environmen
 ## Key Features
 
 - **Template-Driven**: Workspace templates (basic, simple, enterprise) with predefined environment configurations
+- **Security Group Integration**: Uses Entra ID security groups to control user access to environments (NOT service principals)
 - **Hybrid Settings Management**: Workspace-level defaults with environment-specific overrides
 - **AVM Module Orchestration**: Uses res-environment-group, res-environment (with managed environment capabilities), res-environment-settings, and res-environment-application-admin modules
 - **Multi-Resource Orchestration**: Coordinated deployment of environment groups, environments, and settings
@@ -63,6 +64,7 @@ workspace_template = "basic"
 name               = "ProjectAlpha"
 description        = "Project Alpha development workspace"
 location           = "unitedstates"
+security_group_id  = "12345678-1234-1234-1234-123456789abc"  # Entra ID Security Group
 
 # Results in:
 # - ProjectAlpha - Environment Group
@@ -84,6 +86,7 @@ inputs:
 # name               = "CriticalBusinessApp"
 # description        = "Critical business application with full enterprise governance"
 # location           = "unitedstates"
+# security_group_id  = "87654321-4321-4321-4321-abcdef123456"  # Enterprise Security Group
 #
 # Results in:
 # - CriticalBusinessApp - Environment Group

@@ -31,6 +31,7 @@ variables {
   name               = "TestWorkspace"
   description        = "Test workspace for template-driven pattern validation and CI/CD"
   location           = "unitedstates"
+  security_group_id  = "12345678-1234-1234-1234-123456789abc" # Test Entra ID Security Group ID
 }
 
 # ============================================================================
@@ -104,6 +105,12 @@ run "static_validation" {
     error_message = "Location must be a valid Power Platform geographic region"
   }
 
+  # Security Group ID validation
+  assert {
+    condition     = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.security_group_id))
+    error_message = "Security group ID must be a valid UUID format for Entra ID security group"
+  }
+
   # Template processing validation - locals.tf exists
   assert {
     condition     = fileexists("${path.module}/locals.tf")
@@ -140,6 +147,12 @@ run "static_validation" {
   assert {
     condition     = length(regexall("monitoring_service_principal_id\\s*=", file("${path.module}/locals.tf"))) > 0
     error_message = "Monitoring service principal must be configured in locals.tf"
+  }
+
+  # Security group configuration validation - separate from service principal
+  assert {
+    condition     = length(regexall("security_group_id\\s*=\\s*var\\.security_group_id", file("${path.module}/locals.tf"))) > 0
+    error_message = "Dataverse security group ID should use var.security_group_id, not hardcoded service principal"
   }
 
   # === MODULE ORCHESTRATION FILE STRUCTURE (10 assertions) ===

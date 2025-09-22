@@ -9,15 +9,17 @@ locals {
   # COMMON CONFIGURATION
   # ==========================================================================
 
-  # Service principal for tenant-level monitoring (hardcoded for demonstration)
-  # In production, this would be managed through Azure Key Vault or similar
-  monitoring_service_principal_id = "b4a04840-2aa7-426a-ba2b-19330b6ae3d2" # Replace with actual SP ID
+  # Service principal for tenant-level monitoring and automation (hardcoded for demonstration)
+  # WHY: Used for monitoring dashboards and automated reporting, not environment access control
+  # In production, this would be managed through Azure Key Vault or similar secure storage
+  monitoring_service_principal_id = "b4a04840-2aa7-426a-ba2b-19330b6ae3d2" # Replace with actual monitoring SP ID
 
-  # Default Dataverse configuration
+  # Default Dataverse configuration for all environments
+  # WHY: Provides consistent Dataverse settings across all environments in the workspace
   default_dataverse_config = {
-    language_code     = 1033 # English (United States)
-    currency_code     = "USD"
-    security_group_id = local.monitoring_service_principal_id
+    language_code     = 1033                  # English (United States)
+    currency_code     = "USD"                 # US Dollar
+    security_group_id = var.security_group_id # Entra ID security group for user access control
   }
 
   # ==========================================================================
@@ -452,10 +454,18 @@ check "environment_names_within_limits" {
   }
 }
 
-# Validate service principal ID format
+# Validate service principal ID format for monitoring
 check "monitoring_service_principal_valid" {
   assert {
     condition     = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", local.monitoring_service_principal_id))
-    error_message = "Monitoring service principal ID must be a valid UUID format. Update the hardcoded value in locals.tf."
+    error_message = "Monitoring service principal ID must be a valid UUID format. This is used for monitoring and automation, not environment access control. Update the hardcoded value in locals.tf."
+  }
+}
+
+# Validate security group ID format for environment access control
+check "security_group_id_valid" {
+  assert {
+    condition     = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.security_group_id))
+    error_message = "Security group ID must be a valid UUID format for Entra ID security group. This controls user access to Power Platform environments. Get from Azure Portal → Entra ID → Groups → [Your Group] → Properties → Object ID."
   }
 }
