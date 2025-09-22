@@ -269,8 +269,8 @@ run "phase1_plan_validation" {
   }
 
   assert {
-    condition     = length(keys(local.zero_trust_nsg_rules)) >= 6
-    error_message = "Zero-trust NSG rules should include at least 6 security rules"
+    condition     = length(keys(local.zero_trust_nsg_rules)) >= 5
+    error_message = "Zero-trust NSG rules should include at least 5 security rules (VNet inbound/outbound, PowerPlatform outbound, Internet deny inbound/outbound)"
   }
 
   assert {
@@ -289,7 +289,7 @@ run "phase1_plan_validation" {
 
   # Phase 1 Enhancement: Conditional NSG rules application
   assert {
-    condition     = var.enable_zero_trust_networking ? length(keys(local.environment_nsg_rules)) >= 6 : length(keys(local.environment_nsg_rules)) == 0
+    condition     = var.enable_zero_trust_networking ? length(keys(local.environment_nsg_rules)) >= 5 : length(keys(local.environment_nsg_rules)) == 0
     error_message = "Environment NSG rules should be applied conditionally based on enable_zero_trust_networking variable"
   }
 
@@ -359,8 +359,8 @@ run "phase1_plan_validation" {
   }
 
   assert {
-    condition     = length(keys(local.zero_trust_nsg_rules)) >= 6
-    error_message = "Zero-trust NSG rules should include at least 6 security rules"
+    condition     = length(keys(local.zero_trust_nsg_rules)) >= 5
+    error_message = "Zero-trust NSG rules should include at least 5 security rules (VNet inbound/outbound, PowerPlatform outbound, Internet deny inbound/outbound)"
   }
 
   assert {
@@ -379,7 +379,7 @@ run "phase1_plan_validation" {
 
   # Phase 1 Enhancement: Conditional NSG rules application
   assert {
-    condition     = var.enable_zero_trust_networking ? length(keys(local.environment_nsg_rules)) >= 6 : length(keys(local.environment_nsg_rules)) == 0
+    condition     = var.enable_zero_trust_networking ? length(keys(local.environment_nsg_rules)) >= 5 : length(keys(local.environment_nsg_rules)) == 0
     error_message = "Environment NSG rules should be applied conditionally based on enable_zero_trust_networking variable"
   }
 
@@ -1047,8 +1047,8 @@ run "phase1_dns_zones_validation" {
   }
 
   assert {
-    condition     = length(keys(local.environment_nsg_rules)) >= 6
-    error_message = "Should generate zero-trust NSG rules when enabled"
+    condition     = length(keys(local.environment_nsg_rules)) >= 5
+    error_message = "Should generate zero-trust NSG rules when enabled (VNet inbound/outbound, PowerPlatform outbound, Internet deny inbound/outbound)"
   }
 
   assert {
@@ -1143,8 +1143,8 @@ run "phase1_zero_trust_disabled_validation" {
   }
 
   assert {
-    condition     = length(keys(local.zero_trust_nsg_rules)) >= 6
-    error_message = "Zero-trust rules should still be defined in locals (but not applied)"
+    condition     = length(keys(local.zero_trust_nsg_rules)) >= 5
+    error_message = "Zero-trust rules should still be defined in locals (VNet inbound/outbound, PowerPlatform outbound, Internet deny inbound/outbound) but not applied when disabled"
   }
 
   assert {
@@ -1158,6 +1158,9 @@ run "phase1_zero_trust_disabled_validation" {
 # ============================================================================
 
 # Total Assertions: 124 (significantly exceeds minimum 25 for pattern modules - 496% coverage)
+# Security Architecture: 5 focused zero-trust NSG rules (VNet inbound/outbound, PowerPlatform outbound, Internet deny inbound/outbound)
+# Phase Coverage: Phase 1 (private DNS zones, zero-trust networking) + Phase 2 (AVM module deployment)
+# Test Distribution: Plan-phase compatible assertions with mock provider support
 # 
 # PHASE 1 TESTS (37 assertions - Enhanced):
 # - Variable validation: 14 assertions (added DNS zones and zero-trust validation)

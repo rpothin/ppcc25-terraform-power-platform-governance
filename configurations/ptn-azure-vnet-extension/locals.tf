@@ -296,7 +296,10 @@ locals {
         }
       }
 
-      # Network security considerations
+      # Network security considerations - Legacy reference (unused in Phase 2)
+      # WHY: Maintained for backward compatibility but superseded by zero_trust_nsg_rules
+      # CONTEXT: Phase 2 uses comprehensive zero-trust rules instead of this basic rule
+      # IMPACT: This rule is not applied - serves as reference only
       network_security_group_rules = {
         allow_power_platform = {
           name                       = "AllowPowerPlatformTraffic"
@@ -306,7 +309,7 @@ locals {
           protocol                   = "*"
           source_port_range          = "*"
           destination_port_range     = "*"
-          source_address_prefix      = "PowerPlatform"
+          source_address_prefix      = "PowerPlatformInfra"  # Updated for consistency
           destination_address_prefix = "*"
         }
       }
@@ -440,22 +443,10 @@ locals {
       destination_port_range     = "*"
     }
 
-    # Allow Power Platform service communication
-    # WHY: Power Platform services need to communicate with injected environments
-    # CONTEXT: PowerPlatform service tag represents Microsoft Power Platform endpoints
-    # IMPACT: Maintains Power Platform functionality while enforcing network security
-    "allow_powerplatform_inbound" = {
-      name                       = "AllowPowerPlatformInbound"
-      access                     = "Allow"
-      direction                  = "Inbound"
-      priority                   = 110
-      protocol                   = "*"
-      source_address_prefix      = "PowerPlatform"
-      destination_address_prefix = "*"
-      source_port_range          = "*"
-      destination_port_range     = "*"
-    }
-
+    # Allow Power Platform service communication (outbound only)
+    # WHY: VNet injection eliminates need for external inbound - only outbound to Power Platform services
+    # CONTEXT: PowerPlatformInfra service tag for outbound connectivity to Microsoft infrastructure
+    # IMPACT: Maintains Power Platform functionality while enforcing true zero-trust inbound policy
     "allow_powerplatform_outbound" = {
       name                       = "AllowPowerPlatformOutbound"
       access                     = "Allow"
@@ -463,38 +454,15 @@ locals {
       priority                   = 110
       protocol                   = "*"
       source_address_prefix      = "*"
-      destination_address_prefix = "PowerPlatform"
+      destination_address_prefix = "PowerPlatformInfra"
       source_port_range          = "*"
       destination_port_range     = "*"
     }
 
-    # Allow Azure services that Power Platform depends on
-    # WHY: Power Platform requires access to core Azure services for authentication, storage, etc.
-    # CONTEXT: AzureActiveDirectory and Storage service tags are essential for functionality
-    # IMPACT: Ensures Power Platform can authenticate and access required Azure services
-    "allow_azuread_outbound" = {
-      name                       = "AllowAzureADOutbound"
-      access                     = "Allow"
-      direction                  = "Outbound"
-      priority                   = 120
-      protocol                   = "*"
-      source_address_prefix      = "*"
-      destination_address_prefix = "AzureActiveDirectory"
-      source_port_range          = "*"
-      destination_port_range     = "*"
-    }
-
-    "allow_storage_outbound" = {
-      name                       = "AllowStorageOutbound"
-      access                     = "Allow"
-      direction                  = "Outbound"
-      priority                   = 130
-      protocol                   = "*"
-      source_address_prefix      = "*"
-      destination_address_prefix = "Storage"
-      source_port_range          = "*"
-      destination_port_range     = "*"
-    }
+    # Note: AzureActiveDirectory and Storage service tags removed
+    # WHY: VNet injection provides secure connectivity without broad service tag allowances
+    # CONTEXT: Power Platform authentication and storage access handled through private connectivity
+    # IMPACT: Enforces true zero-trust by eliminating unnecessary external service dependencies
 
     # Deny all internet traffic (zero-trust principle)
     # WHY: Block all unauthorized external communication by default
