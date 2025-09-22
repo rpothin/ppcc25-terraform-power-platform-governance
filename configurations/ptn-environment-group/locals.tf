@@ -52,6 +52,9 @@ locals {
         global_security = {
           allow_microsoft_trusted_service_tags = true
           allow_application_user_access        = true
+          # NOTE: IP firewall settings require Power Platform Managed Environments
+          # This pattern uses standard environments for simplicity following PPCC25 "Keep It Simple" principle
+          # For enterprise scenarios requiring IP restrictions, consider implementing managed environments
         }
       }
 
@@ -94,8 +97,9 @@ locals {
               log_retention_period_in_days = 90    # Longer than dev
             }
             security_settings = {
-              enable_ip_based_firewall_rule = true # Some restrictions for test
-              allowed_ip_range_for_firewall = ["10.0.0.0/8", "192.168.0.0/16"]
+              # IP firewall rules removed - require managed environments
+              # enable_ip_based_firewall_rule = true
+              # allowed_ip_range_for_firewall = ["10.0.0.0/8", "192.168.0.0/16"]
             }
             # Inherit global email settings (no override)
           }
@@ -115,9 +119,10 @@ locals {
               log_retention_period_in_days = 365  # Compliance requirement
             }
             security_settings = {
-              enable_ip_based_firewall_rule               = true           # Strict security
-              allowed_ip_range_for_firewall               = ["10.0.0.0/8"] # Corporate network only
-              enable_ip_based_firewall_rule_in_audit_mode = false          # Enforce, don't audit
+              # IP firewall rules removed - require managed environments  
+              # enable_ip_based_firewall_rule               = true
+              # allowed_ip_range_for_firewall               = ["10.0.0.0/8"]
+              # enable_ip_based_firewall_rule_in_audit_mode = false
             }
             # Inherit global email settings (production uses workspace default)
           }
@@ -188,8 +193,9 @@ locals {
               log_retention_period_in_days = 180   # Moderate compliance requirement
             }
             security_settings = {
-              enable_ip_based_firewall_rule = true                             # Basic security
-              allowed_ip_range_for_firewall = ["10.0.0.0/8", "192.168.0.0/16"] # Standard corporate
+              # IP firewall rules removed - require managed environments
+              # enable_ip_based_firewall_rule = true
+              # allowed_ip_range_for_firewall = ["10.0.0.0/8", "192.168.0.0/16"]
             }
             # Inherit global email settings
           }
@@ -263,9 +269,10 @@ locals {
               log_retention_period_in_days = 90    # Extended for staging analysis
             }
             security_settings = {
-              enable_ip_based_firewall_rule               = true           # Controlled access
-              allowed_ip_range_for_firewall               = ["10.0.0.0/8"] # Corporate network
-              enable_ip_based_firewall_rule_in_audit_mode = true           # Monitor before enforce
+              # IP firewall rules removed - require managed environments
+              # enable_ip_based_firewall_rule               = true
+              # allowed_ip_range_for_firewall               = ["10.0.0.0/8"]
+              # enable_ip_based_firewall_rule_in_audit_mode = true
             }
           }
         },
@@ -284,8 +291,9 @@ locals {
               log_retention_period_in_days = 180   # Extended for test analysis
             }
             security_settings = {
-              enable_ip_based_firewall_rule = true # Controlled test access
-              allowed_ip_range_for_firewall = ["10.0.0.0/8", "192.168.0.0/16"]
+              # IP firewall rules removed - require managed environments
+              # enable_ip_based_firewall_rule = true
+              # allowed_ip_range_for_firewall = ["10.0.0.0/8", "192.168.0.0/16"]
             }
             # Inherit global email settings for consistency
           }
@@ -305,10 +313,11 @@ locals {
               log_retention_period_in_days = 2555 # 7 years for enterprise compliance
             }
             security_settings = {
-              enable_ip_based_firewall_rule               = true                  # Strict security
-              allowed_ip_range_for_firewall               = ["10.0.0.0/8"]        # Corporate only
-              enable_ip_based_firewall_rule_in_audit_mode = false                 # Enforce security
-              allowed_service_tags_for_firewall           = ["PowerPlatformPlex"] # Enterprise services
+              # IP firewall rules removed - require managed environments
+              # enable_ip_based_firewall_rule               = true
+              # allowed_ip_range_for_firewall               = ["10.0.0.0/8"]
+              # enable_ip_based_firewall_rule_in_audit_mode = false
+              # allowed_service_tags_for_firewall           = ["PowerPlatformPlex"]
             }
             # Inherit global email settings (enterprise production standard)
           }

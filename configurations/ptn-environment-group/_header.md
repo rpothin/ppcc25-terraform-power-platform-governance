@@ -49,12 +49,14 @@ This pattern is designed for organizations that need to:
 1. **Workspace Settings**: Common configurations applied to all environments
    - Global feature enablement
    - Default email settings
-   - Security baseline
+   - Security baseline (excluding IP firewall rules which require managed environments)
 
 2. **Environment-Specific Settings**: Overrides that vary by environment:
    - **Dev**: Full debugging, open access, larger file limits
    - **Test**: Balanced security, moderate auditing
    - **Prod**: Strict security, comprehensive auditing, compliance focus
+
+> **Note**: IP firewall settings are not included in templates as they require Power Platform Managed Environments. This pattern uses standard environments following the "Keep It Simple" principle.
 
 ## Usage with Template Selection
 
