@@ -839,7 +839,7 @@ DESCRIPTION
       production_power_platform_nsgs = {
         for env_key in keys(local.production_environments) : env_key => {
           name           = "nsg-powerplatform-${local.environment_resource_names[env_key].env_suffix_clean}"
-          resource_id    = module.production_power_platform_nsgs[env_key].resource_id
+          resource_id    = module.production_nsgs[env_key].resource_id
           subnet_type    = "PowerPlatform"
           environment    = env_key
           security_rules = var.enable_zero_trust_networking ? length(keys(local.zero_trust_nsg_rules)) : 0
@@ -849,7 +849,7 @@ DESCRIPTION
       non_production_power_platform_nsgs = {
         for env_key in keys(local.non_production_environments) : env_key => {
           name           = "nsg-powerplatform-${local.environment_resource_names[env_key].env_suffix_clean}"
-          resource_id    = module.non_production_power_platform_nsgs[env_key].resource_id
+          resource_id    = module.non_production_nsgs[env_key].resource_id
           subnet_type    = "PowerPlatform"
           environment    = env_key
           security_rules = var.enable_zero_trust_networking ? length(keys(local.zero_trust_nsg_rules)) : 0
@@ -859,7 +859,7 @@ DESCRIPTION
       production_private_endpoint_nsgs = {
         for env_key in keys(local.production_environments) : env_key => {
           name           = "nsg-privateendpoint-${local.environment_resource_names[env_key].env_suffix_clean}"
-          resource_id    = module.production_private_endpoint_nsgs[env_key].resource_id
+          resource_id    = module.production_nsgs[env_key].resource_id
           subnet_type    = "PrivateEndpoint"
           environment    = env_key
           security_rules = var.enable_zero_trust_networking ? length(keys(local.zero_trust_nsg_rules)) : 0
@@ -869,7 +869,7 @@ DESCRIPTION
       non_production_private_endpoint_nsgs = {
         for env_key in keys(local.non_production_environments) : env_key => {
           name           = "nsg-privateendpoint-${local.environment_resource_names[env_key].env_suffix_clean}"
-          resource_id    = module.non_production_private_endpoint_nsgs[env_key].resource_id
+          resource_id    = module.non_production_nsgs[env_key].resource_id
           subnet_type    = "PrivateEndpoint"
           environment    = env_key
           security_rules = var.enable_zero_trust_networking ? length(keys(local.zero_trust_nsg_rules)) : 0

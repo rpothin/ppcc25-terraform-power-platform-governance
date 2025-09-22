@@ -150,7 +150,7 @@ module "production_primary_virtual_networks" {
     }
 
     "PrivateEndpointSubnet" = {
-      name             = "snet-privateendpoint-${local.base_name_components.project}-${local.base_name_components.workspace}-${replace(each.value.suffix, " ", "")}"
+      name             = local.environment_resource_names[each.key].private_endpoint_subnet_name
       address_prefixes = [local.network_configuration[each.key].primary_private_endpoint_subnet_cidr]
     }
   }
@@ -212,7 +212,7 @@ module "non_production_primary_virtual_networks" {
     }
 
     "PrivateEndpointSubnet" = {
-      name             = "snet-privateendpoint-${local.base_name_components.project}-${local.base_name_components.workspace}-${replace(each.value.suffix, " ", "")}"
+      name             = local.environment_resource_names[each.key].private_endpoint_subnet_name
       address_prefixes = [local.network_configuration[each.key].primary_private_endpoint_subnet_cidr]
     }
   }
@@ -272,7 +272,7 @@ module "production_failover_virtual_networks" {
     }
 
     "PrivateEndpointSubnet" = {
-      name             = "snet-privateendpoint-${local.base_name_components.project}-${local.base_name_components.workspace}-${replace(each.value.suffix, " ", "")}"
+      name             = local.environment_resource_names[each.key].private_endpoint_subnet_name
       address_prefixes = [local.network_configuration[each.key].failover_private_endpoint_subnet_cidr]
     }
   }
@@ -334,7 +334,7 @@ module "non_production_failover_virtual_networks" {
     }
 
     "PrivateEndpointSubnet" = {
-      name             = "snet-privateendpoint-${local.base_name_components.project}-${local.base_name_components.workspace}-${replace(each.value.suffix, " ", "")}"
+      name             = local.environment_resource_names[each.key].private_endpoint_subnet_name
       address_prefixes = [local.network_configuration[each.key].failover_private_endpoint_subnet_cidr]
     }
   }

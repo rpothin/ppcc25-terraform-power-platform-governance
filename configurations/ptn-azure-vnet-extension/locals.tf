@@ -140,10 +140,11 @@ locals {
 
   # CAF-compliant naming patterns - Single RG per environment architecture
   naming_patterns = {
-    resource_group    = "rg-${local.base_name_components.project}-${local.base_name_components.workspace}-{env_suffix}-vnet-${local.base_name_components.location}"
-    virtual_network   = "vnet-${local.base_name_components.project}-${local.base_name_components.workspace}-{env_suffix}-${local.base_name_components.location}"
-    subnet            = "snet-powerplatform-${local.base_name_components.project}-${local.base_name_components.workspace}-{env_suffix}"
-    enterprise_policy = "ep-vnet-${local.base_name_components.project}-${local.base_name_components.workspace}-{env_suffix}"
+    resource_group           = "rg-${local.base_name_components.project}-${local.base_name_components.workspace}-{env_suffix}-vnet-${local.base_name_components.location}"
+    virtual_network          = "vnet-${local.base_name_components.project}-${local.base_name_components.workspace}-{env_suffix}-${local.base_name_components.location}"
+    subnet                   = "snet-powerplatform-${local.base_name_components.project}-${local.base_name_components.workspace}-{env_suffix}"
+    private_endpoint_subnet  = "snet-privateendpoint-${local.base_name_components.project}-${local.base_name_components.workspace}-{env_suffix}"
+    enterprise_policy        = "ep-vnet-${local.base_name_components.project}-${local.base_name_components.workspace}-{env_suffix}"
   }
 }
 
@@ -180,6 +181,15 @@ locals {
 
       subnet_name = replace(
         local.naming_patterns.subnet,
+        "{env_suffix}",
+        lower(replace(replace(env.suffix, " ", ""), "-", ""))
+      )
+
+      # WHY: Consistent naming for private endpoint subnets with proper case conversion
+      # CONTEXT: Ensures same lowercase conversion as PowerPlatform subnets
+      # IMPACT: Maintains consistent CAF naming across all subnet types
+      private_endpoint_subnet_name = replace(
+        local.naming_patterns.private_endpoint_subnet,
         "{env_suffix}",
         lower(replace(replace(env.suffix, " ", ""), "-", ""))
       )
