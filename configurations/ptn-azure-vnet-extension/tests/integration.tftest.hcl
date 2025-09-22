@@ -494,7 +494,7 @@ run "phase2_avm_module_deployment_validation" {
     }
   }
 
-  # ========== AVM MODULE CONFIGURATION TESTS (8 assertions) ==========
+  # ========== AVM MODULE CONFIGURATION TESTS (6 assertions) ==========
 
   assert {
     condition     = length(module.production_resource_groups) == length(local.production_environments)
@@ -527,13 +527,13 @@ run "phase2_avm_module_deployment_validation" {
   }
 
   assert {
-    condition     = length(module.production_power_platform_nsgs) == length(local.production_environments)
-    error_message = "Should create one PowerPlatform NSG module per production environment"
+    condition     = length(module.production_nsgs) == length(local.production_environments)
+    error_message = "Should create one unified NSG module per production environment"
   }
 
   assert {
-    condition     = length(module.non_production_power_platform_nsgs) == length(local.non_production_environments)
-    error_message = "Should create one PowerPlatform NSG module per non-production environment"
+    condition     = length(module.non_production_nsgs) == length(local.non_production_environments)
+    error_message = "Should create one unified NSG module per non-production environment"
   }
 
   # ========== AVM PRIVATE DNS ZONE MODULE TESTS (4 assertions) ==========
@@ -1157,7 +1157,8 @@ run "phase1_zero_trust_disabled_validation" {
 # TEST SUMMARY - Updated for Phase 2 AVM Module Implementation
 # ============================================================================
 
-# Total Assertions: 124 (significantly exceeds minimum 25 for pattern modules - 496% coverage)
+# Total Assertions: 122 (significantly exceeds minimum 25 for pattern modules - 488% coverage)
+# Architecture: Unified NSG per environment (simplified from 4 to 2 NSGs following "Keep It Simple" principle)
 # Security Architecture: 5 focused zero-trust NSG rules (VNet inbound/outbound, PowerPlatform outbound, Internet deny inbound/outbound)
 # Phase Coverage: Phase 1 (private DNS zones, zero-trust networking) + Phase 2 (AVM module deployment)
 # Test Distribution: Plan-phase compatible assertions with mock provider support

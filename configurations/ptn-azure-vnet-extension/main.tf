@@ -481,24 +481,26 @@ module "non_production_private_dns_zones" {
 # NETWORK SECURITY GROUP ORCHESTRATION - Phase 2 Zero-Trust Implementation
 # ============================================================================
 
-# WHY: Deploy zero-trust NSGs for PowerPlatform subnets with conditional rules
-# CONTEXT: Phase 2 implements actual AVM modules for NSGs with security rules
-# IMPACT: Provides configurable zero-trust networking for Power Platform subnets
+# WHY: Deploy unified NSG per environment following "Keep It Simple" principle
+# CONTEXT: Single NSG serves both PowerPlatform and PrivateEndpoint subnets with identical rules
+# IMPACT: Reduced complexity while maintaining same security posture (5 focused zero-trust rules)
 
-# Production PowerPlatform Subnet NSGs
-module "production_power_platform_nsgs" {
+# Production Environment NSGs (Unified)
+module "production_nsgs" {
   for_each = local.production_environments
 
   source  = "Azure/avm-res-network-networksecuritygroup/azurerm"
   version = "~> 0.5"
 
-  # NSG configuration using standard AVM resource_group_name pattern
-  name                = "nsg-powerplatform-${local.environment_resource_names[each.key].env_suffix_clean}"
+  # WHY: Single NSG per environment simplifies management
+  # CONTEXT: Both subnet types need identical security rules per VNet injection architecture
+  # IMPACT: Eliminates duplicate resources while maintaining security functionality
+  name                = "nsg-unified-${local.environment_resource_names[each.key].env_suffix_clean}"
   resource_group_name = module.production_resource_groups[each.key].name
   location            = local.network_configuration[each.key].primary_location
 
   # WHY: Apply zero-trust rules conditionally based on variable
-  # CONTEXT: Development scenarios may need relaxed security rules
+  # CONTEXT: Same 5 focused rules apply to both PowerPlatform and PrivateEndpoint subnets
   # IMPACT: Security by default with configurable development flexibility
   security_rules = var.enable_zero_trust_networking ? local.zero_trust_nsg_rules : {}
 
@@ -510,9 +512,10 @@ module "production_power_platform_nsgs" {
       Workspace      = local.remote_workspace_name
       Pattern        = "ptn-azure-vnet-extension"
       Component      = "network-security-group"
-      SubnetType     = "PowerPlatform"
+      SubnetTypes    = "PowerPlatform,PrivateEndpoint" # Serves both subnet types
       EnvironmentKey = each.key
       ZeroTrust      = var.enable_zero_trust_networking ? "enabled" : "disabled"
+      Architecture   = "unified-nsg-per-environment"
     }
   )
 
@@ -526,20 +529,22 @@ module "production_power_platform_nsgs" {
   depends_on = [module.production_resource_groups]
 }
 
-# Non-Production PowerPlatform Subnet NSGs
-module "non_production_power_platform_nsgs" {
+# Non-Production Environment NSGs (Unified)
+module "non_production_nsgs" {
   for_each = local.non_production_environments
 
   source  = "Azure/avm-res-network-networksecuritygroup/azurerm"
   version = "~> 0.5"
 
-  # NSG configuration using standard AVM resource_group_name pattern
-  name                = "nsg-powerplatform-${local.environment_resource_names[each.key].env_suffix_clean}"
+  # WHY: Single NSG per environment simplifies management
+  # CONTEXT: Both subnet types need identical security rules per VNet injection architecture
+  # IMPACT: Eliminates duplicate resources while maintaining security functionality
+  name                = "nsg-unified-${local.environment_resource_names[each.key].env_suffix_clean}"
   resource_group_name = module.non_production_resource_groups[each.key].name
   location            = local.network_configuration[each.key].primary_location
 
   # WHY: Apply zero-trust rules conditionally based on variable
-  # CONTEXT: Development scenarios may need relaxed security rules
+  # CONTEXT: Same 5 focused rules apply to both PowerPlatform and PrivateEndpoint subnets
   # IMPACT: Security by default with configurable development flexibility
   security_rules = var.enable_zero_trust_networking ? local.zero_trust_nsg_rules : {}
 
@@ -551,91 +556,10 @@ module "non_production_power_platform_nsgs" {
       Workspace      = local.remote_workspace_name
       Pattern        = "ptn-azure-vnet-extension"
       Component      = "network-security-group"
-      SubnetType     = "PowerPlatform"
+      SubnetTypes    = "PowerPlatform,PrivateEndpoint" # Serves both subnet types
       EnvironmentKey = each.key
       ZeroTrust      = var.enable_zero_trust_networking ? "enabled" : "disabled"
-    }
-  )
-
-  # WHY: Use default provider for non-production environments
-  # CONTEXT: Routes non-production resources to shared subscription
-  # IMPACT: Enables cost-effective resource management
-  providers = {
-    azurerm = azurerm
-  }
-
-  depends_on = [module.non_production_resource_groups]
-}
-
-# Production PrivateEndpoint Subnet NSGs
-module "production_private_endpoint_nsgs" {
-  for_each = local.production_environments
-
-  source  = "Azure/avm-res-network-networksecuritygroup/azurerm"
-  version = "~> 0.5"
-
-  # NSG configuration using standard AVM resource_group_name pattern
-  name                = "nsg-privateendpoint-${local.environment_resource_names[each.key].env_suffix_clean}"
-  resource_group_name = module.production_resource_groups[each.key].name
-  location            = local.network_configuration[each.key].primary_location
-
-  # WHY: Apply zero-trust rules conditionally based on variable
-  # CONTEXT: Private endpoint subnets need same security controls as PowerPlatform
-  # IMPACT: Consistent security posture across all subnet types
-  security_rules = var.enable_zero_trust_networking ? local.zero_trust_nsg_rules : {}
-
-  # Enterprise tagging for governance
-  tags = merge(
-    var.tags,
-    {
-      Environment    = each.value.environment_type
-      Workspace      = local.remote_workspace_name
-      Pattern        = "ptn-azure-vnet-extension"
-      Component      = "network-security-group"
-      SubnetType     = "PrivateEndpoint"
-      EnvironmentKey = each.key
-      ZeroTrust      = var.enable_zero_trust_networking ? "enabled" : "disabled"
-    }
-  )
-
-  # WHY: Use production provider for production environments
-  # CONTEXT: Routes production resources to dedicated subscription
-  # IMPACT: Enables proper subscription-level governance and isolation
-  providers = {
-    azurerm = azurerm.production
-  }
-
-  depends_on = [module.production_resource_groups]
-}
-
-# Non-Production PrivateEndpoint Subnet NSGs
-module "non_production_private_endpoint_nsgs" {
-  for_each = local.non_production_environments
-
-  source  = "Azure/avm-res-network-networksecuritygroup/azurerm"
-  version = "~> 0.5"
-
-  # NSG configuration using standard AVM resource_group_name pattern
-  name                = "nsg-privateendpoint-${local.environment_resource_names[each.key].env_suffix_clean}"
-  resource_group_name = module.non_production_resource_groups[each.key].name
-  location            = local.network_configuration[each.key].primary_location
-
-  # WHY: Apply zero-trust rules conditionally based to variable
-  # CONTEXT: Private endpoint subnets need same security controls as PowerPlatform
-  # IMPACT: Consistent security posture across all subnet types
-  security_rules = var.enable_zero_trust_networking ? local.zero_trust_nsg_rules : {}
-
-  # Enterprise tagging for governance
-  tags = merge(
-    var.tags,
-    {
-      Environment    = local.non_production_environments[each.key].environment_type
-      Workspace      = local.remote_workspace_name
-      Pattern        = "ptn-azure-vnet-extension"
-      Component      = "network-security-group"
-      SubnetType     = "PrivateEndpoint"
-      EnvironmentKey = each.key
-      ZeroTrust      = var.enable_zero_trust_networking ? "enabled" : "disabled"
+      Architecture   = "unified-nsg-per-environment"
     }
   )
 
@@ -650,23 +574,23 @@ module "non_production_private_endpoint_nsgs" {
 }
 
 # NSG-SUBNET ASSOCIATIONS - Phase 2 Security Rule Enforcement
-# WHY: Associate NSGs with subnets to enforce zero-trust networking rules
-# CONTEXT: Subnets need NSG association to receive traffic filtering
-# IMPACT: Enables comprehensive network security controls
+# WHY: Associate unified NSGs with both subnet types for consistent security
+# CONTEXT: Single NSG per environment serves both PowerPlatform and PrivateEndpoint subnets
+# IMPACT: Simplified management with identical security rules across both subnet types
 
 # Production PowerPlatform Subnet Associations
 resource "azurerm_subnet_network_security_group_association" "production_power_platform" {
   for_each = local.production_environments
 
   subnet_id                 = module.production_primary_virtual_networks[each.key].subnets["PowerPlatformSubnet"].resource_id
-  network_security_group_id = module.production_power_platform_nsgs[each.key].resource_id
+  network_security_group_id = module.production_nsgs[each.key].resource_id
 
   # Use production provider for production environments
   provider = azurerm.production
 
   depends_on = [
     module.production_primary_virtual_networks,
-    module.production_power_platform_nsgs
+    module.production_nsgs
   ]
 }
 
@@ -675,11 +599,11 @@ resource "azurerm_subnet_network_security_group_association" "non_production_pow
   for_each = local.non_production_environments
 
   subnet_id                 = module.non_production_primary_virtual_networks[each.key].subnets["PowerPlatformSubnet"].resource_id
-  network_security_group_id = module.non_production_power_platform_nsgs[each.key].resource_id
+  network_security_group_id = module.non_production_nsgs[each.key].resource_id
 
   depends_on = [
     module.non_production_primary_virtual_networks,
-    module.non_production_power_platform_nsgs
+    module.non_production_nsgs
   ]
 }
 
@@ -688,14 +612,14 @@ resource "azurerm_subnet_network_security_group_association" "production_private
   for_each = local.production_environments
 
   subnet_id                 = module.production_primary_virtual_networks[each.key].subnets["PrivateEndpointSubnet"].resource_id
-  network_security_group_id = module.production_private_endpoint_nsgs[each.key].resource_id
+  network_security_group_id = module.production_nsgs[each.key].resource_id
 
   # Use production provider for production environments
   provider = azurerm.production
 
   depends_on = [
     module.production_primary_virtual_networks,
-    module.production_private_endpoint_nsgs
+    module.production_nsgs
   ]
 }
 
@@ -704,11 +628,11 @@ resource "azurerm_subnet_network_security_group_association" "non_production_pri
   for_each = local.non_production_environments
 
   subnet_id                 = module.non_production_primary_virtual_networks[each.key].subnets["PrivateEndpointSubnet"].resource_id
-  network_security_group_id = module.non_production_private_endpoint_nsgs[each.key].resource_id
+  network_security_group_id = module.non_production_nsgs[each.key].resource_id
 
   depends_on = [
     module.non_production_primary_virtual_networks,
-    module.non_production_private_endpoint_nsgs
+    module.non_production_nsgs
   ]
 }
 
@@ -856,6 +780,10 @@ locals {
     production_failover_virtual_networks     = length(module.production_failover_virtual_networks)
     non_production_primary_virtual_networks  = length(module.non_production_primary_virtual_networks)
     non_production_failover_virtual_networks = length(module.non_production_failover_virtual_networks)
+
+    # Network Security Group deployment status - Unified architecture (1 NSG per environment)
+    production_nsgs     = length(module.production_nsgs)
+    non_production_nsgs = length(module.non_production_nsgs)
 
     # Enterprise policy deployment status
     production_enterprise_policies     = length(module.production_enterprise_policies)
