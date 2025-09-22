@@ -140,11 +140,11 @@ locals {
 
   # CAF-compliant naming patterns - Single RG per environment architecture
   naming_patterns = {
-    resource_group           = "rg-${local.base_name_components.project}-${local.base_name_components.workspace}-{env_suffix}-vnet-${local.base_name_components.location}"
-    virtual_network          = "vnet-${local.base_name_components.project}-${local.base_name_components.workspace}-{env_suffix}-${local.base_name_components.location}"
-    subnet                   = "snet-powerplatform-${local.base_name_components.project}-${local.base_name_components.workspace}-{env_suffix}"
-    private_endpoint_subnet  = "snet-privateendpoint-${local.base_name_components.project}-${local.base_name_components.workspace}-{env_suffix}"
-    enterprise_policy        = "ep-vnet-${local.base_name_components.project}-${local.base_name_components.workspace}-{env_suffix}"
+    resource_group          = "rg-${local.base_name_components.project}-${local.base_name_components.workspace}-{env_suffix}-vnet-${local.base_name_components.location}"
+    virtual_network         = "vnet-${local.base_name_components.project}-${local.base_name_components.workspace}-{env_suffix}-${local.base_name_components.location}"
+    subnet                  = "snet-powerplatform-${local.base_name_components.project}-${local.base_name_components.workspace}-{env_suffix}"
+    private_endpoint_subnet = "snet-privateendpoint-${local.base_name_components.project}-${local.base_name_components.workspace}-{env_suffix}"
+    enterprise_policy       = "ep-vnet-${local.base_name_components.project}-${local.base_name_components.workspace}-{env_suffix}"
   }
 }
 
