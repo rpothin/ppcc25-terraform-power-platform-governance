@@ -1,7 +1,7 @@
 <!-- BEGIN_TF_DOCS -->
 # Power Platform Azure VNet Extension Pattern
 
-This configuration orchestrates Azure Virtual Network infrastructure with Power Platform enterprise policies for network injection capabilities, featuring **dynamic per-environment scaling** and following Azure Verified Module (AVM) best practices with Power Platform provider adaptations.
+This configuration orchestrates Azure Virtual Network infrastructure with Power Platform enterprise policies for network injection capabilities, featuring **dynamic per-environment scaling**, **zero-trust networking**, and **private DNS zones** following Azure Verified Module (AVM) best practices with Power Platform provider adaptations.
 
 ## Architecture Overview
 
@@ -16,15 +16,32 @@ graph TD
     D1 --> E1[Production Resource Groups]
     D1 --> F1[Production Primary VNets<br/>Canada Central Region]
     D1 --> G1[Production Failover VNets<br/>Canada East Region]
+    D1 --> N1[Production Unified NSGs<br/>Zero-Trust Rules]
+    D1 --> P1[Production Private DNS Zones<br/>Azure Service Connectivity]
     
     D2 --> E2[Non-Production Resource Groups]  
     D2 --> F2[Non-Production Primary VNets<br/>Canada Central Region]
     D2 --> G2[Non-Production Failover VNets<br/>Canada East Region]
+    D2 --> N2[Non-Production Unified NSGs<br/>Zero-Trust Rules]
+    D2 --> P2[Non-Production Private DNS Zones<br/>Azure Service Connectivity]
     
     F1 --> H1[Power Platform Subnets<br/>Microsoft.PowerPlatform/enterprisePolicies]
     F2 --> H2[Power Platform Subnets<br/>Microsoft.PowerPlatform/enterprisePolicies]
     G1 --> H3[Power Platform Subnets<br/>Microsoft.PowerPlatform/enterprisePolicies]
     G2 --> H4[Power Platform Subnets<br/>Microsoft.PowerPlatform/enterprisePolicies]
+    
+    F1 --> PE1[Private Endpoint Subnets<br/>Azure Service Integration]
+    F2 --> PE2[Private Endpoint Subnets<br/>Azure Service Integration]
+    G1 --> PE3[Private Endpoint Subnets<br/>Azure Service Integration]
+    G2 --> PE4[Private Endpoint Subnets<br/>Azure Service Integration]
+    
+    N1 --> H1
+    N1 --> PE1
+    N2 --> H2
+    N2 --> PE2
+    
+    P1 --> PE1
+    P2 --> PE2
     
     H1 --> I1[Enterprise Policy Creation<br/>Primary Region]
     H2 --> I2[Enterprise Policy Creation<br/>Primary Region]
@@ -78,9 +95,11 @@ graph LR
 - **📈 Enterprise Scaling**: Base address spaces (`/12`) automatically subdivided into per-environment VNets (`/16`)
 - **🏢 Enterprise Policy Integration**: Automatic Power Platform network injection policy deployment
 - **🔒 Multi-Subscription Support**: Production and non-production environment segregation
-- **🔗 Remote State Integration**: Reads from ptn-environment-group for seamless pattern composition
-- **📋 CAF Naming Compliance**: Cloud Adoption Framework naming conventions for all Azure resources
-- **🔐 Private Endpoint Support**: Dedicated subnets for secure Azure service connectivity
+- **�️ Zero-Trust Networking**: Unified NSG architecture with 5 focused security rules per environment
+- **🔐 Private DNS Zones**: On-demand Azure service connectivity with automatic VNet linking
+- **�🔗 Remote State Integration**: Reads from ptn-environment-group for seamless pattern composition
+- **📋 CAF Naming Compliance**: Cloud Adoption Framework naming conventions with consistent lowercase conversion
+- **🎯 Unified NSG Architecture**: Single NSG per environment serving both PowerPlatform and PrivateEndpoint subnets
 
 ## Dynamic IP Allocation Architecture
 
@@ -230,18 +249,22 @@ This configuration is designed for organizations that need to:
 2. **🔄 Dynamic Environment Scaling**: Support flexible environment counts (2-16) without manual IP planning
 3. **🌍 Multi-Region Resilience**: Establish primary and failover VNets in adjacent Azure regions for business continuity
 4. **🏢 Production Environment Isolation**: Separate production workloads into dedicated subscriptions with strict network controls
-5. **🔒 Private Connectivity**: Enable secure communication between Power Platform and Azure services through private endpoints
-6. **📊 Governance at Scale**: Apply consistent network policies across multiple Power Platform environments automatically
-7. **🛡️ Zero Trust Architecture**: Implement network-level controls as part of comprehensive Zero Trust security strategy
+5. **�️ Zero-Trust Security Implementation**: Deploy unified NSG architecture with focused security rules eliminating external dependencies
+6. **🔐 Private Azure Service Connectivity**: Enable secure communication with Azure Key Vault, Storage, Cosmos DB, and SQL Database through private DNS zones
+7. **📊 Governance at Scale**: Apply consistent network policies and security rules across multiple Power Platform environments automatically
+8. **🎯 Simplified Security Management**: Maintain identical security posture across PowerPlatform and PrivateEndpoint subnets with unified NSGs
+9. **⚡ VNet Injection Optimization**: Eliminate unnecessary external inbound traffic through true network injection principles
 
 ## Pattern Architecture
 
-This pattern module orchestrates multiple resource modules following AVM principles:
+This pattern module orchestrates multiple Azure Verified Module (AVM) modules following AVM principles:
 
-- **res-virtual-network**: Deploys per-environment primary and failover VNets with Power Platform delegation
-- **res-enterprise-policy**: Creates Power Platform network injection policies
-- **res-enterprise-policy-link**: Links policies to target environments
-- **res-private-endpoint**: Provisions private connectivity to Azure services (future)
+- **Azure/avm-res-resources-resourcegroup**: Single resource group per environment architecture
+- **Azure/avm-res-network-virtualnetwork**: Primary and failover VNets with Power Platform delegation and private endpoint subnets
+- **Azure/avm-res-network-networksecuritygroup**: Unified NSGs with 5 focused zero-trust security rules per environment
+- **Azure/avm-res-network-privatednszone**: On-demand private DNS zones with VNet linking for Azure service connectivity
+- **res-enterprise-policy**: Power Platform network injection policy creation
+- **res-enterprise-policy-link**: Enterprise policy linking to Power Platform environments
 
 ## Scaling Capabilities
 
@@ -864,6 +887,17 @@ This configuration does not collect telemetry data. All data queried remains wit
 
 ## ⚠️ AVM Compliance
 
+### Azure Verified Module Integration
+
+This configuration leverages multiple Azure Verified Module (AVM) modules for Azure infrastructure:
+
+- **Azure/avm-res-resources-resourcegroup** (~> 0.2.0): Resource group orchestration with enterprise tagging
+- **Azure/avm-res-network-virtualnetwork** (~> 0.7.2): VNet deployment with subnet delegation and private endpoint support
+- **Azure/avm-res-network-networksecuritygroup** (~> 0.5.0): Unified NSG architecture with zero-trust security rules
+- **Azure/avm-res-network-privatednszone** (~> 0.1.0): Private DNS zones with automatic VNet linking
+
+**AVM Compliance Status**: ✅ **Fully Compliant** for all Azure infrastructure components
+
 ### Provider Exception
 
 This configuration uses the `microsoft/power-platform` provider alongside `azurerm`, creating a partial exception to AVM TFFR3 requirements since Power Platform enterprise policies are not available through approved Azure providers (`azurerm`/`azapi`).
@@ -946,17 +980,66 @@ primary_vnet_address_space = cidrsubnet(
 - Check that calculated per-environment `/16` ranges don't conflict with existing Azure networks
 - Validate subnet allocation offsets allow proper subnets within each environment's `/16`
 
+**Zero-Trust Network Security Group Issues**
+- Validate NSG rule deployment using valid Azure service tags (e.g., 'PowerPlatformInfra' not 'PowerPlatform')
+- Verify unified NSG architecture serves both PowerPlatform and PrivateEndpoint subnets correctly
+- Check NSG-subnet associations for both subnet types in each environment
+- Confirm zero-trust rules allow VNet communication while blocking unnecessary external access
+- Review security rule priorities (100-130 for allow rules, 4000 for deny rules)
+
+**Private DNS Zone Deployment Issues**
+- Ensure `private_dns_zones` variable contains at least one DNS zone (empty set `[]` prevents deployment)
+- Verify DNS zone names follow proper Azure private DNS zone naming conventions
+- Check VNet links are created for both primary and failover VNets
+- Validate DNS zones deploy to correct resource groups via `parent_id` references
+- Confirm setproduct() creates proper combinations of environments and DNS zones
+
+**Subnet Naming Consistency Issues**
+- Verify centralized naming patterns use consistent lowercase conversion
+- Check that `private_endpoint_subnet_name` matches PowerPlatform subnet naming conventions
+- Ensure CAF naming compliance across all subnet types
+- Validate environment suffix processing removes spaces and special characters correctly
+
 **Environment Count Scaling Issues**
 - Confirm environment count in ptn-environment-group matches your network capacity planning
 - Verify base address space is `/12` or larger to support multiple environments (max 16 with `/12`)
 - Check that all environments get unique `/16` allocations without overlap
 - Ensure existing Azure networks don't conflict with calculated IP ranges
 
-**IP Address Range Planning**
-- Use network calculators to verify your base address spaces provide sufficient capacity
-- Test IP allocation logic with different environment counts before deployment
-- Consider future growth when selecting base address space size
-- Document IP allocation strategy for operational teams
+### Zero-Trust Networking and Resource Conflict Resolution
+
+**NSG Rule Validation Errors**
+- **Invalid Service Tags**: Replace non-existent service tags (e.g., 'PowerPlatform' → 'PowerPlatformInfra')
+- **Priority Conflicts**: Ensure rule priorities don't conflict with existing NSG rules
+- **Address Prefix Issues**: Validate CIDR notation in security rules
+- **Port Range Validation**: Confirm port ranges follow Azure NSG requirements
+
+**Subnet Resource Conflicts**
+- **IP Range Overlaps**: Use `NetcfgSubnetRangesOverlap` error resolution by manual subnet deletion
+- **Delegation Conflicts**: Verify Power Platform delegation doesn't conflict with existing delegations
+- **NSG Association Errors**: Remove existing NSG associations before applying unified NSG architecture
+- **Partial Deployment State**: Use `terraform refresh` and manual cleanup for orphaned resources
+
+**Private DNS Zone Connectivity Issues**
+- **Empty DNS Zone Set**: Add at least one DNS zone to `private_dns_zones` variable in tfvars
+- **VNet Linking Failures**: Verify VNets exist before DNS zone deployment using proper `depends_on`
+- **Registration vs Resolution**: Ensure `registration_enabled = false` for private endpoint scenarios
+- **Cross-Region DNS**: Confirm DNS zones link to both primary and failover VNets for comprehensive resolution
+
+**Resolution Commands for Common Issues**
+```bash
+# Fix subnet conflicts by manual deletion
+az network vnet subnet delete --name <conflicting-subnet> --vnet-name <vnet-name> --resource-group <rg-name>
+
+# Sync Terraform state after manual fixes
+terraform refresh
+
+# Validate NSG rules before apply
+terraform plan | grep -A 10 -B 5 "azurerm_network_security_group"
+
+# Check DNS zone deployment status
+az network private-dns zone list --resource-group <rg-name> --output table
+```
 
 **Enterprise Policy Deployment**
 - Confirm environments are in correct state for policy application (not suspended/disabled)
@@ -968,10 +1051,17 @@ primary_vnet_address_space = cidrsubnet(
 ### Performance and Timing Considerations
 
 **Deployment Duration (Based on Validated Experience)**
-- **Complete Pattern Deployment**: 8-12 minutes end-to-end
-- **Azure Infrastructure Phase**: 4-6 minutes (Resource Groups + VNets)
+- **Complete Pattern Deployment**: 10-15 minutes end-to-end (increased from 8-12 due to NSG and DNS zones)
+- **Azure Infrastructure Phase**: 6-8 minutes (Resource Groups + VNets + NSGs)
+- **Private DNS Zone Phase**: 2-3 minutes (DNS zones + VNet linking)
 - **Enterprise Policy Phase**: 3-5 minutes (Policy creation + linking)
 - **Remote State Reading**: ~30 seconds (including validation)
+
+**Component-Specific Deployment Times**
+- **Unified NSGs**: ~1-2 minutes per environment (creation + subnet associations)
+- **Private DNS Zones**: ~30 seconds per zone per environment
+- **VNet Linking**: ~15 seconds per DNS zone per VNet (4 links per environment)
+- **Security Rule Application**: ~10 seconds per NSG (5 rules each)
 
 **Environment Group Prerequisites**
 - **Timing Window**: Allow 2-5 minutes after `ptn-environment-group` completion before running VNet extension
