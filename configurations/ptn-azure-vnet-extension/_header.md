@@ -1,6 +1,6 @@
 # Power Platform Azure VNet Extension Pattern
 
-This configuration orchestrates Azure Virtual Network infrastructure with Power Platform enterprise policies for network injection capabilities, featuring **dynamic per-environment scaling** and following Azure Verified Module (AVM) best practices with Power Platform provider adaptations.
+This configuration orchestrates Azure Virtual Network infrastructure with Power Platform enterprise policies for network injection capabilities, featuring **dynamic per-environment scaling**, **zero-trust networking**, and **private DNS zones** following Azure Verified Module (AVM) best practices with Power Platform provider adaptations.
 
 ## Architecture Overview
 
@@ -15,15 +15,32 @@ graph TD
     D1 --> E1[Production Resource Groups]
     D1 --> F1[Production Primary VNets<br/>Canada Central Region]
     D1 --> G1[Production Failover VNets<br/>Canada East Region]
+    D1 --> N1[Production Unified NSGs<br/>Zero-Trust Rules]
+    D1 --> P1[Production Private DNS Zones<br/>Azure Service Connectivity]
     
     D2 --> E2[Non-Production Resource Groups]  
     D2 --> F2[Non-Production Primary VNets<br/>Canada Central Region]
     D2 --> G2[Non-Production Failover VNets<br/>Canada East Region]
+    D2 --> N2[Non-Production Unified NSGs<br/>Zero-Trust Rules]
+    D2 --> P2[Non-Production Private DNS Zones<br/>Azure Service Connectivity]
     
     F1 --> H1[Power Platform Subnets<br/>Microsoft.PowerPlatform/enterprisePolicies]
     F2 --> H2[Power Platform Subnets<br/>Microsoft.PowerPlatform/enterprisePolicies]
     G1 --> H3[Power Platform Subnets<br/>Microsoft.PowerPlatform/enterprisePolicies]
     G2 --> H4[Power Platform Subnets<br/>Microsoft.PowerPlatform/enterprisePolicies]
+    
+    F1 --> PE1[Private Endpoint Subnets<br/>Azure Service Integration]
+    F2 --> PE2[Private Endpoint Subnets<br/>Azure Service Integration]
+    G1 --> PE3[Private Endpoint Subnets<br/>Azure Service Integration]
+    G2 --> PE4[Private Endpoint Subnets<br/>Azure Service Integration]
+    
+    N1 --> H1
+    N1 --> PE1
+    N2 --> H2
+    N2 --> PE2
+    
+    P1 --> PE1
+    P2 --> PE2
     
     H1 --> I1[Enterprise Policy Creation<br/>Primary Region]
     H2 --> I2[Enterprise Policy Creation<br/>Primary Region]
@@ -77,9 +94,11 @@ graph LR
 - **📈 Enterprise Scaling**: Base address spaces (`/12`) automatically subdivided into per-environment VNets (`/16`)
 - **🏢 Enterprise Policy Integration**: Automatic Power Platform network injection policy deployment
 - **🔒 Multi-Subscription Support**: Production and non-production environment segregation
-- **🔗 Remote State Integration**: Reads from ptn-environment-group for seamless pattern composition
-- **📋 CAF Naming Compliance**: Cloud Adoption Framework naming conventions for all Azure resources
-- **🔐 Private Endpoint Support**: Dedicated subnets for secure Azure service connectivity
+- **�️ Zero-Trust Networking**: Unified NSG architecture with 5 focused security rules per environment
+- **🔐 Private DNS Zones**: On-demand Azure service connectivity with automatic VNet linking
+- **�🔗 Remote State Integration**: Reads from ptn-environment-group for seamless pattern composition
+- **📋 CAF Naming Compliance**: Cloud Adoption Framework naming conventions with consistent lowercase conversion
+- **🎯 Unified NSG Architecture**: Single NSG per environment serving both PowerPlatform and PrivateEndpoint subnets
 
 ## Dynamic IP Allocation Architecture
 
@@ -229,18 +248,22 @@ This configuration is designed for organizations that need to:
 2. **🔄 Dynamic Environment Scaling**: Support flexible environment counts (2-16) without manual IP planning
 3. **🌍 Multi-Region Resilience**: Establish primary and failover VNets in adjacent Azure regions for business continuity
 4. **🏢 Production Environment Isolation**: Separate production workloads into dedicated subscriptions with strict network controls
-5. **🔒 Private Connectivity**: Enable secure communication between Power Platform and Azure services through private endpoints
-6. **📊 Governance at Scale**: Apply consistent network policies across multiple Power Platform environments automatically
-7. **🛡️ Zero Trust Architecture**: Implement network-level controls as part of comprehensive Zero Trust security strategy
+5. **�️ Zero-Trust Security Implementation**: Deploy unified NSG architecture with focused security rules eliminating external dependencies
+6. **🔐 Private Azure Service Connectivity**: Enable secure communication with Azure Key Vault, Storage, Cosmos DB, and SQL Database through private DNS zones
+7. **📊 Governance at Scale**: Apply consistent network policies and security rules across multiple Power Platform environments automatically
+8. **🎯 Simplified Security Management**: Maintain identical security posture across PowerPlatform and PrivateEndpoint subnets with unified NSGs
+9. **⚡ VNet Injection Optimization**: Eliminate unnecessary external inbound traffic through true network injection principles
 
 ## Pattern Architecture
 
-This pattern module orchestrates multiple resource modules following AVM principles:
+This pattern module orchestrates multiple Azure Verified Module (AVM) modules following AVM principles:
 
-- **res-virtual-network**: Deploys per-environment primary and failover VNets with Power Platform delegation
-- **res-enterprise-policy**: Creates Power Platform network injection policies 
-- **res-enterprise-policy-link**: Links policies to target environments
-- **res-private-endpoint**: Provisions private connectivity to Azure services (future)
+- **Azure/avm-res-resources-resourcegroup**: Single resource group per environment architecture
+- **Azure/avm-res-network-virtualnetwork**: Primary and failover VNets with Power Platform delegation and private endpoint subnets
+- **Azure/avm-res-network-networksecuritygroup**: Unified NSGs with 5 focused zero-trust security rules per environment
+- **Azure/avm-res-network-privatednszone**: On-demand private DNS zones with VNet linking for Azure service connectivity
+- **res-enterprise-policy**: Power Platform network injection policy creation
+- **res-enterprise-policy-link**: Enterprise policy linking to Power Platform environments
 
 ## Scaling Capabilities
 
