@@ -98,6 +98,21 @@ network_configuration = {
 }
 
 # ==========================================================================
+# PRIVATE DNS ZONES - Azure Service Private Endpoint Connectivity
+# ==========================================================================
+
+# WHY: Enable private endpoint DNS resolution for Azure services during demos
+# CONTEXT: Private endpoints require corresponding DNS zones for proper name resolution
+# IMPACT: Allows testing private connectivity to Azure services without public internet
+private_dns_zones = [
+  "privatelink.vaultcore.azure.net",   # Azure Key Vault
+  "privatelink.blob.core.windows.net", # Azure Storage Blob
+  "privatelink.file.core.windows.net", # Azure Storage Files
+  "privatelink.documents.azure.com",   # Azure Cosmos DB
+  "privatelink.database.windows.net"   # Azure SQL Database
+]
+
+# ==========================================================================
 # GOVERNANCE TAGGING - Azure Resource Tagging Strategy
 # ==========================================================================
 
