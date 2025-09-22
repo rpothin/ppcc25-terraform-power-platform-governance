@@ -767,17 +767,17 @@ Source: Azure/avm-res-network-virtualnetwork/azurerm
 
 Version: ~> 0.7.2
 
+### <a name="module_non_production_nsgs"></a> [non\_production\_nsgs](#module\_non\_production\_nsgs)
+
+Source: Azure/avm-res-network-networksecuritygroup/azurerm
+
+Version: ~> 0.5
+
 ### <a name="module_non_production_policy_links"></a> [non\_production\_policy\_links](#module\_non\_production\_policy\_links)
 
 Source: ../res-enterprise-policy-link
 
 Version:
-
-### <a name="module_non_production_power_platform_nsgs"></a> [non\_production\_power\_platform\_nsgs](#module\_non\_production\_power\_platform\_nsgs)
-
-Source: Azure/avm-res-network-networksecuritygroup/azurerm
-
-Version: ~> 0.5
 
 ### <a name="module_non_production_primary_virtual_networks"></a> [non\_production\_primary\_virtual\_networks](#module\_non\_production\_primary\_virtual\_networks)
 
@@ -790,12 +790,6 @@ Version: ~> 0.7.2
 Source: Azure/avm-res-network-privatednszone/azurerm
 
 Version: ~> 0.1
-
-### <a name="module_non_production_private_endpoint_nsgs"></a> [non\_production\_private\_endpoint\_nsgs](#module\_non\_production\_private\_endpoint\_nsgs)
-
-Source: Azure/avm-res-network-networksecuritygroup/azurerm
-
-Version: ~> 0.5
 
 ### <a name="module_non_production_resource_groups"></a> [non\_production\_resource\_groups](#module\_non\_production\_resource\_groups)
 
@@ -815,17 +809,17 @@ Source: Azure/avm-res-network-virtualnetwork/azurerm
 
 Version: ~> 0.7.2
 
+### <a name="module_production_nsgs"></a> [production\_nsgs](#module\_production\_nsgs)
+
+Source: Azure/avm-res-network-networksecuritygroup/azurerm
+
+Version: ~> 0.5
+
 ### <a name="module_production_policy_links"></a> [production\_policy\_links](#module\_production\_policy\_links)
 
 Source: ../res-enterprise-policy-link
 
 Version:
-
-### <a name="module_production_power_platform_nsgs"></a> [production\_power\_platform\_nsgs](#module\_production\_power\_platform\_nsgs)
-
-Source: Azure/avm-res-network-networksecuritygroup/azurerm
-
-Version: ~> 0.5
 
 ### <a name="module_production_primary_virtual_networks"></a> [production\_primary\_virtual\_networks](#module\_production\_primary\_virtual\_networks)
 
@@ -838,12 +832,6 @@ Version: ~> 0.7.2
 Source: Azure/avm-res-network-privatednszone/azurerm
 
 Version: ~> 0.1
-
-### <a name="module_production_private_endpoint_nsgs"></a> [production\_private\_endpoint\_nsgs](#module\_production\_private\_endpoint\_nsgs)
-
-Source: Azure/avm-res-network-networksecuritygroup/azurerm
-
-Version: ~> 0.5
 
 ### <a name="module_production_resource_groups"></a> [production\_resource\_groups](#module\_production\_resource\_groups)
 
