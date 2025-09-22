@@ -309,7 +309,7 @@ locals {
           protocol                   = "*"
           source_port_range          = "*"
           destination_port_range     = "*"
-          source_address_prefix      = "PowerPlatformInfra"  # Updated for consistency
+          source_address_prefix      = "PowerPlatformInfra" # Updated for consistency
           destination_address_prefix = "*"
         }
       }
