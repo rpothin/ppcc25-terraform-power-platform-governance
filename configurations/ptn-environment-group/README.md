@@ -101,64 +101,278 @@ inputs:
 <!-- markdownlint-disable MD033 -->
 ## Requirements
 
-| Name | Version |
-|------|---------|
-| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.5.0 |
-| <a name="requirement_null"></a> [null](#requirement\_null) | ~> 3.0 |
-| <a name="requirement_powerplatform"></a> [powerplatform](#requirement\_powerplatform) | ~> 3.8 |
-| <a name="requirement_time"></a> [time](#requirement\_time) | ~> 0.13 |
+The following requirements are needed by this module:
+
+- <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) (>= 1.5.0)
+
+- <a name="requirement_null"></a> [null](#requirement\_null) (~> 3.0)
+
+- <a name="requirement_powerplatform"></a> [powerplatform](#requirement\_powerplatform) (~> 3.8)
+
+- <a name="requirement_time"></a> [time](#requirement\_time) (~> 0.13)
 
 ## Providers
 
-| Name | Version |
-|------|---------|
-| <a name="provider_time"></a> [time](#provider\_time) | 0.13.1 |
+The following providers are used by this module:
+
+- <a name="provider_time"></a> [time](#provider\_time) (~> 0.13)
 
 ## Resources
 
-| Name | Type |
-|------|------|
-| [time_sleep.environment_provisioning_buffer](https://registry.terraform.io/providers/hashicorp/time/latest/docs/resources/sleep) | resource |
+The following resources are used by this module:
+
+- [time_sleep.environment_provisioning_buffer](https://registry.terraform.io/providers/hashicorp/time/latest/docs/resources/sleep) (resource)
 
 <!-- markdownlint-disable MD013 -->
-## Inputs
+## Required Inputs
 
-| Name | Description | Type | Default | Required |
-|------|-------------|------|---------|:--------:|
-| <a name="input_description"></a> [description](#input\_description) | Description of the workspace and its purpose.<br/><br/>This description will be used for the environment group and provides<br/>context for the workspace's governance and business purpose.<br/><br/>Example:<br/>description = "Project workspace for customer portal development"<br/><br/>Validation Rules:<br/>- Must be 1-200 characters<br/>- Cannot be empty or contain only whitespace<br/>- Should describe business purpose and governance approach | `string` | n/a | yes |
-| <a name="input_location"></a> [location](#input\_location) | Power Platform geographic region for all environments in this workspace.<br/><br/>All environments created by the template will be deployed to this region.<br/>The location must be supported by the selected workspace template.<br/><br/>Example:<br/>location = "unitedstates"<br/><br/>Supported locations:<br/>- unitedstates, europe, asia, australia, unitedkingdom, india<br/>- canada, southamerica, france, unitedarabemirates, southafrica<br/>- germany, switzerland, norway, korea, japan<br/><br/>Validation Rules:<br/>- Must be a valid Power Platform geographic region<br/>- Will be validated against template-specific allowed locations<br/>- Cannot be changed after workspace creation without recreation | `string` | n/a | yes |
-| <a name="input_name"></a> [name](#input\_name) | Workspace name used as the base for all environment names.<br/><br/>This name will be combined with environment suffixes defined in the<br/>selected workspace template to create individual environment names.<br/><br/>Example:<br/>name = "MyProject"<br/><br/>With "basic" template, this creates:<br/>- "MyProject - Dev"<br/>- "MyProject - Test" <br/>- "MyProject - Prod"<br/><br/>Validation Rules:<br/>- Must be 1-50 characters to allow for suffixes<br/>- Cannot be empty or contain only whitespace<br/>- Should follow organizational naming conventions | `string` | n/a | yes |
-| <a name="input_security_group_id"></a> [security\_group\_id](#input\_security\_group\_id) | Entra ID security group ID that controls user access to all environments in this workspace.<br/><br/>This security group determines which users can access the Power Platform environments.<br/>The same security group will be applied to all environments created by the workspace template.<br/><br/>Purpose:<br/>- Controls user membership and access to Power Platform environments<br/>- Applied to Dataverse configuration for proper governance<br/>- Enables centralized user access management through Entra ID<br/><br/>Example:<br/>security\_group\_id = "12345678-1234-1234-1234-123456789abc"<br/><br/>How to get Security Group ID:<br/>1. Open Azure Portal → Microsoft Entra ID → Groups<br/>2. Find your security group → Properties → Object ID<br/>3. Copy the Object ID (GUID format)<br/><br/>Validation Rules:<br/>- Must be a valid UUID/GUID format<br/>- Must reference an existing Entra ID security group<br/>- Cannot be empty or null | `string` | n/a | yes |
-| <a name="input_workspace_template"></a> [workspace\_template](#input\_workspace\_template) | Workspace template that defines the environments to create.<br/><br/>Predefined templates provide standardized environment configurations<br/>for different use cases and governance requirements.<br/><br/>Available templates:<br/>- "basic": Creates Dev, Test, and Prod environments<br/>- "simple": Creates Dev and Prod environments only<br/>- "enterprise": Creates Dev, Staging, Test, and Prod environments<br/><br/>Example:<br/>workspace\_template = "basic"<br/><br/>Validation Rules:<br/>- Must be one of the supported template names<br/>- Template definitions are managed in locals.tf<br/>- Each template includes environment types and naming conventions | `string` | n/a | yes |
+The following input variables are required:
+
+### <a name="input_description"></a> [description](#input\_description)
+
+Description: Description of the workspace and its purpose.
+
+This description will be used for the environment group and provides  
+context for the workspace's governance and business purpose.
+
+Example:  
+description = "Project workspace for customer portal development"
+
+Validation Rules:
+- Must be 1-200 characters
+- Cannot be empty or contain only whitespace
+- Should describe business purpose and governance approach
+
+Type: `string`
+
+### <a name="input_location"></a> [location](#input\_location)
+
+Description: Power Platform geographic region for all environments in this workspace.
+
+All environments created by the template will be deployed to this region.  
+The location must be supported by the selected workspace template.
+
+Example:  
+location = "unitedstates"
+
+Supported locations:
+- unitedstates, europe, asia, australia, unitedkingdom, india
+- canada, southamerica, france, unitedarabemirates, southafrica
+- germany, switzerland, norway, korea, japan
+
+Validation Rules:
+- Must be a valid Power Platform geographic region
+- Will be validated against template-specific allowed locations
+- Cannot be changed after workspace creation without recreation
+
+Type: `string`
+
+### <a name="input_name"></a> [name](#input\_name)
+
+Description: Workspace name used as the base for all environment names.
+
+This name will be combined with environment suffixes defined in the  
+selected workspace template to create individual environment names.
+
+Example:  
+name = "MyProject"
+
+With "basic" template, this creates:
+- "MyProject - Dev"
+- "MyProject - Test"
+- "MyProject - Prod"
+
+Validation Rules:
+- Must be 1-50 characters to allow for suffixes
+- Cannot be empty or contain only whitespace
+- Should follow organizational naming conventions
+
+Type: `string`
+
+### <a name="input_security_group_id"></a> [security\_group\_id](#input\_security\_group\_id)
+
+Description: Entra ID security group ID that controls user access to all environments in this workspace.
+
+This security group determines which users can access the Power Platform environments.  
+The same security group will be applied to all environments created by the workspace template.
+
+Purpose:
+- Controls user membership and access to Power Platform environments
+- Applied to Dataverse configuration for proper governance
+- Enables centralized user access management through Entra ID
+
+Example:  
+security\_group\_id = "12345678-1234-1234-1234-123456789abc"
+
+How to get Security Group ID:  
+1. Open Azure Portal → Microsoft Entra ID → Groups  
+2. Find your security group → Properties → Object ID  
+3. Copy the Object ID (GUID format)
+
+Validation Rules:
+- Must be a valid UUID/GUID format
+- Must reference an existing Entra ID security group
+- Cannot be empty or null
+
+Type: `string`
+
+### <a name="input_workspace_template"></a> [workspace\_template](#input\_workspace\_template)
+
+Description: Workspace template that defines the environments to create.
+
+Predefined templates provide standardized environment configurations  
+for different use cases and governance requirements.
+
+Available templates:
+- "basic": Creates Dev, Test, and Prod environments
+- "simple": Creates Dev and Prod environments only  
+- "enterprise": Creates Dev, Staging, Test, and Prod environments
+
+Example:  
+workspace\_template = "basic"
+
+Validation Rules:
+- Must be one of the supported template names
+- Template definitions are managed in locals.tf
+- Each template includes environment types and naming conventions
+
+Type: `string`
+
+## Optional Inputs
+
+No optional inputs.
 
 ## Outputs
 
-| Name | Description |
-|------|-------------|
-| <a name="output_environment_group_id"></a> [environment\_group\_id](#output\_environment\_group\_id) | The unique identifier of the created Power Platform Environment Group.<br/><br/>This output provides the primary key for referencing the environment group<br/>created by this template-driven pattern. Use this ID to:<br/>- Configure additional governance policies targeting this group<br/>- Reference the group in external configuration management systems<br/>- Set up environment routing rules and rule sets<br/>- Integrate with monitoring and compliance reporting systems<br/><br/>Format: GUID (e.g., 12345678-1234-1234-1234-123456789012) |
-| <a name="output_environment_group_name"></a> [environment\_group\_name](#output\_environment\_group\_name) | The display name of the created environment group.<br/><br/>Generated from workspace name.<br/>Useful for validation, reporting, and cross-reference with environment IDs. |
-| <a name="output_environment_ids"></a> [environment\_ids](#output\_environment\_ids) | Map of environment identifiers created by the template.<br/><br/>Provides unique identifiers for all environments created based on the<br/>selected workspace template. Map keys correspond to template environment<br/>indices, values are the Power Platform environment GUIDs.<br/><br/>Usage: Reference specific environments for additional configuration |
-| <a name="output_environment_names"></a> [environment\_names](#output\_environment\_names) | Map of environment display names generated by the template.<br/><br/>Shows the actual environment names created by combining the workspace<br/>name with template-defined suffixes (e.g., " - Dev", " - Test", " - Prod"). |
-| <a name="output_environment_settings_summary"></a> [environment\_settings\_summary](#output\_environment\_settings\_summary) | Comprehensive summary of environment settings applied by template configuration.<br/><br/>Shows how workspace-level defaults and environment-specific overrides were<br/>processed and applied to each environment. Useful for governance validation<br/>and compliance reporting. |
-| <a name="output_environment_suffixes"></a> [environment\_suffixes](#output\_environment\_suffixes) | Map of environment name suffixes used by the template.<br/><br/>Shows the suffixes (e.g., " - Dev", " - Test", " - Prod") that were<br/>applied to the workspace name to generate environment names. |
-| <a name="output_environment_types"></a> [environment\_types](#output\_environment\_types) | Map of environment types as defined by the template.<br/><br/>Shows the environment types (Sandbox, Production, Trial) for each<br/>environment as specified in the workspace template configuration. |
-| <a name="output_governance_ready_resources"></a> [governance\_ready\_resources](#output\_governance\_ready\_resources) | Map of resources ready for governance configuration and policy application including environment settings |
-| <a name="output_orchestration_summary"></a> [orchestration\_summary](#output\_orchestration\_summary) | Summary of template-driven pattern deployment status and results including environment settings |
-| <a name="output_output_schema_version"></a> [output\_schema\_version](#output\_output\_schema\_version) | The version of the output schema for this template-driven pattern module. |
-| <a name="output_pattern_configuration_summary"></a> [pattern\_configuration\_summary](#output\_pattern\_configuration\_summary) | Comprehensive summary of template-driven pattern configuration |
-| <a name="output_settings_deployment_status"></a> [settings\_deployment\_status](#output\_settings\_deployment\_status) | Deployment status and validation of environment settings modules.<br/><br/>Provides detailed information about the successful deployment of settings<br/>to each environment, including module references and configuration status. |
-| <a name="output_template_metadata"></a> [template\_metadata](#output\_template\_metadata) | Metadata about the workspace template and its configuration |
-| <a name="output_workspace_name"></a> [workspace\_name](#output\_workspace\_name) | The workspace name used as the base for environment naming.<br/><br/>This is the user-provided workspace name that gets combined with<br/>template-defined suffixes to create individual environment names. |
-| <a name="output_workspace_template"></a> [workspace\_template](#output\_workspace\_template) | The workspace template used for this deployment.<br/><br/>Indicates which predefined template was used to create the environment<br/>structure. Available templates: basic, simple, enterprise. |
+The following outputs are exported:
+
+### <a name="output_environment_group_id"></a> [environment\_group\_id](#output\_environment\_group\_id)
+
+Description: The unique identifier of the created Power Platform Environment Group.
+
+This output provides the primary key for referencing the environment group  
+created by this template-driven pattern. Use this ID to:
+- Configure additional governance policies targeting this group
+- Reference the group in external configuration management systems
+- Set up environment routing rules and rule sets
+- Integrate with monitoring and compliance reporting systems
+
+Format: GUID (e.g., 12345678-1234-1234-1234-123456789012)
+
+### <a name="output_environment_group_name"></a> [environment\_group\_name](#output\_environment\_group\_name)
+
+Description: The display name of the created environment group.
+
+Generated from workspace name.  
+Useful for validation, reporting, and cross-reference with environment IDs.
+
+### <a name="output_environment_ids"></a> [environment\_ids](#output\_environment\_ids)
+
+Description: Map of environment identifiers created by the template.
+
+Provides unique identifiers for all environments created based on the  
+selected workspace template. Map keys correspond to template environment  
+indices, values are the Power Platform environment GUIDs.
+
+Usage: Reference specific environments for additional configuration
+
+### <a name="output_environment_names"></a> [environment\_names](#output\_environment\_names)
+
+Description: Map of environment display names generated by the template.
+
+Shows the actual environment names created by combining the workspace  
+name with template-defined suffixes (e.g., " - Dev", " - Test", " - Prod").
+
+### <a name="output_environment_settings_summary"></a> [environment\_settings\_summary](#output\_environment\_settings\_summary)
+
+Description: Comprehensive summary of environment settings applied by template configuration.
+
+Shows how workspace-level defaults and environment-specific overrides were  
+processed and applied to each environment. Useful for governance validation  
+and compliance reporting.
+
+### <a name="output_environment_suffixes"></a> [environment\_suffixes](#output\_environment\_suffixes)
+
+Description: Map of environment name suffixes used by the template.
+
+Shows the suffixes (e.g., " - Dev", " - Test", " - Prod") that were  
+applied to the workspace name to generate environment names.
+
+### <a name="output_environment_types"></a> [environment\_types](#output\_environment\_types)
+
+Description: Map of environment types as defined by the template.
+
+Shows the environment types (Sandbox, Production, Trial) for each  
+environment as specified in the workspace template configuration.
+
+### <a name="output_governance_ready_resources"></a> [governance\_ready\_resources](#output\_governance\_ready\_resources)
+
+Description: Map of resources ready for governance configuration and policy application including environment settings
+
+### <a name="output_orchestration_summary"></a> [orchestration\_summary](#output\_orchestration\_summary)
+
+Description: Summary of template-driven pattern deployment status and results including environment settings
+
+### <a name="output_output_schema_version"></a> [output\_schema\_version](#output\_output\_schema\_version)
+
+Description: The version of the output schema for this template-driven pattern module.
+
+### <a name="output_pattern_configuration_summary"></a> [pattern\_configuration\_summary](#output\_pattern\_configuration\_summary)
+
+Description: Comprehensive summary of template-driven pattern configuration
+
+### <a name="output_settings_deployment_status"></a> [settings\_deployment\_status](#output\_settings\_deployment\_status)
+
+Description: Deployment status and validation of environment settings modules.
+
+Provides detailed information about the successful deployment of settings  
+to each environment, including module references and configuration status.
+
+### <a name="output_template_metadata"></a> [template\_metadata](#output\_template\_metadata)
+
+Description: Metadata about the workspace template and its configuration
+
+### <a name="output_workspace_name"></a> [workspace\_name](#output\_workspace\_name)
+
+Description: The workspace name used as the base for environment naming.
+
+This is the user-provided workspace name that gets combined with  
+template-defined suffixes to create individual environment names.
+
+### <a name="output_workspace_template"></a> [workspace\_template](#output\_workspace\_template)
+
+Description: The workspace template used for this deployment.
+
+Indicates which predefined template was used to create the environment  
+structure. Available templates: basic, simple, enterprise.
 
 ## Modules
 
-| Name | Source | Version |
-|------|--------|---------|
-| <a name="module_environment_application_admin"></a> [environment\_application\_admin](#module\_environment\_application\_admin) | ../res-environment-application-admin | n/a |
-| <a name="module_environment_group"></a> [environment\_group](#module\_environment\_group) | ../res-environment-group | n/a |
-| <a name="module_environment_settings"></a> [environment\_settings](#module\_environment\_settings) | ../res-environment-settings | n/a |
-| <a name="module_environments"></a> [environments](#module\_environments) | ../res-environment | n/a |
+The following Modules are called:
+
+### <a name="module_environment_application_admin"></a> [environment\_application\_admin](#module\_environment\_application\_admin)
+
+Source: ../res-environment-application-admin
+
+Version:
+
+### <a name="module_environment_group"></a> [environment\_group](#module\_environment\_group)
+
+Source: ../res-environment-group
+
+Version:
+
+### <a name="module_environment_settings"></a> [environment\_settings](#module\_environment\_settings)
+
+Source: ../res-environment-settings
+
+Version:
+
+### <a name="module_environments"></a> [environments](#module\_environments)
+
+Source: ../res-environment
+
+Version:
 
 ## Authentication
 
