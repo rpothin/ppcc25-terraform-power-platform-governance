@@ -75,16 +75,22 @@ resource "powerplatform_environment_settings" "this" {
     # Security settings for access control and network protection
     # WORKAROUND: Provider bug fix - explicitly set empty collections for optional attributes
     security = var.security_settings != null ? {
-      allow_application_user_access               = var.security_settings.allow_application_user_access
-      allow_microsoft_trusted_service_tags        = var.security_settings.allow_microsoft_trusted_service_tags
-      enable_ip_based_firewall_rule               = var.security_settings.enable_ip_based_firewall_rule
-      enable_ip_based_firewall_rule_in_audit_mode = var.security_settings.enable_ip_based_firewall_rule_in_audit_mode
+      allow_application_user_access        = var.security_settings.allow_application_user_access
+      allow_microsoft_trusted_service_tags = var.security_settings.allow_microsoft_trusted_service_tags
+
+      # WHY: IP firewall settings commented out due to Power Platform limitation
+      # CONTEXT: Standard environments cannot have IP firewall rules - only managed environments support this
+      # IMPACT: Prevents "Cannot update IPFirewall Settings as it is a non-managed environment" errors
+      # PLATFORM DELAY: This limitation currently prevents seamless deployment of IP firewall rules to standard environments
+      # FUTURE: Uncomment when Power Platform adds support for IP firewall rules in standard environments or when using managed environments
+      # enable_ip_based_firewall_rule               = var.security_settings.enable_ip_based_firewall_rule
+      # enable_ip_based_firewall_rule_in_audit_mode = var.security_settings.enable_ip_based_firewall_rule_in_audit_mode
+      # allowed_ip_range_for_firewall               = var.security_settings.allowed_ip_range_for_firewall != null ? var.security_settings.allowed_ip_range_for_firewall : []
+      # allowed_service_tags_for_firewall           = var.security_settings.allowed_service_tags_for_firewall != null ? var.security_settings.allowed_service_tags_for_firewall : []
 
       # Provider bug workaround: Set empty collections instead of null to prevent inconsistency errors
       # Issue: microsoft/terraform-provider-power-platform provider converts null to empty sets after apply
-      allowed_ip_range_for_firewall     = var.security_settings.allowed_ip_range_for_firewall != null ? var.security_settings.allowed_ip_range_for_firewall : []
-      allowed_service_tags_for_firewall = var.security_settings.allowed_service_tags_for_firewall != null ? var.security_settings.allowed_service_tags_for_firewall : []
-      reverse_proxy_ip_addresses        = var.security_settings.reverse_proxy_ip_addresses != null ? var.security_settings.reverse_proxy_ip_addresses : []
+      # reverse_proxy_ip_addresses = var.security_settings.reverse_proxy_ip_addresses != null ? var.security_settings.reverse_proxy_ip_addresses : []
     } : null
   } : null
 

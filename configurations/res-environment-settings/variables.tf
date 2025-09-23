@@ -94,6 +94,8 @@ variable "security_settings" {
     allow_microsoft_trusted_service_tags = optional(bool)
 
     # Network security and firewall configuration
+    # NOTE: IP firewall settings currently commented out in main.tf due to Power Platform limitation
+    # Standard environments cannot have IP firewall rules - only managed environments support this
     enable_ip_based_firewall_rule               = optional(bool)
     enable_ip_based_firewall_rule_in_audit_mode = optional(bool)
     allowed_ip_range_for_firewall               = optional(set(string))
@@ -105,33 +107,41 @@ variable "security_settings" {
   description = <<DESCRIPTION
 Security and access control configuration for Power Platform environment protection.
 
-Provides comprehensive network security, access control, and firewall capabilities
-to protect the environment from unauthorized access and ensure compliance with
-organizational security policies.
+⚠️  IMPORTANT LIMITATION: IP firewall settings are currently commented out in the resource
+due to Power Platform limitation where standard environments cannot have IP firewall rules.
+Only managed environments support IP firewall functionality.
 
-Properties:
+PLATFORM DELAY: This limitation currently prevents seamless deployment of IP firewall rules.
+The settings are preserved in the variable definition for future use when:
+1. Power Platform adds support for IP firewall rules in standard environments, OR  
+2. When using managed environments instead of standard environments
+
+Currently Active Properties:
 - allow_application_user_access: Allow service principal (application) access to environment
 - allow_microsoft_trusted_service_tags: Allow Microsoft trusted service tags for connectivity
+- reverse_proxy_ip_addresses: IP addresses of reverse proxy servers for proper client identification
+
+Currently Inactive Properties (preserved for future use):
 - enable_ip_based_firewall_rule: Enable IP-based firewall for network access control
 - enable_ip_based_firewall_rule_in_audit_mode: Enable firewall in audit mode (log only)
 - allowed_ip_range_for_firewall: Permitted IP ranges in CIDR format (e.g., "10.0.0.0/8")
 - allowed_service_tags_for_firewall: Permitted Azure service tags (e.g., "ApiManagement")
-- reverse_proxy_ip_addresses: IP addresses of reverse proxy servers for proper client identification
 
-Example:
+Example (current working configuration):
 security_settings = {
-  allow_application_user_access     = true
-  enable_ip_based_firewall_rule     = true
-  allowed_ip_range_for_firewall     = ["10.0.0.0/8", "192.168.1.0/24"]
-  allowed_service_tags_for_firewall = ["ApiManagement", "PowerPlatformPlex"]
+  allow_application_user_access        = true
+  allow_microsoft_trusted_service_tags = true
+  reverse_proxy_ip_addresses          = ["10.0.1.100", "10.0.1.101"]
 }
 
-Security Benefits:
-- Restricts environment access to authorized networks only
-- Enables service principal integration for automation
-- Provides audit trail for access attempts
-- Supports zero-trust security architecture
-- Facilitates compliance with network security policies
+Example (future configuration when IP firewall is supported):
+security_settings = {
+  allow_application_user_access        = true
+  allow_microsoft_trusted_service_tags = true
+  enable_ip_based_firewall_rule        = true
+  allowed_ip_range_for_firewall        = ["10.0.0.0/8", "192.168.1.0/24"]
+  allowed_service_tags_for_firewall    = ["ApiManagement", "PowerPlatformPlex"]
+}
 DESCRIPTION
 
   validation {
