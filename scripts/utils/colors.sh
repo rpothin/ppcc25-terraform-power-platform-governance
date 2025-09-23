@@ -24,6 +24,10 @@ print_status() {
     echo -e "${BLUE}[INFO]${NC} $1"
 }
 
+print_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
 print_success() {
     echo -e "${GREEN}[SUCCESS]${NC} $1"
 }
@@ -100,7 +104,7 @@ print_danger_zone() {
 }
 
 # Export functions for use in other scripts
-export -f print_status print_success print_warning print_error print_check
+export -f print_status print_info print_success print_warning print_error print_check
 export -f print_step print_header print_separator print_banner
 export -f print_config_item print_confirmation_prompt print_danger_zone
 

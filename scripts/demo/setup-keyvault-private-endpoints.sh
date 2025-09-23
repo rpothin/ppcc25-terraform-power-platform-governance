@@ -117,7 +117,7 @@ validate_vnet_infrastructure() {
     return 0
 }
 
-# WHY: Key Vault deployment with enterprise security configuration
+# WHY: Key Vault deployment with enterprise security configuration and soft-delete handling
 # CONTEXT: Creates Key Vault with RBAC, private network access, and demo secrets
 # IMPACT: Provides secure, enterprise-grade Key Vault for Power Platform testing
 deploy_key_vault() {
@@ -129,14 +129,38 @@ deploy_key_vault() {
     if az keyvault show --name "$KEY_VAULT_NAME" &> /dev/null; then
         print_warning "Key Vault '$KEY_VAULT_NAME' already exists"
         print_info "Updating configuration to ensure compliance with requirements..."
-    else
-        print_info "Creating new Key Vault: $KEY_VAULT_NAME"
+        
+        # Update existing Key Vault configuration to match requirements
+        az keyvault update \
+            --name "$KEY_VAULT_NAME" \
+            --resource-group "$RESOURCE_GROUP_NAME" \
+            --public-network-access Disabled \
+            --output none 2>/dev/null || print_warning "Some settings may not be updatable"
+            
+        print_success "Existing Key Vault configuration validated"
+        return 0
     fi
+    
+    # Check for soft-deleted Key Vault that would block deployment
+    if az keyvault list-deleted --query "[?name=='$KEY_VAULT_NAME']" | grep -q "$KEY_VAULT_NAME"; then
+        print_error "Key Vault '$KEY_VAULT_NAME' exists in soft-deleted state"
+        print_info "This prevents creating a new Key Vault with the same name"
+        print_info ""
+        print_info "Resolution options:"
+        print_info "1. Run cleanup script with --purge-soft-deleted flag:"
+        print_info "   ./scripts/demo/cleanup-keyvault-private-endpoints.sh --purge-soft-deleted"
+        print_info "2. Recover the existing soft-deleted Key Vault:"
+        print_info "   az keyvault recover --name $KEY_VAULT_NAME"
+        print_info "3. Choose a different Key Vault name in the script"
+        return 1
+    fi
+    
+    print_info "Creating new Key Vault: $KEY_VAULT_NAME"
     
     # WHY: Deploy Key Vault with security-first configuration
     # CONTEXT: RBAC authorization and disabled public access follow zero-trust principles
     # IMPACT: Ensures Key Vault meets enterprise security standards for demo
-    az keyvault create \
+    if ! az keyvault create \
         --name "$KEY_VAULT_NAME" \
         --resource-group "$RESOURCE_GROUP_NAME" \
         --location "$LOCATION_PRIMARY" \
@@ -150,7 +174,19 @@ deploy_key_vault() {
             Owner="Platform Team" \
             Purpose="Power Platform VNet Integration Demo" \
             Component="key-vault" \
-            Pattern="demo-key-vault-private-endpoints"
+            Pattern="demo-key-vault-private-endpoints"; then
+        
+        print_error "Key Vault deployment failed"
+        
+        # Check again for soft-delete conflict (race condition)
+        if az keyvault list-deleted --query "[?name=='$KEY_VAULT_NAME']" | grep -q "$KEY_VAULT_NAME"; then
+            print_error "Soft-deleted Key Vault detected during deployment"
+            print_info "Run: ./scripts/demo/cleanup-keyvault-private-endpoints.sh --purge-soft-deleted --auto-approve"
+            print_info "Then retry this setup script"
+        fi
+        
+        return 1
+    fi
     
     print_success "Key Vault deployed with enterprise security configuration"
 }
@@ -401,7 +437,13 @@ cleanup() {
     if [[ $exit_code -ne 0 ]]; then
         print_warning "Script interrupted with exit code: $exit_code"
         print_info "Some resources may have been partially created"
-        print_info "Run script again or clean up manually if needed"
+        print_info ""
+        print_info "Recovery options:"
+        print_info "1. Run cleanup script to remove any partial deployment:"
+        print_info "   ./scripts/demo/cleanup-keyvault-private-endpoints.sh --auto-approve"
+        print_info "2. If Key Vault soft-delete conflict occurred, run:"
+        print_info "   ./scripts/demo/cleanup-keyvault-private-endpoints.sh --purge-soft-deleted --auto-approve"
+        print_info "3. Then retry this setup script"
     fi
     
     exit $exit_code
@@ -493,7 +535,7 @@ main() {
     
     # Parse command line arguments
     while [[ $# -gt 0 ]]; do
-        case $1 in
+        case "${1:-}" in
             --auto-approve)
                 auto_approve=true
                 shift
@@ -509,7 +551,7 @@ main() {
                 exit 0
                 ;;
             *)
-                print_error "Unknown option: $1"
+                print_error "Unknown option: ${1:-}"
                 print_info "Use --help for usage information"
                 return 1
                 ;;
@@ -545,13 +587,13 @@ This script will deploy:
 
 Target Resource Group: $RESOURCE_GROUP_NAME
 Expected Duration: 5-10 minutes
-Estimated Cost: ~$10-15/month for Key Vault + Private Endpoints
+Estimated Cost: ~\$10-15/month for Key Vault + Private Endpoints
 
 EOF
         
         read -p "Continue with deployment? (y/N): " -n 1 -r
         echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        if [[ ! ${REPLY:-} =~ ^[Yy]$ ]]; then
             print_info "Deployment cancelled by user"
             return 0
         fi

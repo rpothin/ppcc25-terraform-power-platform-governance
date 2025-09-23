@@ -23,6 +23,43 @@ source "$SCRIPT_DIR/../utils/common.sh" 2>/dev/null || {
     print_status() { echo "📊 $*"; }
 }
 
+# WHY: Soft-deleted Key Vault cleanup prevents deployment conflicts
+# CONTEXT: Azure Key Vault soft-delete can block new deployments with same name
+# IMPACT: Enables clean redeployment by purging any existing soft-deleted Key Vault
+cleanup_soft_deleted_keyvault() {
+    print_step "Checking for soft-deleted Key Vault that might block redeployment..."
+    
+    # Check if Key Vault exists in soft-deleted state
+    if az keyvault list-deleted --query "[?name=='$KEY_VAULT_NAME']" | grep -q "$KEY_VAULT_NAME"; then
+        print_warning "Found soft-deleted Key Vault: $KEY_VAULT_NAME"
+        print_info "This will prevent redeployment with the same name"
+        
+        # Get soft-deleted Key Vault location for purge operation
+        local deleted_location
+        deleted_location=$(az keyvault list-deleted --query "[?name=='$KEY_VAULT_NAME'].properties.location" -o tsv 2>/dev/null || echo "$LOCATION_PRIMARY")
+        
+        print_info "Purging soft-deleted Key Vault to enable name reuse..."
+        az keyvault purge --name "$KEY_VAULT_NAME" --location "$deleted_location" 2>/dev/null || {
+            # Fallback: try without location (for older Azure CLI versions)
+            az keyvault purge --name "$KEY_VAULT_NAME" 2>/dev/null || {
+                print_warning "Unable to purge soft-deleted Key Vault automatically"
+                print_info "Manual purge may be required: az keyvault purge --name $KEY_VAULT_NAME"
+                return 1
+            }
+        }
+        
+        print_success "Soft-deleted Key Vault purged successfully"
+        
+        # Wait for purge to complete
+        print_info "Waiting 15 seconds for purge operation to complete..."
+        sleep 15
+    else
+        print_info "No soft-deleted Key Vault found - cleanup can proceed normally"
+    fi
+    
+    return 0
+}
+
 # WHY: Configuration constants matching setup script
 # CONTEXT: Ensures cleanup targets same resources as deployment
 # IMPACT: Prevents cleanup of unrelated resources
@@ -249,6 +286,7 @@ validate_cleanup() {
 main() {
     local auto_approve=false
     local keep_keyvault=false
+    local purge_soft_deleted=false
     
     # Parse command line arguments
     while [[ $# -gt 0 ]]; do
@@ -261,15 +299,20 @@ main() {
                 keep_keyvault=true
                 shift
                 ;;
+            --purge-soft-deleted)
+                purge_soft_deleted=true
+                shift
+                ;;
             --help|-h)
-                echo "Usage: $0 [--auto-approve] [--keep-keyvault]"
+                echo "Usage: $0 [--auto-approve] [--keep-keyvault] [--purge-soft-deleted]"
                 echo ""
                 echo "Clean up Key Vault and private endpoints after PPCC25 demo"
                 echo ""
                 echo "Options:"
-                echo "  --auto-approve    Skip confirmation prompts"
-                echo "  --keep-keyvault   Keep Key Vault, only remove private endpoints"
-                echo "  --help, -h       Show this help message"
+                echo "  --auto-approve       Skip confirmation prompts"
+                echo "  --keep-keyvault      Keep Key Vault, only remove private endpoints"
+                echo "  --purge-soft-deleted Purge any soft-deleted Key Vault first"
+                echo "  --help, -h          Show this help message"
                 exit 0
                 ;;
             *)
@@ -281,6 +324,13 @@ main() {
     done
     
     print_step "Starting PPCC25 demo resource cleanup..."
+    
+    # Handle soft-deleted Key Vault cleanup first if requested
+    if [[ "$purge_soft_deleted" == true ]]; then
+        if ! cleanup_soft_deleted_keyvault; then
+            print_warning "Soft-deleted Key Vault cleanup had issues, but continuing..."
+        fi
+    fi
     
     # Validate cleanup context
     if ! validate_cleanup_context; then
@@ -305,6 +355,10 @@ This script will remove:
   🗑️ DNS A records for Key Vault
 EOF
         
+        if [[ "$purge_soft_deleted" == true ]]; then
+            echo "  🔥 Soft-deleted Key Vault: $KEY_VAULT_NAME (if exists)"
+        fi
+        
         if [[ "$keep_keyvault" != true ]]; then
             echo "  🗑️ Key Vault: $KEY_VAULT_NAME (including all secrets)"
         else
@@ -321,7 +375,7 @@ EOF
         
         read -p "Continue with cleanup? (y/N): " -n 1 -r
         echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        if [[ ! ${REPLY:-} =~ ^[Yy]$ ]]; then
             print_info "Cleanup cancelled by user"
             return 0
         fi
@@ -341,8 +395,12 @@ EOF
     if [[ "$keep_keyvault" == true ]]; then
         print_info "Key Vault preserved - private endpoint connectivity disabled"
         print_info "Re-run setup script to restore private endpoint connectivity"
+    elif [[ "$purge_soft_deleted" == true ]]; then
+        print_info "All demo resources removed and soft-deleted Key Vault purged"
+        print_info "Ready for fresh deployment without naming conflicts"
     else
         print_info "All demo resources removed - ready for fresh deployment"
+        print_info "Note: Use --purge-soft-deleted flag if setup fails due to soft-delete conflicts"
     fi
     
     return 0
