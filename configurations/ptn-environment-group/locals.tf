@@ -74,8 +74,10 @@ locals {
               log_retention_period_in_days = 31    # Shorter retention
             }
             security_settings = {
-              enable_ip_based_firewall_rule = false # Open access for development
-              allowed_ip_range_for_firewall = []    # No restrictions
+              # IP firewall rules removed - require managed environments  
+              # enable_ip_based_firewall_rule               = true
+              # allowed_ip_range_for_firewall               = ["10.0.0.0/8"]
+              # enable_ip_based_firewall_rule_in_audit_mode = false
             }
             email_settings = {
               max_upload_file_size_in_bytes = 104857600 # 100MB for dev testing
@@ -97,9 +99,10 @@ locals {
               log_retention_period_in_days = 90    # Longer than dev
             }
             security_settings = {
-              # IP firewall rules removed - require managed environments
-              # enable_ip_based_firewall_rule = true
-              # allowed_ip_range_for_firewall = ["10.0.0.0/8", "192.168.0.0/16"]
+              # IP firewall rules removed - require managed environments  
+              # enable_ip_based_firewall_rule               = true
+              # allowed_ip_range_for_firewall               = ["10.0.0.0/8"]
+              # enable_ip_based_firewall_rule_in_audit_mode = false
             }
             # Inherit global email settings (no override)
           }
