@@ -61,7 +61,7 @@ resource "powerplatform_environment_settings" "this" {
   } : null
 
   # Product-specific configuration controlling Power Platform features and behaviors
-  product = (var.feature_settings != null || var.security_settings != null) ? {
+  product = (var.feature_settings != null || local.has_valid_security_settings) ? {
     # Behavior settings controlling user interface and experience
     behavior_settings = var.feature_settings != null && var.feature_settings.show_dashboard_cards_in_expanded_state != null ? {
       show_dashboard_cards_in_expanded_state = var.feature_settings.show_dashboard_cards_in_expanded_state
@@ -72,24 +72,15 @@ resource "powerplatform_environment_settings" "this" {
       power_apps_component_framework_for_canvas_apps = var.feature_settings.power_apps_component_framework_for_canvas_apps
     } : null
 
-    # Security settings for access control and network protection
-    # WORKAROUND: Provider state inconsistency fix - explicitly set IP firewall fields to null
-    security = var.security_settings != null ? {
-      allow_application_user_access        = var.security_settings.allow_application_user_access
-      allow_microsoft_trusted_service_tags = var.security_settings.allow_microsoft_trusted_service_tags
-
-      # WHY: IP firewall settings set to null due to Power Platform limitation
-      # CONTEXT: Standard environments cannot have IP firewall rules - only managed environments support this
-      # IMPACT: Prevents "Cannot update IPFirewall Settings as it is a non-managed environment" errors
-      # PROVIDER FIX: Explicitly setting to null prevents provider from defaulting to empty sets
-      # PLATFORM DELAY: This limitation currently prevents seamless deployment of IP firewall rules to standard environments
-      # FUTURE: Replace null with actual values when Power Platform adds support for IP firewall rules in standard environments
-      enable_ip_based_firewall_rule               = null
-      enable_ip_based_firewall_rule_in_audit_mode = null
-      allowed_ip_range_for_firewall               = null
-      allowed_service_tags_for_firewall           = null
-      reverse_proxy_ip_addresses                  = null
-    } : null
+    # WORKAROUND: Provider bug mitigation - conditional security block creation
+    # 
+    # PROVIDER ISSUE: microsoft/power-platform provider incorrectly converts null firewall 
+    # fields to empty sets after apply, causing "inconsistent result after apply" errors
+    # 
+    # SOLUTION: Only create security block when we have valid, working security settings
+    # This completely prevents the provider from attempting to manage firewall fields
+    # that are unsupported in standard environments
+    security = local.working_security_settings
   } : null
 
   # Lifecycle management for manual admin center changes
