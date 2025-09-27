@@ -72,18 +72,18 @@ network_configuration = {
     # WHY: Large address space allows automatic per-environment subnet allocation
     # CONTEXT: /12 provides 1,048,576 IPs for multiple environment subnetting
     # IMPACT: Supports up to 16 environments with /16 blocks each (65K IPs per env)
-    vnet_address_space_base = "10.100.0.0/12" # 10.100.0.0 - 10.111.255.255
+    vnet_address_space_base = "10.200.0.0/12" # 10.200.0.0 - 10.215.255.255
 
     # WHY: Environment-specific IP allocation will be calculated dynamically
     # CONTEXT: Each environment gets unique /16 from the base range
-    # IMPACT: dev=10.100.0.0/16, test=10.101.0.0/16, prod=10.102.0.0/16, etc.
+    # IMPACT: dev=10.200.0.0/16, test=10.201.0.0/16, prod=10.202.0.0/16, etc.
   }
   failover = {
     location = "Canada East"
     # WHY: Non-overlapping address space for failover region
     # CONTEXT: /12 provides same capacity in different IP range
     # IMPACT: Supports same environment count with no IP conflicts
-    vnet_address_space_base = "10.112.0.0/12" # 10.112.0.0 - 10.127.255.255
+    vnet_address_space_base = "10.216.0.0/12" # 10.216.0.0 - 10.231.255.255
   }
 
   # WHY: Standardized subnet allocation within each environment's /16
@@ -132,22 +132,22 @@ tags = {
 # IMPACT: Prevents IP conflicts and supports flexible environment scaling
 
 # Example with 3 environments (dev, test, prod):
-# Environment 0 (dev):   Primary: 10.100.0.0/16, Failover: 10.112.0.0/16
-#   - Power Platform:     Primary: 10.100.1.0/24, Failover: 10.112.1.0/24  
-#   - Private Endpoints:  Primary: 10.100.2.0/24, Failover: 10.112.2.0/24
-# Environment 1 (test):  Primary: 10.101.0.0/16, Failover: 10.113.0.0/16
-#   - Power Platform:     Primary: 10.101.1.0/24, Failover: 10.113.1.0/24
-#   - Private Endpoints:  Primary: 10.101.2.0/24, Failover: 10.113.2.0/24
-# Environment 2 (prod):  Primary: 10.102.0.0/16, Failover: 10.114.0.0/16
-#   - Power Platform:     Primary: 10.102.1.0/24, Failover: 10.114.1.0/24
-#   - Private Endpoints:  Primary: 10.102.2.0/24, Failover: 10.114.2.0/24
+# Environment 0 (dev):   Primary: 10.200.0.0/16, Failover: 10.216.0.0/16
+#   - Power Platform:     Primary: 10.200.1.0/24, Failover: 10.216.1.0/24  
+#   - Private Endpoints:  Primary: 10.200.2.0/24, Failover: 10.216.2.0/24
+# Environment 1 (test):  Primary: 10.201.0.0/16, Failover: 10.217.0.0/16
+#   - Power Platform:     Primary: 10.201.1.0/24, Failover: 10.217.1.0/24
+#   - Private Endpoints:  Primary: 10.201.2.0/24, Failover: 10.217.2.0/24
+# Environment 2 (prod):  Primary: 10.202.0.0/16, Failover: 10.218.0.0/16
+#   - Power Platform:     Primary: 10.202.1.0/24, Failover: 10.218.1.0/24
+#   - Private Endpoints:  Primary: 10.202.2.0/24, Failover: 10.218.2.0/24
 
 # Example with 4 environments (dev, test, uat, prod):
-# Environment 3 (uat):   Primary: 10.103.0.0/16, Failover: 10.115.0.0/16
+# Environment 3 (uat):   Primary: 10.203.0.0/16, Failover: 10.219.0.0/16
 
 # Example with 2 environments (non-prod, prod):
-# Environment 0 (non-prod): Primary: 10.100.0.0/16, Failover: 10.112.0.0/16
-# Environment 1 (prod):     Primary: 10.101.0.0/16, Failover: 10.113.0.0/16
+# Environment 0 (non-prod): Primary: 10.200.0.0/16, Failover: 10.216.0.0/16
+# Environment 1 (prod):     Primary: 10.201.0.0/16, Failover: 10.217.0.0/16
 
 # Example 1: European Deployment with EU Data Residency
 # workspace_name = "EuropeCustomers"  # Must match ptn-environment-group
