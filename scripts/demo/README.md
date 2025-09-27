@@ -17,18 +17,36 @@ These scripts complement the `ptn-azure-vnet-extension` Terraform pattern by add
 
 ### Prerequisites
 
-1. **Terraform Infrastructure**: Deploy `ptn-azure-vnet-extension` first
+1. **Terraform Infrastructure**: Deploy `ptn-azure-vnet-extension` with desired tfvars configuration first
 2. **Azure CLI**: Authenticated and connected to correct subscription  
 3. **Permissions**: Contributor access to resource group and Key Vault permissions
+
+### 🎛️ **Flexible Configuration Support**
+
+The scripts dynamically target resources based on your **tfvars configuration**, supporting multiple demo scenarios:
+
+| tfvars File         | Purpose                   | Example Resources                     |
+| ------------------- | ------------------------- | ------------------------------------- |
+| `demo-prep`         | Pre-presentation baseline | `kv-ppcc25-demoprepws-dev-cac`        |
+| `live-demo`         | Live presentation         | `kv-ppcc25-livedemoworkspace-dev-cac` |
+| `regional-examples` | Original demo config      | `kv-ppcc25-demoworkspace-dev-cac`     |
+
+**🎯 Key Feature**: All resource names are **dynamically calculated** from your tfvars configuration - no hardcoded values!
 
 ### Deploy Demo Environment
 
 ```bash
-# Basic deployment
-./scripts/demo/setup-keyvault-private-endpoints.sh
+# Pre-presentation preparation
+./scripts/demo/setup-keyvault-private-endpoints.sh --tfvars-file demo-prep
 
-# Automated deployment (skip confirmations)
-./scripts/demo/setup-keyvault-private-endpoints.sh --auto-approve
+# Live demonstration deployment
+./scripts/demo/setup-keyvault-private-endpoints.sh --tfvars-file live-demo --auto-approve
+
+# Original regional examples
+./scripts/demo/setup-keyvault-private-endpoints.sh --tfvars-file regional-examples
+
+# Any custom tfvars configuration
+./scripts/demo/setup-keyvault-private-endpoints.sh --tfvars-file [YOUR_CONFIG_NAME]
 ```
 
 ### Test Power Platform Connectivity
@@ -47,14 +65,66 @@ After deployment, create a Power Automate Cloud Flow:
 ### Clean Up After Demo
 
 ```bash
-# Remove all demo resources
-./scripts/demo/cleanup-keyvault-private-endpoints.sh
+# Clean up specific configuration
+./scripts/demo/cleanup-keyvault-private-endpoints.sh --tfvars-file demo-prep
 
-# Keep Key Vault, remove only private endpoints  
-./scripts/demo/cleanup-keyvault-private-endpoints.sh --keep-keyvault
+# Clean up live demo resources
+./scripts/demo/cleanup-keyvault-private-endpoints.sh --tfvars-file live-demo --auto-approve
 
-# Automated cleanup
-./scripts/demo/cleanup-keyvault-private-endpoints.sh --auto-approve
+# Keep Key Vault, remove only private endpoints (useful for testing)
+./scripts/demo/cleanup-keyvault-private-endpoints.sh --tfvars-file live-demo --keep-keyvault
+
+# Handle soft-delete conflicts (purge before cleanup)
+./scripts/demo/cleanup-keyvault-private-endpoints.sh --tfvars-file demo-prep --purge-soft-deleted
+```
+
+## 🧠 **Dynamic Resource Naming**
+
+Scripts automatically calculate all resource names using the **same CAF patterns as Terraform**:
+
+### **Naming Formula**:
+```bash
+# From tfvars workspace name: "DemoPrepWorkspace" → "demoprepworkspace"
+RESOURCE_GROUP = "rg-ppcc25-{workspace_lower}-dev-vnet-cac"  
+KEY_VAULT = "kv-ppcc25-{workspace_short}-dev-cac"  # Auto-truncated for 24-char limit
+VNET_PRIMARY = "vnet-ppcc25-{workspace_lower}-dev-cac-primary"
+PRIVATE_ENDPOINT = "pe-kv-ppcc25-{workspace_short}-dev-cac"
+```
+
+### **Configuration Examples**:
+```bash
+# demo-prep.tfvars (name = "DemoPrepWorkspace"):
+#   → kv-ppcc25-demoprepws-dev-cac
+#   → rg-ppcc25-demoprepworkspace-dev-vnet-cac
+
+# live-demo.tfvars (name = "LiveDemoWorkspace"):  
+#   → kv-ppcc25-livedemo-dev-cac
+#   → rg-ppcc25-livedemoworkspace-dev-vnet-cac
+
+# regional-examples.tfvars (name = "DemoWorkspace"):
+#   → kv-ppcc25-demoworks-dev-cac  
+#   → rg-ppcc25-demoworkspace-dev-vnet-cac
+```
+
+**🎯 Result**: Scripts work with **any tfvars configuration** without modification!
+
+## 🎛️ **Advanced Script Options**
+
+### **Setup Script** (`setup-keyvault-private-endpoints.sh`):
+```bash
+--tfvars-file <name>    # Specify tfvars configuration (REQUIRED)
+--auto-approve          # Skip confirmation prompts
+--secrets-only          # Create secrets only (skip infrastructure)
+--help, -h             # Show detailed help and examples
+```
+
+### **Cleanup Script** (`cleanup-keyvault-private-endpoints.sh`):
+```bash
+--tfvars-file <name>    # Specify tfvars configuration (REQUIRED)  
+--auto-approve          # Skip confirmation prompts
+--keep-keyvault         # Keep Key Vault, remove only private endpoints
+--purge-soft-deleted    # Purge soft-deleted Key Vault first (handle conflicts)
+--help, -h             # Show detailed help and examples
 ```
 
 ## 🏗️ Architecture
@@ -111,27 +181,97 @@ The scripts deploy this infrastructure:
 ## 🔍 Verification Commands
 
 ```bash
-# Check Key Vault status
-az keyvault show --name kv-ppcc25-demo-dev-cac --query "{name:name,publicAccess:properties.publicNetworkAccess}"
+# Check Key Vault status (replace with your actual Key Vault name)
+az keyvault show --name kv-ppcc25-[CONFIG]-dev-cac --query "{name:name,publicAccess:properties.publicNetworkAccess}"
 
-# Verify private endpoints
-az network private-endpoint list --resource-group rg-ppcc25-demoworkspace-dev-vnet-cac --query "[].{name:name,state:provisioningState}" -o table
+# Verify private endpoints (replace with your resource group name)  
+az network private-endpoint list --resource-group rg-ppcc25-[CONFIG]-dev-vnet-cac --query "[].{name:name,state:provisioningState}" -o table
 
 # Test DNS resolution (should show private IPs)
-nslookup kv-ppcc25-demo-dev-cac.vault.azure.net
+nslookup kv-ppcc25-[CONFIG]-dev-cac.vault.azure.net
 
-# List demo secrets
-az keyvault secret list --vault-name kv-ppcc25-demo-dev-cac --query "[].name" -o table
+# List demo secrets (replace with your Key Vault name)
+az keyvault secret list --vault-name kv-ppcc25-[CONFIG]-dev-cac --query "[].name" -o table
+```
+
+**💡 Tip**: Replace `[CONFIG]` with your actual configuration's workspace name pattern:
+- `demo-prep` → `demoprepws` 
+- `live-demo` → `livedemo`
+- `regional-examples` → `demoworks`
+
+## 📋 **Configuration Discovery**
+
+### Find Available Configurations:
+```bash
+# List all available tfvars configurations
+ls configurations/ptn-environment-group/tfvars/*.tfvars
+
+# Check workspace name in specific tfvars file
+grep "^name" configurations/ptn-environment-group/tfvars/demo-prep.tfvars
+```
+
+### Validate Configuration Pairing:
+```bash
+# Both files must exist for script to work:
+ls configurations/ptn-environment-group/tfvars/[CONFIG].tfvars
+ls configurations/ptn-azure-vnet-extension/tfvars/[CONFIG].tfvars
 ```
 
 ## 🎭 Demo Flow
 
-1. **Setup**: Run deployment script (5-10 minutes)
+### **Multiple Configuration Strategy**
+The enhanced scripts support **different demo scenarios** with isolated resources:
+
+#### **1. Demo-Prep Flow** (Pre-presentation setup):
+```bash
+# Deploy stable baseline before presentation
+./setup-keyvault-private-endpoints.sh --tfvars-file demo-prep --auto-approve
+
+# Test and validate all components work
+# Create and test Power Platform Cloud Flow
+# Leave running as backup/fallback
+
+# Cleanup only if needed
+./cleanup-keyvault-private-endpoints.sh --tfvars-file demo-prep
+```
+
+#### **2. Live-Demo Flow** (During presentation):
+```bash
+# Deploy live demo environment
+./setup-keyvault-private-endpoints.sh --tfvars-file live-demo --auto-approve
+
+# Demonstrate live resource creation (5-10 minutes)
+# Create Power Platform Cloud Flow with audience
+# Show VNet integration working in real-time
+
+# Cleanup after presentation
+./cleanup-keyvault-private-endpoints.sh --tfvars-file live-demo --auto-approve
+```
+
+#### **3. Multi-Demo Support** (Advanced scenarios):
+```bash
+# Run both simultaneously (different resource names!)
+./setup-keyvault-private-endpoints.sh --tfvars-file demo-prep &
+./setup-keyvault-private-endpoints.sh --tfvars-file live-demo &
+wait
+
+# Selective cleanup
+./cleanup-keyvault-private-endpoints.sh --tfvars-file live-demo --keep-keyvault
+./cleanup-keyvault-private-endpoints.sh --tfvars-file demo-prep  
+```
+
+### **Benefits of Dynamic Configuration**:
+- ✅ **Isolated Resources**: Each configuration creates separate, non-conflicting resources
+- ✅ **Flexible Timing**: Deploy/cleanup demo-prep and live-demo independently  
+- ✅ **Risk Mitigation**: Always have working demo-prep as backup
+- ✅ **Professional Presentation**: Clear resource separation visible to audience
+
+1. **Setup**: Run deployment script with chosen configuration (5-10 minutes)
 2. **Show Infrastructure**: Display Key Vault and private endpoints in Azure Portal
 3. **Create Cloud Flow**: Manual Power Automate flow creation (5 minutes)
 4. **Test Connectivity**: Execute flow and show successful VNet access
 5. **Explain Architecture**: Highlight private networking and zero-trust principles
-6. **Cleanup**: Run cleanup script after demo
+6. **Cleanup**: Run cleanup script with same configuration after demo
 
 ## ⚠️ Important Notes
 
@@ -156,11 +296,30 @@ az role assignment create \
 
 **DNS Resolution Issues**
 ```bash
-# Check DNS records
+# Check DNS records (replace [CONFIG] with your configuration)
 az network private-dns record-set a show \
-  --resource-group rg-ppcc25-demoworkspace-dev-vnet-cac \
+  --resource-group rg-ppcc25-[CONFIG]-dev-vnet-cac \
   --zone-name privatelink.vaultcore.azure.net \
-  --name kv-ppcc25-demo-dev-cac
+  --name kv-ppcc25-[CONFIG_SHORT]-dev-cac
+```
+
+**Configuration Validation Issues**
+```bash
+# Verify tfvars file exists and is readable
+ls -la configurations/ptn-environment-group/tfvars/[CONFIG].tfvars
+ls -la configurations/ptn-azure-vnet-extension/tfvars/[CONFIG].tfvars
+
+# Check workspace name parsing
+grep "^name" configurations/ptn-environment-group/tfvars/[CONFIG].tfvars
+```
+
+**Resource Naming Conflicts**  
+```bash
+# Check if resources already exist with different configuration
+az keyvault list --query "[?starts_with(name,'kv-ppcc25-')].{name:name,resourceGroup:resourceGroup}" -o table
+
+# List all Key Vault private endpoints
+az network private-endpoint list --query "[?contains(name,'kv-ppcc25-')].{name:name,resourceGroup:resourceGroup}" -o table
 ```
 
 **Script Permission Errors**
