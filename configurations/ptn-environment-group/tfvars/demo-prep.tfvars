@@ -90,7 +90,7 @@
 
 # Default example for demonstration
 workspace_template = "basic"
-name               = "DemoWorkspace"
-description        = "Demonstration workspace for PPCC25 session"
+name               = "DemoPrepWorkspace"
+description        = "Demonstration preparation workspace for PPCC25 session"
 location           = "canada"
 security_group_id  = "6a199811-5433-4076-81e8-1ca7ad8ffb67"

@@ -2,15 +2,35 @@
 # ==============================================================================
 # Script Name: setup-keyvault-private-endpoints.sh
 # Purpose: Deploy Key Vault with dual private endpoints for PPCC25 Power Platform VNet integration demo
-# Usage: ./setup-keyvault-private-endpoints.sh [--auto-approve] [--config config.env]
+# Usage: ./setup-keyvault-private-endpoints.sh [--auto-approve] [--tfvars-file <name>]
 # Dependencies: Azure CLI, Power Platform CLI (optional), existing VNet infrastructure from ptn-azure-vnet-extension
 # Author: PPCC25 Demo Platform Team
 # ==============================================================================
 
 set -euo pipefail
 
+# WHY: Dynamic configuration constants calculated from tfvars file input
+# CONTEXT: Enables script reuse across different workspace configurations
+# IMPACT: Single script works with multiple demo environments (demo-prep, regional-examples, etc.)
+
+# Global variables for dynamic resource naming (initialized from tfvars)
+RESOURCE_GROUP_NAME=""
+KEY_VAULT_NAME=""
+VNET_PRIMARY=""
+VNET_FAILOVER=""
+SUBNET_PRIVATE_ENDPOINT=""
+PE_PRIMARY_NAME=""
+PE_FAILOVER_NAME=""
+WORKSPACE_NAME=""
+TFVARS_FILE_NAME=""
+
+# Static constants
+readonly LOCATION_PRIMARY="canadacentral"
+readonly LOCATION_FAILOVER="canadaeast"
+readonly PRIVATE_DNS_ZONE="privatelink.vaultcore.azure.net"
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # Source common utilities
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../utils/common.sh" 2>/dev/null || {
     # WHY: Fallback if common utilities not available
     # CONTEXT: Provides basic output functions for script execution
@@ -23,19 +43,161 @@ source "$SCRIPT_DIR/../utils/common.sh" 2>/dev/null || {
     print_status() { echo "📊 $*"; }
 }
 
-# WHY: Global configuration constants for PPCC25 demo consistency
-# CONTEXT: These values match the deployed ptn-azure-vnet-extension infrastructure
-# IMPACT: Ensures Key Vault integrates properly with existing VNet architecture
-readonly RESOURCE_GROUP_NAME="rg-ppcc25-demoworkspace-dev-vnet-cac"
-readonly KEY_VAULT_NAME="kv-ppcc25-demo-dev-cac"
-readonly LOCATION_PRIMARY="canadacentral"
-readonly LOCATION_FAILOVER="canadaeast"
-readonly VNET_PRIMARY="vnet-ppcc25-demoworkspace-dev-cac-primary"
-readonly VNET_FAILOVER="vnet-ppcc25-demoworkspace-dev-cae-failover"
-readonly SUBNET_PRIVATE_ENDPOINT="snet-privateendpoint-ppcc25-demoworkspace-dev"
-readonly PRIVATE_DNS_ZONE="privatelink.vaultcore.azure.net"
-readonly PE_PRIMARY_NAME="pe-kv-ppcc25-demo-dev-cac"
-readonly PE_FAILOVER_NAME="pe-kv-ppcc25-demo-dev-cae"
+# ============================================================================
+# DYNAMIC CONFIGURATION - tfvars Parsing and Resource Naming
+# ============================================================================
+
+# WHY: Parse workspace name from environment group tfvars file
+# CONTEXT: Enables dynamic resource naming based on actual Terraform configuration
+# IMPACT: Single script works with any workspace configuration (demo-prep, regional-examples, etc.)
+parse_workspace_name_from_tfvars() {
+    local tfvars_file="$1"
+    local env_group_tfvars_path="${SCRIPT_DIR}/../../configurations/ptn-environment-group/tfvars/${tfvars_file}.tfvars"
+    
+    if [[ ! -f "$env_group_tfvars_path" ]]; then
+        print_error "Environment group tfvars file not found: $env_group_tfvars_path"
+        print_info "Expected format: configurations/ptn-environment-group/tfvars/${tfvars_file}.tfvars"
+        return 1
+    fi
+    
+    # Extract workspace name from tfvars file (handle both quoted and unquoted values)
+    local workspace_name
+    workspace_name=$(grep -E '^[[:space:]]*name[[:space:]]*=' "$env_group_tfvars_path" | \
+                     sed -E 's/^[[:space:]]*name[[:space:]]*=[[:space:]]*"?([^"#]*)"?[[:space:]]*#?.*$/\1/' | \
+                     sed 's/[[:space:]]*$//' | head -n1)
+    
+    if [[ -z "$workspace_name" ]]; then
+        print_error "Unable to parse workspace name from tfvars file: $env_group_tfvars_path"
+        print_info "Expected format: name = \"WorkspaceName\""
+        return 1
+    fi
+    
+    print_info "Parsed workspace name: $workspace_name"
+    echo "$workspace_name"
+    return 0
+}
+
+# WHY: Apply same naming transformations as Terraform locals
+# CONTEXT: Ensures bash script resource names match Terraform-generated names exactly
+# IMPACT: Prevents resource naming conflicts between script and Terraform
+generate_resource_names() {
+    local workspace_name="$1"
+    local tfvars_file="$2"
+    
+    # WHY: Apply Terraform naming transformations
+    # CONTEXT: Match the logic from ptn-azure-vnet-extension/locals.tf
+    local workspace_clean
+    workspace_clean=$(echo "$workspace_name" | tr '[:upper:]' '[:lower:]')
+    
+    # WHY: Environment suffix transformation (basic template: Dev environment)
+    # CONTEXT: " - Dev" becomes "dev" using same logic as Terraform
+    local env_suffix="dev"  # For basic template, first environment is always Dev
+    
+    # WHY: CAF naming pattern components
+    # CONTEXT: Match Cloud Adoption Framework patterns from Terraform configuration
+    local project="ppcc25"
+    local location_abbrev="cac"  # Canada Central
+    local failover_abbrev="cae"  # Canada East
+    
+    # WHY: Generate resource names using CAF patterns
+    # CONTEXT: Follow exact same patterns as defined in Terraform locals
+    RESOURCE_GROUP_NAME="rg-${project}-${workspace_clean}-${env_suffix}-vnet-${location_abbrev}"
+    VNET_PRIMARY="vnet-${project}-${workspace_clean}-${env_suffix}-${location_abbrev}-primary"
+    VNET_FAILOVER="vnet-${project}-${workspace_clean}-${env_suffix}-${failover_abbrev}-failover"
+    SUBNET_PRIVATE_ENDPOINT="snet-privateendpoint-${project}-${workspace_clean}-${env_suffix}"
+    
+    # WHY: Key Vault naming with length constraints
+    # CONTEXT: Key Vault names have 24 character limit, use shortened workspace name
+    local workspace_short
+    if [[ ${#workspace_clean} -gt 12 ]]; then
+        # Create meaningful abbreviation for long workspace names
+        workspace_short=$(echo "$workspace_clean" | sed 's/workspace/ws/g' | cut -c1-12)
+    else
+        workspace_short="$workspace_clean"
+    fi
+    
+    KEY_VAULT_NAME="kv-${project}-${workspace_short}-${env_suffix}-${location_abbrev}"
+    PE_PRIMARY_NAME="pe-kv-${project}-${workspace_short}-${env_suffix}-${location_abbrev}"
+    PE_FAILOVER_NAME="pe-kv-${project}-${workspace_short}-${env_suffix}-${failover_abbrev}"
+    
+    # Store for reference
+    WORKSPACE_NAME="$workspace_name"
+    TFVARS_FILE_NAME="$tfvars_file"
+    
+    print_info "Generated resource names:"
+    print_info "  Resource Group: $RESOURCE_GROUP_NAME"
+    print_info "  Key Vault: $KEY_VAULT_NAME"
+    print_info "  VNet Primary: $VNET_PRIMARY"
+    print_info "  VNet Failover: $VNET_FAILOVER"
+    print_info "  PE Primary: $PE_PRIMARY_NAME"
+    print_info "  PE Failover: $PE_FAILOVER_NAME"
+    
+    return 0
+}
+
+# WHY: Validate that both paired tfvars files exist
+# CONTEXT: ptn-azure-vnet-extension requires paired environment group configuration
+# IMPACT: Prevents deployment failures due to missing configuration files
+validate_tfvars_files() {
+    local tfvars_file="$1"
+    
+    local env_group_path="${SCRIPT_DIR}/../../configurations/ptn-environment-group/tfvars/${tfvars_file}.tfvars"
+    local vnet_ext_path="${SCRIPT_DIR}/../../configurations/ptn-azure-vnet-extension/tfvars/${tfvars_file}.tfvars"
+    
+    local missing_files=()
+    
+    if [[ ! -f "$env_group_path" ]]; then
+        missing_files+=("Environment Group: $env_group_path")
+    fi
+    
+    if [[ ! -f "$vnet_ext_path" ]]; then
+        missing_files+=("VNet Extension: $vnet_ext_path")
+    fi
+    
+    if [[ ${#missing_files[@]} -gt 0 ]]; then
+        print_error "Missing required tfvars files:"
+        printf "  - %s\n" "${missing_files[@]}"
+        print_info ""
+        print_info "Both files must exist with matching names:"
+        print_info "  - configurations/ptn-environment-group/tfvars/${tfvars_file}.tfvars"
+        print_info "  - configurations/ptn-azure-vnet-extension/tfvars/${tfvars_file}.tfvars"
+        return 1
+    fi
+    
+    print_success "Validated paired tfvars files exist"
+    return 0
+}
+
+# WHY: Initialize dynamic configuration from tfvars file
+# CONTEXT: Single function to set up all dynamic variables
+# IMPACT: Clean separation between static and dynamic configuration
+initialize_dynamic_config() {
+    local tfvars_file="$1"
+    
+    print_step "Initializing dynamic configuration from tfvars file: $tfvars_file"
+    
+    # Validate tfvars files exist
+    if ! validate_tfvars_files "$tfvars_file"; then
+        return 1
+    fi
+    
+    # Parse workspace name
+    local workspace_name
+    workspace_name=$(parse_workspace_name_from_tfvars "$tfvars_file")
+    if [[ $? -ne 0 || -z "$workspace_name" ]]; then
+        return 1
+    fi
+    
+    # Generate all resource names
+    generate_resource_names "$workspace_name" "$tfvars_file"
+    
+    print_success "Dynamic configuration initialized successfully"
+    return 0
+}
+
+# ============================================================================
+# VALIDATION FUNCTIONS
+# ============================================================================
 
 # WHY: Configuration validation prevents deployment failures
 # CONTEXT: Validates Azure CLI authentication and subscription context
@@ -582,6 +744,7 @@ EOF
 main() {
     local auto_approve=false
     local secrets_only=false
+    local tfvars_file="demo-prep"  # Default to demo-prep for backward compatibility
     
     # Parse command line arguments
     while [[ $# -gt 0 ]]; do
@@ -594,15 +757,31 @@ main() {
                 secrets_only=true
                 shift
                 ;;
+            --tfvars-file)
+                if [[ -n "${2:-}" && "${2:-}" != --* ]]; then
+                    tfvars_file="$2"
+                    shift 2
+                else
+                    print_error "--tfvars-file requires a value (e.g., demo-prep, regional-examples)"
+                    return 1
+                fi
+                ;;
             --help|-h)
-                echo "Usage: $0 [--auto-approve] [--secrets-only]"
+                echo "Usage: $0 [--auto-approve] [--secrets-only] [--tfvars-file <name>]"
                 echo ""
                 echo "Deploy Azure Key Vault with dual private endpoints for PPCC25 demo"
                 echo ""
                 echo "Options:"
-                echo "  --auto-approve    Skip confirmation prompts"
-                echo "  --secrets-only    Only create demo secrets (for completing partial deployment)"
-                echo "  --help, -h       Show this help message"
+                echo "  --auto-approve       Skip confirmation prompts"
+                echo "  --secrets-only       Only create demo secrets (for completing partial deployment)"
+                echo "  --tfvars-file <name> tfvars file name to use (default: demo-prep)"
+                echo "                       Examples: demo-prep, regional-examples, production"
+                echo "  --help, -h          Show this help message"
+                echo ""
+                echo "Examples:"
+                echo "  $0 --tfvars-file demo-prep"
+                echo "  $0 --tfvars-file regional-examples --auto-approve"
+                echo "  $0 --secrets-only  # Use default demo-prep configuration"
                 exit 0
                 ;;
             *)
@@ -614,6 +793,18 @@ main() {
     done
     
     print_step "Starting PPCC25 Key Vault private endpoint deployment..."
+    print_info "Using tfvars configuration: $tfvars_file"
+    
+    # WHY: Initialize dynamic configuration from tfvars file
+    # CONTEXT: Must happen before any validation that uses resource names
+    # IMPACT: Sets up all global variables for script execution
+    if ! initialize_dynamic_config "$tfvars_file"; then
+        print_error "Failed to initialize dynamic configuration"
+        print_info "Ensure both tfvars files exist:"
+        print_info "  - configurations/ptn-environment-group/tfvars/${tfvars_file}.tfvars"
+        print_info "  - configurations/ptn-azure-vnet-extension/tfvars/${tfvars_file}.tfvars"
+        return 1
+    fi
     
     # If secrets-only mode, skip infrastructure deployment
     if [[ "$secrets_only" == true ]]; then

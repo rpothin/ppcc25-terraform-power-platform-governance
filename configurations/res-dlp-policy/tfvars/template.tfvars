@@ -12,7 +12,7 @@
 # -----------------------------------------------------------------------------
 
 # REQUIRED: Human-readable name for the DLP policy (max 50 chars, must be unique)
-display_name = "My Secure DLP Policy"
+display_name = "Template DLP Policy"
 
 # OPTIONAL: Classification for connectors. Choose one: "General", "Confidential", "Blocked"
 # If omitted, defaults to "Blocked" (secure default)

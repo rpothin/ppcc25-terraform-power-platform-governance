@@ -11,7 +11,7 @@
 #    - Only business_connectors (as list of IDs) and custom_connectors_patterns provided
 #    - non_business_connectors and blocked_connectors will be auto-classified
 #    - Uses security-first defaults: environment_type = "OnlyEnvironments", custom_connectors_patterns blocks all by default
-display_name                      = "Block All Policy"
+display_name                      = "SQL and Approvals Only Policy"
 default_connectors_classification = "Blocked"          # Security-first default
 environment_type                  = "OnlyEnvironments" # Security-first default
 environments                      = []

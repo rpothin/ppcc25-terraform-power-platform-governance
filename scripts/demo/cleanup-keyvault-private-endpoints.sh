@@ -1,4 +1,20 @@
 #!/bin/bash
+# ===================================================# WHY: Dynamic configuration constants calculated from tfvars file input
+# CONTEXT: Enables script reuse across different workspace configurations
+# IMPACT: Single script works with multiple demo environments (demo-prep, regional-examples, etc.)
+
+# Global variables for dynamic resource naming (initialized from tfvars)
+RESOURCE_GROUP_NAME=""
+KEY_VAULT_NAME=""
+PE_PRIMARY_NAME=""
+PE_FAILOVER_NAME=""
+WORKSPACE_NAME=""
+TFVARS_FILE_NAME=""
+
+# Static constants
+readonly PRIVATE_DNS_ZONE="privatelink.vaultcore.azure.net"
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # ==============================================================================
 # Script Name: cleanup-keyvault-private-endpoints.sh
 # Purpose: Clean up Key Vault and private endpoints after PPCC25 demo
@@ -10,7 +26,6 @@
 set -euo pipefail
 
 # Source common utilities
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../utils/common.sh" 2>/dev/null || {
     # WHY: Fallback if common utilities not available
     # CONTEXT: Provides basic output functions for script execution
@@ -22,6 +37,127 @@ source "$SCRIPT_DIR/../utils/common.sh" 2>/dev/null || {
     print_step() { echo "🔄 $*"; }
     print_status() { echo "📊 $*"; }
 }
+
+# ============================================================================
+# DYNAMIC CONFIGURATION - tfvars Parsing and Resource Naming
+# ============================================================================
+# NOTE: These functions are duplicated from setup script for independence
+
+# WHY: Parse workspace name from environment group tfvars file
+# CONTEXT: Enables dynamic resource naming based on actual Terraform configuration
+# IMPACT: Single script works with any workspace configuration (demo-prep, regional-examples, etc.)
+parse_workspace_name_from_tfvars() {
+    local tfvars_file="$1"
+    local env_group_tfvars_path="${SCRIPT_DIR}/../../configurations/ptn-environment-group/tfvars/${tfvars_file}.tfvars"
+    
+    if [[ ! -f "$env_group_tfvars_path" ]]; then
+        print_error "Environment group tfvars file not found: $env_group_tfvars_path"
+        print_info "Expected format: configurations/ptn-environment-group/tfvars/${tfvars_file}.tfvars"
+        return 1
+    fi
+    
+    # Extract workspace name from tfvars file (handle both quoted and unquoted values)
+    local workspace_name
+    workspace_name=$(grep -E '^[[:space:]]*name[[:space:]]*=' "$env_group_tfvars_path" | \
+                     sed -E 's/^[[:space:]]*name[[:space:]]*=[[:space:]]*"?([^"#]*)"?[[:space:]]*#?.*$/\1/' | \
+                     sed 's/[[:space:]]*$//' | head -n1)
+    
+    if [[ -z "$workspace_name" ]]; then
+        print_error "Unable to parse workspace name from tfvars file: $env_group_tfvars_path"
+        print_info "Expected format: name = \"WorkspaceName\""
+        return 1
+    fi
+    
+    print_info "Parsed workspace name: $workspace_name"
+    echo "$workspace_name"
+    return 0
+}
+
+# WHY: Apply same naming transformations as Terraform locals
+# CONTEXT: Ensures bash script resource names match Terraform-generated names exactly
+# IMPACT: Prevents resource naming conflicts between script and Terraform
+generate_resource_names() {
+    local workspace_name="$1"
+    local tfvars_file="$2"
+    
+    # WHY: Apply Terraform naming transformations
+    # CONTEXT: Match the logic from ptn-azure-vnet-extension/locals.tf
+    local workspace_clean
+    workspace_clean=$(echo "$workspace_name" | tr '[:upper:]' '[:lower:]')
+    
+    # WHY: Environment suffix transformation (basic template: Dev environment)
+    # CONTEXT: " - Dev" becomes "dev" using same logic as Terraform
+    local env_suffix="dev"  # For basic template, first environment is always Dev
+    
+    # WHY: CAF naming pattern components
+    # CONTEXT: Match Cloud Adoption Framework patterns from Terraform configuration
+    local project="ppcc25"
+    local location_abbrev="cac"  # Canada Central
+    local failover_abbrev="cae"  # Canada East
+    
+    # WHY: Generate resource names using CAF patterns
+    # CONTEXT: Follow exact same patterns as defined in Terraform locals
+    RESOURCE_GROUP_NAME="rg-${project}-${workspace_clean}-${env_suffix}-vnet-${location_abbrev}"
+    
+    # WHY: Key Vault naming with length constraints
+    # CONTEXT: Key Vault names have 24 character limit, use shortened workspace name
+    local workspace_short
+    if [[ ${#workspace_clean} -gt 12 ]]; then
+        # Create meaningful abbreviation for long workspace names
+        workspace_short=$(echo "$workspace_clean" | sed 's/workspace/ws/g' | cut -c1-12)
+    else
+        workspace_short="$workspace_clean"
+    fi
+    
+    KEY_VAULT_NAME="kv-${project}-${workspace_short}-${env_suffix}-${location_abbrev}"
+    PE_PRIMARY_NAME="pe-kv-${project}-${workspace_short}-${env_suffix}-${location_abbrev}"
+    PE_FAILOVER_NAME="pe-kv-${project}-${workspace_short}-${env_suffix}-${failover_abbrev}"
+    
+    # Store for reference
+    WORKSPACE_NAME="$workspace_name"
+    TFVARS_FILE_NAME="$tfvars_file"
+    
+    print_info "Generated resource names:"
+    print_info "  Resource Group: $RESOURCE_GROUP_NAME"
+    print_info "  Key Vault: $KEY_VAULT_NAME"
+    print_info "  PE Primary: $PE_PRIMARY_NAME"
+    print_info "  PE Failover: $PE_FAILOVER_NAME"
+    
+    return 0
+}
+
+# WHY: Initialize dynamic configuration from tfvars file
+# CONTEXT: Single function to set up all dynamic variables
+# IMPACT: Clean separation between static and dynamic configuration
+initialize_dynamic_config() {
+    local tfvars_file="$1"
+    
+    print_step "Initializing dynamic configuration from tfvars file: $tfvars_file"
+    
+    # Validate tfvars file exists
+    local env_group_tfvars_path="${SCRIPT_DIR}/../../configurations/ptn-environment-group/tfvars/${tfvars_file}.tfvars"
+    if [[ ! -f "$env_group_tfvars_path" ]]; then
+        print_error "tfvars file not found: $env_group_tfvars_path"
+        return 1
+    fi
+    
+    # Parse workspace name
+    local workspace_name
+    workspace_name=$(parse_workspace_name_from_tfvars "$tfvars_file")
+    if [[ $? -ne 0 || -z "$workspace_name" ]]; then
+        return 1
+    fi
+    
+    # Generate all resource names
+    generate_resource_names "$workspace_name" "$tfvars_file"
+    
+    print_success "Dynamic configuration initialized successfully"
+    return 0
+}
+
+# ============================================================================
+# UTILITY FUNCTIONS
+# ============================================================================
 
 # WHY: Soft-deleted Key Vault cleanup prevents deployment conflicts
 # CONTEXT: Azure Key Vault soft-delete can block new deployments with same name
@@ -36,7 +172,7 @@ cleanup_soft_deleted_keyvault() {
         
         # Get soft-deleted Key Vault location for purge operation
         local deleted_location
-        deleted_location=$(az keyvault list-deleted --query "[?name=='$KEY_VAULT_NAME'].properties.location" -o tsv 2>/dev/null || echo "$LOCATION_PRIMARY")
+        deleted_location=$(az keyvault list-deleted --query "[?name=='$KEY_VAULT_NAME'].properties.location" -o tsv 2>/dev/null || echo "canadacentral")
         
         print_info "Purging soft-deleted Key Vault to enable name reuse..."
         az keyvault purge --name "$KEY_VAULT_NAME" --location "$deleted_location" 2>/dev/null || {
@@ -59,15 +195,6 @@ cleanup_soft_deleted_keyvault() {
     
     return 0
 }
-
-# WHY: Configuration constants matching setup script
-# CONTEXT: Ensures cleanup targets same resources as deployment
-# IMPACT: Prevents cleanup of unrelated resources
-readonly RESOURCE_GROUP_NAME="rg-ppcc25-demoworkspace-dev-vnet-cac"
-readonly KEY_VAULT_NAME="kv-ppcc25-demo-dev-cac"
-readonly PE_PRIMARY_NAME="pe-kv-ppcc25-demo-dev-cac"
-readonly PE_FAILOVER_NAME="pe-kv-ppcc25-demo-dev-cae"
-readonly PRIVATE_DNS_ZONE="privatelink.vaultcore.azure.net"
 
 # WHY: Safety validation prevents cleanup of wrong resources
 # CONTEXT: Validates Azure context before destructive operations
@@ -287,6 +414,7 @@ main() {
     local auto_approve=false
     local keep_keyvault=false
     local purge_soft_deleted=false
+    local tfvars_file="demo-prep"  # Default to demo-prep for backward compatibility
     
     # Parse command line arguments
     while [[ $# -gt 0 ]]; do
@@ -303,8 +431,17 @@ main() {
                 purge_soft_deleted=true
                 shift
                 ;;
+            --tfvars-file)
+                if [[ -n "${2:-}" && "${2:-}" != --* ]]; then
+                    tfvars_file="$2"
+                    shift 2
+                else
+                    print_error "--tfvars-file requires a value (e.g., demo-prep, regional-examples)"
+                    return 1
+                fi
+                ;;
             --help|-h)
-                echo "Usage: $0 [--auto-approve] [--keep-keyvault] [--purge-soft-deleted]"
+                echo "Usage: $0 [--auto-approve] [--keep-keyvault] [--purge-soft-deleted] [--tfvars-file <name>]"
                 echo ""
                 echo "Clean up Key Vault and private endpoints after PPCC25 demo"
                 echo ""
@@ -312,7 +449,14 @@ main() {
                 echo "  --auto-approve       Skip confirmation prompts"
                 echo "  --keep-keyvault      Keep Key Vault, only remove private endpoints"
                 echo "  --purge-soft-deleted Purge any soft-deleted Key Vault first"
+                echo "  --tfvars-file <name> tfvars file name to use (default: demo-prep)"
+                echo "                       Examples: demo-prep, regional-examples, production"
                 echo "  --help, -h          Show this help message"
+                echo ""
+                echo "Examples:"
+                echo "  $0 --tfvars-file demo-prep --auto-approve"
+                echo "  $0 --tfvars-file regional-examples --purge-soft-deleted"
+                echo "  $0 --keep-keyvault  # Use default demo-prep configuration"
                 exit 0
                 ;;
             *)
@@ -324,6 +468,17 @@ main() {
     done
     
     print_step "Starting PPCC25 demo resource cleanup..."
+    print_info "Using tfvars configuration: $tfvars_file"
+    
+    # WHY: Initialize dynamic configuration from tfvars file
+    # CONTEXT: Must happen before any validation that uses resource names
+    # IMPACT: Sets up all global variables for script execution
+    if ! initialize_dynamic_config "$tfvars_file"; then
+        print_error "Failed to initialize dynamic configuration"
+        print_info "Ensure tfvars file exists:"
+        print_info "  - configurations/ptn-environment-group/tfvars/${tfvars_file}.tfvars"
+        return 1
+    fi
     
     # Handle soft-deleted Key Vault cleanup first if requested
     if [[ "$purge_soft_deleted" == true ]]; then

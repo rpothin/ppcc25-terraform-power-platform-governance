@@ -1,6 +1,6 @@
 # Azure VNet Extension Regional Examples Configuration
 #
-# This file pairs with the ptn-environment-group/tfvars/regional-examples.tfvars
+# This file pairs with the ptn-environment-group/tfvars/demo-prep.tfvars
 # to demonstrate VNet integration across different environments and regions.
 # Must use the same tfvars file name as the paired environment group configuration.
 
@@ -42,7 +42,7 @@
 # WHY: This paired_tfvars_file must exactly match the tfvars file name used for ptn-environment-group deployment
 # CONTEXT: Remote state reading depends on consistent tfvars file naming between paired patterns
 # IMPACT: Pattern will read remote state from ptn-environment-group-{paired_tfvars_file}.tfstate
-paired_tfvars_file = "regional-examples"
+paired_tfvars_file = "demo-prep"
 
 # ==========================================================================
 # SUBSCRIPTION CONFIGURATION - Multi-Subscription Governance  
@@ -117,13 +117,10 @@ private_dns_zones = [
 # ==========================================================================
 
 tags = {
-  Environment = "Demo"
+  Environment = "Demo-Prep"
   Project     = "PPCC25"
   Pattern     = "ptn-azure-vnet-extension"
-  Owner       = "Platform Team"
-  Purpose     = "Power Platform VNet Integration Demo"
-  CostCenter  = "IT-Governance"
-  Compliance  = "Enterprise-Policies"
+  Purpose     = "Power Platform VNet Integration Demo Preparation"
 }
 
 # ==========================================================================
@@ -225,8 +222,8 @@ tags = {
 
 # Deployment Commands:
 # terraform init
-# terraform plan -var-file="tfvars/regional-examples.tfvars"
-# terraform apply -var-file="tfvars/regional-examples.tfvars"
+# terraform plan -var-file="tfvars/demo-prep.tfvars"
+# terraform apply -var-file="tfvars/demo-prep.tfvars"
 
 # Validation:
 # Use terraform-local-validation.sh script to validate configuration before deployment
