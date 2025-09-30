@@ -38,14 +38,14 @@ provider "powerplatform" {
   # WHY: No explicit configuration here
   # OIDC authentication uses environment variables automatically
   # This is the Zero Trust pattern: no secrets in code, only temporary tokens
-  
+
   # The provider detects OIDC configuration from environment variables:
   # - POWER_PLATFORM_USE_OIDC triggers OIDC authentication
   # - POWER_PLATFORM_CLIENT_ID identifies the Azure AD application
   # - POWER_PLATFORM_TENANT_ID identifies the Azure AD tenant
-  
+
   # Token exchange happens automatically with GitHub Actions
-  
+
   # All child modules (res-environment, res-environment-group, etc.)
   # automatically inherit this provider configuration
 }

@@ -34,7 +34,7 @@
 provider "azurerm" {
   # WHY: Required for Azure networking resources (VNets, subnets, NSGs)
   features {}
-  
+
   # OIDC authentication via environment variables:
   # - ARM_USE_OIDC=true
   # - ARM_CLIENT_ID, ARM_TENANT_ID, ARM_SUBSCRIPTION_ID
@@ -43,7 +43,7 @@ provider "azurerm" {
 provider "powerplatform" {
   # WHY: Required for Power Platform enterprise policy resources
   # OIDC authentication uses environment variables automatically
-  
+
   # The provider detects OIDC configuration from environment variables:
   # - POWER_PLATFORM_USE_OIDC=true
   # - POWER_PLATFORM_CLIENT_ID
