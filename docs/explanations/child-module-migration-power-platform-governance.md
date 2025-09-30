@@ -51,7 +51,9 @@ resource "powerplatform_environment" "environments" { ... }
 - AVM specs (see [TFNFR27](https://azure.github.io/Azure-Verified-Modules/specs/tf/)) require that provider blocks **must not** be declared in module code except when different instances of the same provider are needed. Provider configurations should be passed in by module users, and only `alias` should be used in provider blocks within modules.
 
 **Best Practice:**
-- Remove provider/backend blocks from all `res-*` modules. Minimize `versions.tf` to essential configuration only. This enables safe use of meta-arguments and aligns with AVM standards.
+- Remove provider/backend blocks from all `res-*` **child modules**. Minimize `versions.tf` to essential configuration only. This enables safe use of meta-arguments and aligns with AVM standards.
+- **For dual-purpose modules** (can be used standalone OR as child): Add `providers.tf` at root level. When used as child module, this file is ignored and provider is inherited from parent.
+- **For pure child modules** (only used by pattern modules): Do NOT include `providers.tf`. Provider configuration is always inherited from parent.
 
 #### Before (Anti-Pattern)
 ```hcl
@@ -120,6 +122,64 @@ module "multiple_resources" {
 - **Maintainability:** Provider configurations are centralized in the root module
 - **Composability:** Pattern modules can easily combine multiple resource modules
 - **Compliance:** Follows AVM specification TFNFR27 regarding provider declarations
+
+---
+
+### 1a. Dual-Purpose Modules: Standalone AND Child Module Usage
+
+**Challenge:** Some configurations need to work both as standalone deployments (via GitHub Actions) AND as child modules (called by pattern modules).
+
+**Solution:** Add `providers.tf` at the root level of configurations that are deployed directly:
+
+```hcl
+# configurations/res-environment/providers.tf
+# WHY: Explicit provider configuration for standalone deployment
+# BEHAVIOR: When used as child module, this file is present but provider
+#           configuration is inherited from parent, not this file
+
+provider "powerplatform" {
+  # OIDC authentication via environment variables:
+  # - POWER_PLATFORM_USE_OIDC=true
+  # - POWER_PLATFORM_CLIENT_ID (from GitHub secrets)
+  # - POWER_PLATFORM_TENANT_ID (from GitHub secrets)
+  
+  # No explicit credentials - uses OIDC token exchange
+}
+```
+
+**How Terraform Handles This:**
+1. **Standalone usage** (root module):
+   - Terraform reads `providers.tf`
+   - Uses the provider configuration defined here
+   - OIDC authentication via environment variables
+
+2. **Child module usage** (called by `ptn-*`):
+   - Parent module has its own `providers.tf`
+   - Child module **ignores** its `providers.tf`
+   - Provider configuration **inherited** from parent
+   - This is standard Terraform behavior
+
+**Educational Benefits:**
+- Shows OIDC authentication setup explicitly
+- Documents required environment variables
+- Demonstrates Zero Trust security model
+- Makes configuration self-documenting
+
+**Pattern Module Example:**
+```hcl
+# configurations/ptn-environment-group/providers.tf
+provider "powerplatform" {
+  # OIDC authentication for pattern module
+}
+
+# configurations/ptn-environment-group/main.tf
+module "environment" {
+  source = "../res-environment"  # This module's providers.tf is ignored
+  # Provider inherited from parent (this pattern module)
+  environment = var.environment
+  dataverse   = var.dataverse
+}
+```
 
 ---
 
