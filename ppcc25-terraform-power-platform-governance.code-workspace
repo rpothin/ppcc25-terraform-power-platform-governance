@@ -8,6 +8,9 @@
 		},
 		{
 			"path": "../Azure-Verified-Modules/docs"
+		},
+		{
+			"path": "../vscode-demo-time/docs"
 		}
 	],
 	"settings": {}
