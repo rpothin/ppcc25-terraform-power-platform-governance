@@ -105,6 +105,16 @@
         },
         {
           "action": "waitForInput",
+          "message": "🔍 Press any key to highlight a section we want to show in the output file..."
+        },
+        {
+          "action": "highlight",
+          "path": "configurations/utl-export-dlp-policies/terraform-output-utl-export-dlp-policies.json",
+          "startPlaceholder": "\"display_name\": \"Copilot Studio Autonomous Agents\",",
+          "zoom": 10
+        },
+        {
+          "action": "waitForInput",
           "message": "➕ Press any key continue the demonstration with the provisioning of a new DLP policy..."
         },
         {
