@@ -1,0 +1,132 @@
+{
+  "$schema": "https://demotime.show/demo-time.schema.json",
+  "title": "PPCC25 - Terraform Power Platform Governance",
+  "description": "Demonstrations of using Terraform to enhance Power Platform Governance experience.",
+  "version": 2,
+  "timer": 50,
+  "demos": [
+    {
+      "id": "demo-setup",
+      "title": "Demo Setup",
+      "steps": [
+        {
+          "action": "openTerminal",
+          "terminalId": "demo"
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "unset GITHUB_TOKEN",
+          "insertTypingMode": "instant",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "gh auth login",
+          "insertTypingMode": "instant",
+          "autoExecute": true,
+          "terminalId": "demo"
+        }
+      ]
+    },
+    {
+      "id": "dlp-policies-export",
+      "title": "Demo 1.1: DLP Policies Export",
+      "description": "Exporting Data Loss Prevention (DLP) policies using Terraform.",
+      "steps": [
+        {
+          "action": "openTerminal",
+          "terminalId": "demo"
+        },
+        {
+          "action": "waitForInput",
+          "message": "🎯 Press any key to trigger the Terraform Output workflow..."
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "gh workflow run terraform-output.yml -f configuration=utl-export-dlp-policies -f export_format=json -f include_metadata=true",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "waitForInput",
+          "message": "💡 Press any key to open the DLP export configuration..."
+        },
+        {
+          "action": "open",
+          "path": "configurations/utl-export-dlp-policies/main.tf"
+        },
+        {
+          "action": "waitForInput",
+          "message": "🔍 Press any key to highlight the relevant code section..."
+        },
+        {
+          "action": "highlight",
+          "path": "configurations/utl-export-dlp-policies/main.tf",
+          "position": "14:15",
+          "highlightWholeLine": true,
+          "zoom": 10
+        },
+        {
+          "action": "waitForInput",
+          "message": "➕ Press any key continue the demonstration with the provisioning of a new DLP policy..."
+        },
+        {
+          "action": "runDemoById",
+          "id": "new-dlp-policy-provisioning"
+        }
+      ]
+    },
+    {
+      "id": "new-dlp-policy-provisioning",
+      "title": "Demo 1.2: New DLP Policy Provisioning",
+      "description": "Provisioning of a new Data Loss Prevention (DLP) policy using Terraform.",
+      "steps": []
+    },
+    {
+      "id": "existing-dlp-policy-onboarding",
+      "title": "Demo 1.3: Existing DLP Policy Onboarding",
+      "description": "Generate configuration file for existing DLP Policy, import it and deploy changes using Terraform.",
+      "steps": []
+    },
+    {
+      "id": "environment-group-provisioning",
+      "title": "Demo 2: Environment Group Provisioning",
+      "description": "Provisioning of an entire environment group with its environments (Dev, Test and Prod) based on a selected template to enable a team to quickly start building.",
+      "steps": [
+        {
+          "action": "openTerminal",
+          "terminalId": "demo"
+        },
+        {
+          "action": "waitForInput",
+          "message": "🚀 Starting Demo 2 - Press any key to begin..."
+        },
+        {
+          "action": "showInfoMessage",
+          "message": "Demo 2: Environment Management - Add your steps here"
+        }
+      ]
+    },
+    {
+      "id": "azure-extension-provisioning",
+      "title": "Demo 3: Azure Extension Provisioning",
+      "description": "Provisioning of the extension of a Power Platform environment group in Azure with VNet integration to enable a team to quickly connect to Azure resources securely.",
+      "steps": [
+        {
+          "action": "openTerminal",
+          "terminalId": "demo"
+        },
+        {
+          "action": "waitForInput",
+          "message": "🎬 Starting Demo 3 - Press any key to begin..."
+        },
+        {
+          "action": "showInfoMessage",
+          "message": "Demo 3: Policy Automation - Add your steps here"
+        }
+      ]
+    }
+  ]
+}
