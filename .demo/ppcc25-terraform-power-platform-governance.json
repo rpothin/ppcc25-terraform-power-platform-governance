@@ -51,6 +51,15 @@
         },
         {
           "action": "waitForInput",
+          "message": "💡 Press any key to open the data_loss_prevention_policies data source documentation..."
+        },
+        {
+          "action": "openWebsite",
+          "url": "https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/data-sources/data_loss_prevention_policies",
+          "openInVSCode": false
+        },
+        {
+          "action": "waitForInput",
           "message": "💡 Press any key to open the DLP export configuration..."
         },
         {
@@ -67,6 +76,32 @@
           "position": "14:15",
           "highlightWholeLine": true,
           "zoom": 10
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "gh run list --workflow=terraform-output.yml --limit 1",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "waitForInput",
+          "message": "🔄 Press any key to pull the latest changes from the repository..."
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "git pull",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "waitForInput",
+          "message": "🔍 Press any key to open the just generated Terraform output file..."
+        },
+        {
+          "action": "open",
+          "path": "configurations/utl-export-dlp-policies/terraform-output-utl-export-dlp-policies.json"
         },
         {
           "action": "waitForInput",
