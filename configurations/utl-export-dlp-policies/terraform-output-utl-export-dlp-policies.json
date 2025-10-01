@@ -1,13 +1,13 @@
 {
   "metadata": {
-    "generated_at": "2025-10-01T02:36:35Z",
+    "generated_at": "2025-10-01T02:55:12Z",
     "workflow": {
-      "run_number": 152,
-      "run_id": "18149474960",
+      "run_number": 153,
+      "run_id": "18149773919",
       "generated_by": "rpothin",
       "version": "2.0.0"
     },
-    "terraform_version": "1.12.2\nunknown",
+    "terraform_version": "1.12.2",
     "operation": "output",
     "phase": "execution",
     "configuration": "utl-export-dlp-policies",
@@ -15,7 +15,7 @@
     "repository": {
       "name": "rpothin/ppcc25-terraform-power-platform-governance",
       "ref": "refs/heads/main",
-      "sha": "84d2a75a19d96f88ef8b8bde28aaf22344cf3e45",
+      "sha": "b003fa44a7ead934c0e7365bb42b7e193adbd507",
       "event": "workflow_dispatch"
     },
     "runner": {
@@ -50787,7 +50787,7 @@
       "value": {
         "export_metadata": {
           "detail_level": "summary",
-          "export_timestamp": "2025-10-01T02:37:33Z",
+          "export_timestamp": "2025-10-01T02:56:14Z",
           "filter_applied": false,
           "filtered_policies_count": 2,
           "total_policies_in_tenant": 2
