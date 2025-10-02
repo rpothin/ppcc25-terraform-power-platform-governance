@@ -2,12 +2,13 @@
   "$schema": "https://demotime.show/demo-time.schema.json",
   "title": "PPCC25 - Terraform Power Platform Governance",
   "description": "Demonstrations of using Terraform to enhance Power Platform Governance experience.",
-  "version": 2,
+  "version": 1,
   "timer": 50,
   "demos": [
     {
       "id": "demo-setup",
       "title": "Demo Setup",
+      "description": "Setting up the demo environment by logging into GitHub CLI.",
       "steps": [
         {
           "action": "openTerminal",
@@ -141,17 +142,39 @@
       "description": "Provisioning of a new Data Loss Prevention (DLP) policy using Terraform.",
       "steps": [
         {
-          "action": "copy",
-          "path": "configurations/res-dlp-policy/tfvars/template.tfvars",
-          "overwrite": false,
-          "dest": "configurations/res-dlp-policy/tfvars/live-demo.tfvars"
+          "action": "openTerminal",
+          "terminalId": "demo"
+        },
+        {
+          "action": "waitForInput",
+          "message": "🎯 Press any key to copy the template file..."
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "cp configurations/res-dlp-policy/tfvars/template.tfvars configurations/res-dlp-policy/tfvars/live-demo.tfvars",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "waitForInput",
+          "message": "🎯 Press any key to open the copied configuration file..."
         },
         {
           "action": "open",
           "path": "configurations/res-dlp-policy/tfvars/live-demo.tfvars"
         },
         {
-          "action": "agentCopilotChat"
+          "action": "waitForInput",
+          "message": "🎯 Press any key to open the copied configuration file..."
+        },
+        {
+          "action": "replace",
+          "path": "configurations/res-dlp-policy/tfvars/live-demo.tfvars",
+          "content": "Hello!",
+          "position": "21:21",
+          "highlightWholeLine": true,
+          "insertTypingMode": "character-by-character"
         }
       ]
     },
