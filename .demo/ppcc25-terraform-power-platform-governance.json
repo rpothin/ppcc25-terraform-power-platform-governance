@@ -78,8 +78,19 @@
           "zoom": 10
         },
         {
+          "action": "waitForInput",
+          "message": "💡 Press any key to open the GitHub Actions workflow that triggers the export..."
+        },
+        {
           "action": "executeTerminalCommand",
           "command": "gh run list --workflow=terraform-output.yml --limit 1",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "gh run list --workflow=terraform-output.yml --limit 1 --json number,url",
           "insertTypingMode": "character-by-character",
           "autoExecute": true,
           "terminalId": "demo"
@@ -110,8 +121,9 @@
         {
           "action": "highlight",
           "path": "configurations/utl-export-dlp-policies/terraform-output-utl-export-dlp-policies.json",
-          "startPlaceholder": "\"display_name\": \"Copilot Studio Autonomous Agents\",",
-          "zoom": 10
+          "startPlaceholder": "\"display_name\": \"Copilot Studio",
+          "zoom": 10,
+          "endPlaceholder": " Autonomous Agents\","
         },
         {
           "action": "waitForInput",
@@ -127,7 +139,21 @@
       "id": "new-dlp-policy-provisioning",
       "title": "Demo 1.2: New DLP Policy Provisioning",
       "description": "Provisioning of a new Data Loss Prevention (DLP) policy using Terraform.",
-      "steps": []
+      "steps": [
+        {
+          "action": "copy",
+          "path": "configurations/res-dlp-policy/tfvars/template.tfvars",
+          "overwrite": false,
+          "dest": "configurations/res-dlp-policy/tfvars/live-demo.tfvars"
+        },
+        {
+          "action": "open",
+          "path": "configurations/res-dlp-policy/tfvars/live-demo.tfvars"
+        },
+        {
+          "action": "agentCopilotChat"
+        }
+      ]
     },
     {
       "id": "existing-dlp-policy-onboarding",
