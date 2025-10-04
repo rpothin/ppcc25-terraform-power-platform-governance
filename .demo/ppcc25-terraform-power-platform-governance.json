@@ -171,10 +171,97 @@
         {
           "action": "replace",
           "path": "configurations/res-dlp-policy/tfvars/live-demo.tfvars",
-          "content": "Hello!",
-          "position": "21:21",
+          "content": "display_name = \"Dataverse only DLP policy\"",
+          "position": "15:15",
           "highlightWholeLine": true,
           "insertTypingMode": "character-by-character"
+        },
+        {
+          "action": "replace",
+          "path": "configurations/res-dlp-policy/tfvars/live-demo.tfvars",
+          "content": "environments = []",
+          "position": "26:26",
+          "highlightWholeLine": true,
+          "insertTypingMode": "character-by-character"
+        },
+        {
+          "action": "replace",
+          "position": "29:41",
+          "highlightWholeLine": true,
+          "content": "business_connectors = [\n  {\n    id                           = \"/providers/Microsoft.PowerApps/apis/shared_commondataservice\"\n    default_action_rule_behavior = \"Allow\"\n    action_rules                 = []\n    endpoint_rules               = []\n  }\n]",
+          "path": "configurations/res-dlp-policy/tfvars/live-demo.tfvars",
+          "insertTypingMode": "line-by-line"
+        },
+        {
+          "action": "replace",
+          "path": "configurations/res-dlp-policy/tfvars/live-demo.tfvars",
+          "position": "46:49",
+          "highlightWholeLine": true,
+          "insertTypingMode": "line-by-line",
+          "content": "custom_connectors_patterns = [\n  {\n    order            = 1\n    host_url_pattern = \"*\"\n    data_group       = \"Blocked\" # Security-first: block all custom connectors by default\n  }\n]"
+        },
+        {
+          "action": "waitForInput",
+          "message": "✅ Configuration ready! Press any key to commit the changes..."
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "git add configurations/res-dlp-policy/tfvars/live-demo.tfvars",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "git commit -m \"feat: add Dataverse-only DLP policy configuration\"",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "git push",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "waitForInput",
+          "message": "🚀 Press any key to trigger the Terraform Plan and Apply workflow..."
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "gh workflow run terraform-plan-apply.yml -f configuration=res-dlp-policy -f tfvars_file=live-demo -f apply=true -f extract_outputs=false",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "waitForInput",
+          "message": "⏳ Waiting for deployment... Press any key to check workflow status..."
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "gh run list --workflow=terraform-plan-apply.yml --limit 1",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "gh run list --workflow=terraform-plan-apply.yml --limit 1 --json number,url,status,conclusion",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "waitForInput",
+          "message": "🔍 Press any key to open Power Platform Admin Center to verify the deployed policy..."
+        },
+        {
+          "action": "openWebsite",
+          "url": "https://admin.powerplatform.microsoft.com/security/dataprotection/dlp",
+          "openInVSCode": false
         }
       ]
     },
