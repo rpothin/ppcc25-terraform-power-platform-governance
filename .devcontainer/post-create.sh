@@ -32,7 +32,7 @@
 
 set -euo pipefail
 
-echo "🚀 Setting up YAML validation tools for Power Platform governance..."
+echo "🚀 Setting up development tools for Power Platform governance..."
 echo
 
 # === SOURCE MODULAR INSTALLER ===
@@ -56,7 +56,7 @@ if [[ -f "$PROJECT_ROOT/scripts/utils/yaml-tools-installer.sh" ]]; then
     
     # === COMPLETION MESSAGE ===
     if verify_yaml_tools; then
-        echo "🎉 YAML validation tools setup completed successfully!"
+        echo "🎉 Development environment setup completed successfully!"
         echo
         echo "📋 Available tools:"
         echo "   • yamllint - Comprehensive YAML linting"
@@ -69,7 +69,7 @@ if [[ -f "$PROJECT_ROOT/scripts/utils/yaml-tools-installer.sh" ]]; then
         echo "   • yamllint file.yml"
         echo "   • python3 -c \"import yaml; yaml.safe_load(open('file.yml'))\""
         echo
-        echo "Ready for YAML validation! 🚀"
+        echo "Ready for Power Platform governance development! 🚀"
     else
         echo "⚠️  Some tools failed to install but essential tools are available"
         echo "You can still perform basic YAML validation"

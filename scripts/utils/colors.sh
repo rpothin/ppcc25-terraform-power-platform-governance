@@ -20,36 +20,39 @@ readonly BOLD='\033[1m'
 readonly NC='\033[0m' # No Color
 
 # Function to print colored output with consistent formatting
+# WHY: All output functions redirect to stderr to prevent interference with command substitution
+# CONTEXT: Functions returning values via echo must not mix with debug output on stdout
+# IMPACT: Ensures reliable function return value capture throughout all scripts
 print_status() {
-    echo -e "${BLUE}[INFO]${NC} $1"
+    echo -e "${BLUE}[INFO]${NC} $1" >&2
 }
 
 print_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
+    echo -e "${BLUE}[INFO]${NC} $1" >&2
 }
 
 print_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
+    echo -e "${GREEN}[SUCCESS]${NC} $1" >&2
 }
 
 print_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
+    echo -e "${YELLOW}[WARNING]${NC} $1" >&2
 }
 
 print_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
+    echo -e "${RED}[ERROR]${NC} $1" >&2
 }
 
 print_check() {
-    echo -e "${BLUE}[CHECK]${NC} $1"
+    echo -e "${BLUE}[CHECK]${NC} $1" >&2
 }
 
 print_step() {
-    echo -e "${YELLOW}[STEP]${NC} $1"
+    echo -e "${YELLOW}[STEP]${NC} $1" >&2
 }
 
 print_header() {
-    echo -e "${CYAN}${BOLD}$1${NC}"
+    echo -e "${CYAN}${BOLD}$1${NC}" >&2
 }
 
 # Function to print a separator line
