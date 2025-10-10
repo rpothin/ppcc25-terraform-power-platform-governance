@@ -494,6 +494,45 @@ Type: `string`
 
 The following input variables are optional (have default values):
 
+### <a name="input_enable_vnet_peering"></a> [enable\_vnet\_peering](#input\_enable\_vnet\_peering)
+
+Description: Enable VNet peering between primary and failover regions for cross-region connectivity.
+
+WHY: VNet peering enables Power Platform traffic from any region to access  
+private endpoints in primary region without deploying duplicate endpoints.
+
+CONTEXT: Power Platform SaaS may originate traffic from Canada Central or East.  
+VNet peering provides secure, low-latency connectivity between regions.
+
+IMPACT: Simplifies architecture from 4 endpoints to 2, reduces costs, easier management.  
+Enables hub-spoke pattern with single private endpoint per service.
+
+When enabled:
+- Creates bidirectional peering between primary and failover VNets
+- Enables cross-region private endpoint access
+- Supports single private endpoint architecture
+- Follows enterprise hub-spoke patterns
+
+When disabled:
+- VNets remain isolated (requires dual private endpoints)
+- Cross-region traffic fails without VNet peering
+- More complex DNS management required
+
+Example:  
+enable\_vnet\_peering = true   # Enable hub-spoke architecture (recommended)  
+enable\_vnet\_peering = false  # Isolated VNets (legacy dual-endpoint pattern)
+
+Default: true (enterprise-grade hub-spoke pattern)
+
+Validation Rules:
+- Boolean value only
+- When true, peering resources created using AVM peering sub-module
+- When false, VNets remain isolated
+
+Type: `bool`
+
+Default: `true`
+
 ### <a name="input_enable_zero_trust_networking"></a> [enable\_zero\_trust\_networking](#input\_enable\_zero\_trust\_networking)
 
 Description: Enable zero-trust networking security rules for Power Platform subnets.
@@ -774,6 +813,25 @@ Naming Components:
 - Generated names: Actual resource names for each environment
 - Validation: Naming rule compliance and uniqueness checks
 
+### <a name="output_vnet_peering_status"></a> [vnet\_peering\_status](#output\_vnet\_peering\_status)
+
+Description: Status and configuration details of VNet peering connections for cross-region connectivity.
+
+Provides comprehensive information about peering deployments including:
+- Connection status and resource IDs for all peerings
+- Bidirectional connectivity validation
+- Hub-spoke architecture verification
+- Provider-specific peering assignments
+
+This output enables validation of the single private endpoint architecture  
+where primary region endpoints serve traffic from both regions via VNet peering.
+
+Peering Components:
+- production\_peerings: Production environment peering connections
+- non\_production\_peerings: Non-production environment peering connections
+- peering\_configuration: Applied peering settings and policies
+- connectivity\_validation: Cross-region connectivity status
+
 ## Modules
 
 The following Modules are called:
@@ -784,11 +842,17 @@ Source: ../res-enterprise-policy
 
 Version:
 
+### <a name="module_non_production_failover_to_primary_peering"></a> [non\_production\_failover\_to\_primary\_peering](#module\_non\_production\_failover\_to\_primary\_peering)
+
+Source: Azure/avm-res-network-virtualnetwork/azurerm//modules/peering
+
+Version: ~> 0.14.1
+
 ### <a name="module_non_production_failover_virtual_networks"></a> [non\_production\_failover\_virtual\_networks](#module\_non\_production\_failover\_virtual\_networks)
 
 Source: Azure/avm-res-network-virtualnetwork/azurerm
 
-Version: ~> 0.7.2
+Version: ~> 0.14.1
 
 ### <a name="module_non_production_nsgs"></a> [non\_production\_nsgs](#module\_non\_production\_nsgs)
 
@@ -802,11 +866,17 @@ Source: ../res-enterprise-policy-link
 
 Version:
 
+### <a name="module_non_production_primary_to_failover_peering"></a> [non\_production\_primary\_to\_failover\_peering](#module\_non\_production\_primary\_to\_failover\_peering)
+
+Source: Azure/avm-res-network-virtualnetwork/azurerm//modules/peering
+
+Version: ~> 0.14.1
+
 ### <a name="module_non_production_primary_virtual_networks"></a> [non\_production\_primary\_virtual\_networks](#module\_non\_production\_primary\_virtual\_networks)
 
 Source: Azure/avm-res-network-virtualnetwork/azurerm
 
-Version: ~> 0.7.2
+Version: ~> 0.14.1
 
 ### <a name="module_non_production_private_dns_zones"></a> [non\_production\_private\_dns\_zones](#module\_non\_production\_private\_dns\_zones)
 
@@ -826,11 +896,17 @@ Source: ../res-enterprise-policy
 
 Version:
 
+### <a name="module_production_failover_to_primary_peering"></a> [production\_failover\_to\_primary\_peering](#module\_production\_failover\_to\_primary\_peering)
+
+Source: Azure/avm-res-network-virtualnetwork/azurerm//modules/peering
+
+Version: ~> 0.14.1
+
 ### <a name="module_production_failover_virtual_networks"></a> [production\_failover\_virtual\_networks](#module\_production\_failover\_virtual\_networks)
 
 Source: Azure/avm-res-network-virtualnetwork/azurerm
 
-Version: ~> 0.7.2
+Version: ~> 0.14.1
 
 ### <a name="module_production_nsgs"></a> [production\_nsgs](#module\_production\_nsgs)
 
@@ -844,11 +920,17 @@ Source: ../res-enterprise-policy-link
 
 Version:
 
+### <a name="module_production_primary_to_failover_peering"></a> [production\_primary\_to\_failover\_peering](#module\_production\_primary\_to\_failover\_peering)
+
+Source: Azure/avm-res-network-virtualnetwork/azurerm//modules/peering
+
+Version: ~> 0.14.1
+
 ### <a name="module_production_primary_virtual_networks"></a> [production\_primary\_virtual\_networks](#module\_production\_primary\_virtual\_networks)
 
 Source: Azure/avm-res-network-virtualnetwork/azurerm
 
-Version: ~> 0.7.2
+Version: ~> 0.14.1
 
 ### <a name="module_production_private_dns_zones"></a> [production\_private\_dns\_zones](#module\_production\_private\_dns\_zones)
 
