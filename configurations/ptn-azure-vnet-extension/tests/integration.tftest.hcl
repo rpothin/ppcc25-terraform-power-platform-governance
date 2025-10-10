@@ -1164,8 +1164,8 @@ run "vnet_peering_module_deployment_validation" {
   command = plan
 
   variables {
-    paired_tfvars_file = "vnet-peering-test"
-    test_mode          = true
+    paired_tfvars_file  = "vnet-peering-test"
+    test_mode           = true
     enable_vnet_peering = true
 
     production_subscription_id     = "11111111-1111-1111-1111-111111111111"
@@ -1180,11 +1180,11 @@ run "vnet_peering_module_deployment_validation" {
 
     network_configuration = {
       primary = {
-        location                = "East US"      # Maps to "unitedstates" Power Platform region
+        location                = "East US" # Maps to "unitedstates" Power Platform region
         vnet_address_space_base = "10.96.0.0/12"
       }
       failover = {
-        location                = "West US 2"     # Maps to "unitedstates" Power Platform region
+        location                = "West US 2" # Maps to "unitedstates" Power Platform region
         vnet_address_space_base = "10.112.0.0/12"
       }
       subnet_allocation = {
@@ -1228,7 +1228,7 @@ run "vnet_peering_module_deployment_validation" {
 
   assert {
     condition = alltrue([
-      for env_key, peering in module.production_primary_to_failover_peering : 
+      for env_key, peering in module.production_primary_to_failover_peering :
       can(regex("^peer-.+-to-failover$", peering.name))
     ])
     error_message = "Production primary-to-failover peering names should follow naming convention"
@@ -1236,7 +1236,7 @@ run "vnet_peering_module_deployment_validation" {
 
   assert {
     condition = alltrue([
-      for env_key, peering in module.production_failover_to_primary_peering : 
+      for env_key, peering in module.production_failover_to_primary_peering :
       can(regex("^peer-.+-to-primary$", peering.name))
     ])
     error_message = "Production failover-to-primary peering names should follow naming convention"
@@ -1244,7 +1244,7 @@ run "vnet_peering_module_deployment_validation" {
 
   assert {
     condition = alltrue([
-      for env_key, peering in module.non_production_primary_to_failover_peering : 
+      for env_key, peering in module.non_production_primary_to_failover_peering :
       can(regex("^peer-.+-to-failover$", peering.name))
     ])
     error_message = "Non-production primary-to-failover peering names should follow naming convention"
@@ -1252,7 +1252,7 @@ run "vnet_peering_module_deployment_validation" {
 
   assert {
     condition = alltrue([
-      for env_key, peering in module.non_production_failover_to_primary_peering : 
+      for env_key, peering in module.non_production_failover_to_primary_peering :
       can(regex("^peer-.+-to-primary$", peering.name))
     ])
     error_message = "Non-production failover-to-primary peering names should follow naming convention"
@@ -1310,14 +1310,14 @@ run "vnet_peering_disabled_validation" {
   command = plan
 
   variables {
-    paired_tfvars_file = "vnet-peering-disabled-test"
-    test_mode          = true
+    paired_tfvars_file  = "vnet-peering-disabled-test"
+    test_mode           = true
     enable_vnet_peering = false
 
     production_subscription_id     = "11111111-1111-1111-1111-111111111111"
     non_production_subscription_id = "22222222-2222-2222-2222-222222222222"
 
-    private_dns_zones = []
+    private_dns_zones            = []
     enable_zero_trust_networking = false
 
     network_configuration = {
@@ -1371,8 +1371,8 @@ run "vnet_peering_disabled_validation" {
   }
 
   assert {
-    condition     = output.vnet_peering_status.impact == "Cross-region private endpoint access not available"
-    error_message = "VNet peering output should document impact when disabled"
+    condition     = output.vnet_peering_status.implementation_status.next_action == "deploy private endpoints in both regions"
+    error_message = "VNet peering output should document next action when disabled"
   }
 }
 
@@ -1384,8 +1384,8 @@ run "deployment_status_with_vnet_peering_validation" {
   command = plan
 
   variables {
-    paired_tfvars_file = "deployment-status-test"
-    test_mode          = true
+    paired_tfvars_file  = "deployment-status-test"
+    test_mode           = true
     enable_vnet_peering = true
 
     production_subscription_id     = "11111111-1111-1111-1111-111111111111"
