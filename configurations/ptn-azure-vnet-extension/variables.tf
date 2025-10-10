@@ -298,6 +298,45 @@ Validation Rules:
 DESCRIPTION
 }
 
+variable "enable_vnet_peering" {
+  type        = bool
+  default     = true
+  description = <<DESCRIPTION
+Enable VNet peering between primary and failover regions for cross-region connectivity.
+
+WHY: VNet peering enables Power Platform traffic from any region to access
+private endpoints in primary region without deploying duplicate endpoints.
+
+CONTEXT: Power Platform SaaS may originate traffic from Canada Central or East.
+VNet peering provides secure, low-latency connectivity between regions.
+
+IMPACT: Simplifies architecture from 4 endpoints to 2, reduces costs, easier management.
+Enables hub-spoke pattern with single private endpoint per service.
+
+When enabled:
+- Creates bidirectional peering between primary and failover VNets
+- Enables cross-region private endpoint access
+- Supports single private endpoint architecture
+- Follows enterprise hub-spoke patterns
+
+When disabled:
+- VNets remain isolated (requires dual private endpoints)
+- Cross-region traffic fails without VNet peering
+- More complex DNS management required
+
+Example:
+enable_vnet_peering = true   # Enable hub-spoke architecture (recommended)
+enable_vnet_peering = false  # Isolated VNets (legacy dual-endpoint pattern)
+
+Default: true (enterprise-grade hub-spoke pattern)
+
+Validation Rules:
+- Boolean value only
+- When true, peering resources created using AVM peering sub-module
+- When false, VNets remain isolated
+DESCRIPTION
+}
+
 variable "tags" {
   type        = map(string)
   default     = {}

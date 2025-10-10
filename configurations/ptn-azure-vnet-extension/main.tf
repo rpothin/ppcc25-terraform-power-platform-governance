@@ -114,7 +114,7 @@ module "non_production_resource_groups" {
 # IMPACT: Secure network foundation for Power Platform integration
 module "production_primary_virtual_networks" {
   source   = "Azure/avm-res-network-virtualnetwork/azurerm"
-  version  = "~> 0.7.2"
+  version  = "~> 0.14.1"
   for_each = local.production_environments
 
   # WHY: Use production provider for production environments
@@ -176,7 +176,7 @@ module "production_primary_virtual_networks" {
 # IMPACT: Cost-effective network foundation for Power Platform integration
 module "non_production_primary_virtual_networks" {
   source   = "Azure/avm-res-network-virtualnetwork/azurerm"
-  version  = "~> 0.7.2"
+  version  = "~> 0.14.1"
   for_each = local.non_production_environments
 
   # WHY: Use default provider for non-production environments
@@ -236,7 +236,7 @@ module "non_production_primary_virtual_networks" {
 # IMPACT: Simplified governance with all environment resources in one place
 module "production_failover_virtual_networks" {
   source   = "Azure/avm-res-network-virtualnetwork/azurerm"
-  version  = "~> 0.7.2"
+  version  = "~> 0.14.1"
   for_each = local.production_environments
 
   # WHY: Use production provider for production environments
@@ -298,7 +298,7 @@ module "production_failover_virtual_networks" {
 # IMPACT: Cost-effective resource organization with all environment resources in one place
 module "non_production_failover_virtual_networks" {
   source   = "Azure/avm-res-network-virtualnetwork/azurerm"
-  version  = "~> 0.7.2"
+  version  = "~> 0.14.1"
   for_each = local.non_production_environments
 
   # WHY: Use default provider for non-production environments
@@ -754,6 +754,136 @@ module "non_production_policy_links" {
 }
 
 # ============================================================================
+# VNET PEERING ORCHESTRATION - AVM Sub-Module Implementation
+# ============================================================================
+
+# WHY: Enable cross-region connectivity using Azure Verified Module (AVM) peering sub-module
+# CONTEXT: Hub-spoke architecture with primary-only private endpoints requires VNet peering
+# IMPACT: Enables single private endpoint per service while supporting traffic from both regions
+
+# Production Environment VNet Peering (Primary to Failover)
+module "production_primary_to_failover_peering" {
+  source   = "Azure/avm-res-network-virtualnetwork/azurerm//modules/peering"
+  version  = "~> 0.14.1"
+  for_each = var.enable_vnet_peering ? local.production_environments : {}
+
+  # WHY: Use AVM peering sub-module for standardized, tested peering implementation
+  # CONTEXT: AVM modules provide enterprise-grade patterns with built-in best practices
+  # IMPACT: Reliable, maintainable peering configuration following Azure standards
+  name = "peer-${module.production_primary_virtual_networks[each.key].name}-to-failover"
+
+  parent_id                 = module.production_primary_virtual_networks[each.key].resource_id
+  remote_virtual_network_id = module.production_failover_virtual_networks[each.key].resource_id
+
+  allow_virtual_network_access = true
+  allow_forwarded_traffic      = false
+  allow_gateway_transit        = false
+  use_remote_gateways          = false
+
+  # WHY: Use production provider for production environments
+  # CONTEXT: Routes production resources to dedicated subscription
+  # IMPACT: Enables proper subscription-level governance and isolation
+  providers = {
+    azurerm = azurerm.production
+  }
+
+  depends_on = [
+    module.production_primary_virtual_networks,
+    module.production_failover_virtual_networks
+  ]
+}
+
+# Production Environment VNet Peering (Failover to Primary)
+module "production_failover_to_primary_peering" {
+  source   = "Azure/avm-res-network-virtualnetwork/azurerm//modules/peering"
+  version  = "~> 0.14.1"
+  for_each = var.enable_vnet_peering ? local.production_environments : {}
+
+  # WHY: Bidirectional peering required for full connectivity
+  # CONTEXT: Azure VNet peering must be created in both directions
+  # IMPACT: Enables complete bi-directional network communication
+  name = "peer-${module.production_failover_virtual_networks[each.key].name}-to-primary"
+
+  parent_id                 = module.production_failover_virtual_networks[each.key].resource_id
+  remote_virtual_network_id = module.production_primary_virtual_networks[each.key].resource_id
+
+  allow_virtual_network_access = true
+  allow_forwarded_traffic      = false
+  allow_gateway_transit        = false
+  use_remote_gateways          = false
+
+  providers = {
+    azurerm = azurerm.production
+  }
+
+  depends_on = [
+    module.production_primary_virtual_networks,
+    module.production_failover_virtual_networks
+  ]
+}
+
+# Non-Production Environment VNet Peering (Primary to Failover)
+module "non_production_primary_to_failover_peering" {
+  source   = "Azure/avm-res-network-virtualnetwork/azurerm//modules/peering"
+  version  = "~> 0.14.1"
+  for_each = var.enable_vnet_peering ? local.non_production_environments : {}
+
+  # WHY: Apply same peering pattern to non-production environments
+  # CONTEXT: Consistent architecture across all environment types
+  # IMPACT: Uniform hub-spoke connectivity model
+  name = "peer-${module.non_production_primary_virtual_networks[each.key].name}-to-failover"
+
+  parent_id                 = module.non_production_primary_virtual_networks[each.key].resource_id
+  remote_virtual_network_id = module.non_production_failover_virtual_networks[each.key].resource_id
+
+  allow_virtual_network_access = true
+  allow_forwarded_traffic      = false
+  allow_gateway_transit        = false
+  use_remote_gateways          = false
+
+  # WHY: Use default provider for non-production environments
+  # CONTEXT: Routes non-production resources to shared subscription
+  # IMPACT: Enables cost-effective resource management
+  providers = {
+    azurerm = azurerm
+  }
+
+  depends_on = [
+    module.non_production_primary_virtual_networks,
+    module.non_production_failover_virtual_networks
+  ]
+}
+
+# Non-Production Environment VNet Peering (Failover to Primary)
+module "non_production_failover_to_primary_peering" {
+  source   = "Azure/avm-res-network-virtualnetwork/azurerm//modules/peering"
+  version  = "~> 0.14.1"
+  for_each = var.enable_vnet_peering ? local.non_production_environments : {}
+
+  # WHY: Complete bidirectional peering for non-production environments
+  # CONTEXT: Same connectivity requirements as production
+  # IMPACT: Consistent network behavior across all environments
+  name = "peer-${module.non_production_failover_virtual_networks[each.key].name}-to-primary"
+
+  parent_id                 = module.non_production_failover_virtual_networks[each.key].resource_id
+  remote_virtual_network_id = module.non_production_primary_virtual_networks[each.key].resource_id
+
+  allow_virtual_network_access = true
+  allow_forwarded_traffic      = false
+  allow_gateway_transit        = false
+  use_remote_gateways          = false
+
+  providers = {
+    azurerm = azurerm
+  }
+
+  depends_on = [
+    module.non_production_primary_virtual_networks,
+    module.non_production_failover_virtual_networks
+  ]
+}
+
+# ============================================================================
 # DEPLOYMENT STATUS TRACKING
 # ============================================================================
 
@@ -790,6 +920,13 @@ locals {
     non_production_enterprise_policies = length(module.non_production_enterprise_policies)
     production_policy_links            = length(module.production_policy_links)
     non_production_policy_links        = length(module.non_production_policy_links)
+
+    # VNet peering deployment status
+    vnet_peering_enabled                       = var.enable_vnet_peering
+    production_primary_to_failover_peering     = var.enable_vnet_peering ? length(module.production_primary_to_failover_peering) : 0
+    production_failover_to_primary_peering     = var.enable_vnet_peering ? length(module.production_failover_to_primary_peering) : 0
+    non_production_primary_to_failover_peering = var.enable_vnet_peering ? length(module.non_production_primary_to_failover_peering) : 0
+    non_production_failover_to_primary_peering = var.enable_vnet_peering ? length(module.non_production_failover_to_primary_peering) : 0
 
     validation_status   = local.configuration_valid
     remote_state_status = local.remote_state_valid
