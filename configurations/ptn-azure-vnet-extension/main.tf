@@ -125,10 +125,10 @@ module "production_primary_virtual_networks" {
   }
 
   # Basic VNet configuration with dynamic IP allocation
-  name                = "${local.environment_resource_names[each.key].virtual_network_base_name}-${local.region_abbreviations[local.network_configuration[each.key].primary_location]}-primary"
-  location            = local.network_configuration[each.key].primary_location
-  resource_group_name = module.production_resource_groups[each.key].name
-  address_space       = [local.network_configuration[each.key].primary_vnet_address_space]
+  name          = "${local.environment_resource_names[each.key].virtual_network_base_name}-${local.region_abbreviations[local.network_configuration[each.key].primary_location]}-primary"
+  location      = local.network_configuration[each.key].primary_location
+  parent_id     = module.production_resource_groups[each.key].resource_id
+  address_space = [local.network_configuration[each.key].primary_vnet_address_space]
 
   # Subnet configuration with Power Platform delegation
   subnets = {
@@ -187,10 +187,10 @@ module "non_production_primary_virtual_networks" {
   }
 
   # Basic VNet configuration with dynamic IP allocation
-  name                = "${local.environment_resource_names[each.key].virtual_network_base_name}-${local.region_abbreviations[local.network_configuration[each.key].primary_location]}-primary"
-  location            = local.network_configuration[each.key].primary_location
-  resource_group_name = module.non_production_resource_groups[each.key].name
-  address_space       = [local.network_configuration[each.key].primary_vnet_address_space]
+  name          = "${local.environment_resource_names[each.key].virtual_network_base_name}-${local.region_abbreviations[local.network_configuration[each.key].primary_location]}-primary"
+  location      = local.network_configuration[each.key].primary_location
+  parent_id     = module.non_production_resource_groups[each.key].resource_id
+  address_space = [local.network_configuration[each.key].primary_vnet_address_space]
 
   # Subnet configuration with Power Platform delegation
   subnets = {
@@ -247,10 +247,10 @@ module "production_failover_virtual_networks" {
   }
 
   # Basic VNet configuration with dynamic IP allocation
-  name                = "${local.environment_resource_names[each.key].virtual_network_base_name}-${local.region_abbreviations[local.network_configuration[each.key].failover_location]}-failover"
-  location            = local.network_configuration[each.key].failover_location
-  resource_group_name = module.production_resource_groups[each.key].name
-  address_space       = [local.network_configuration[each.key].failover_vnet_address_space]
+  name          = "${local.environment_resource_names[each.key].virtual_network_base_name}-${local.region_abbreviations[local.network_configuration[each.key].failover_location]}-failover"
+  location      = local.network_configuration[each.key].failover_location
+  parent_id     = module.production_resource_groups[each.key].resource_id
+  address_space = [local.network_configuration[each.key].failover_vnet_address_space]
 
   # Subnet configuration with Power Platform delegation
   subnets = {
@@ -309,10 +309,10 @@ module "non_production_failover_virtual_networks" {
   }
 
   # Basic VNet configuration with dynamic IP allocation
-  name                = "${local.environment_resource_names[each.key].virtual_network_base_name}-${local.region_abbreviations[local.network_configuration[each.key].failover_location]}-failover"
-  location            = local.network_configuration[each.key].failover_location
-  resource_group_name = module.non_production_resource_groups[each.key].name
-  address_space       = [local.network_configuration[each.key].failover_vnet_address_space]
+  name          = "${local.environment_resource_names[each.key].virtual_network_base_name}-${local.region_abbreviations[local.network_configuration[each.key].failover_location]}-failover"
+  location      = local.network_configuration[each.key].failover_location
+  parent_id     = module.non_production_resource_groups[each.key].resource_id
+  address_space = [local.network_configuration[each.key].failover_vnet_address_space]
 
   # Subnet configuration with Power Platform delegation
   subnets = {
