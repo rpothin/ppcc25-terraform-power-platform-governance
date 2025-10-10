@@ -450,7 +450,7 @@ deploy_private_endpoints() {
 # CONTEXT: Private DNS zone groups automatically create A records for private endpoints
 # IMPACT: Enables proper FQDN resolution to private IP addresses
 configure_private_dns() {
-    print_step "Configuring private DNS integration for both endpoints..."
+    print_step "Configuring private DNS integration (primary-only strategy)..."
     
     local dns_zone_id
     dns_zone_id=$(az network private-dns zone show \
@@ -458,9 +458,11 @@ configure_private_dns() {
         --name "$PRIVATE_DNS_ZONE" \
         --query id -o tsv)
     
-    # WHY: Create DNS zone group for primary region private endpoint
-    # CONTEXT: Automatic DNS record creation for Canada Central private endpoint
-    # IMPACT: Enables DNS resolution to primary region private IP (10.200.2.x)
+    # WHY: Only primary region private endpoint registers DNS automatically
+    # CONTEXT: Prevents failover endpoint from overwriting primary DNS record
+    # IMPACT: Ensures same-region connectivity for optimal performance
+    # LESSON LEARNED: When multiple private endpoints for same resource exist in different regions,
+    #                 only the primary (same-region) endpoint should auto-register DNS
     print_info "Configuring DNS for primary region private endpoint..."
     az network private-endpoint dns-zone-group create \
         --endpoint-name "$PE_PRIMARY_NAME" \
@@ -469,18 +471,18 @@ configure_private_dns() {
         --private-dns-zone "$dns_zone_id" \
         --zone-name "$PRIVATE_DNS_ZONE"
     
-    # WHY: Create DNS zone group for failover region private endpoint
-    # CONTEXT: Automatic DNS record creation for Canada East private endpoint
-    # IMPACT: Enables DNS resolution to failover region private IP (10.216.2.x)
-    print_info "Configuring DNS for failover region private endpoint..."
-    az network private-endpoint dns-zone-group create \
-        --endpoint-name "$PE_FAILOVER_NAME" \
-        --resource-group "$RESOURCE_GROUP_NAME" \
-        --name "sqlserver-dns-zone-group-failover" \
-        --private-dns-zone "$dns_zone_id" \
-        --zone-name "$PRIVATE_DNS_ZONE"
+    print_success "Primary private endpoint DNS configured (10.192.2.x)"
     
-    print_success "Private DNS integration configured for both endpoints"
+    # WHY: Failover endpoint does NOT auto-register DNS
+    # CONTEXT: Prevents cross-region routing which would fail without VNet peering
+    # IMPACT: DNS always resolves to same-region IP for Power Platform connectivity
+    # MANUAL FAILOVER: In disaster recovery scenarios, run fix-dns-quick.sh to switch DNS
+    print_info "Failover private endpoint deployed without DNS registration"
+    print_info "  ℹ️  Reason: Same-region access provides optimal performance"
+    print_info "  ℹ️  Failover: Requires manual DNS update in disaster recovery scenario"
+    print_info "  ℹ️  Failover IP available: 10.208.2.x (Canada East)"
+    
+    print_success "Private DNS integration configured (primary-only strategy)"
 }
 
 # WHY: Comprehensive validation ensures deployment success
@@ -565,6 +567,41 @@ validate_deployment() {
         validation_results+=("❌ No DNS records found for private endpoints")
     fi
     
+    # WHY: Validate DNS resolution points to correct region (primary)
+    # CONTEXT: Critical check to ensure DNS doesn't point to cross-region IP
+    # IMPACT: Prevents Power Platform connectivity failures due to DNS misrouting
+    # LESSON LEARNED: This validation catches the cross-region DNS issue discovered during testing
+    print_info "Validating DNS points to primary region IP..."
+    
+    # Get expected primary IP from network interface
+    local expected_primary_ip
+    expected_primary_ip=$(az network nic show --ids \
+        $(az network private-endpoint show --name "$PE_PRIMARY_NAME" \
+            --resource-group "$RESOURCE_GROUP_NAME" \
+            --query "networkInterfaces[0].id" -o tsv 2>/dev/null) \
+        --query "ipConfigurations[0].privateIPAddress" -o tsv 2>/dev/null || echo "")
+    
+    # Get actual DNS resolution IP
+    local actual_dns_ip
+    actual_dns_ip=$(az network private-dns record-set a show \
+        --resource-group "$RESOURCE_GROUP_NAME" \
+        --zone-name "$PRIVATE_DNS_ZONE" \
+        --name "$SQL_SERVER_NAME" \
+        --query "aRecords[0].ipv4Address" -o tsv 2>/dev/null || echo "")
+    
+    # Validate DNS points to primary region
+    if [[ -n "$expected_primary_ip" && -n "$actual_dns_ip" ]]; then
+        if [[ "$actual_dns_ip" == "$expected_primary_ip" ]]; then
+            validation_results+=("✅ DNS correctly points to primary region: $actual_dns_ip (Canada Central)")
+        else
+            validation_results+=("❌ DNS MISMATCH: Points to $actual_dns_ip but expected $expected_primary_ip")
+            validation_results+=("⚠️  This indicates cross-region DNS issue - Power Platform connectivity may fail")
+            validation_results+=("💡 Fix: Run scripts/demo/fix-dns-quick.sh to correct DNS resolution")
+        fi
+    else
+        validation_results+=("⚠️  Could not validate DNS IP (expected: $expected_primary_ip, actual: $actual_dns_ip)")
+    fi
+    
     # Display validation results
     print_info "Deployment validation results:"
     printf "%s\n" "${validation_results[@]}"
@@ -620,6 +657,28 @@ SQL Server Information:
 Private Endpoints:
   Primary Region: $PE_PRIMARY_NAME (Canada Central)
   Failover Region: $PE_FAILOVER_NAME (Canada East)
+
+🌐 DNS RESOLUTION STRATEGY
+===========================
+
+Primary-Only DNS Registration:
+  ✅ Primary Endpoint: Auto-registered in DNS (10.192.2.x)
+  ⚠️  Failover Endpoint: Deployed WITHOUT DNS registration (10.208.2.x)
+  
+Why This Design?
+  • Same-region access provides optimal performance (minimal latency)
+  • Prevents cross-region routing which would fail without VNet peering
+  • DNS always resolves to primary region for Power Platform connectivity
+  
+Failover Scenario (Disaster Recovery):
+  1. Manual DNS update required (not automatic)
+  2. Run: scripts/demo/fix-dns-quick.sh --failover (future enhancement)
+  3. Verify: DNS resolves to 10.208.2.x (Canada East)
+  
+🎓 LESSON LEARNED:
+  During testing, we discovered that when both private endpoints auto-register DNS,
+  the failover endpoint overwrites the primary endpoint's A record, causing
+  cross-region routing failures. Primary-only registration prevents this issue.
 
 Demo Data:
   📝 Table creation required: Use Azure Portal Query Editor (instructions below)

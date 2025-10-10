@@ -409,7 +409,7 @@ deploy_private_endpoints() {
 # CONTEXT: Private DNS zone groups automatically create A records for private endpoints
 # IMPACT: Enables proper FQDN resolution to private IP addresses
 configure_private_dns() {
-    print_step "Configuring private DNS integration for both endpoints..."
+    print_step "Configuring private DNS integration (primary-only strategy)..."
     
     local dns_zone_id
     dns_zone_id=$(az network private-dns zone show \
@@ -417,9 +417,11 @@ configure_private_dns() {
         --name "$PRIVATE_DNS_ZONE" \
         --query id -o tsv)
     
-    # WHY: Create DNS zone group for primary region private endpoint
-    # CONTEXT: Automatic DNS record creation for Canada Central private endpoint
-    # IMPACT: Enables DNS resolution to primary region private IP (10.96.2.x)
+    # WHY: Only primary region private endpoint registers DNS automatically
+    # CONTEXT: Prevents failover endpoint from overwriting primary DNS record
+    # IMPACT: Ensures same-region connectivity for optimal performance
+    # LESSON LEARNED: When multiple private endpoints for same resource exist in different regions,
+    #                 only the primary (same-region) endpoint should auto-register DNS
     print_info "Configuring DNS for primary region private endpoint..."
     az network private-endpoint dns-zone-group create \
         --endpoint-name "$PE_PRIMARY_NAME" \
@@ -428,18 +430,18 @@ configure_private_dns() {
         --private-dns-zone "$dns_zone_id" \
         --zone-name "$PRIVATE_DNS_ZONE"
     
-    # WHY: Create DNS zone group for failover region private endpoint
-    # CONTEXT: Automatic DNS record creation for Canada East private endpoint
-    # IMPACT: Enables DNS resolution to failover region private IP (10.112.2.x)
-    print_info "Configuring DNS for failover region private endpoint..."
-    az network private-endpoint dns-zone-group create \
-        --endpoint-name "$PE_FAILOVER_NAME" \
-        --resource-group "$RESOURCE_GROUP_NAME" \
-        --name "keyvault-dns-zone-group-failover" \
-        --private-dns-zone "$dns_zone_id" \
-        --zone-name "$PRIVATE_DNS_ZONE"
+    print_success "Primary private endpoint DNS configured (10.96.2.x)"
     
-    print_success "Private DNS integration configured for both endpoints"
+    # WHY: Failover endpoint does NOT auto-register DNS
+    # CONTEXT: Prevents cross-region routing which would increase latency without VNet peering
+    # IMPACT: DNS always resolves to same-region IP for Power Platform connectivity
+    # MANUAL FAILOVER: In disaster recovery scenarios, manual DNS update required
+    print_info "Failover private endpoint deployed without DNS registration"
+    print_info "  ℹ️  Reason: Same-region access provides optimal performance"
+    print_info "  ℹ️  Failover: Requires manual DNS update in disaster recovery scenario"
+    print_info "  ℹ️  Failover IP available: 10.112.2.x (Canada East)"
+    
+    print_success "Private DNS integration configured (primary-only strategy)"
 }
 
 # WHY: Demo secrets enable immediate Power Platform testing with temporary public access
@@ -571,7 +573,7 @@ validate_deployment() {
         validation_results+=("❌ Failover private endpoint status: $pe_failover_state")
     fi
     
-    # Validate DNS records exist for both endpoints
+    # Validate DNS records exist and point to correct region
     print_info "Checking DNS record configuration..."
     local dns_records
     dns_records=$(az network private-dns record-set a show \
@@ -581,21 +583,45 @@ validate_deployment() {
         --query "aRecords | length(@)" -o tsv 2>/dev/null || echo "0")
     
     if [[ "$dns_records" -ge 1 ]]; then
-        validation_results+=("✅ DNS records configured for private endpoints ($dns_records record(s))")
-        
-        # Show actual DNS record details
-        print_info "DNS A records for Key Vault:"
-        az network private-dns record-set a show \
+        # Get the actual DNS IP address(es)
+        local actual_dns_ip
+        actual_dns_ip=$(az network private-dns record-set a show \
             --resource-group "$RESOURCE_GROUP_NAME" \
             --zone-name "$PRIVATE_DNS_ZONE" \
             --name "${KEY_VAULT_NAME}" \
-            --query "aRecords[].ipv4Address" -o tsv | while read -r ip; do
-            print_info "  - $ip"
-        done
+            --query "aRecords[0].ipv4Address" -o tsv 2>/dev/null)
         
-        # Note about DNS record consolidation
-        if [[ "$dns_records" -eq 1 ]]; then
-            print_info "Note: Multiple private endpoints may share a single DNS record (normal behavior)"
+        # Get the primary private endpoint IP (expected value)
+        local expected_primary_ip
+        expected_primary_ip=$(az network private-endpoint show \
+            --name "$PE_PRIMARY_NAME" \
+            --resource-group "$RESOURCE_GROUP_NAME" \
+            --query "customDnsConfigs[0].ipAddresses[0]" -o tsv 2>/dev/null)
+        
+        print_info "DNS validation:"
+        print_info "  Expected IP (primary): $expected_primary_ip"
+        print_info "  Actual DNS IP: $actual_dns_ip"
+        
+        # Compare DNS IP with expected primary IP
+        if [[ "$actual_dns_ip" == "$expected_primary_ip" ]]; then
+            validation_results+=("✅ DNS correctly points to primary region: $actual_dns_ip")
+        else
+            # DNS might be pointing to wrong region (failover)
+            local failover_ip
+            failover_ip=$(az network private-endpoint show \
+                --name "$PE_FAILOVER_NAME" \
+                --resource-group "$RESOURCE_GROUP_NAME" \
+                --query "customDnsConfigs[0].ipAddresses[0]" -o tsv 2>/dev/null)
+            
+            if [[ "$actual_dns_ip" == "$failover_ip" ]]; then
+                validation_results+=("❌ DNS MISMATCH: Points to failover region ($actual_dns_ip) instead of primary ($expected_primary_ip)")
+                print_error "DNS is pointing to the WRONG region!"
+                print_error "This will cause cross-region traffic without VNet peering"
+                print_error "Power Platform connections may timeout or fail"
+                print_info "To fix: Re-run this setup script OR use fix-dns-quick.sh"
+            else
+                validation_results+=("⚠️ DNS IP ($actual_dns_ip) doesn't match primary ($expected_primary_ip) or failover ($failover_ip)")
+            fi
         fi
     else
         validation_results+=("❌ No DNS records found for private endpoints")
@@ -732,6 +758,33 @@ If Power Platform access fails:
 
 For permission issues:
 az role assignment create --role "Key Vault Secrets User" --assignee [USER-ID] --scope [KEY-VAULT-RESOURCE-ID]
+
+🌐 DNS RESOLUTION STRATEGY
+===========================
+
+This deployment uses a PRIMARY-ONLY DNS registration strategy:
+- Primary endpoint (Canada Central): Registers DNS record in private DNS zone
+- Failover endpoint (Canada East): NO DNS registration (available at 10.112.2.x)
+
+WHY THIS DESIGN?
+1. Prevents cross-region traffic: Without VNet peering between CAC and CAE, DNS must point to same region
+2. Optimal performance: Power Platform subnet (Canada Central) accesses local endpoint directly
+3. Avoids timeouts: Cross-region routing would fail due to no network path
+4. Consistent with SQL Server: Same DNS strategy for all demo resources
+
+🎓 LESSON LEARNED from SQL Server troubleshooting:
+When both endpoints auto-register DNS, the SECOND registration overwrites the first.
+Result: DNS points to failover region (10.112.2.x) instead of primary (10.96.2.x)
+Impact: Power Platform requests route cross-region without VNet peering → timeout
+Fix Applied: Only primary endpoint registers DNS, preventing the overwrite issue
+
+DISASTER RECOVERY SCENARIO:
+If Canada Central region fails, update DNS to point to failover:
+  az network private-dns record-set a add-record \\
+    --resource-group $RESOURCE_GROUP_NAME \\
+    --zone-name $PRIVATE_DNS_ZONE \\
+    --record-set-name $KEY_VAULT_NAME \\
+    --ipv4-address [FAILOVER-IP]
 
 ✨ Your PPCC25 demo environment is ready for Power Platform VNet integration testing!
 

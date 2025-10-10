@@ -432,6 +432,44 @@ The setup script creates the SQL Server and database infrastructure. After deplo
 - Verifies data with a SELECT query
 - Provides clear next steps for Power Platform testing
 
+### 📝 Demo Stored Procedure Setup (Optional - **Recommended for VNet Injection**)
+
+For optimal performance with VNet injection, create a test stored procedure. This approach works better than inline queries due to pre-compilation and reduced network round trips.
+
+**Why Stored Procedures with VNet Injection?**
+- ⚡ **Faster execution** - Pre-compiled, optimized queries
+- 🔄 **Fewer network round trips** - Single call through private endpoint
+- ⏱️ **Better timeout handling** - Completes within 110-second VNet injection limit
+- 📚 **Reference**: [SQL Connector VNet Support](https://learn.microsoft.com/en-us/connectors/sql/#virtual-network-support)
+
+**SQL Script Available**: [`scripts/demo/create-test-stored-procedure.sql`](./create-test-stored-procedure.sql)
+
+**Execution Steps** (in same Query Editor session):
+1. Keep Azure Portal Query Editor open from previous step
+2. Open the SQL script file: `scripts/demo/create-test-stored-procedure.sql`
+3. Copy-paste the entire script into Query Editor
+4. Click **Run** → Should see "Commands completed successfully"
+5. Test the stored procedure:
+   ```sql
+   -- Returns all customers
+   EXEC dbo.GetCustomersByRegion @Region = NULL;
+   
+   -- Returns filtered results
+   EXEC dbo.GetCustomersByRegion @Region = 'North America';
+   ```
+
+**What the Script Does**:
+- Creates `GetCustomersByRegion` stored procedure with optional `@Region` parameter
+- Optimized with `SET NOCOUNT ON` for performance
+- Returns all customers when `@Region` is NULL
+- Filters by region when parameter is provided
+- Orders results by `CreatedDate DESC`
+
+**Power Automate Usage**:
+- Use **"Execute stored procedure (V2)"** action instead of "Execute a SQL query (V2)"
+- Better performance and reliability with VNet injection
+- Avoids common gateway timeout issues (110-second limit)
+
 ### Deploy SQL Server Demo Environment
 
 ```bash
@@ -612,8 +650,45 @@ CREATE TABLE Customers (
 ### Private Endpoints
 - **Primary**: Connected to Canada Central VNet private endpoint subnet
 - **Failover**: Connected to Canada East VNet private endpoint subnet  
-- **DNS Integration**: Automatic A record creation in `privatelink.database.windows.net` zone
-- **DNS Resolution**: FQDN resolves to private IPs (10.200.2.x, 10.216.2.x)
+- **DNS Integration**: Primary-only automatic A record creation (see DNS strategy below)
+- **DNS Resolution**: FQDN resolves to primary region private IP (10.192.2.x)
+
+### 🌐 DNS Resolution Strategy
+
+**Primary-Only DNS Registration Design:**
+
+The setup script implements a **primary-only DNS registration strategy** to prevent cross-region routing issues:
+
+| Aspect | Primary Endpoint (CAC) | Failover Endpoint (CAE) |
+|--------|----------------------|------------------------|
+| **DNS Registration** | ✅ Automatic via DNS zone group | ❌ No DNS registration |
+| **IP Address** | 10.192.2.x (Canada Central) | 10.208.2.x (Canada East) |
+| **FQDN Resolution** | ✅ Resolves here | ⚠️ Does not resolve here |
+| **Purpose** | Same-region connectivity | Disaster recovery only |
+
+**Why This Design?**
+
+1. **Performance**: Same-region access provides minimal latency for Power Platform workloads
+2. **Prevents Cross-Region Failures**: Without VNet peering between regions, cross-region routing fails
+3. **Avoids DNS Overwriting**: When both endpoints auto-register, failover overwrites primary DNS record
+4. **Intentional Failover**: Disaster recovery requires manual DNS update (controlled process)
+
+**🎓 Lesson Learned from Testing:**
+
+During the PPCC25 demo preparation, we discovered that when **both private endpoints auto-register DNS**, the **failover endpoint overwrites the primary endpoint's A record**. This caused:
+- ❌ DNS resolving to 10.208.2.4 (Canada East) instead of 10.192.2.4 (Canada Central)
+- ❌ Power Automate flows timing out due to cross-region routing without VNet peering
+- ❌ Logic App FQDN tests failing (direct IP tests worked)
+
+**Fix Applied:** Primary-only DNS registration prevents this issue by ensuring DNS always points to the same-region endpoint.
+
+**Disaster Recovery Scenario:**
+
+In an actual disaster recovery situation where Canada Central region is unavailable:
+1. Run manual DNS update script: `scripts/demo/fix-dns-quick.sh --failover` (future enhancement)
+2. DNS updates from 10.192.2.x → 10.208.2.x
+3. Power Platform workloads route to failover region
+4. Requires 5 minutes for DNS cache propagation (TTL=300 seconds)
 
 ### Cost Breakdown
 | Resource              | Cost (Monthly) | Notes                     |
