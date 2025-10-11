@@ -139,7 +139,7 @@ module "production_primary_virtual_networks" {
       # WHY: Subnet delegation required for Power Platform enterprise policies
       # CONTEXT: Microsoft.PowerPlatform/enterprisePolicies requires dedicated delegation
       # IMPACT: Enables network injection policies for discovered environments
-      delegation = [
+      delegations = [
         {
           name = "PowerPlatformDelegation"
           service_delegation = {
@@ -201,7 +201,7 @@ module "non_production_primary_virtual_networks" {
       # WHY: Subnet delegation required for Power Platform enterprise policies
       # CONTEXT: Microsoft.PowerPlatform/enterprisePolicies requires dedicated delegation
       # IMPACT: Enables network injection policies for discovered environments
-      delegation = [
+      delegations = [
         {
           name = "PowerPlatformDelegation"
           service_delegation = {
@@ -261,7 +261,7 @@ module "production_failover_virtual_networks" {
       # WHY: Mirror delegation configuration from primary region
       # CONTEXT: Failover VNet must support same enterprise policy capabilities
       # IMPACT: Enables seamless failover for Power Platform workloads
-      delegation = [
+      delegations = [
         {
           name = "PowerPlatformDelegation"
           service_delegation = {
@@ -323,7 +323,7 @@ module "non_production_failover_virtual_networks" {
       # WHY: Mirror delegation configuration from primary region
       # CONTEXT: Failover VNet must support same enterprise policy capabilities
       # IMPACT: Enables seamless failover for Power Platform workloads
-      delegation = [
+      delegations = [
         {
           name = "PowerPlatformDelegation"
           service_delegation = {
