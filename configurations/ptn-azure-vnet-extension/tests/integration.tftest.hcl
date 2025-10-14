@@ -567,26 +567,51 @@ run "phase2_avm_module_deployment_validation" {
     error_message = "Non-production DNS zone combinations should contain valid zone names from variable"
   }
 
-  # ========== SUBNET-NSG ASSOCIATION TESTS (4 assertions) ==========
+  # ========== SUBNET-NSG ASSOCIATION TESTS (8 assertions) ==========
+  # WHY: Validate NSG associations for all subnets (primary + failover)
+  # SECURITY: Ensures zero-trust controls are applied to all network paths
+  # CONTEXT: Symmetric security architecture across regions
 
+  # Primary VNet NSG Associations (4 assertions)
   assert {
     condition     = length(azurerm_subnet_network_security_group_association.production_power_platform) == length(local.production_environments)
-    error_message = "Should create PowerPlatform subnet-NSG associations for each production environment"
+    error_message = "Should create PowerPlatform subnet-NSG associations for each production PRIMARY environment"
   }
 
   assert {
     condition     = length(azurerm_subnet_network_security_group_association.production_private_endpoint) == length(local.production_environments)
-    error_message = "Should create PrivateEndpoint subnet-NSG associations for each production environment"
+    error_message = "Should create PrivateEndpoint subnet-NSG associations for each production PRIMARY environment"
   }
 
   assert {
     condition     = length(azurerm_subnet_network_security_group_association.non_production_power_platform) == length(local.non_production_environments)
-    error_message = "Should create PowerPlatform subnet-NSG associations for each non-production environment"
+    error_message = "Should create PowerPlatform subnet-NSG associations for each non-production PRIMARY environment"
   }
 
   assert {
     condition     = length(azurerm_subnet_network_security_group_association.non_production_private_endpoint) == length(local.non_production_environments)
-    error_message = "Should create PrivateEndpoint subnet-NSG associations for each non-production environment"
+    error_message = "Should create PrivateEndpoint subnet-NSG associations for each non-production PRIMARY environment"
+  }
+
+  # Failover VNet NSG Associations (4 assertions)
+  assert {
+    condition     = length(azurerm_subnet_network_security_group_association.production_failover_power_platform) == length(local.production_environments)
+    error_message = "Should create PowerPlatform subnet-NSG associations for each production FAILOVER environment"
+  }
+
+  assert {
+    condition     = length(azurerm_subnet_network_security_group_association.production_failover_private_endpoint) == length(local.production_environments)
+    error_message = "Should create PrivateEndpoint subnet-NSG associations for each production FAILOVER environment"
+  }
+
+  assert {
+    condition     = length(azurerm_subnet_network_security_group_association.non_production_failover_power_platform) == length(local.non_production_environments)
+    error_message = "Should create PowerPlatform subnet-NSG associations for each non-production FAILOVER environment"
+  }
+
+  assert {
+    condition     = length(azurerm_subnet_network_security_group_association.non_production_failover_private_endpoint) == length(local.non_production_environments)
+    error_message = "Should create PrivateEndpoint subnet-NSG associations for each non-production FAILOVER environment"
   }
 
   # ========== PHASE 2 OUTPUT VALIDATION TESTS (6 assertions) ==========
@@ -1484,12 +1509,12 @@ run "deployment_status_with_vnet_peering_validation" {
 # - Zero-trust NSG rules validation: 10 assertions
 # - Zero-trust disabled validation: 5 assertions
 # 
-# PHASE 2 AVM MODULE DEPLOYMENT TESTS (32 assertions - Enhanced):
+# PHASE 2 AVM MODULE DEPLOYMENT TESTS (36 assertions - Enhanced):
 # - AVM Resource Group modules: 4 assertions
 # - AVM Virtual Network modules: 6 assertions 
 # - AVM Private DNS Zone modules: 4 assertions
 # - AVM Network Security Group modules: 8 assertions
-# - Subnet-NSG associations: 4 assertions
+# - Subnet-NSG associations: 8 assertions (4 primary + 4 failover)
 # - Phase 2 output validation: 6 assertions
 # 
 # VNET PEERING TESTS (30 assertions - NEW):
@@ -1563,12 +1588,12 @@ run "deployment_status_with_vnet_peering_validation" {
 # - Zero-trust NSG rules validation: 10 assertions
 # - Zero-trust disabled validation: 5 assertions
 # 
-# PHASE 2 AVM MODULE DEPLOYMENT TESTS (32 assertions - NEW):
+# PHASE 2 AVM MODULE DEPLOYMENT TESTS (36 assertions - Enhanced):
 # - AVM Resource Group modules: 4 assertions
 # - AVM Virtual Network modules: 6 assertions 
 # - AVM Private DNS Zone modules: 4 assertions
 # - AVM Network Security Group modules: 8 assertions
-# - Subnet-NSG associations: 4 assertions
+# - Subnet-NSG associations: 8 assertions (4 primary + 4 failover)
 # - Phase 2 output validation: 6 assertions
 # 
 # PHASE 2 CONFIGURATION TESTS (38 assertions):

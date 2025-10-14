@@ -579,10 +579,13 @@ module "non_production_nsgs" {
 # IMPACT: Simplified management with identical security rules across both subnet types
 
 # Production PowerPlatform Subnet Associations
+# WHY: Associate unified NSG with production primary Power Platform subnets
+# SECURITY: Enforces zero-trust controls (deny internet, allow VNet) on Power Platform subnet
+# CONTEXT: Uses correct AVM subnet key name from module output
 resource "azurerm_subnet_network_security_group_association" "production_power_platform" {
   for_each = local.production_environments
 
-  subnet_id                 = module.production_primary_virtual_networks[each.key].subnets["PowerPlatformSubnet"].resource_id
+  subnet_id                 = module.production_primary_virtual_networks[each.key].subnets["snet-powerplatform"].resource_id
   network_security_group_id = module.production_nsgs[each.key].resource_id
 
   # Use production provider for production environments
@@ -594,11 +597,13 @@ resource "azurerm_subnet_network_security_group_association" "production_power_p
   ]
 }
 
-# Non-Production PowerPlatform Subnet Associations
+# WHY: Associate unified NSG with non-production primary Power Platform subnets
+# SECURITY: Ensures consistent zero-trust controls in dev/test environments
+# CONTEXT: Uses correct AVM subnet key name from module output
 resource "azurerm_subnet_network_security_group_association" "non_production_power_platform" {
   for_each = local.non_production_environments
 
-  subnet_id                 = module.non_production_primary_virtual_networks[each.key].subnets["PowerPlatformSubnet"].resource_id
+  subnet_id                 = module.non_production_primary_virtual_networks[each.key].subnets["snet-powerplatform"].resource_id
   network_security_group_id = module.non_production_nsgs[each.key].resource_id
 
   depends_on = [
@@ -607,11 +612,13 @@ resource "azurerm_subnet_network_security_group_association" "non_production_pow
   ]
 }
 
-# Production PrivateEndpoint Subnet Associations
+# WHY: Associate unified NSG with production primary private endpoint subnets
+# SECURITY: Protects SQL Server/Key Vault private endpoints with zero-trust rules
+# CONTEXT: Uses correct AVM subnet key name from module output
 resource "azurerm_subnet_network_security_group_association" "production_private_endpoint" {
   for_each = local.production_environments
 
-  subnet_id                 = module.production_primary_virtual_networks[each.key].subnets["PrivateEndpointSubnet"].resource_id
+  subnet_id                 = module.production_primary_virtual_networks[each.key].subnets["snet-privateendpoint"].resource_id
   network_security_group_id = module.production_nsgs[each.key].resource_id
 
   # Use production provider for production environments
@@ -623,15 +630,91 @@ resource "azurerm_subnet_network_security_group_association" "production_private
   ]
 }
 
-# Non-Production PrivateEndpoint Subnet Associations
+# WHY: Associate unified NSG with non-production primary private endpoint subnets
+# SECURITY: Protects private endpoints in dev/test environments
+# CONTEXT: Uses correct AVM subnet key name from module output
 resource "azurerm_subnet_network_security_group_association" "non_production_private_endpoint" {
   for_each = local.non_production_environments
 
-  subnet_id                 = module.non_production_primary_virtual_networks[each.key].subnets["PrivateEndpointSubnet"].resource_id
+  subnet_id                 = module.non_production_primary_virtual_networks[each.key].subnets["snet-privateendpoint"].resource_id
   network_security_group_id = module.non_production_nsgs[each.key].resource_id
 
   depends_on = [
     module.non_production_primary_virtual_networks,
+    module.non_production_nsgs
+  ]
+}
+
+# ================================================================
+# NSG Associations - Failover Virtual Networks
+# ================================================================
+# WHY: Apply same unified NSG to failover VNet subnets for consistent security posture
+# SECURITY: Ensures zero-trust controls (deny internet, allow VNet) in failover regions
+# CONTEXT: NSGs are region-agnostic; same rules apply to both primary and failover
+# IMPACT: Symmetric security across regions enables true disaster recovery capability
+
+# WHY: Associate unified NSG with production failover Power Platform subnets
+# SECURITY: Ensures zero-trust controls in failover region match primary region
+# CONTEXT: Same NSG used for both primary and failover (region-agnostic rules)
+resource "azurerm_subnet_network_security_group_association" "production_failover_power_platform" {
+  for_each = local.production_environments
+
+  subnet_id                 = module.production_failover_virtual_networks[each.key].subnets["snet-powerplatform"].resource_id
+  network_security_group_id = module.production_nsgs[each.key].resource_id
+
+  # Use production provider for production environments
+  provider = azurerm.production
+
+  depends_on = [
+    module.production_failover_virtual_networks,
+    module.production_nsgs
+  ]
+}
+
+# WHY: Associate unified NSG with production failover private endpoint subnets
+# SECURITY: Protects SQL Server/Key Vault private endpoints in failover region
+# CONTEXT: Maintains consistent security controls across regional boundaries
+resource "azurerm_subnet_network_security_group_association" "production_failover_private_endpoint" {
+  for_each = local.production_environments
+
+  subnet_id                 = module.production_failover_virtual_networks[each.key].subnets["snet-privateendpoint"].resource_id
+  network_security_group_id = module.production_nsgs[each.key].resource_id
+
+  # Use production provider for production environments
+  provider = azurerm.production
+
+  depends_on = [
+    module.production_failover_virtual_networks,
+    module.production_nsgs
+  ]
+}
+
+# WHY: Associate unified NSG with non-production failover Power Platform subnets
+# SECURITY: Ensures consistent zero-trust controls in dev/test failover regions
+# CONTEXT: Development environments require same security rigor as production
+resource "azurerm_subnet_network_security_group_association" "non_production_failover_power_platform" {
+  for_each = local.non_production_environments
+
+  subnet_id                 = module.non_production_failover_virtual_networks[each.key].subnets["snet-powerplatform"].resource_id
+  network_security_group_id = module.non_production_nsgs[each.key].resource_id
+
+  depends_on = [
+    module.non_production_failover_virtual_networks,
+    module.non_production_nsgs
+  ]
+}
+
+# WHY: Associate unified NSG with non-production failover private endpoint subnets
+# SECURITY: Protects private endpoints in dev/test failover regions
+# CONTEXT: Completes symmetric security architecture across all environments and regions
+resource "azurerm_subnet_network_security_group_association" "non_production_failover_private_endpoint" {
+  for_each = local.non_production_environments
+
+  subnet_id                 = module.non_production_failover_virtual_networks[each.key].subnets["snet-privateendpoint"].resource_id
+  network_security_group_id = module.non_production_nsgs[each.key].resource_id
+
+  depends_on = [
+    module.non_production_failover_virtual_networks,
     module.non_production_nsgs
   ]
 }
