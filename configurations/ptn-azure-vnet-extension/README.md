@@ -355,8 +355,12 @@ The following providers are used by this module:
 
 The following resources are used by this module:
 
+- [azurerm_subnet_network_security_group_association.non_production_failover_power_platform](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/subnet_network_security_group_association) (resource)
+- [azurerm_subnet_network_security_group_association.non_production_failover_private_endpoint](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/subnet_network_security_group_association) (resource)
 - [azurerm_subnet_network_security_group_association.non_production_power_platform](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/subnet_network_security_group_association) (resource)
 - [azurerm_subnet_network_security_group_association.non_production_private_endpoint](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/subnet_network_security_group_association) (resource)
+- [azurerm_subnet_network_security_group_association.production_failover_power_platform](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/subnet_network_security_group_association) (resource)
+- [azurerm_subnet_network_security_group_association.production_failover_private_endpoint](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/subnet_network_security_group_association) (resource)
 - [azurerm_subnet_network_security_group_association.production_power_platform](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/subnet_network_security_group_association) (resource)
 - [azurerm_subnet_network_security_group_association.production_private_endpoint](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/subnet_network_security_group_association) (resource)
 - [terraform_remote_state.environment_group](https://registry.terraform.io/providers/hashicorp/terraform/latest/docs/data-sources/remote_state) (data source)
@@ -842,6 +846,12 @@ Source: ../res-enterprise-policy
 
 Version:
 
+### <a name="module_non_production_failover_nsgs"></a> [non\_production\_failover\_nsgs](#module\_non\_production\_failover\_nsgs)
+
+Source: Azure/avm-res-network-networksecuritygroup/azurerm
+
+Version: ~> 0.5
+
 ### <a name="module_non_production_failover_to_primary_peering"></a> [non\_production\_failover\_to\_primary\_peering](#module\_non\_production\_failover\_to\_primary\_peering)
 
 Source: Azure/avm-res-network-virtualnetwork/azurerm//modules/peering
@@ -895,6 +905,12 @@ Version: ~> 0.2.0
 Source: ../res-enterprise-policy
 
 Version:
+
+### <a name="module_production_failover_nsgs"></a> [production\_failover\_nsgs](#module\_production\_failover\_nsgs)
+
+Source: Azure/avm-res-network-networksecuritygroup/azurerm
+
+Version: ~> 0.5
 
 ### <a name="module_production_failover_to_primary_peering"></a> [production\_failover\_to\_primary\_peering](#module\_production\_failover\_to\_primary\_peering)
 
