@@ -678,7 +678,7 @@ module "non_production_failover_nsgs" {
 resource "azurerm_subnet_network_security_group_association" "production_power_platform" {
   for_each = local.production_environments
 
-  subnet_id                 = module.production_primary_virtual_networks[each.key].subnets[local.environment_resource_names[each.key].subnet_name].resource_id
+  subnet_id                 = module.production_primary_virtual_networks[each.key].subnets["PowerPlatformSubnet"].resource_id
   network_security_group_id = module.production_nsgs[each.key].resource_id
 
   # Use production provider for production environments
@@ -696,7 +696,7 @@ resource "azurerm_subnet_network_security_group_association" "production_power_p
 resource "azurerm_subnet_network_security_group_association" "non_production_power_platform" {
   for_each = local.non_production_environments
 
-  subnet_id                 = module.non_production_primary_virtual_networks[each.key].subnets[local.environment_resource_names[each.key].subnet_name].resource_id
+  subnet_id                 = module.non_production_primary_virtual_networks[each.key].subnets["PowerPlatformSubnet"].resource_id
   network_security_group_id = module.non_production_nsgs[each.key].resource_id
 
   depends_on = [
@@ -711,7 +711,7 @@ resource "azurerm_subnet_network_security_group_association" "non_production_pow
 resource "azurerm_subnet_network_security_group_association" "production_private_endpoint" {
   for_each = local.production_environments
 
-  subnet_id                 = module.production_primary_virtual_networks[each.key].subnets[local.environment_resource_names[each.key].private_endpoint_subnet_name].resource_id
+  subnet_id                 = module.production_primary_virtual_networks[each.key].subnets["PrivateEndpointSubnet"].resource_id
   network_security_group_id = module.production_nsgs[each.key].resource_id
 
   # Use production provider for production environments
@@ -729,7 +729,7 @@ resource "azurerm_subnet_network_security_group_association" "production_private
 resource "azurerm_subnet_network_security_group_association" "non_production_private_endpoint" {
   for_each = local.non_production_environments
 
-  subnet_id                 = module.non_production_primary_virtual_networks[each.key].subnets[local.environment_resource_names[each.key].private_endpoint_subnet_name].resource_id
+  subnet_id                 = module.non_production_primary_virtual_networks[each.key].subnets["PrivateEndpointSubnet"].resource_id
   network_security_group_id = module.non_production_nsgs[each.key].resource_id
 
   depends_on = [
@@ -752,7 +752,7 @@ resource "azurerm_subnet_network_security_group_association" "non_production_pri
 resource "azurerm_subnet_network_security_group_association" "production_failover_power_platform" {
   for_each = local.production_environments
 
-  subnet_id                 = module.production_failover_virtual_networks[each.key].subnets[local.environment_resource_names[each.key].subnet_name].resource_id
+  subnet_id                 = module.production_failover_virtual_networks[each.key].subnets["PowerPlatformSubnet"].resource_id
   network_security_group_id = module.production_failover_nsgs[each.key].resource_id
 
   # Use production provider for production environments
@@ -770,7 +770,7 @@ resource "azurerm_subnet_network_security_group_association" "production_failove
 resource "azurerm_subnet_network_security_group_association" "production_failover_private_endpoint" {
   for_each = local.production_environments
 
-  subnet_id                 = module.production_failover_virtual_networks[each.key].subnets[local.environment_resource_names[each.key].private_endpoint_subnet_name].resource_id
+  subnet_id                 = module.production_failover_virtual_networks[each.key].subnets["PrivateEndpointSubnet"].resource_id
   network_security_group_id = module.production_failover_nsgs[each.key].resource_id
 
   # Use production provider for production environments
@@ -788,7 +788,7 @@ resource "azurerm_subnet_network_security_group_association" "production_failove
 resource "azurerm_subnet_network_security_group_association" "non_production_failover_power_platform" {
   for_each = local.non_production_environments
 
-  subnet_id                 = module.non_production_failover_virtual_networks[each.key].subnets[local.environment_resource_names[each.key].subnet_name].resource_id
+  subnet_id                 = module.non_production_failover_virtual_networks[each.key].subnets["PowerPlatformSubnet"].resource_id
   network_security_group_id = module.non_production_failover_nsgs[each.key].resource_id
 
   depends_on = [
@@ -803,7 +803,7 @@ resource "azurerm_subnet_network_security_group_association" "non_production_fai
 resource "azurerm_subnet_network_security_group_association" "non_production_failover_private_endpoint" {
   for_each = local.non_production_environments
 
-  subnet_id                 = module.non_production_failover_virtual_networks[each.key].subnets[local.environment_resource_names[each.key].private_endpoint_subnet_name].resource_id
+  subnet_id                 = module.non_production_failover_virtual_networks[each.key].subnets["PrivateEndpointSubnet"].resource_id
   network_security_group_id = module.non_production_failover_nsgs[each.key].resource_id
 
   depends_on = [

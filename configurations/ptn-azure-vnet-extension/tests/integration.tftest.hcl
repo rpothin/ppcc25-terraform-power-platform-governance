@@ -74,15 +74,20 @@ mock_provider "azurerm" {
   }
 }
 
-mock_provider "powerplatform" {
-  # WHY: Mock provider for testing Power Platform integration without authentication
-  # CONTEXT: Tests validate configuration logic, not actual Power Platform connectivity
-  # IMPACT: Enables testing without valid Power Platform credentials or environments
-  mock_data "powerplatform_environments" {
-    defaults = {
-      environments = []
-    }
-  }
+# NOTE: powerplatform provider declared in versions.tf but not used in this configuration
+# WHY: No powerplatform resources or data sources in ptn-azure-vnet-extension
+# CONTEXT: Mock provider removed to avoid provider type mismatch errors
+# IMPACT: Tests run without powerplatform provider mocking since it's not needed
+# WORKAROUND: Provider still initializes from versions.tf, requiring override with dummy credentials
+
+provider "powerplatform" {
+  # WHY: Override powerplatform provider to prevent initialization errors in tests
+  # CONTEXT: Provider declared in versions.tf but not used in configuration
+  # IMPACT: Allows tests to run without valid Power Platform credentials
+  use_oidc      = false                                  # Disable OIDC
+  tenant_id     = "00000000-0000-0000-0000-000000000000" # Dummy tenant ID for testing
+  client_id     = "00000000-0000-0000-0000-000000000000" # Dummy client ID for testing
+  client_secret = "dummy-secret-for-testing"             # Dummy secret for testing
 }
 
 # ============================================================================
