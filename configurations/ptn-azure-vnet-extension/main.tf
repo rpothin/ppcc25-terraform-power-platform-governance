@@ -573,10 +573,103 @@ module "non_production_nsgs" {
   depends_on = [module.non_production_resource_groups]
 }
 
+# ================================================================
+# FAILOVER REGION NSGs - Phase 4 Regional Security Architecture
+# ================================================================
+# WHY: NSGs are regional resources and must be deployed in each region
+# CONTEXT: Failover VNets in Canada East require separate NSGs from primary (Canada Central)
+# IMPACT: Enables symmetric security architecture across both regions for true DR capability
+
+# Production Failover Environment NSGs (Canada East)
+module "production_failover_nsgs" {
+  for_each = local.production_environments
+
+  source  = "Azure/avm-res-network-networksecuritygroup/azurerm"
+  version = "~> 0.5"
+
+  # WHY: Deploy NSG in failover region to enable association with failover VNet subnets
+  # CONTEXT: Azure requires NSG and subnet to be in same region
+  # IMPACT: Provides regional security enforcement for disaster recovery scenarios
+  name                = "nsg-unified-${local.environment_resource_names[each.key].env_suffix_clean}-failover"
+  resource_group_name = module.production_resource_groups[each.key].name
+  location            = local.network_configuration[each.key].failover_location
+
+  # WHY: Apply identical security rules as primary region NSG
+  # CONTEXT: Symmetric security posture ensures consistent protection across regions
+  # IMPACT: Zero-trust enforcement in failover region matching primary region
+  security_rules = var.enable_zero_trust_networking ? local.zero_trust_nsg_rules : {}
+
+  # Enterprise tagging for governance
+  tags = merge(
+    var.tags,
+    {
+      Environment    = each.value.environment_type
+      Workspace      = local.remote_workspace_name
+      Pattern        = "ptn-azure-vnet-extension"
+      Component      = "network-security-group"
+      SubnetTypes    = "PowerPlatform,PrivateEndpoint" # Serves both subnet types
+      EnvironmentKey = each.key
+      ZeroTrust      = var.enable_zero_trust_networking ? "enabled" : "disabled"
+      Architecture   = "unified-nsg-per-environment-per-region"
+      Region         = "failover"
+    }
+  )
+
+  providers = {
+    azurerm = azurerm.production
+  }
+
+  depends_on = [module.production_resource_groups]
+}
+
+# Non-Production Failover Environment NSGs (Canada East)
+module "non_production_failover_nsgs" {
+  for_each = local.non_production_environments
+
+  source  = "Azure/avm-res-network-networksecuritygroup/azurerm"
+  version = "~> 0.5"
+
+  # WHY: Deploy NSG in failover region to enable association with failover VNet subnets
+  # CONTEXT: Azure requires NSG and subnet to be in same region
+  # IMPACT: Provides regional security enforcement for disaster recovery scenarios
+  name                = "nsg-unified-${local.environment_resource_names[each.key].env_suffix_clean}-failover"
+  resource_group_name = module.non_production_resource_groups[each.key].name
+  location            = local.network_configuration[each.key].failover_location
+
+  # WHY: Apply identical security rules as primary region NSG
+  # CONTEXT: Symmetric security posture ensures consistent protection across regions
+  # IMPACT: Zero-trust enforcement in failover region matching primary region
+  security_rules = var.enable_zero_trust_networking ? local.zero_trust_nsg_rules : {}
+
+  # Enterprise tagging for governance
+  tags = merge(
+    var.tags,
+    {
+      Environment    = local.non_production_environments[each.key].environment_type
+      Workspace      = local.remote_workspace_name
+      Pattern        = "ptn-azure-vnet-extension"
+      Component      = "network-security-group"
+      SubnetTypes    = "PowerPlatform,PrivateEndpoint" # Serves both subnet types
+      EnvironmentKey = each.key
+      ZeroTrust      = var.enable_zero_trust_networking ? "enabled" : "disabled"
+      Architecture   = "unified-nsg-per-environment-per-region"
+      Region         = "failover"
+    }
+  )
+
+  providers = {
+    azurerm = azurerm
+  }
+
+  depends_on = [module.non_production_resource_groups]
+}
+
+# ================================================================
 # NSG-SUBNET ASSOCIATIONS - Phase 2 Security Rule Enforcement
-# WHY: Associate unified NSGs with both subnet types for consistent security
-# CONTEXT: Single NSG per environment serves both PowerPlatform and PrivateEndpoint subnets
-# IMPACT: Simplified management with identical security rules across both subnet types
+# ================================================================
+# WHY: Associate NSGs with subnets to enforce zero-trust security controls
+# CONTEXT: Each region has its own NSG (regional resource limitation)
+# IMPACT: Comprehensive security coverage across primary and failover regions
 
 # Production PowerPlatform Subnet Associations
 # WHY: Associate unified NSG with production primary Power Platform subnets
@@ -653,69 +746,69 @@ resource "azurerm_subnet_network_security_group_association" "non_production_pri
 # CONTEXT: NSGs are region-agnostic; same rules apply to both primary and failover
 # IMPACT: Symmetric security across regions enables true disaster recovery capability
 
-# WHY: Associate unified NSG with production failover Power Platform subnets
-# SECURITY: Ensures zero-trust controls in failover region match primary region
-# CONTEXT: Same NSG used for both primary and failover (region-agnostic rules)
+# WHY: Associate failover NSG with production failover Power Platform subnets
+# SECURITY: Ensures zero-trust controls in failover region (Canada East)
+# CONTEXT: Uses region-specific NSG (NSGs are regional Azure resources)
 resource "azurerm_subnet_network_security_group_association" "production_failover_power_platform" {
   for_each = local.production_environments
 
   subnet_id                 = module.production_failover_virtual_networks[each.key].subnets["snet-powerplatform"].resource_id
-  network_security_group_id = module.production_nsgs[each.key].resource_id
+  network_security_group_id = module.production_failover_nsgs[each.key].resource_id
 
   # Use production provider for production environments
   provider = azurerm.production
 
   depends_on = [
     module.production_failover_virtual_networks,
-    module.production_nsgs
+    module.production_failover_nsgs
   ]
 }
 
-# WHY: Associate unified NSG with production failover private endpoint subnets
-# SECURITY: Protects SQL Server/Key Vault private endpoints in failover region
-# CONTEXT: Maintains consistent security controls across regional boundaries
+# WHY: Associate failover NSG with production failover private endpoint subnets
+# SECURITY: Protects SQL Server/Key Vault private endpoints in failover region (Canada East)
+# CONTEXT: Uses region-specific NSG (NSGs are regional Azure resources)
 resource "azurerm_subnet_network_security_group_association" "production_failover_private_endpoint" {
   for_each = local.production_environments
 
   subnet_id                 = module.production_failover_virtual_networks[each.key].subnets["snet-privateendpoint"].resource_id
-  network_security_group_id = module.production_nsgs[each.key].resource_id
+  network_security_group_id = module.production_failover_nsgs[each.key].resource_id
 
   # Use production provider for production environments
   provider = azurerm.production
 
   depends_on = [
     module.production_failover_virtual_networks,
-    module.production_nsgs
+    module.production_failover_nsgs
   ]
 }
 
-# WHY: Associate unified NSG with non-production failover Power Platform subnets
-# SECURITY: Ensures consistent zero-trust controls in dev/test failover regions
-# CONTEXT: Development environments require same security rigor as production
+# WHY: Associate failover NSG with non-production failover Power Platform subnets
+# SECURITY: Ensures consistent zero-trust controls in dev/test failover regions (Canada East)
+# CONTEXT: Uses region-specific NSG (NSGs are regional Azure resources)
 resource "azurerm_subnet_network_security_group_association" "non_production_failover_power_platform" {
   for_each = local.non_production_environments
 
   subnet_id                 = module.non_production_failover_virtual_networks[each.key].subnets["snet-powerplatform"].resource_id
-  network_security_group_id = module.non_production_nsgs[each.key].resource_id
+  network_security_group_id = module.non_production_failover_nsgs[each.key].resource_id
 
   depends_on = [
     module.non_production_failover_virtual_networks,
-    module.non_production_nsgs
+    module.non_production_failover_nsgs
   ]
 }
 
-# WHY: Associate unified NSG with non-production failover private endpoint subnets
-# SECURITY: Protects private endpoints in dev/test failover regions
-# CONTEXT: Completes symmetric security architecture across all environments and regions
+# WHY: Associate failover NSG with non-production failover private endpoint subnets
+# SECURITY: Protects private endpoints in dev/test failover regions (Canada East)
+# CONTEXT: Uses region-specific NSG completing symmetric security across all regions
 resource "azurerm_subnet_network_security_group_association" "non_production_failover_private_endpoint" {
   for_each = local.non_production_environments
 
   subnet_id                 = module.non_production_failover_virtual_networks[each.key].subnets["snet-privateendpoint"].resource_id
-  network_security_group_id = module.non_production_nsgs[each.key].resource_id
+  network_security_group_id = module.non_production_failover_nsgs[each.key].resource_id
 
   depends_on = [
     module.non_production_failover_virtual_networks,
-    module.non_production_nsgs
+    module.non_production_failover_nsgs
   ]
 }
 

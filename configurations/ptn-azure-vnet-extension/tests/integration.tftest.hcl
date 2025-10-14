@@ -529,14 +529,64 @@ run "phase2_avm_module_deployment_validation" {
     error_message = "Should create one failover VNet module per non-production environment"
   }
 
+  # ========== AVM NETWORK SECURITY GROUP MODULE TESTS (8 assertions) ==========
+  # WHY: Validate NSG deployment in both primary and failover regions
+  # CONTEXT: NSGs are regional resources requiring separate deployment per region
+  # IMPACT: Ensures symmetric security architecture across regions
+
+  # Primary Region NSG Modules (2 assertions)
   assert {
     condition     = length(module.production_nsgs) == length(local.production_environments)
-    error_message = "Should create one unified NSG module per production environment"
+    error_message = "Should create one unified PRIMARY NSG module per production environment in Canada Central"
   }
 
   assert {
     condition     = length(module.non_production_nsgs) == length(local.non_production_environments)
-    error_message = "Should create one unified NSG module per non-production environment"
+    error_message = "Should create one unified PRIMARY NSG module per non-production environment in Canada Central"
+  }
+
+  # Failover Region NSG Modules (2 assertions)
+  assert {
+    condition     = length(module.production_failover_nsgs) == length(local.production_environments)
+    error_message = "Should create one unified FAILOVER NSG module per production environment in Canada East"
+  }
+
+  assert {
+    condition     = length(module.non_production_failover_nsgs) == length(local.non_production_environments)
+    error_message = "Should create one unified FAILOVER NSG module per non-production environment in Canada East"
+  }
+
+  # NSG Configuration Validation (4 assertions)
+  assert {
+    condition = alltrue([
+      for env_key, nsg in module.production_nsgs :
+      can(regex("^nsg-unified-.*$", nsg.name))
+    ])
+    error_message = "Production primary NSGs should follow naming convention nsg-unified-{env}"
+  }
+
+  assert {
+    condition = alltrue([
+      for env_key, nsg in module.production_failover_nsgs :
+      can(regex("^nsg-unified-.*-failover$", nsg.name))
+    ])
+    error_message = "Production failover NSGs should follow naming convention nsg-unified-{env}-failover"
+  }
+
+  assert {
+    condition = alltrue([
+      for env_key, nsg in module.non_production_nsgs :
+      can(regex("^nsg-unified-.*$", nsg.name))
+    ])
+    error_message = "Non-production primary NSGs should follow naming convention nsg-unified-{env}"
+  }
+
+  assert {
+    condition = alltrue([
+      for env_key, nsg in module.non_production_failover_nsgs :
+      can(regex("^nsg-unified-.*-failover$", nsg.name))
+    ])
+    error_message = "Non-production failover NSGs should follow naming convention nsg-unified-{env}-failover"
   }
 
   # ========== AVM PRIVATE DNS ZONE MODULE TESTS (4 assertions) ==========
@@ -1509,11 +1559,11 @@ run "deployment_status_with_vnet_peering_validation" {
 # - Zero-trust NSG rules validation: 10 assertions
 # - Zero-trust disabled validation: 5 assertions
 # 
-# PHASE 2 AVM MODULE DEPLOYMENT TESTS (36 assertions - Enhanced):
+# PHASE 2 AVM MODULE DEPLOYMENT TESTS (42 assertions - Enhanced):
 # - AVM Resource Group modules: 4 assertions
 # - AVM Virtual Network modules: 6 assertions 
 # - AVM Private DNS Zone modules: 4 assertions
-# - AVM Network Security Group modules: 8 assertions
+# - AVM Network Security Group modules: 14 assertions (4 primary + 4 failover deployment, 6 naming validation)
 # - Subnet-NSG associations: 8 assertions (4 primary + 4 failover)
 # - Phase 2 output validation: 6 assertions
 # 
@@ -1588,11 +1638,11 @@ run "deployment_status_with_vnet_peering_validation" {
 # - Zero-trust NSG rules validation: 10 assertions
 # - Zero-trust disabled validation: 5 assertions
 # 
-# PHASE 2 AVM MODULE DEPLOYMENT TESTS (36 assertions - Enhanced):
+# PHASE 2 AVM MODULE DEPLOYMENT TESTS (42 assertions - Enhanced):
 # - AVM Resource Group modules: 4 assertions
 # - AVM Virtual Network modules: 6 assertions 
 # - AVM Private DNS Zone modules: 4 assertions
-# - AVM Network Security Group modules: 8 assertions
+# - AVM Network Security Group modules: 14 assertions (4 primary + 4 failover deployment, 6 naming validation)
 # - Subnet-NSG associations: 8 assertions (4 primary + 4 failover)
 # - Phase 2 output validation: 6 assertions
 # 
