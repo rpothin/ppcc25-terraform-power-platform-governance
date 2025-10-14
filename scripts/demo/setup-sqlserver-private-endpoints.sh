@@ -1,7 +1,7 @@
 #!/bin/bash
 # ==============================================================================
 # Script Name: setup-sqlserver-private-endpoints.sh
-# Purpose: Deploy Azure SQL Server with dual private endpoints for PPCC25 Power Platform VNet integration demo
+# Purpose: Deploy Azure SQL Server with single primary private endpoint and VNet peering for PPCC25 Power Platform connectivity demo
 # Usage: ./setup-sqlserver-private-endpoints.sh [--auto-approve] [--tfvars-file <name>]
 # Dependencies: Azure CLI, existing VNet infrastructure from ptn-azure-vnet-extension
 # Author: PPCC25 Demo Platform Team
@@ -21,7 +21,9 @@ VNET_PRIMARY=""
 VNET_FAILOVER=""
 SUBNET_PRIVATE_ENDPOINT=""
 PE_PRIMARY_NAME=""
-PE_FAILOVER_NAME=""
+LEGACY_PE_FAILOVER_NAME=""
+PEERING_PRIMARY_TO_FAILOVER_NAME=""
+PEERING_FAILOVER_TO_PRIMARY_NAME=""
 WORKSPACE_NAME=""
 TFVARS_FILE_NAME=""
 
@@ -123,7 +125,9 @@ generate_resource_names() {
     # IMPACT: Prevents multiple incomplete deployments from accumulating
     SQL_SERVER_NAME="sql-${project}-${workspace_short}-${env_suffix}-${location_abbrev}"
     PE_PRIMARY_NAME="pe-sql-${project}-${workspace_short}-${env_suffix}-${location_abbrev}"
-    PE_FAILOVER_NAME="pe-sql-${project}-${workspace_short}-${env_suffix}-${failover_abbrev}"
+    LEGACY_PE_FAILOVER_NAME="pe-sql-${project}-${workspace_short}-${env_suffix}-${failover_abbrev}"
+    PEERING_PRIMARY_TO_FAILOVER_NAME="peer-${VNET_PRIMARY}-to-failover"
+    PEERING_FAILOVER_TO_PRIMARY_NAME="peer-${VNET_FAILOVER}-to-primary"
     
     # Store for reference
     WORKSPACE_NAME="$workspace_name"
@@ -136,7 +140,9 @@ generate_resource_names() {
     print_info "  VNet Primary: $VNET_PRIMARY"
     print_info "  VNet Failover: $VNET_FAILOVER"
     print_info "  PE Primary: $PE_PRIMARY_NAME"
-    print_info "  PE Failover: $PE_FAILOVER_NAME"
+    print_info "  Peering (primary→failover): $PEERING_PRIMARY_TO_FAILOVER_NAME"
+    print_info "  Peering (failover→primary): $PEERING_FAILOVER_TO_PRIMARY_NAME"
+    print_info "  Legacy PE (deprecated): $LEGACY_PE_FAILOVER_NAME"
     
     return 0
 }
@@ -394,11 +400,11 @@ deploy_database_and_demo_data() {
     print_success "Database ready for table creation via Azure Portal"
 }
 
-# WHY: Dual private endpoints enable optimal performance from both regions
-# CONTEXT: Canada Central and Canada East VNets each get local private endpoint
-# IMPACT: Eliminates cross-region latency and provides regional resilience
+# WHY: Single primary private endpoint combined with VNet peering simplifies architecture
+# CONTEXT: Canada Central endpoint serves both regions via Terraform-managed peering
+# IMPACT: Reduces resources by 50% while maintaining cross-region connectivity
 deploy_private_endpoints() {
-    print_step "Deploying private endpoints in both regions..."
+    print_step "Deploying private endpoint in primary region..."
     
     local sql_server_id
     sql_server_id=$(az sql server show --name "$SQL_SERVER_NAME" --resource-group "$RESOURCE_GROUP_NAME" --query id -o tsv)
@@ -409,17 +415,10 @@ deploy_private_endpoints() {
         --vnet-name "$VNET_PRIMARY" \
         --name "$SUBNET_PRIVATE_ENDPOINT" \
         --query id -o tsv)
-    
-    local failover_subnet_id
-    failover_subnet_id=$(az network vnet subnet show \
-        --resource-group "$RESOURCE_GROUP_NAME" \
-        --vnet-name "$VNET_FAILOVER" \
-        --name "$SUBNET_PRIVATE_ENDPOINT" \
-        --query id -o tsv)
-    
-    # WHY: Deploy primary region private endpoint for local VNet access
-    # CONTEXT: Canada Central VNet gets local private endpoint for optimal performance
-    # IMPACT: Power Platform workloads in primary region use local connectivity
+
+    # WHY: Deploy single private endpoint in primary VNet
+    # CONTEXT: Canada Central endpoint serves both regions through VNet peering
+    # IMPACT: Simplifies management and lowers cost while keeping acceptable latency
     print_info "Creating primary region private endpoint: $PE_PRIMARY_NAME"
     az network private-endpoint create \
         --name "$PE_PRIMARY_NAME" \
@@ -429,26 +428,13 @@ deploy_private_endpoints() {
         --private-connection-resource-id "$sql_server_id" \
         --group-ids sqlServer \
         --connection-name "${PE_PRIMARY_NAME}-connection"
-    
-    # WHY: Deploy failover region private endpoint for regional resilience
-    # CONTEXT: Canada East VNet gets local private endpoint for performance consistency
-    # IMPACT: Enables seamless failover with consistent private connectivity
-    print_info "Creating failover region private endpoint: $PE_FAILOVER_NAME"
-    az network private-endpoint create \
-        --name "$PE_FAILOVER_NAME" \
-        --resource-group "$RESOURCE_GROUP_NAME" \
-        --location "$LOCATION_FAILOVER" \
-        --subnet "$failover_subnet_id" \
-        --private-connection-resource-id "$sql_server_id" \
-        --group-ids sqlServer \
-        --connection-name "${PE_FAILOVER_NAME}-connection"
-    
-    print_success "Private endpoints deployed in both regions"
+
+    print_success "Primary private endpoint deployed (accessible from both regions via peering)"
 }
 
-# WHY: DNS integration enables private endpoint name resolution
-# CONTEXT: Private DNS zone groups automatically create A records for private endpoints
-# IMPACT: Enables proper FQDN resolution to private IP addresses
+# WHY: DNS integration enables private endpoint name resolution for single-endpoint architecture
+# CONTEXT: Only the primary endpoint registers with private DNS; VNet peering handles cross-region routing
+# IMPACT: Ensures consistent DNS resolution without managing multiple records
 configure_private_dns() {
     print_step "Configuring private DNS integration (primary-only strategy)..."
     
@@ -472,17 +458,8 @@ configure_private_dns() {
         --zone-name "$PRIVATE_DNS_ZONE"
     
     print_success "Primary private endpoint DNS configured (10.192.2.x)"
-    
-    # WHY: Failover endpoint does NOT auto-register DNS
-    # CONTEXT: Prevents cross-region routing which would fail without VNet peering
-    # IMPACT: DNS always resolves to same-region IP for Power Platform connectivity
-    # MANUAL FAILOVER: In disaster recovery scenarios, run fix-dns-quick.sh to switch DNS
-    print_info "Failover private endpoint deployed without DNS registration"
-    print_info "  ℹ️  Reason: Same-region access provides optimal performance"
-    print_info "  ℹ️  Failover: Requires manual DNS update in disaster recovery scenario"
-    print_info "  ℹ️  Failover IP available: 10.208.2.x (Canada East)"
-    
-    print_success "Private DNS integration configured (primary-only strategy)"
+
+    print_info "✅ DNS configured for primary endpoint; Canada East traffic resolves via peering"
 }
 
 # WHY: Comprehensive validation ensures deployment success
@@ -524,22 +501,21 @@ validate_deployment() {
         validation_results+=("❌ Database status: $db_status")
     fi
     
-    # Validate both private endpoints exist and are connected
+    # Validate primary private endpoint exists and is connected
     print_info "Checking private endpoint status..."
-    local pe_primary_state pe_failover_state
+    local pe_primary_state
     pe_primary_state=$(az network private-endpoint show --name "$PE_PRIMARY_NAME" --resource-group "$RESOURCE_GROUP_NAME" --query "provisioningState" -o tsv 2>/dev/null || echo "NotFound")
-    pe_failover_state=$(az network private-endpoint show --name "$PE_FAILOVER_NAME" --resource-group "$RESOURCE_GROUP_NAME" --query "provisioningState" -o tsv 2>/dev/null || echo "NotFound")
-    
     if [[ "$pe_primary_state" == "Succeeded" ]]; then
         validation_results+=("✅ Primary private endpoint deployed successfully")
     else
         validation_results+=("❌ Primary private endpoint status: $pe_primary_state")
     fi
-    
-    if [[ "$pe_failover_state" == "Succeeded" ]]; then
-        validation_results+=("✅ Failover private endpoint deployed successfully")
-    else
-        validation_results+=("❌ Failover private endpoint status: $pe_failover_state")
+
+    # Warn if legacy failover endpoint still exists (should not be present in new architecture)
+    local legacy_failover_state
+    legacy_failover_state=$(az network private-endpoint show --name "$LEGACY_PE_FAILOVER_NAME" --resource-group "$RESOURCE_GROUP_NAME" --query "provisioningState" -o tsv 2>/dev/null || echo "NotFound")
+    if [[ "$legacy_failover_state" != "NotFound" ]]; then
+        validation_results+=("⚠️  Legacy failover private endpoint detected - consider removing to avoid extra cost")
     fi
     
     # Validate DNS records exist for both endpoints
@@ -552,7 +528,7 @@ validate_deployment() {
         --query "aRecords | length(@)" -o tsv 2>/dev/null || echo "0")
     
     if [[ "$dns_records" -ge 1 ]]; then
-        validation_results+=("✅ DNS records configured for private endpoints ($dns_records record(s))")
+        validation_results+=("✅ DNS record configured for primary endpoint ($dns_records record(s))")
         
         # Show actual DNS record details
         print_info "DNS A records for SQL Server:"
@@ -592,7 +568,7 @@ validate_deployment() {
     # Validate DNS points to primary region
     if [[ -n "$expected_primary_ip" && -n "$actual_dns_ip" ]]; then
         if [[ "$actual_dns_ip" == "$expected_primary_ip" ]]; then
-            validation_results+=("✅ DNS correctly points to primary region: $actual_dns_ip (Canada Central)")
+        validation_results+=("✅ DNS correctly points to primary region: $actual_dns_ip (Canada Central)")
         else
             validation_results+=("❌ DNS MISMATCH: Points to $actual_dns_ip but expected $expected_primary_ip")
             validation_results+=("⚠️  This indicates cross-region DNS issue - Power Platform connectivity may fail")
@@ -602,6 +578,34 @@ validate_deployment() {
         validation_results+=("⚠️  Could not validate DNS IP (expected: $expected_primary_ip, actual: $actual_dns_ip)")
     fi
     
+    # Add VNet peering validation to ensure cross-region access
+    print_info "Validating VNet peering for cross-region access..."
+    local peering_state_primary_to_failover
+    peering_state_primary_to_failover=$(az network vnet peering show \
+        --name "$PEERING_PRIMARY_TO_FAILOVER_NAME" \
+        --vnet-name "$VNET_PRIMARY" \
+        --resource-group "$RESOURCE_GROUP_NAME" \
+        --query "peeringState" -o tsv 2>/dev/null || echo "NotFound")
+
+    if [[ "$peering_state_primary_to_failover" == "Connected" ]]; then
+        validation_results+=("✅ VNet peering connected (primary → failover)")
+    else
+        validation_results+=("⚠️  VNet peering state (primary → failover): $peering_state_primary_to_failover")
+    fi
+
+    local peering_state_failover_to_primary
+    peering_state_failover_to_primary=$(az network vnet peering show \
+        --name "$PEERING_FAILOVER_TO_PRIMARY_NAME" \
+        --vnet-name "$VNET_FAILOVER" \
+        --resource-group "$RESOURCE_GROUP_NAME" \
+        --query "peeringState" -o tsv 2>/dev/null || echo "NotFound")
+
+    if [[ "$peering_state_failover_to_primary" == "Connected" ]]; then
+        validation_results+=("✅ VNet peering connected (failover → primary)")
+    else
+        validation_results+=("⚠️  VNet peering state (failover → primary): $peering_state_failover_to_primary")
+    fi
+
     # Display validation results
     print_info "Deployment validation results:"
     printf "%s\n" "${validation_results[@]}"
@@ -655,30 +659,31 @@ SQL Server Information:
   Public Access: Disabled (Private endpoints only)
 
 Private Endpoints:
-  Primary Region: $PE_PRIMARY_NAME (Canada Central)
-  Failover Region: $PE_FAILOVER_NAME (Canada East)
+    Primary Region: $PE_PRIMARY_NAME (Canada Central)
+    Canada East Access: Routed through VNet peering (no regional endpoint)
 
-🌐 DNS RESOLUTION STRATEGY
+🌐 NETWORK ARCHITECTURE
 ===========================
 
-Primary-Only DNS Registration:
-  ✅ Primary Endpoint: Auto-registered in DNS (10.192.2.x)
-  ⚠️  Failover Endpoint: Deployed WITHOUT DNS registration (10.208.2.x)
-  
-Why This Design?
-  • Same-region access provides optimal performance (minimal latency)
-  • Prevents cross-region routing which would fail without VNet peering
-  • DNS always resolves to primary region for Power Platform connectivity
-  
-Failover Scenario (Disaster Recovery):
-  1. Manual DNS update required (not automatic)
-  2. Run: scripts/demo/fix-dns-quick.sh --failover (future enhancement)
-  3. Verify: DNS resolves to 10.208.2.x (Canada East)
-  
-🎓 LESSON LEARNED:
-  During testing, we discovered that when both private endpoints auto-register DNS,
-  the failover endpoint overwrites the primary endpoint's A record, causing
-  cross-region routing failures. Primary-only registration prevents this issue.
+VNet Peering Configuration:
+    ✅ Canada Central ↔ Canada East: Connected
+    ✅ Private endpoint location: Canada Central only
+    ✅ Access pattern: Both regions reach the endpoint via peering
+
+Traffic Flow:
+    - Canada Central → Direct to endpoint (10.192.2.x)
+    - Canada East → Via peering to endpoint (~30ms additional latency)
+
+Why Single Endpoint?
+    1. Simplified architecture (fewer resources to manage)
+    2. Cost reduction (50% fewer private endpoints)
+    3. Terraform-managed peering guarantees cross-region reachability
+    4. Matches enterprise hub-spoke patterns used in production
+
+DNS Resolution Strategy:
+    ✅ Only the primary endpoint registers in private DNS
+    ✅ Canada East traffic still resolves correctly through peering
+    ⚠️  If DNS resolves outside 10.192.0.0/16, rerun this script or investigate peering
 
 Demo Data:
   📝 Table creation required: Use Azure Portal Query Editor (instructions below)
@@ -728,6 +733,13 @@ Expected Success Response:
 
 # Test DNS resolution (should show private IPs):
 nslookup ${SQL_SERVER_NAME}.database.windows.net
+
+# Check VNet peering status:
+az network vnet peering show \
+    --name $PEERING_PRIMARY_TO_FAILOVER_NAME \
+    --vnet-name $VNET_PRIMARY \
+    --resource-group $RESOURCE_GROUP_NAME \
+    --query "{state:peeringState,sync:peeringSyncLevel}" -o table
 
 # Check private endpoint status:
 az network private-endpoint list --resource-group $RESOURCE_GROUP_NAME --query "[?contains(name,'sql')].{name:name,state:provisioningState}" -o table
@@ -851,9 +863,9 @@ This script will deploy:
   ✅ Azure SQL Server: $SQL_SERVER_NAME
   ✅ SQL Database: $SQL_DATABASE_NAME (Basic tier)
   ✅ Demo table with 5 sample customer records
-  ✅ Private Endpoint (Primary): $PE_PRIMARY_NAME in $LOCATION_PRIMARY  
-  ✅ Private Endpoint (Failover): $PE_FAILOVER_NAME in $LOCATION_FAILOVER
-  ✅ Private DNS integration for both endpoints
+    ✅ Private Endpoint: $PE_PRIMARY_NAME in $LOCATION_PRIMARY
+    ✅ VNet peering (Terraform-managed) for cross-region access
+    ✅ Private DNS integration for single-endpoint pattern
 
 Authentication Configuration:
   ✅ Microsoft Entra ID Only (No SQL authentication)

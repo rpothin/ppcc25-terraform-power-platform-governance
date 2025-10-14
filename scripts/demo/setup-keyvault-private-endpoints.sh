@@ -1,7 +1,7 @@
 #!/bin/bash
 # ==============================================================================
 # Script Name: setup-keyvault-private-endpoints.sh
-# Purpose: Deploy Key Vault with dual private endpoints for PPCC25 Power Platform VNet integration demo
+# Purpose: Deploy Key Vault with single primary private endpoint and VNet peering for PPCC25 Power Platform connectivity demo
 # Usage: ./setup-keyvault-private-endpoints.sh [--auto-approve] [--tfvars-file <name>]
 # Dependencies: Azure CLI, Power Platform CLI (optional), existing VNet infrastructure from ptn-azure-vnet-extension
 # Author: PPCC25 Demo Platform Team
@@ -20,7 +20,9 @@ VNET_PRIMARY=""
 VNET_FAILOVER=""
 SUBNET_PRIVATE_ENDPOINT=""
 PE_PRIMARY_NAME=""
-PE_FAILOVER_NAME=""
+LEGACY_PE_FAILOVER_NAME=""
+PEERING_PRIMARY_TO_FAILOVER_NAME=""
+PEERING_FAILOVER_TO_PRIMARY_NAME=""
 WORKSPACE_NAME=""
 TFVARS_FILE_NAME=""
 
@@ -118,7 +120,9 @@ generate_resource_names() {
     
     KEY_VAULT_NAME="kv-${project}-${workspace_short}-${env_suffix}-${location_abbrev}"
     PE_PRIMARY_NAME="pe-kv-${project}-${workspace_short}-${env_suffix}-${location_abbrev}"
-    PE_FAILOVER_NAME="pe-kv-${project}-${workspace_short}-${env_suffix}-${failover_abbrev}"
+    LEGACY_PE_FAILOVER_NAME="pe-kv-${project}-${workspace_short}-${env_suffix}-${failover_abbrev}"
+    PEERING_PRIMARY_TO_FAILOVER_NAME="peer-${VNET_PRIMARY}-to-failover"
+    PEERING_FAILOVER_TO_PRIMARY_NAME="peer-${VNET_FAILOVER}-to-primary"
     
     # Store for reference
     WORKSPACE_NAME="$workspace_name"
@@ -130,7 +134,9 @@ generate_resource_names() {
     print_info "  VNet Primary: $VNET_PRIMARY"
     print_info "  VNet Failover: $VNET_FAILOVER"
     print_info "  PE Primary: $PE_PRIMARY_NAME"
-    print_info "  PE Failover: $PE_FAILOVER_NAME"
+    print_info "  Peering (primary→failover): $PEERING_PRIMARY_TO_FAILOVER_NAME"
+    print_info "  Peering (failover→primary): $PEERING_FAILOVER_TO_PRIMARY_NAME"
+    print_info "  Legacy PE (deprecated): $LEGACY_PE_FAILOVER_NAME"
     
     return 0
 }
@@ -353,11 +359,11 @@ deploy_key_vault() {
     print_success "Key Vault deployed with enterprise security configuration"
 }
 
-# WHY: Dual private endpoints enable optimal performance from both regions
-# CONTEXT: Canada Central and Canada East VNets each get local private endpoint
-# IMPACT: Eliminates cross-region latency and provides regional resilience
+# WHY: Single primary private endpoint combined with VNet peering simplifies architecture
+# CONTEXT: Canada Central endpoint serves both regions through Terraform-managed peering
+# IMPACT: Reduces cost and management overhead while maintaining connectivity
 deploy_private_endpoints() {
-    print_step "Deploying private endpoints in both regions..."
+    print_step "Deploying private endpoint in primary region..."
     
     local key_vault_id
     key_vault_id=$(az keyvault show --name "$KEY_VAULT_NAME" --resource-group "$RESOURCE_GROUP_NAME" --query id -o tsv)
@@ -368,17 +374,10 @@ deploy_private_endpoints() {
         --vnet-name "$VNET_PRIMARY" \
         --name "$SUBNET_PRIVATE_ENDPOINT" \
         --query id -o tsv)
-    
-    local failover_subnet_id
-    failover_subnet_id=$(az network vnet subnet show \
-        --resource-group "$RESOURCE_GROUP_NAME" \
-        --vnet-name "$VNET_FAILOVER" \
-        --name "$SUBNET_PRIVATE_ENDPOINT" \
-        --query id -o tsv)
-    
-    # WHY: Deploy primary region private endpoint for local VNet access
-    # CONTEXT: Canada Central VNet gets local private endpoint for optimal performance
-    # IMPACT: Power Platform workloads in primary region use local connectivity
+
+    # WHY: Deploy single private endpoint in primary VNet
+    # CONTEXT: Canada Central endpoint serves both regions via peering
+    # IMPACT: Simplifies management and maintains acceptable latency for Canada East (~30ms)
     print_info "Creating primary region private endpoint: $PE_PRIMARY_NAME"
     az network private-endpoint create \
         --name "$PE_PRIMARY_NAME" \
@@ -388,26 +387,13 @@ deploy_private_endpoints() {
         --private-connection-resource-id "$key_vault_id" \
         --group-ids vault \
         --connection-name "${PE_PRIMARY_NAME}-connection"
-    
-    # WHY: Deploy failover region private endpoint for regional resilience
-    # CONTEXT: Canada East VNet gets local private endpoint for performance consistency
-    # IMPACT: Enables seamless failover with consistent private connectivity
-    print_info "Creating failover region private endpoint: $PE_FAILOVER_NAME"
-    az network private-endpoint create \
-        --name "$PE_FAILOVER_NAME" \
-        --resource-group "$RESOURCE_GROUP_NAME" \
-        --location "$LOCATION_FAILOVER" \
-        --subnet "$failover_subnet_id" \
-        --private-connection-resource-id "$key_vault_id" \
-        --group-ids vault \
-        --connection-name "${PE_FAILOVER_NAME}-connection"
-    
-    print_success "Private endpoints deployed in both regions"
+
+    print_success "Primary private endpoint deployed (accessible from both regions via peering)"
 }
 
-# WHY: DNS integration enables private endpoint name resolution
-# CONTEXT: Private DNS zone groups automatically create A records for private endpoints
-# IMPACT: Enables proper FQDN resolution to private IP addresses
+# WHY: DNS integration enables private endpoint name resolution for single-endpoint architecture
+# CONTEXT: Only the primary endpoint registers in private DNS; peering handles cross-region access
+# IMPACT: Ensures consistent resolution without juggling multiple records
 configure_private_dns() {
     print_step "Configuring private DNS integration (primary-only strategy)..."
     
@@ -431,17 +417,7 @@ configure_private_dns() {
         --zone-name "$PRIVATE_DNS_ZONE"
     
     print_success "Primary private endpoint DNS configured (10.96.2.x)"
-    
-    # WHY: Failover endpoint does NOT auto-register DNS
-    # CONTEXT: Prevents cross-region routing which would increase latency without VNet peering
-    # IMPACT: DNS always resolves to same-region IP for Power Platform connectivity
-    # MANUAL FAILOVER: In disaster recovery scenarios, manual DNS update required
-    print_info "Failover private endpoint deployed without DNS registration"
-    print_info "  ℹ️  Reason: Same-region access provides optimal performance"
-    print_info "  ℹ️  Failover: Requires manual DNS update in disaster recovery scenario"
-    print_info "  ℹ️  Failover IP available: 10.112.2.x (Canada East)"
-    
-    print_success "Private DNS integration configured (primary-only strategy)"
+    print_info "✅ Canada East traffic resolves via VNet peering - no secondary DNS registration needed"
 }
 
 # WHY: Demo secrets enable immediate Power Platform testing with temporary public access
@@ -515,7 +491,7 @@ create_demo_secrets() {
     az keyvault secret set \
         --vault-name "$KEY_VAULT_NAME" \
         --name "environment-info" \
-        --value "Environment: Dev | Region: Canada Central/East | Pattern: Dual Private Endpoints" \
+        --value "Environment: Dev | Regions: CAC/CAE | Connectivity: Single Endpoint + VNet Peering" \
         --output none
     
     print_success "Demo secrets created successfully"
@@ -555,22 +531,22 @@ validate_deployment() {
         validation_results+=("✅ Key Vault public access properly disabled")
     fi
     
-    # Validate both private endpoints exist and are connected
+    # Validate primary private endpoint exists and is connected
     print_info "Checking private endpoint status..."
-    local pe_primary_state pe_failover_state
+    local pe_primary_state
     pe_primary_state=$(az network private-endpoint show --name "$PE_PRIMARY_NAME" --resource-group "$RESOURCE_GROUP_NAME" --query "provisioningState" -o tsv 2>/dev/null || echo "NotFound")
-    pe_failover_state=$(az network private-endpoint show --name "$PE_FAILOVER_NAME" --resource-group "$RESOURCE_GROUP_NAME" --query "provisioningState" -o tsv 2>/dev/null || echo "NotFound")
-    
+
     if [[ "$pe_primary_state" == "Succeeded" ]]; then
         validation_results+=("✅ Primary private endpoint deployed successfully")
     else
         validation_results+=("❌ Primary private endpoint status: $pe_primary_state")
     fi
-    
-    if [[ "$pe_failover_state" == "Succeeded" ]]; then
-        validation_results+=("✅ Failover private endpoint deployed successfully")
-    else
-        validation_results+=("❌ Failover private endpoint status: $pe_failover_state")
+
+    # Warn if legacy failover endpoint still exists (deprecated architecture)
+    local legacy_failover_state
+    legacy_failover_state=$(az network private-endpoint show --name "$LEGACY_PE_FAILOVER_NAME" --resource-group "$RESOURCE_GROUP_NAME" --query "provisioningState" -o tsv 2>/dev/null || echo "NotFound")
+    if [[ "$legacy_failover_state" != "NotFound" ]]; then
+        validation_results+=("⚠️  Legacy failover private endpoint detected - remove to avoid extra cost and confusion")
     fi
     
     # Validate DNS records exist and point to correct region
@@ -583,48 +559,73 @@ validate_deployment() {
         --query "aRecords | length(@)" -o tsv 2>/dev/null || echo "0")
     
     if [[ "$dns_records" -ge 1 ]]; then
-        # Get the actual DNS IP address(es)
+        # Get the actual DNS IP address
         local actual_dns_ip
         actual_dns_ip=$(az network private-dns record-set a show \
             --resource-group "$RESOURCE_GROUP_NAME" \
             --zone-name "$PRIVATE_DNS_ZONE" \
             --name "${KEY_VAULT_NAME}" \
             --query "aRecords[0].ipv4Address" -o tsv 2>/dev/null)
-        
-        # Get the primary private endpoint IP (expected value)
-        local expected_primary_ip
-        expected_primary_ip=$(az network private-endpoint show \
+
+        # Get expected IP from network interface (stronger validation)
+        local expected_primary_ip=""
+        local primary_nic_id
+        primary_nic_id=$(az network private-endpoint show \
             --name "$PE_PRIMARY_NAME" \
             --resource-group "$RESOURCE_GROUP_NAME" \
-            --query "customDnsConfigs[0].ipAddresses[0]" -o tsv 2>/dev/null)
-        
+            --query "networkInterfaces[0].id" -o tsv 2>/dev/null || echo "")
+
+        if [[ -n "$primary_nic_id" ]]; then
+            expected_primary_ip=$(az network nic show \
+                --ids "$primary_nic_id" \
+                --query "ipConfigurations[0].privateIPAddress" -o tsv 2>/dev/null || echo "")
+        fi
+
         print_info "DNS validation:"
         print_info "  Expected IP (primary): $expected_primary_ip"
         print_info "  Actual DNS IP: $actual_dns_ip"
-        
-        # Compare DNS IP with expected primary IP
-        if [[ "$actual_dns_ip" == "$expected_primary_ip" ]]; then
-            validation_results+=("✅ DNS correctly points to primary region: $actual_dns_ip")
-        else
-            # DNS might be pointing to wrong region (failover)
-            local failover_ip
-            failover_ip=$(az network private-endpoint show \
-                --name "$PE_FAILOVER_NAME" \
-                --resource-group "$RESOURCE_GROUP_NAME" \
-                --query "customDnsConfigs[0].ipAddresses[0]" -o tsv 2>/dev/null)
-            
-            if [[ "$actual_dns_ip" == "$failover_ip" ]]; then
-                validation_results+=("❌ DNS MISMATCH: Points to failover region ($actual_dns_ip) instead of primary ($expected_primary_ip)")
-                print_error "DNS is pointing to the WRONG region!"
-                print_error "This will cause cross-region traffic without VNet peering"
-                print_error "Power Platform connections may timeout or fail"
-                print_info "To fix: Re-run this setup script OR use fix-dns-quick.sh"
+
+        if [[ -n "$expected_primary_ip" && -n "$actual_dns_ip" ]]; then
+            if [[ "$actual_dns_ip" == "$expected_primary_ip" ]]; then
+                validation_results+=("✅ DNS correctly points to primary region: $actual_dns_ip (Canada Central)")
             else
-                validation_results+=("⚠️ DNS IP ($actual_dns_ip) doesn't match primary ($expected_primary_ip) or failover ($failover_ip)")
+                validation_results+=("❌ DNS MISMATCH: Points to $actual_dns_ip but expected $expected_primary_ip")
+                validation_results+=("⚠️  This indicates cross-region DNS issue - Power Platform connectivity may fail")
+                validation_results+=("💡 Fix: Run scripts/demo/fix-dns-quick.sh to correct DNS resolution")
             fi
+        else
+            validation_results+=("⚠️  Could not validate DNS IP (expected: $expected_primary_ip, actual: $actual_dns_ip)")
         fi
     else
         validation_results+=("❌ No DNS records found for private endpoints")
+    fi
+
+    # Validate VNet peering ensures cross-region connectivity
+    print_info "Validating VNet peering for cross-region access..."
+    local peering_state_primary_to_failover
+    peering_state_primary_to_failover=$(az network vnet peering show \
+        --name "$PEERING_PRIMARY_TO_FAILOVER_NAME" \
+        --vnet-name "$VNET_PRIMARY" \
+        --resource-group "$RESOURCE_GROUP_NAME" \
+        --query "peeringState" -o tsv 2>/dev/null || echo "NotFound")
+
+    if [[ "$peering_state_primary_to_failover" == "Connected" ]]; then
+        validation_results+=("✅ VNet peering connected (primary → failover)")
+    else
+        validation_results+=("⚠️  VNet peering state (primary → failover): $peering_state_primary_to_failover")
+    fi
+
+    local peering_state_failover_to_primary
+    peering_state_failover_to_primary=$(az network vnet peering show \
+        --name "$PEERING_FAILOVER_TO_PRIMARY_NAME" \
+        --vnet-name "$VNET_FAILOVER" \
+        --resource-group "$RESOURCE_GROUP_NAME" \
+        --query "peeringState" -o tsv 2>/dev/null || echo "NotFound")
+
+    if [[ "$peering_state_failover_to_primary" == "Connected" ]]; then
+        validation_results+=("✅ VNet peering connected (failover → primary)")
+    else
+        validation_results+=("⚠️  VNet peering state (failover → primary): $peering_state_failover_to_primary")
     fi
     
     # Validate test secrets exist (only when public access is available)
@@ -705,8 +706,8 @@ Key Vault Information:
   Public Access: Disabled (Private endpoints only)
 
 Private Endpoints:
-  Primary Region: $PE_PRIMARY_NAME (Canada Central)
-  Failover Region: $PE_FAILOVER_NAME (Canada East)
+    Primary Region: $PE_PRIMARY_NAME (Canada Central)
+    Canada East Access: Routed through VNet peering (no regional endpoint)
 
 Demo Secrets Created:
   - vnet-connectivity-test
@@ -764,27 +765,26 @@ az role assignment create --role "Key Vault Secrets User" --assignee [USER-ID] -
 
 This deployment uses a PRIMARY-ONLY DNS registration strategy:
 - Primary endpoint (Canada Central): Registers DNS record in private DNS zone
-- Failover endpoint (Canada East): NO DNS registration (available at 10.112.2.x)
+- Canada East traffic reaches Key Vault through Terraform-managed VNet peering
 
 WHY THIS DESIGN?
-1. Prevents cross-region traffic: Without VNet peering between CAC and CAE, DNS must point to same region
-2. Optimal performance: Power Platform subnet (Canada Central) accesses local endpoint directly
-3. Avoids timeouts: Cross-region routing would fail due to no network path
-4. Consistent with SQL Server: Same DNS strategy for all demo resources
+1. Simplifies architecture: Single private endpoint to manage and monitor
+2. Reduces cost: 50% fewer private endpoints across SQL + Key Vault
+3. Matches enterprise hub-spoke topology: Peering provides east-west connectivity
+4. Prevents DNS drift: No secondary endpoint to overwrite primary DNS record
 
 🎓 LESSON LEARNED from SQL Server troubleshooting:
-When both endpoints auto-register DNS, the SECOND registration overwrites the first.
-Result: DNS points to failover region (10.112.2.x) instead of primary (10.96.2.x)
-Impact: Power Platform requests route cross-region without VNet peering → timeout
-Fix Applied: Only primary endpoint registers DNS, preventing the overwrite issue
+When multiple endpoints auto-register, later registrations can overwrite the primary record.
+Result: DNS might point to non-peered regions causing timeouts.
+Fix Applied: Keep a single endpoint + enforce VNet peering.
 
 DISASTER RECOVERY SCENARIO:
-If Canada Central region fails, update DNS to point to failover:
-  az network private-dns record-set a add-record \\
-    --resource-group $RESOURCE_GROUP_NAME \\
-    --zone-name $PRIVATE_DNS_ZONE \\
-    --record-set-name $KEY_VAULT_NAME \\
-    --ipv4-address [FAILOVER-IP]
+If Canada Central region fails, update DNS to point to an alternate endpoint before promoting it:
+    az network private-dns record-set a add-record \\
+        --resource-group $RESOURCE_GROUP_NAME \\
+        --zone-name $PRIVATE_DNS_ZONE \\
+        --record-set-name $KEY_VAULT_NAME \\
+        --ipv4-address [ALTERNATE-IP]
 
 ✨ Your PPCC25 demo environment is ready for Power Platform VNet integration testing!
 
@@ -822,7 +822,7 @@ main() {
             --help|-h)
                 echo "Usage: $0 [--auto-approve] [--secrets-only] [--tfvars-file <name>]"
                 echo ""
-                echo "Deploy Azure Key Vault with dual private endpoints for PPCC25 demo"
+                echo "Deploy Azure Key Vault with single private endpoint + VNet peering for PPCC25 demo"
                 echo ""
                 echo "Options:"
                 echo "  --auto-approve       Skip confirmation prompts"
@@ -892,15 +892,14 @@ main() {
 ====================
 
 This script will deploy:
-  ✅ Azure Key Vault: $KEY_VAULT_NAME
-  ✅ Private Endpoint (Primary): $PE_PRIMARY_NAME in $LOCATION_PRIMARY  
-  ✅ Private Endpoint (Failover): $PE_FAILOVER_NAME in $LOCATION_FAILOVER
-  ✅ Private DNS integration for both endpoints
-  ✅ Demo secrets for Power Platform testing
+    ✅ Azure Key Vault: $KEY_VAULT_NAME
+    ✅ Private Endpoint (Primary): $PE_PRIMARY_NAME in $LOCATION_PRIMARY  
+    ✅ Private DNS integration for primary endpoint
+    ✅ Demo secrets for Power Platform testing
 
 Target Resource Group: $RESOURCE_GROUP_NAME
 Expected Duration: 5-10 minutes
-Estimated Cost: ~\$10-15/month for Key Vault + Private Endpoints
+Estimated Cost: ~\$7-10/month for Key Vault + single Private Endpoint
 
 EOF
         

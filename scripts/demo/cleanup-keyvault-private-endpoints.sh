@@ -1,5 +1,15 @@
 #!/bin/bash
-# ===================================================# WHY: Dynamic configuration constants calculated from tfvars file input
+# ==============================================================================
+# Script Name: cleanup-keyvault-private-endpoints.sh
+# Purpose: Clean up Key Vault single-endpoint resources after PPCC25 demo
+# Usage: ./cleanup-keyvault-private-endpoints.sh [--auto-approve] [--keep-keyvault] [--tfvars-file <name>]
+# Dependencies: Azure CLI, existing demo resources from setup script
+# Author: PPCC25 Demo Platform Team
+# ==============================================================================
+
+set -euo pipefail
+
+# WHY: Dynamic configuration constants calculated from tfvars file input
 # CONTEXT: Enables script reuse across different workspace configurations
 # IMPACT: Single script works with multiple demo environments (demo-prep, regional-examples, etc.)
 
@@ -7,23 +17,14 @@
 RESOURCE_GROUP_NAME=""
 KEY_VAULT_NAME=""
 PE_PRIMARY_NAME=""
-PE_FAILOVER_NAME=""
+LEGACY_PE_FAILOVER_NAME=""
 WORKSPACE_NAME=""
 TFVARS_FILE_NAME=""
+KEY_VAULT_RESOURCE_ID=""
 
 # Static constants
 readonly PRIVATE_DNS_ZONE="privatelink.vaultcore.azure.net"
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-# ==============================================================================
-# Script Name: cleanup-keyvault-private-endpoints.sh
-# Purpose: Clean up Key Vault and private endpoints after PPCC25 demo
-# Usage: ./cleanup-keyvault-private-endpoints.sh [--auto-approve] [--keep-keyvault]
-# Dependencies: Azure CLI, existing demo resources from setup script
-# Author: PPCC25 Demo Platform Team
-# ==============================================================================
-
-set -euo pipefail
 
 # Source common utilities
 source "$SCRIPT_DIR/../utils/common.sh" 2>/dev/null || {
@@ -111,7 +112,7 @@ generate_resource_names() {
     
     KEY_VAULT_NAME="kv-${project}-${workspace_short}-${env_suffix}-${location_abbrev}"
     PE_PRIMARY_NAME="pe-kv-${project}-${workspace_short}-${env_suffix}-${location_abbrev}"
-    PE_FAILOVER_NAME="pe-kv-${project}-${workspace_short}-${env_suffix}-${failover_abbrev}"
+    LEGACY_PE_FAILOVER_NAME="pe-kv-${project}-${workspace_short}-${env_suffix}-${failover_abbrev}"
     
     # Store for reference
     WORKSPACE_NAME="$workspace_name"
@@ -121,7 +122,7 @@ generate_resource_names() {
     print_info "  Resource Group: $RESOURCE_GROUP_NAME"
     print_info "  Key Vault: $KEY_VAULT_NAME"
     print_info "  PE Primary: $PE_PRIMARY_NAME"
-    print_info "  PE Failover: $PE_FAILOVER_NAME"
+    print_info "  Legacy PE (deprecated): $LEGACY_PE_FAILOVER_NAME"
     
     return 0
 }
@@ -226,6 +227,12 @@ validate_cleanup_context() {
     if az network private-endpoint show --name "$PE_PRIMARY_NAME" --resource-group "$RESOURCE_GROUP_NAME" &> /dev/null; then
         ((demo_resources++))
     fi
+
+    if az network private-endpoint show --name "$LEGACY_PE_FAILOVER_NAME" --resource-group "$RESOURCE_GROUP_NAME" &> /dev/null; then
+        ((demo_resources++))
+        print_warning "Detected legacy failover private endpoint: $LEGACY_PE_FAILOVER_NAME"
+        print_info "This endpoint is deprecated in the single-endpoint architecture and will be removed"
+    fi
     
     if [[ $demo_resources -eq 0 ]]; then
         print_warning "No demo resources found - cleanup may not be necessary"
@@ -257,16 +264,16 @@ cleanup_private_endpoints() {
         print_info "Primary private endpoint not found (may already be deleted)"
     fi
     
-    # Remove failover region private endpoint
-    if az network private-endpoint show --name "$PE_FAILOVER_NAME" --resource-group "$RESOURCE_GROUP_NAME" &> /dev/null; then
-        print_info "Removing failover private endpoint: $PE_FAILOVER_NAME"
+    # Remove legacy failover private endpoint if it still exists
+    if az network private-endpoint show --name "$LEGACY_PE_FAILOVER_NAME" --resource-group "$RESOURCE_GROUP_NAME" &> /dev/null; then
+        print_info "Removing legacy failover private endpoint: $LEGACY_PE_FAILOVER_NAME"
         az network private-endpoint delete \
-            --name "$PE_FAILOVER_NAME" \
+            --name "$LEGACY_PE_FAILOVER_NAME" \
             --resource-group "$RESOURCE_GROUP_NAME" \
             --yes
         ((endpoints_cleaned++))
     else
-        print_info "Failover private endpoint not found (may already be deleted)"
+        print_info "Legacy failover private endpoint not found (already removed or never created)"
     fi
     
     if [[ $endpoints_cleaned -gt 0 ]]; then
@@ -386,8 +393,8 @@ validate_cleanup() {
         remaining_resources+=("Primary Private Endpoint: $PE_PRIMARY_NAME")
     fi
     
-    if az network private-endpoint show --name "$PE_FAILOVER_NAME" --resource-group "$RESOURCE_GROUP_NAME" &> /dev/null; then
-        remaining_resources+=("Failover Private Endpoint: $PE_FAILOVER_NAME")
+    if az network private-endpoint show --name "$LEGACY_PE_FAILOVER_NAME" --resource-group "$RESOURCE_GROUP_NAME" &> /dev/null; then
+        remaining_resources+=("Legacy Private Endpoint: $LEGACY_PE_FAILOVER_NAME")
     fi
     
     # Check DNS records
@@ -443,7 +450,7 @@ main() {
             --help|-h)
                 echo "Usage: $0 [--auto-approve] [--keep-keyvault] [--purge-soft-deleted] [--tfvars-file <name>]"
                 echo ""
-                echo "Clean up Key Vault and private endpoints after PPCC25 demo"
+                echo "Clean up Key Vault single-endpoint resources after PPCC25 demo"
                 echo ""
                 echo "Options:"
                 echo "  --auto-approve       Skip confirmation prompts"
@@ -497,6 +504,12 @@ main() {
         KEY_VAULT_RESOURCE_ID=$(az keyvault show --name "$KEY_VAULT_NAME" --resource-group "$RESOURCE_GROUP_NAME" --query id -o tsv)
     fi
     
+    # Determine if legacy endpoint exists for preview messaging
+    local legacy_endpoint_exists=false
+    if az network private-endpoint show --name "$LEGACY_PE_FAILOVER_NAME" --resource-group "$RESOURCE_GROUP_NAME" &> /dev/null; then
+        legacy_endpoint_exists=true
+    fi
+
     # User confirmation for destructive operation
     if [[ "$auto_approve" != true ]]; then
         cat << EOF
@@ -506,7 +519,13 @@ main() {
 
 This script will remove:
   🗑️ Private Endpoint: $PE_PRIMARY_NAME
-  🗑️ Private Endpoint: $PE_FAILOVER_NAME  
+EOF
+
+        if [[ "$legacy_endpoint_exists" == true ]]; then
+            echo "  🗑️ Legacy Private Endpoint: $LEGACY_PE_FAILOVER_NAME"
+        fi
+
+        cat << EOF
   🗑️ DNS A records for Key Vault
 EOF
         
@@ -546,10 +565,10 @@ EOF
     validate_cleanup
     
     print_success "🧹 PPCC25 demo resource cleanup completed!"
-    
+
     if [[ "$keep_keyvault" == true ]]; then
         print_info "Key Vault preserved - private endpoint connectivity disabled"
-        print_info "Re-run setup script to restore private endpoint connectivity"
+        print_info "Re-run setup script to restore single-endpoint architecture"
     elif [[ "$purge_soft_deleted" == true ]]; then
         print_info "All demo resources removed and soft-deleted Key Vault purged"
         print_info "Ready for fresh deployment without naming conflicts"

@@ -1,7 +1,7 @@
 #!/bin/bash
 # ==============================================================================
 # Script Name: cleanup-sqlserver-private-endpoints.sh
-# Purpose: Clean up SQL Server and private endpoints after PPCC25 demo
+# Purpose: Clean up SQL Server and single-endpoint resources after PPCC25 demo
 # Usage: ./cleanup-sqlserver-private-endpoints.sh [--auto-approve] [--tfvars-file <name>] [--keep-sqlserver]
 # Dependencies: Azure CLI, existing demo resources from setup script
 # Author: PPCC25 Demo Platform Team
@@ -18,7 +18,7 @@ RESOURCE_GROUP_NAME=""
 SQL_SERVER_NAME=""
 SQL_DATABASE_NAME="demo-db"
 PE_PRIMARY_NAME=""
-PE_FAILOVER_NAME=""
+LEGACY_PE_FAILOVER_NAME=""
 WORKSPACE_NAME=""
 TFVARS_FILE_NAME=""
 
@@ -114,7 +114,7 @@ generate_resource_names() {
     # IMPACT: Handles timestamp suffix added by setup script
     SQL_SERVER_NAME="sql-${project}-${workspace_short}-${env_suffix}-${location_abbrev}"
     PE_PRIMARY_NAME="pe-sql-${project}-${workspace_short}-${env_suffix}-${location_abbrev}"
-    PE_FAILOVER_NAME="pe-sql-${project}-${workspace_short}-${env_suffix}-${failover_abbrev}"
+    LEGACY_PE_FAILOVER_NAME="pe-sql-${project}-${workspace_short}-${env_suffix}-${failover_abbrev}"
     
     # Store for reference
     WORKSPACE_NAME="$workspace_name"
@@ -125,7 +125,7 @@ generate_resource_names() {
     print_info "  SQL Server Pattern: ${SQL_SERVER_NAME}-*"
     print_info "  SQL Database: $SQL_DATABASE_NAME"
     print_info "  PE Primary: $PE_PRIMARY_NAME"
-    print_info "  PE Failover: $PE_FAILOVER_NAME"
+    print_info "  Legacy PE (deprecated): $LEGACY_PE_FAILOVER_NAME"
     
     return 0
 }
@@ -273,11 +273,9 @@ identify_existing_resources() {
     else
         resources_missing+=("Private Endpoint (Primary): $PE_PRIMARY_NAME")
     fi
-    
-    if az network private-endpoint show --name "$PE_FAILOVER_NAME" --resource-group "$RESOURCE_GROUP_NAME" &> /dev/null; then
-        resources_found+=("Private Endpoint (Failover): $PE_FAILOVER_NAME")
-    else
-        resources_missing+=("Private Endpoint (Failover): $PE_FAILOVER_NAME")
+
+    if az network private-endpoint show --name "$LEGACY_PE_FAILOVER_NAME" --resource-group "$RESOURCE_GROUP_NAME" &> /dev/null; then
+        resources_found+=("⚠️  Legacy failover private endpoint detected: $LEGACY_PE_FAILOVER_NAME (manual cleanup recommended)")
     fi
     
     # Check for DNS records (if SQL Server exists)
@@ -356,9 +354,8 @@ cleanup_private_endpoints() {
     print_step "Cleaning up private endpoints..."
     
     local cleanup_results=()
-    
-    # WHY: Delete primary region private endpoint
-    # CONTEXT: Canada Central private endpoint
+
+    # WHY: Delete primary region private endpoint (only endpoint in new architecture)
     if az network private-endpoint show --name "$PE_PRIMARY_NAME" --resource-group "$RESOURCE_GROUP_NAME" &> /dev/null; then
         print_info "Deleting primary private endpoint: $PE_PRIMARY_NAME..."
         if az network private-endpoint delete \
@@ -372,26 +369,14 @@ cleanup_private_endpoints() {
     else
         cleanup_results+=("ℹ️  Primary private endpoint not found")
     fi
-    
-    # WHY: Delete failover region private endpoint
-    # CONTEXT: Canada East private endpoint
-    if az network private-endpoint show --name "$PE_FAILOVER_NAME" --resource-group "$RESOURCE_GROUP_NAME" &> /dev/null; then
-        print_info "Deleting failover private endpoint: $PE_FAILOVER_NAME..."
-        if az network private-endpoint delete \
-            --name "$PE_FAILOVER_NAME" \
-            --resource-group "$RESOURCE_GROUP_NAME" \
-            --yes &> /dev/null; then
-            cleanup_results+=("✅ Failover private endpoint deleted")
-        else
-            cleanup_results+=("⚠️  Failover private endpoint deletion failed")
-        fi
-    else
-        cleanup_results+=("ℹ️  Failover private endpoint not found")
+
+    if az network private-endpoint show --name "$LEGACY_PE_FAILOVER_NAME" --resource-group "$RESOURCE_GROUP_NAME" &> /dev/null; then
+        cleanup_results+=("⚠️  Legacy failover private endpoint still present: $LEGACY_PE_FAILOVER_NAME (delete manually if no longer needed)")
     fi
-    
+
     # Display cleanup results
     printf "%s\n" "${cleanup_results[@]}"
-    
+
     print_success "Private endpoint cleanup completed"
     return 0
 }
@@ -504,12 +489,9 @@ validate_cleanup() {
     else
         validation_results+=("✅ Primary private endpoint removed")
     fi
-    
-    if az network private-endpoint show --name "$PE_FAILOVER_NAME" --resource-group "$RESOURCE_GROUP_NAME" &> /dev/null; then
-        validation_results+=("⚠️  Failover private endpoint still exists")
-        cleanup_incomplete=true
-    else
-        validation_results+=("✅ Failover private endpoint removed")
+
+    if az network private-endpoint show --name "$LEGACY_PE_FAILOVER_NAME" --resource-group "$RESOURCE_GROUP_NAME" &> /dev/null; then
+        validation_results+=("⚠️  Legacy failover private endpoint detected - consider manual deletion if unused")
     fi
     
     # Check DNS records removal
@@ -567,8 +549,8 @@ display_cleanup_summary() {
 ==================
 
 Resources Removed:
-  ✅ Private Endpoints: Both primary and failover regions
-  ✅ DNS Records: Private endpoint A records
+    ✅ Private Endpoint: Primary region connection
+    ✅ DNS Records: Private endpoint A record
 EOF
 
     if [[ "$keep_sqlserver" == "true" ]]; then
@@ -710,9 +692,8 @@ EOF
 
         if [[ "$keep_sqlserver" == "true" ]]; then
             cat << EOF
-  🗑️  Private Endpoint (Primary): $PE_PRIMARY_NAME
-  🗑️  Private Endpoint (Failover): $PE_FAILOVER_NAME
-  🗑️  DNS A Records for: $SQL_SERVER_NAME
+    🗑️  Private Endpoint (Primary): $PE_PRIMARY_NAME
+    🗑️  DNS A Records for: $SQL_SERVER_NAME
   
   💾 KEEPING (--keep-sqlserver flag):
   ✅ SQL Server: $SQL_SERVER_NAME
