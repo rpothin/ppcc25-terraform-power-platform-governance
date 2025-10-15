@@ -257,8 +257,7 @@ cleanup_private_endpoints() {
         print_info "Removing primary private endpoint: $PE_PRIMARY_NAME"
         az network private-endpoint delete \
             --name "$PE_PRIMARY_NAME" \
-            --resource-group "$RESOURCE_GROUP_NAME" \
-            --yes
+            --resource-group "$RESOURCE_GROUP_NAME"
         ((endpoints_cleaned++))
     else
         print_info "Primary private endpoint not found (may already be deleted)"
@@ -269,8 +268,7 @@ cleanup_private_endpoints() {
         print_info "Removing legacy failover private endpoint: $LEGACY_PE_FAILOVER_NAME"
         az network private-endpoint delete \
             --name "$LEGACY_PE_FAILOVER_NAME" \
-            --resource-group "$RESOURCE_GROUP_NAME" \
-            --yes
+            --resource-group "$RESOURCE_GROUP_NAME"
         ((endpoints_cleaned++))
     else
         print_info "Legacy failover private endpoint not found (already removed or never created)"
@@ -300,7 +298,7 @@ cleanup_dns_records() {
             --resource-group "$RESOURCE_GROUP_NAME" \
             --zone-name "$PRIVATE_DNS_ZONE" \
             --name "$KEY_VAULT_NAME" \
-            --yes
+            --yes &> /dev/null
         
         print_success "DNS records cleaned up"
     else

@@ -360,8 +360,7 @@ cleanup_private_endpoints() {
         print_info "Deleting primary private endpoint: $PE_PRIMARY_NAME..."
         if az network private-endpoint delete \
             --name "$PE_PRIMARY_NAME" \
-            --resource-group "$RESOURCE_GROUP_NAME" \
-            --yes &> /dev/null; then
+            --resource-group "$RESOURCE_GROUP_NAME" &> /dev/null; then
             cleanup_results+=("✅ Primary private endpoint deleted")
         else
             cleanup_results+=("⚠️  Primary private endpoint deletion failed")
@@ -561,7 +560,7 @@ EOF
 💰 COST REMINDER
 ================
 SQL Server and database are still running:
-  - SQL Database (Basic tier): ~$5/month
+  - SQL Database (Basic tier): ~\$5/month
   - Private Endpoints: Removed - no cost
   
 To complete cleanup later:
@@ -576,7 +575,7 @@ EOF
 💰 COST SAVINGS
 ===============
 All SQL Server demo resources removed:
-  - SQL Database (Basic tier): ~$5/month saved
+  - SQL Database (Basic tier): ~\$5/month saved
   - SQL Server: No additional cost
   - Private Endpoints: No cost (removed)
 
@@ -704,7 +703,6 @@ EOF
         else
             cat << EOF
   🗑️  Private Endpoint (Primary): $PE_PRIMARY_NAME
-  🗑️  Private Endpoint (Failover): $PE_FAILOVER_NAME
   🗑️  DNS A Records for: $SQL_SERVER_NAME
   🗑️  SQL Database: $SQL_DATABASE_NAME (including all demo data)
   🗑️  SQL Server: $SQL_SERVER_NAME (including Entra ID configuration)
