@@ -108,17 +108,19 @@ generate_resource_names() {
     VNET_FAILOVER="vnet-${project}-${workspace_clean}-${env_suffix}-${failover_abbrev}-failover"
     SUBNET_PRIVATE_ENDPOINT="snet-privateendpoint-${project}-${workspace_clean}-${env_suffix}"
     
-    # WHY: Key Vault naming with length constraints
-    # CONTEXT: Key Vault names have 24 character limit, use shortened workspace name
+    # WHY: Key Vault naming with length constraints and consecutive hyphen avoidance
+    # CONTEXT: Key Vault names have 24 character limit and cannot have consecutive hyphens
+    # IMPACT: Remove all hyphens from workspace portion to avoid consecutive hyphen issues
     local workspace_short
     if [[ ${#workspace_clean} -gt 12 ]]; then
-        # Create meaningful abbreviation for long workspace names
-        workspace_short=$(echo "$workspace_clean" | sed 's/workspace/ws/g' | cut -c1-12)
+        # Create meaningful abbreviation for long workspace names, remove hyphens
+        workspace_short=$(echo "$workspace_clean" | sed 's/workspace/ws/g' | sed 's/-//g' | cut -c1-12)
     else
-        workspace_short="$workspace_clean"
+        # Remove hyphens from workspace name to avoid consecutive hyphen issues
+        workspace_short=$(echo "$workspace_clean" | sed 's/-//g')
     fi
     
-    KEY_VAULT_NAME="kv-${project}-${workspace_short}-${env_suffix}-${location_abbrev}"
+    KEY_VAULT_NAME="kv${project}${workspace_short}${env_suffix}${location_abbrev}"
     PE_PRIMARY_NAME="pe-kv-${project}-${workspace_short}-${env_suffix}-${location_abbrev}"
     LEGACY_PE_FAILOVER_NAME="pe-kv-${project}-${workspace_short}-${env_suffix}-${failover_abbrev}"
     PEERING_PRIMARY_TO_FAILOVER_NAME="peer-${VNET_PRIMARY}-to-failover"
@@ -367,13 +369,6 @@ deploy_private_endpoints() {
     
     local key_vault_id
     key_vault_id=$(az keyvault show --name "$KEY_VAULT_NAME" --resource-group "$RESOURCE_GROUP_NAME" --query id -o tsv)
-    
-    local primary_subnet_id
-    primary_subnet_id=$(az network vnet subnet show \
-        --resource-group "$RESOURCE_GROUP_NAME" \
-        --vnet-name "$VNET_PRIMARY" \
-        --name "$SUBNET_PRIVATE_ENDPOINT" \
-        --query id -o tsv)
 
     # WHY: Deploy single private endpoint in primary VNet
     # CONTEXT: Canada Central endpoint serves both regions via peering
@@ -383,9 +378,10 @@ deploy_private_endpoints() {
         --name "$PE_PRIMARY_NAME" \
         --resource-group "$RESOURCE_GROUP_NAME" \
         --location "$LOCATION_PRIMARY" \
-        --subnet "$primary_subnet_id" \
+        --vnet-name "$VNET_PRIMARY" \
+        --subnet "$SUBNET_PRIVATE_ENDPOINT" \
         --private-connection-resource-id "$key_vault_id" \
-        --group-ids vault \
+        --group-id vault \
         --connection-name "${PE_PRIMARY_NAME}-connection"
 
     print_success "Primary private endpoint deployed (accessible from both regions via peering)"
