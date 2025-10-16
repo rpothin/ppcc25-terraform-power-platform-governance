@@ -43,8 +43,22 @@ These scripts complement the `ptn-azure-vnet-extension` Terraform pattern by add
 ### Prerequisites
 
 1. **Terraform Infrastructure**: Deploy `ptn-azure-vnet-extension` with desired tfvars configuration first
+   - **VNet peering is automatically configured** by Terraform between Canada Central and Canada East
 2. **Azure CLI**: Authenticated and connected to correct subscription  
 3. **Permissions**: Contributor access to resource group and Key Vault permissions
+
+### Validate VNet Peering
+
+After deploying the VNet infrastructure, verify peering is connected:
+
+```bash
+# Validate VNet peering connectivity
+./scripts/demo/validate-vnet-peering.sh
+
+# Expected output:
+# ✅ VNet Peering Status: Connected
+# Both directions (primary ↔ failover) must show "Connected"
+```
 
 ### 🎛️ **Flexible Configuration Support**
 
@@ -61,16 +75,20 @@ The scripts dynamically target resources based on your **tfvars configuration**,
 ### Deploy Demo Environment
 
 ```bash
-# Pre-presentation preparation
+# Step 1: Deploy VNet infrastructure (includes automatic peering)
+cd configurations/ptn-azure-vnet-extension
+terraform apply -var-file="tfvars/demo-prep.tfvars"
+
+# Step 2: Validate peering connectivity
+./scripts/demo/validate-vnet-peering.sh
+
+# Step 3: Deploy Key Vault with single private endpoint
 ./scripts/demo/setup-keyvault-private-endpoints.sh --tfvars-file demo-prep
 
-# Live demonstration deployment
+# For live demonstrations with auto-approval
 ./scripts/demo/setup-keyvault-private-endpoints.sh --tfvars-file live-demo --auto-approve
 
-# Original regional examples
-./scripts/demo/setup-keyvault-private-endpoints.sh --tfvars-file regional-examples
-
-# Any custom tfvars configuration
+# For any custom tfvars configuration
 ./scripts/demo/setup-keyvault-private-endpoints.sh --tfvars-file [YOUR_CONFIG_NAME]
 ```
 
@@ -154,34 +172,68 @@ PRIVATE_ENDPOINT = "pe-kv-ppcc25-{workspace_short}-dev-cac"
 
 ## 🏗️ Architecture
 
-The scripts deploy this infrastructure:
+### VNet Peering with Single Private Endpoint Design
+
+This demonstration uses a **hub-spoke architecture** with VNet peering to enable Power Platform connectivity from both Canada Central and Canada East regions:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    Power Platform (SaaS)                        │
+│              Traffic can originate from either region           │
+└────────────┬────────────────────────────────┬───────────────────┘
+             │                                │
+             │ Canada Central                 │ Canada East
+             │                                │
+┌────────────▼──────────────┐       ┌────────▼───────────────────┐
+│  VNet Primary (CAC)       │◄──────┤  VNet Failover (CAE)       │
+│  10.192.0.0/16            │Peering│  10.208.0.0/16             │
+│                           │       │                            │
+│  ┌─────────────────────┐  │       │  (No private endpoints)    │
+│  │ Private Endpoints   │  │       │                            │
+│  │ - SQL: 10.192.2.4   │  │       │                            │
+│  │ - KV:  10.96.2.4    │  │       │                            │
+│  └─────────────────────┘  │       │                            │
+└───────────────────────────┘       └────────────────────────────┘
+```
+
+**Key Design Decisions:**
+
+1. **Single Private Endpoint per Service**
+   - SQL Server: One endpoint in Canada Central
+   - Key Vault: One endpoint in Canada Central
+   - Accessible from both regions via VNet peering
+
+2. **VNet Peering Benefits**
+   - Enables cross-region private connectivity
+   - ~30ms additional latency for Canada East traffic (acceptable)
+   - 50% reduction in private endpoint resources
+   - Simplified DNS management (primary-only registration)
+
+3. **DNS Resolution Strategy**
+   - All DNS queries resolve to primary region IPs
+   - VNet peering handles routing from either region
+   - No DNS overwriting issues (single registration point)
+
+### Key Vault Infrastructure
 
 ```
 ┌─ Azure Key Vault (Canada Central) ─────────────────────┐
-│  Name: kv-ppcc25-demo-dev-cac                          │
+│  Name: kvppcc25demoprepwsdevcac (alphanumeric only)    │
 │  Public Access: Disabled                               │  
 │  RBAC: Enabled                                         │
 │  └─ Secrets: vnet-connectivity-test, demo-config, etc. │
 └────────────────────────────────────────────────────────┘
                               │
-                              │ Private Link Connections
+                              │ Private Link Connection
                               │
-              ┌───────────────┴───────────────┐
-              │                               │
-              ▼                               ▼
-┌─ Primary Private Endpoint ─┐    ┌─ Failover Private Endpoint ─┐
-│ pe-kv-ppcc25-demo-dev-cac  │    │ pe-kv-ppcc25-demo-dev-cae   │
-│ Canada Central             │    │ Canada East                  │
-│ IP: 10.96.2.x             │    │ IP: 10.112.2.x              │
-└────────────────────────────┘    └──────────────────────────────┘
-              │                               │
-              ▼                               ▼
-┌─ Primary VNet ─────────────┐    ┌─ Failover VNet ─────────────┐
-│ vnet-...-dev-cac-primary   │    │ vnet-...-dev-cae-failover   │
-│ 10.96.0.0/16              │    │ 10.112.0.0/16               │
-│ └─PrivateEndpoint Subnet   │    │ └─PrivateEndpoint Subnet    │
-│   └─ Power Platform Subnet │    │   └─ Power Platform Subnet  │
-└────────────────────────────┘    └──────────────────────────────┘
+                              ▼
+              ┌─ Primary Private Endpoint ─┐
+              │ pe-kv-ppcc25-demo-dev-cac  │
+              │ Canada Central             │
+              │ IP: 10.96.2.x             │
+              │ Accessible from both       │
+              │ regions via peering        │
+              └────────────────────────────┘
 ```
 
 ## 🔧 Configuration Details
@@ -195,8 +247,9 @@ The scripts deploy this infrastructure:
 
 ### Private Endpoints
 - **Primary**: Connected to Canada Central VNet private endpoint subnet
-- **Failover**: Connected to Canada East VNet private endpoint subnet
-- **DNS Integration**: Automatic A record creation in private DNS zone
+- **Failover**: ❌ **Not deployed** (consolidated to primary-only with VNet peering)
+- **DNS Integration**: Primary-only automatic A record creation in private DNS zone
+- **Cross-Region Access**: Enabled via VNet peering between Canada Central and Canada East
 
 ### Demo Secrets
 - `vnet-connectivity-test`: Test secret for Power Platform validation
@@ -207,22 +260,30 @@ The scripts deploy this infrastructure:
 
 ```bash
 # Check Key Vault status (replace with your actual Key Vault name)
-az keyvault show --name kv-ppcc25-[CONFIG]-dev-cac --query "{name:name,publicAccess:properties.publicNetworkAccess}"
+az keyvault show --name kvppcc25[CONFIG]devcac --query "{name:name,publicAccess:properties.publicNetworkAccess}"
 
-# Verify private endpoints (replace with your resource group name)  
-az network private-endpoint list --resource-group rg-ppcc25-[CONFIG]-dev-vnet-cac --query "[].{name:name,state:provisioningState}" -o table
+# Verify private endpoint (only primary exists now)
+az network private-endpoint list --resource-group rg-ppcc25-[CONFIG]-dev-vnet-cac --query "[?contains(name,'kv')].{name:name,state:provisioningState,location:location}" -o table
 
-# Test DNS resolution (should show private IPs)
-nslookup kv-ppcc25-[CONFIG]-dev-cac.vault.azure.net
+# Validate VNet peering status
+az network vnet peering show \
+  --name "peer-vnet-ppcc25-demoprepworkspace-dev-cac-primary-to-failover" \
+  --vnet-name "vnet-ppcc25-demoprepworkspace-dev-cac-primary" \
+  --resource-group "rg-ppcc25-demoprepworkspace-dev-vnet-cac" \
+  --query "peeringState" -o tsv
+# Expected: "Connected"
+
+# Test DNS resolution (should show primary region private IP)
+nslookup kvppcc25[CONFIG]devcac.vault.azure.net
 
 # List demo secrets (replace with your Key Vault name)
-az keyvault secret list --vault-name kv-ppcc25-[CONFIG]-dev-cac --query "[].name" -o table
+az keyvault secret list --vault-name kvppcc25[CONFIG]devcac --query "[].name" -o table
 ```
 
-**💡 Tip**: Replace `[CONFIG]` with your actual configuration's workspace name pattern:
-- `demo-prep` → `demoprepws` 
-- `live-demo` → `livedemo`
-- `regional-examples` → `demoworks`
+**💡 Tip**: Replace `[CONFIG]` with your actual configuration's workspace name pattern (alphanumeric only):
+- `demo-prep` → `kvppcc25demoprepwsdevcac` 
+- `live-demo` → `kvppcc25livedemo devcac`
+- `regional-examples` → `kvppcc25demoworksdevcac`
 
 ## 📋 **Configuration Discovery**
 
@@ -321,11 +382,36 @@ az role assignment create \
 
 **DNS Resolution Issues**
 ```bash
-# Check DNS records (replace [CONFIG] with your configuration)
+# Check DNS records (replace [CONFIG] with your configuration - alphanumeric only)
 az network private-dns record-set a show \
   --resource-group rg-ppcc25-[CONFIG]-dev-vnet-cac \
   --zone-name privatelink.vaultcore.azure.net \
-  --name kv-ppcc25-[CONFIG_SHORT]-dev-cac
+  --name kvppcc25[CONFIG_SHORT]devcac
+```
+
+**Cross-Region Connectivity Fails**
+```bash
+# Check VNet peering status
+az network vnet peering show \
+  --name "peer-vnet-ppcc25-[CONFIG]-dev-cac-primary-to-failover" \
+  --vnet-name "vnet-ppcc25-[CONFIG]-dev-cac-primary" \
+  --resource-group "rg-ppcc25-[CONFIG]-dev-vnet-cac" \
+  --query "peeringState" -o tsv
+# Expected: "Connected"
+
+# Verify peering in both directions
+./scripts/demo/validate-vnet-peering.sh
+```
+
+**Higher Latency from Canada East**
+```
+This is expected behavior. Canada East traffic routes through VNet peering 
+to reach the primary region private endpoint (~30ms additional latency).
+
+For latency-sensitive workloads requiring <10ms response times, consider:
+- Deploying separate endpoints in each region (previous architecture)
+- Using Azure Front Door for intelligent routing
+- Evaluating if Power Platform workloads actually need <10ms (typically not)
 ```
 
 **Configuration Validation Issues**
@@ -388,9 +474,23 @@ This demo showcases **passwordless database connectivity** from Power Platform u
 ### Prerequisites
 
 1. **Terraform Infrastructure**: Deploy `ptn-azure-vnet-extension` with desired tfvars configuration first
+   - **VNet peering is automatically configured** by Terraform between Canada Central and Canada East
 2. **Azure CLI**: Authenticated and connected to correct subscription  
 3. **Permissions**: Contributor access to resource group and SQL Server admin permissions
 4. **Optional**: `sqlcmd` with Entra ID support for automated demo table creation (see installation below)
+
+### Validate VNet Peering
+
+After deploying the VNet infrastructure, verify peering is connected:
+
+```bash
+# Validate VNet peering connectivity
+./scripts/demo/validate-vnet-peering.sh
+
+# Expected output:
+# ✅ VNet Peering Status: Connected
+# Both directions (primary ↔ failover) must show "Connected"
+```
 
 ### 🎛️ **Flexible Configuration Support**
 
@@ -473,20 +573,24 @@ For optimal performance with VNet injection, create a test stored procedure. Thi
 ### Deploy SQL Server Demo Environment
 
 ```bash
-# Pre-presentation preparation
+# Step 1: Deploy VNet infrastructure (includes automatic peering)
+cd configurations/ptn-azure-vnet-extension
+terraform apply -var-file="tfvars/demo-prep.tfvars"
+
+# Step 2: Validate peering connectivity
+./scripts/demo/validate-vnet-peering.sh
+
+# Step 3: Deploy SQL Server with single private endpoint
 ./scripts/demo/setup-sqlserver-private-endpoints.sh --tfvars-file demo-prep
 
-# Live demonstration deployment (10-15 minutes)
+# For live demonstrations with auto-approval (10-15 minutes)
 ./scripts/demo/setup-sqlserver-private-endpoints.sh --tfvars-file live-demo --auto-approve
 
-# Original regional examples
-./scripts/demo/setup-sqlserver-private-endpoints.sh --tfvars-file regional-examples
-
-# Any custom tfvars configuration
+# For any custom tfvars configuration
 ./scripts/demo/setup-sqlserver-private-endpoints.sh --tfvars-file [YOUR_CONFIG_NAME]
 ```
 
-**⏱️ Deployment Time**: 10-15 minutes (SQL Server provisioning + database + private endpoints)
+**⏱️ Deployment Time**: 10-15 minutes (SQL Server provisioning + database + private endpoint)
 
 ### Test Power Platform Connectivity
 
@@ -581,6 +685,8 @@ PRIVATE_ENDPOINT = "pe-sql-ppcc25-{workspace_short}-dev-cac"
 
 The scripts deploy this infrastructure:
 
+### SQL Server Infrastructure
+
 ```
 ┌─ Azure SQL Server (Canada Central) ────────────────────────┐
 │  Name: sql-ppcc25-demo-dev-cac-12345                       │
@@ -591,26 +697,32 @@ The scripts deploy this infrastructure:
 │     └─ Table: Customers (5 sample records)                 │
 └────────────────────────────────────────────────────────────┘
                               │
-                              │ Private Link Connections
+                              │ Private Link Connection
                               │
-              ┌───────────────┴───────────────┐
-              │                               │
-              ▼                               ▼
-┌─ Primary Private Endpoint ─┐    ┌─ Failover Private Endpoint ─┐
-│ pe-sql-ppcc25-demo-dev-cac │    │ pe-sql-ppcc25-demo-dev-cae  │
-│ Canada Central             │    │ Canada East                  │
-│ IP: 10.200.2.x            │    │ IP: 10.216.2.x              │
-│ DNS: privatelink.database  │    │ DNS: privatelink.database    │
-│      .windows.net          │    │      .windows.net            │
-└────────────────────────────┘    └──────────────────────────────┘
-              │                               │
-              ▼                               ▼
-┌─ Primary VNet ─────────────┐    ┌─ Failover VNet ─────────────┐
-│ vnet-...-dev-cac-primary   │    │ vnet-...-dev-cae-failover   │
-│ 10.200.0.0/12             │    │ 10.216.0.0/12               │
-│ └─PrivateEndpoint Subnet   │    │ └─PrivateEndpoint Subnet    │
-│   └─ Power Platform Subnet │    │   └─ Power Platform Subnet  │
-└────────────────────────────┘    └──────────────────────────────┘
+                              ▼
+              ┌─ Primary Private Endpoint ─┐
+              │ pe-sql-ppcc25-demo-dev-cac │
+              │ Canada Central             │
+              │ IP: 10.192.2.x            │
+              │ Accessible from both       │
+              │ regions via peering        │
+              └────────────────────────────┘
+```
+
+### Network Connectivity
+
+```
+┌─ Primary VNet (CAC) ───────┐       ┌─ Failover VNet (CAE) ─────┐
+│ vnet-...-dev-cac-primary   │◄──────┤ vnet-...-dev-cae-failover │
+│ 10.192.0.0/16             │Peering│ 10.208.0.0/16             │
+│                            │       │                           │
+│ ┌─ Private Endpoints ────┐ │       │ (Routes via peering)      │
+│ │ - SQL: 10.192.2.x     │ │       │                           │
+│ │ - Key Vault: 10.96.2.x│ │       │                           │
+│ └───────────────────────┘ │       │                           │
+│                            │       │                           │
+│ └─ Power Platform Subnet  │       │ └─ Power Platform Subnet  │
+└────────────────────────────┘       └───────────────────────────┘
 ```
 
 ## 🔧 Configuration Details
@@ -649,9 +761,10 @@ CREATE TABLE Customers (
 
 ### Private Endpoints
 - **Primary**: Connected to Canada Central VNet private endpoint subnet
-- **Failover**: Connected to Canada East VNet private endpoint subnet  
+- **Failover**: ❌ **Not deployed** (consolidated to primary-only with VNet peering)
 - **DNS Integration**: Primary-only automatic A record creation (see DNS strategy below)
 - **DNS Resolution**: FQDN resolves to primary region private IP (10.192.2.x)
+- **Cross-Region Access**: Enabled via VNet peering between Canada Central and Canada East
 
 ### 🌐 DNS Resolution Strategy
 
@@ -661,42 +774,35 @@ The setup script implements a **primary-only DNS registration strategy** to prev
 
 | Aspect | Primary Endpoint (CAC) | Failover Endpoint (CAE) |
 |--------|----------------------|------------------------|
-| **DNS Registration** | ✅ Automatic via DNS zone group | ❌ No DNS registration |
-| **IP Address** | 10.192.2.x (Canada Central) | 10.208.2.x (Canada East) |
-| **FQDN Resolution** | ✅ Resolves here | ⚠️ Does not resolve here |
-| **Purpose** | Same-region connectivity | Disaster recovery only |
+| **DNS Registration** | ✅ Automatic via DNS zone group | ❌ **Not deployed** |
+| **IP Address** | 10.192.2.x (Canada Central) | N/A |
+| **FQDN Resolution** | ✅ Resolves here | N/A |
+| **Purpose** | Production connectivity | Not needed with peering |
 
 **Why This Design?**
 
-1. **Performance**: Same-region access provides minimal latency for Power Platform workloads
-2. **Prevents Cross-Region Failures**: Without VNet peering between regions, cross-region routing fails
-3. **Avoids DNS Overwriting**: When both endpoints auto-register, failover overwrites primary DNS record
-4. **Intentional Failover**: Disaster recovery requires manual DNS update (controlled process)
+1. **Simplified Architecture**: Single endpoint reduces complexity and cost by 50%
+2. **VNet Peering Enables Access**: Canada East traffic routes through peering (~30ms overhead)
+3. **No DNS Conflicts**: Single registration point eliminates DNS overwriting issues
+4. **Hub-Spoke Pattern**: Aligns with enterprise architecture best practices
+5. **Cost Optimization**: One private endpoint instead of two ($7/month savings)
 
-**🎓 Lesson Learned from Testing:**
-
-During the PPCC25 demo preparation, we discovered that when **both private endpoints auto-register DNS**, the **failover endpoint overwrites the primary endpoint's A record**. This caused:
-- ❌ DNS resolving to 10.208.2.4 (Canada East) instead of 10.192.2.4 (Canada Central)
-- ❌ Power Automate flows timing out due to cross-region routing without VNet peering
-- ❌ Logic App FQDN tests failing (direct IP tests worked)
-
-**Fix Applied:** Primary-only DNS registration prevents this issue by ensuring DNS always points to the same-region endpoint.
-
-**Disaster Recovery Scenario:**
-
-In an actual disaster recovery situation where Canada Central region is unavailable:
-1. Run manual DNS update script: `scripts/demo/fix-dns-quick.sh --failover` (future enhancement)
-2. DNS updates from 10.192.2.x → 10.208.2.x
-3. Power Platform workloads route to failover region
-4. Requires 5 minutes for DNS cache propagation (TTL=300 seconds)
+**Traffic Flow:**
+- **Canada Central**: Direct to endpoint (10.192.2.x) - minimal latency
+- **Canada East**: Via VNet peering to endpoint - acceptable latency (~30ms additional)
 
 ### Cost Breakdown
-| Resource              | Cost (Monthly) | Notes                     |
-| --------------------- | -------------- | ------------------------- |
-| SQL Database (Basic)  | ~$5            | 5 DTU, 2GB storage        |
-| SQL Server            | $0             | No charge for server      |
-| Private Endpoint (×2) | ~$14           | $7 each in Canada regions |
-| **Total**             | **~$19-20**    | Per deployment            |
+| Resource                     | Cost (Monthly) | Notes                              |
+| ---------------------------- | -------------- | ---------------------------------- |
+| SQL Database (Basic)         | ~$5            | 5 DTU, 2GB storage                 |
+| SQL Server                   | $0             | No charge for server               |
+| Private Endpoint (Primary)   | ~$7            | Single endpoint in Canada Central  |
+| **Total**                    | **~$12**       | Per deployment (50% cost savings)  |
+
+**💰 Cost Comparison:**
+- Previous dual-endpoint architecture: ~$19-20/month
+- Current single-endpoint with peering: ~$12/month
+- **Savings: ~$7-8/month (37% reduction)**
 
 ## 🔍 Verification Commands
 
@@ -712,11 +818,19 @@ az sql server ad-admin show --server-name [SERVER_NAME] --resource-group rg-ppcc
 az sql db show --name demo-db --server [SERVER_NAME] --resource-group rg-ppcc25-[CONFIG]-dev-vnet-cac \
   --query "{name:name,status:status,tier:sku.tier,capacity:sku.capacity}"
 
-# Verify private endpoints  
+# Verify private endpoint (only primary exists now)
 az network private-endpoint list --resource-group rg-ppcc25-[CONFIG]-dev-vnet-cac \
   --query "[?contains(name,'sql')].{name:name,state:provisioningState,location:location}" -o table
 
-# Test DNS resolution (should show private IPs: 10.200.2.x, 10.216.2.x)
+# Validate VNet peering status
+az network vnet peering show \
+  --name "peer-vnet-ppcc25-demoprepworkspace-dev-cac-primary-to-failover" \
+  --vnet-name "vnet-ppcc25-demoprepworkspace-dev-cac-primary" \
+  --resource-group "rg-ppcc25-demoprepworkspace-dev-vnet-cac" \
+  --query "peeringState" -o tsv
+# Expected: "Connected"
+
+# Test DNS resolution (should show primary region private IP: 10.192.2.x)
 nslookup [SERVER_NAME].database.windows.net
 
 # View DNS records
@@ -872,9 +986,9 @@ wait
 - **Permissions**: User must have database permissions granted (setup script grants to deployment user)
 
 ### Cost & Resource Management
-- **Estimated Cost**: ~$19-20/month per deployment
+- **Estimated Cost**: ~$12/month per deployment (50% reduction from dual-endpoint)
   - SQL Database (Basic): ~$5/month
-  - Private Endpoints (×2): ~$14/month
+  - Private Endpoint (Primary only): ~$7/month
 - **No Soft Delete**: SQL Server doesn't have soft-delete (unlike Key Vault)
 - **Immediate Cleanup**: Resources fully deleted immediately (no purge needed)
 - **Resource Group**: Shared with Key Vault demo and VNet infrastructure
@@ -913,7 +1027,7 @@ az network private-dns record-set a show \
   --zone-name privatelink.database.windows.net \
   --name [SERVER_NAME]
 
-# Verify private endpoints are connected
+# Verify private endpoint is connected
 az network private-endpoint list \
   --resource-group rg-ppcc25-[CONFIG]-dev-vnet-cac \
   --query "[?contains(name,'sql')].{name:name,state:provisioningState,connection:privateLinkServiceConnections[0].privateLinkServiceConnectionState.status}" -o table
@@ -922,6 +1036,31 @@ az network private-endpoint list \
 az network private-dns link vnet list \
   --resource-group rg-ppcc25-[CONFIG]-dev-vnet-cac \
   --zone-name privatelink.database.windows.net -o table
+```
+
+#### **Cross-Region Connectivity Fails**
+```bash
+# Validate VNet peering status
+./scripts/demo/validate-vnet-peering.sh
+
+# Check peering manually
+az network vnet peering show \
+  --name "peer-vnet-ppcc25-[CONFIG]-dev-cac-primary-to-failover" \
+  --vnet-name "vnet-ppcc25-[CONFIG]-dev-cac-primary" \
+  --resource-group "rg-ppcc25-[CONFIG]-dev-vnet-cac" \
+  --query "peeringState" -o tsv
+# Expected: "Connected"
+```
+
+#### **Higher Latency from Canada East**
+```
+This is expected behavior. Canada East traffic routes through VNet peering 
+to reach the primary region private endpoint (~30ms additional latency).
+
+For latency-sensitive workloads requiring <10ms response times, consider:
+- Deploying separate endpoints in each region (previous architecture)
+- Using Azure Front Door for intelligent routing
+- Evaluating if SQL Server workloads actually need <10ms (typically acceptable)
 ```
 
 #### **"SQL Server Not Found" During Cleanup**
@@ -1032,7 +1171,7 @@ az role assignment list --assignee $(az account show --query user.name -o tsv) \
 az sql db delete --name demo-db --server [SERVER_NAME] \
   --resource-group rg-ppcc25-[CONFIG]-dev-vnet-cac --yes
 
-# 2. Private endpoints
+# 2. Private endpoint (only primary exists)
 az network private-endpoint delete --name pe-sql-ppcc25-[CONFIG_SHORT]-dev-cac \
   --resource-group rg-ppcc25-[CONFIG]-dev-vnet-cac
 
@@ -1125,10 +1264,12 @@ wait
 ## 💡 Pro Tips
 
 1. **Pre-Deploy for Safety**: Always deploy `demo-prep` before presentation as backup
-2. **Independent Cleanup**: Clean up demos separately based on what you actually used
-3. **Cost Management**: Remember both demos together cost ~$30-35/month if left running
-4. **Resource Naming**: Timestamp suffix on SQL Server prevents naming conflicts
-5. **Authentication Clarity**: Emphasize different auth methods (Managed Identity vs Entra ID Integrated)
+2. **Validate Peering First**: Run `validate-vnet-peering.sh` before deploying endpoints
+3. **Independent Cleanup**: Clean up demos separately based on what you actually used
+4. **Cost Management**: Remember both demos together cost ~$20-25/month if left running (50% savings from single endpoints)
+5. **Resource Naming**: Key Vault uses alphanumeric-only names (no hyphens)
+6. **Authentication Clarity**: Emphasize different auth methods (Managed Identity vs Entra ID Integrated)
+7. **Cross-Region Testing**: Canada East access works via peering (~30ms additional latency)
 
 ---
 
