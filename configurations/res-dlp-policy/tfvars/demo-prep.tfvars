@@ -14,7 +14,7 @@
 display_name                      = "SQL and Approvals Only Policy"
 default_connectors_classification = "Blocked"          # Security-first default
 environment_type                  = "OnlyEnvironments" # Security-first default
-environments                      = []
+environments                      = ["Default-7e7df62f-7cc4-4e63-a250-a277063e1be7"]
 business_connectors = [
   {
     id                           = "/providers/Microsoft.PowerApps/apis/shared_sql"

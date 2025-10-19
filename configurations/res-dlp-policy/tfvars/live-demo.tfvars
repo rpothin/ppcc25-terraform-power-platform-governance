@@ -23,7 +23,7 @@ display_name = "Dataverse only DLP policy"
 # environment_type = "OnlyEnvironments"
 
 # OPTIONAL: List of environment IDs to apply the policy to. Leave empty for all environments.
-environments = []
+environments = ["Default-7e7df62f-7cc4-4e63-a250-a277063e1be7"]
 
 # OPTIONAL: Business connectors configuration. Use output from `utl-export-connectors` for onboarding.
 business_connectors = [
