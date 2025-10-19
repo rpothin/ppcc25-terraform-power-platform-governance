@@ -29,7 +29,7 @@ environments = []
 business_connectors = [
   {
     id                           = "/providers/Microsoft.PowerApps/apis/shared_commondataservice"
-    default_action_rule_behavior = "Allow"
+    default_action_rule_behavior = ""
     action_rules                 = []
     endpoint_rules               = []
   }
