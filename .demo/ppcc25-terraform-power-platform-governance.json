@@ -27,6 +27,21 @@
           "insertTypingMode": "instant",
           "autoExecute": true,
           "terminalId": "demo"
+        },
+        {
+          "action": "pause"
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "clear",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "openWebsite",
+          "url": "https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/data-sources/data_loss_prevention_policies",
+          "openInVSCode": false
         }
       ]
     },
@@ -40,8 +55,7 @@
           "terminalId": "demo"
         },
         {
-          "action": "waitForInput",
-          "message": "🎯 Press any key to trigger the Terraform Output workflow..."
+          "action": "pause"
         },
         {
           "action": "executeTerminalCommand",
@@ -51,25 +65,14 @@
           "terminalId": "demo"
         },
         {
-          "action": "waitForInput",
-          "message": "💡 Press any key to open the data_loss_prevention_policies data source documentation..."
-        },
-        {
-          "action": "openWebsite",
-          "url": "https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/data-sources/data_loss_prevention_policies",
-          "openInVSCode": false
-        },
-        {
-          "action": "waitForInput",
-          "message": "💡 Press any key to open the DLP export configuration..."
+          "action": "pause"
         },
         {
           "action": "open",
           "path": "configurations/utl-export-dlp-policies/main.tf"
         },
         {
-          "action": "waitForInput",
-          "message": "🔍 Press any key to highlight the relevant code section..."
+          "action": "pause"
         },
         {
           "action": "highlight",
@@ -79,8 +82,7 @@
           "zoom": 10
         },
         {
-          "action": "waitForInput",
-          "message": "💡 Press any key to open the GitHub Actions workflow that triggers the export..."
+          "action": "pause"
         },
         {
           "action": "executeTerminalCommand",
@@ -97,8 +99,7 @@
           "terminalId": "demo"
         },
         {
-          "action": "waitForInput",
-          "message": "🔄 Press any key to pull the latest changes from the repository..."
+          "action": "pause"
         },
         {
           "action": "executeTerminalCommand",
@@ -108,31 +109,31 @@
           "terminalId": "demo"
         },
         {
-          "action": "waitForInput",
-          "message": "🔍 Press any key to open the just generated Terraform output file..."
+          "action": "pause"
         },
         {
           "action": "open",
           "path": "configurations/utl-export-dlp-policies/terraform-output-utl-export-dlp-policies.json"
         },
         {
-          "action": "waitForInput",
-          "message": "🔍 Press any key to highlight a section we want to show in the output file..."
+          "action": "pause"
         },
         {
           "action": "highlight",
           "path": "configurations/utl-export-dlp-policies/terraform-output-utl-export-dlp-policies.json",
           "startPlaceholder": "\"display_name\": \"Copilot Studio",
           "zoom": 10,
-          "endPlaceholder": " Autonomous Agents\","
+          "endPlaceholder": " Autonomous Agents,"
         },
         {
-          "action": "waitForInput",
-          "message": "➕ Press any key continue the demonstration with the provisioning of a new DLP policy..."
+          "action": "executeTerminalCommand",
+          "command": "clear",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
         },
         {
-          "action": "runDemoById",
-          "id": "new-dlp-policy-provisioning"
+          "action": "closeAll"
         }
       ]
     },
@@ -146,8 +147,7 @@
           "terminalId": "demo"
         },
         {
-          "action": "waitForInput",
-          "message": "🎯 Press any key to copy the template file..."
+          "action": "pause"
         },
         {
           "action": "executeTerminalCommand",
@@ -157,16 +157,14 @@
           "terminalId": "demo"
         },
         {
-          "action": "waitForInput",
-          "message": "🎯 Press any key to open the copied configuration file..."
+          "action": "pause"
         },
         {
           "action": "open",
           "path": "configurations/res-dlp-policy/tfvars/live-demo.tfvars"
         },
         {
-          "action": "waitForInput",
-          "message": "🎯 Press any key to open the copied configuration file..."
+          "action": "pause"
         },
         {
           "action": "replace",
@@ -201,8 +199,7 @@
           "content": "custom_connectors_patterns = [\n  {\n    order            = 1\n    host_url_pattern = \"*\"\n    data_group       = \"Blocked\" # Security-first: block all custom connectors by default\n  }\n]"
         },
         {
-          "action": "waitForInput",
-          "message": "✅ Configuration ready! Press any key to commit the changes..."
+          "action": "pause"
         },
         {
           "action": "executeTerminalCommand",
@@ -226,8 +223,7 @@
           "terminalId": "demo"
         },
         {
-          "action": "waitForInput",
-          "message": "🚀 Press any key to trigger the Terraform Plan and Apply workflow..."
+          "action": "pause"
         },
         {
           "action": "executeTerminalCommand",
@@ -237,8 +233,7 @@
           "terminalId": "demo"
         },
         {
-          "action": "waitForInput",
-          "message": "⏳ Waiting for deployment... Press any key to check workflow status..."
+          "action": "pause"
         },
         {
           "action": "executeTerminalCommand",
@@ -255,8 +250,7 @@
           "terminalId": "demo"
         },
         {
-          "action": "waitForInput",
-          "message": "🔍 Press any key to open Power Platform Admin Center to verify the deployed policy..."
+          "action": "pause"
         },
         {
           "action": "openWebsite",
@@ -269,7 +263,15 @@
       "id": "existing-dlp-policy-onboarding",
       "title": "Demo 1.3: Existing DLP Policy Onboarding",
       "description": "Generate configuration file for existing DLP Policy, import it and deploy changes using Terraform.",
-      "steps": []
+      "steps": [
+        {
+          "action": "openTerminal",
+          "terminalId": "demo"
+        },
+        {
+          "action": "pause"
+        }
+      ]
     },
     {
       "id": "environment-group-provisioning",
@@ -281,12 +283,7 @@
           "terminalId": "demo"
         },
         {
-          "action": "waitForInput",
-          "message": "🚀 Starting Demo 2 - Press any key to begin..."
-        },
-        {
-          "action": "showInfoMessage",
-          "message": "Demo 2: Environment Management - Add your steps here"
+          "action": "pause"
         }
       ]
     },
@@ -300,12 +297,7 @@
           "terminalId": "demo"
         },
         {
-          "action": "waitForInput",
-          "message": "🎬 Starting Demo 3 - Press any key to begin..."
-        },
-        {
-          "action": "showInfoMessage",
-          "message": "Demo 3: Policy Automation - Add your steps here"
+          "action": "pause"
         }
       ]
     }
