@@ -44,6 +44,9 @@
           "openInVSCode": false
         },
         {
+          "action": "pause"
+        },
+        {
           "action": "openWebsite",
           "url": "https://admin.powerplatform.microsoft.com/security/dataprotection/dlp",
           "openInVSCode": false
