@@ -454,12 +454,17 @@ jobs:
 
                 echo "success=true" >> $GITHUB_OUTPUT
 
-                # Capture the full plan output for use by calling workflows
-                {
-                  echo "tf-output<<PLAN_OUTPUT_EOF"
-                  cat "$plan_output_file"
-                  echo "PLAN_OUTPUT_EOF"
-                } >> $GITHUB_OUTPUT
+                # === OUTPUT STRATEGY: ARTIFACTS FOR DATA, OUTPUTS FOR CONTROL ===
+                # WHY: Following baseline principle of modularity (separation of concerns)
+                # - Full plan details stored in artifacts (data layer)
+                # - Summary information in outputs (control flow layer)
+                # This prevents GitHub Actions 1MB output limit issues while maintaining
+                # workflow orchestration capabilities and aligns with AVM anti-corruption
+                # layer pattern of discrete outputs instead of full resource exposure
+                
+                # Capture discrete summary for workflow orchestration
+                plan_summary=$(grep "Plan:" "$plan_output_file" | head -1 || echo "Plan completed with changes")
+                echo "tf-output=$plan_summary" >> $GITHUB_OUTPUT
               else
                 echo "::error title=Plan Failed::❌ Terraform plan failed with exit code $plan_exit_code"
 
@@ -821,6 +826,24 @@ jobs:
           path: configurations/${{ inputs.configuration }}/${{ inputs.plan-file-name }}.tfplan
           retention-days: 7  # Short retention - plan files are used quickly
           if-no-files-found: warn  # Warn if plan file not found (shouldn't happen)
+
+      # === STEP 9.5: ARTIFACT MANAGEMENT - PLAN OUTPUT TEXT ===
+      # Uploads full plan output text for debugging, audit trails, and detailed review
+      # WHY: Implements baseline principle of modularity - separates data storage from control flow
+      # - Artifacts handle large data (full plan output)
+      # - Workflow outputs handle orchestration (summary and status)
+      # This pattern aligns with existing plan file artifact approach and prevents
+      # GitHub Actions output size limits (1MB per output) from causing workflow failures
+      - name: Upload Plan Output Details
+        if: inputs.operation == 'plan' && steps.execute-operation.outputs.success == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          # Consistent naming with plan file artifact for easy correlation
+          name: terraform-plan-output-${{ inputs.configuration }}-${{ inputs.tfvars-file || 'default' }}
+          path: configurations/${{ inputs.configuration }}/plan-output.txt
+          retention-days: 7  # Match plan file retention for consistency
+          if-no-files-found: warn  # Warn if output file not found
+          compression-level: 6  # Compress text output efficiently
 
       # === STEP 10: ARTIFACT MANAGEMENT - OUTPUT FILES ===
       # Uploads Terraform output files for later reference and consumption
