@@ -42,6 +42,11 @@
           "action": "openWebsite",
           "url": "https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/data-sources/data_loss_prevention_policies",
           "openInVSCode": false
+        },
+        {
+          "action": "openWebsite",
+          "url": "https://admin.powerplatform.microsoft.com/security/dataprotection/dlp",
+          "openInVSCode": false
         }
       ]
     },
@@ -92,8 +97,11 @@
           "terminalId": "demo"
         },
         {
+          "action": "pause"
+        },
+        {
           "action": "executeTerminalCommand",
-          "command": "gh run list --workflow=terraform-output.yml --limit 1 --json number,url",
+          "command": "gh run list --workflow=terraform-output.yml --limit 1 --json number,url,status,conclusion",
           "insertTypingMode": "character-by-character",
           "autoExecute": true,
           "terminalId": "demo"
@@ -124,6 +132,9 @@
           "startPlaceholder": "\"display_name\": \"Copilot Studio",
           "zoom": 10,
           "endPlaceholder": " Autonomous Agents,"
+        },
+        {
+          "action": "pause"
         },
         {
           "action": "executeTerminalCommand",
@@ -177,7 +188,7 @@
         {
           "action": "replace",
           "path": "configurations/res-dlp-policy/tfvars/live-demo.tfvars",
-          "content": "environments = []",
+          "content": "environments = [\"Default-7e7df62f-7cc4-4e63-a250-a277063e1be7\"]",
           "position": "26:26",
           "highlightWholeLine": true,
           "insertTypingMode": "character-by-character"
@@ -186,7 +197,7 @@
           "action": "replace",
           "position": "29:41",
           "highlightWholeLine": true,
-          "content": "business_connectors = [\n  {\n    id                           = \"/providers/Microsoft.PowerApps/apis/shared_commondataservice\"\n    default_action_rule_behavior = \"Allow\"\n    action_rules                 = []\n    endpoint_rules               = []\n  }\n]",
+          "content": "business_connectors = [\n  {\n    id                           = \"/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps\"\n    default_action_rule_behavior = \"\"\n    action_rules                 = []\n    endpoint_rules               = []\n  },\n  {\n    id                           = \"/providers/Microsoft.PowerApps/apis/shared_commondataservice\"\n    default_action_rule_behavior = \"\"\n    action_rules                 = []\n    endpoint_rules               = []\n  }\n]",
           "path": "configurations/res-dlp-policy/tfvars/live-demo.tfvars",
           "insertTypingMode": "line-by-line"
         },
@@ -243,6 +254,9 @@
           "terminalId": "demo"
         },
         {
+          "action": "pause"
+        },
+        {
           "action": "executeTerminalCommand",
           "command": "gh run list --workflow=terraform-plan-apply.yml --limit 1 --json number,url,status,conclusion",
           "insertTypingMode": "character-by-character",
@@ -253,9 +267,21 @@
           "action": "pause"
         },
         {
-          "action": "openWebsite",
-          "url": "https://admin.powerplatform.microsoft.com/security/dataprotection/dlp",
-          "openInVSCode": false
+          "action": "executeTerminalCommand",
+          "command": "git pull",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "clear",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "closeAll"
         }
       ]
     },
