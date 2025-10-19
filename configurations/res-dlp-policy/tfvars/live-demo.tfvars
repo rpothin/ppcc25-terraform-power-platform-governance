@@ -28,6 +28,12 @@ environments = ["Default-7e7df62f-7cc4-4e63-a250-a277063e1be7"]
 # OPTIONAL: Business connectors configuration. Use output from `utl-export-connectors` for onboarding.
 business_connectors = [
   {
+    id                           = "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+    default_action_rule_behavior = ""
+    action_rules                 = []
+    endpoint_rules               = []
+  },
+  {
     id                           = "/providers/Microsoft.PowerApps/apis/shared_commondataservice"
     default_action_rule_behavior = ""
     action_rules                 = []
