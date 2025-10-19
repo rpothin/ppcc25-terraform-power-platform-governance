@@ -461,7 +461,7 @@ jobs:
                 # This prevents GitHub Actions 1MB output limit issues while maintaining
                 # workflow orchestration capabilities and aligns with AVM anti-corruption
                 # layer pattern of discrete outputs instead of full resource exposure
-                
+
                 # Capture discrete summary for workflow orchestration
                 plan_summary=$(grep "Plan:" "$plan_output_file" | head -1 || echo "Plan completed with changes")
                 echo "tf-output=$plan_summary" >> $GITHUB_OUTPUT
