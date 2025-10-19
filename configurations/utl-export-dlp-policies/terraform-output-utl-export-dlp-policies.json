@@ -1,9 +1,9 @@
 {
   "metadata": {
-    "generated_at": "2025-10-01T03:37:42Z",
+    "generated_at": "2025-10-19T01:30:50Z",
     "workflow": {
-      "run_number": 156,
-      "run_id": "18150523477",
+      "run_number": 157,
+      "run_id": "18623576390",
       "generated_by": "rpothin",
       "version": "2.0.0"
     },
@@ -15,7 +15,7 @@
     "repository": {
       "name": "rpothin/ppcc25-terraform-power-platform-governance",
       "ref": "refs/heads/main",
-      "sha": "1f033df332d234c2f3704fd45adac2ffe99d752d",
+      "sha": "ac553b14f96c2380e5021e93ab3ca2d02fbc251e",
       "event": "workflow_dispatch"
     },
     "runner": {
@@ -50787,7 +50787,7 @@
       "value": {
         "export_metadata": {
           "detail_level": "summary",
-          "export_timestamp": "2025-10-01T03:38:45Z",
+          "export_timestamp": "2025-10-19T01:31:49Z",
           "filter_applied": false,
           "filtered_policies_count": 2,
           "total_policies_in_tenant": 2
@@ -75963,20 +75963,20 @@
             "display_name": "Default",
             "environment_type": "ExceptEnvironments",
             "environments": [
-              "0409d341-6288-edd0-89c8-33b6394daaf6",
+              "011e917e-aa5f-e68e-8b94-b11f304b37f0",
+              "29d48517-faad-ec92-8a32-b4f8e715a7f0",
+              "32cc0674-ac31-eba1-bf83-114c455636f2",
               "36f603f9-0af2-e33d-98a5-64b02c1bac19",
               "4f97b361-3879-e3aa-919e-4469777c06f1",
-              "6c1d80af-1e10-e143-9764-48cb9159eaf6",
-              "84529d44-adce-e598-a868-a203310877f4",
-              "8cfce995-2ea5-e707-9b2b-51b8ca99cff3",
+              "60dd2d86-0c58-e09f-976c-670da0fe03f3",
+              "99f6d3d5-475d-e6f8-b47f-b431604c30f2",
               "Default-7e7df62f-7cc4-4e63-a250-a277063e1be7",
-              "a071cbd9-058c-ee3c-8483-fd64e9e22af2",
-              "a3d9de83-8abc-ee85-b08d-b9137e4447f6",
+              "a119e0a7-6c14-e0de-8bb9-82c9b2ad17f2",
               "c0e084a1-8b84-e77c-981b-ebf366fc5df0"
             ],
             "id": "af19e406-9396-48eb-8414-63ad0f5a3fa8",
             "last_modified_by": "Raphael Pothin",
-            "last_modified_time": "2025-09-23T04:22:54.960082Z",
+            "last_modified_time": "2025-10-14T18:22:07.7017492Z",
             "non_business_connectors": [
               {
                 "action_rules": [],
