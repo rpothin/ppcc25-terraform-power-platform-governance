@@ -370,9 +370,9 @@
         {
           "action": "highlight",
           "path": "configurations/res-dlp-policy/tfvars/copilot-studio-autonomous-agents.tfvars",
-          "startPlaceholder": "display_name = \"Copilot Studio",
-          "zoom": 10,
-          "endPlaceholder": " Autonomous Agents\""
+          "position": "5:5",
+          "highlightWholeLine": true,
+          "zoom": 10
         },
         {
           "action": "pause"
@@ -405,7 +405,7 @@
           "action": "executeTerminalCommand",
           "command": "gh workflow run terraform-import.yml -f configuration=res-dlp-policy -f tfvars_file=copilot-studio-autonomous-agents -f resource_type=powerplatform_data_loss_prevention_policy -f resource_name=this -f resource_id=3884a9cf-f15b-44ba-ac2a-4032ca6c396a -f backup_state=true",
           "insertTypingMode": "character-by-character",
-          "autoExecute": false,
+          "autoExecute": true,
           "terminalId": "demo"
         },
         {
