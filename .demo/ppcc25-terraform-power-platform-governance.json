@@ -134,7 +134,7 @@
           "path": "configurations/utl-export-dlp-policies/terraform-output-utl-export-dlp-policies.json",
           "startPlaceholder": "\"display_name\": \"Copilot Studio",
           "zoom": 10,
-          "endPlaceholder": " Autonomous Agents,"
+          "endPlaceholder": " Autonomous Agents\","
         },
         {
           "action": "pause"
@@ -207,7 +207,7 @@
         {
           "action": "replace",
           "path": "configurations/res-dlp-policy/tfvars/live-demo.tfvars",
-          "position": "46:49",
+          "position": "52:55",
           "highlightWholeLine": true,
           "insertTypingMode": "line-by-line",
           "content": "custom_connectors_patterns = [\n  {\n    order            = 1\n    host_url_pattern = \"*\"\n    data_group       = \"Blocked\" # Security-first: block all custom connectors by default\n  }\n]"
@@ -299,6 +299,184 @@
         },
         {
           "action": "pause"
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "gh workflow run terraform-output.yml -f configuration=utl-generate-dlp-tfvars -f terraform_variables=\"-var='source_policy_name=Copilot Studio Autonomous Agents'\" -f export_format=json -f include_metadata=true",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "pause"
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "gh run list --workflow=terraform-output.yml --limit 1",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "pause"
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "gh run list --workflow=terraform-output.yml --limit 1 --json number,url,status,conclusion",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "pause"
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "git pull",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "pause"
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "mv configurations/utl-generate-dlp-tfvars/generated-dlp-policy.tfvars configurations/res-dlp-policy/tfvars/copilot-studio-autonomous-agents.tfvars",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "pause"
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "sed -i '/^blocked_connectors = \\[$/,/^]$/d' configurations/res-dlp-policy/tfvars/copilot-studio-autonomous-agents.tfvars",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "pause"
+        },
+        {
+          "action": "open",
+          "path": "configurations/res-dlp-policy/tfvars/copilot-studio-autonomous-agents.tfvars"
+        },
+        {
+          "action": "pause"
+        },
+        {
+          "action": "highlight",
+          "path": "configurations/res-dlp-policy/tfvars/copilot-studio-autonomous-agents.tfvars",
+          "startPlaceholder": "display_name = \"Copilot Studio",
+          "zoom": 10,
+          "endPlaceholder": " Autonomous Agents\""
+        },
+        {
+          "action": "pause"
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "git add configurations/res-dlp-policy/tfvars/copilot-studio-autonomous-agents.tfvars",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "git commit -m \"feat: add generated tfvars for Copilot Studio Autonomous Agents DLP policy\"",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "git push",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "pause"
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "gh workflow run terraform-import.yml -f configuration=res-dlp-policy -f tfvars_file=copilot-studio-autonomous-agents -f resource_type=powerplatform_data_loss_prevention_policy -f resource_name=this -f resource_id=3884a9cf-f15b-44ba-ac2a-4032ca6c396a -f backup_state=true",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": false,
+          "terminalId": "demo"
+        },
+        {
+          "action": "pause"
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "gh run list --workflow=terraform-import.yml --limit 1",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "pause"
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "gh run list --workflow=terraform-import.yml --limit 1 --json number,url,status,conclusion",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "pause"
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "gh workflow run terraform-plan-apply.yml -f configuration=res-dlp-policy -f tfvars_file=copilot-studio-autonomous-agents -f apply=false -f extract_outputs=false",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "pause"
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "gh run list --workflow=terraform-plan-apply.yml --limit 1",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "pause"
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "gh run list --workflow=terraform-plan-apply.yml --limit 1 --json number,url,status,conclusion",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "pause"
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "git pull",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "clear",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "closeAll"
         }
       ]
     },
@@ -313,6 +491,23 @@
         },
         {
           "action": "pause"
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "git pull",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "clear",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "closeAll"
         }
       ]
     },
@@ -327,6 +522,23 @@
         },
         {
           "action": "pause"
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "git pull",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "clear",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "closeAll"
         }
       ]
     }
