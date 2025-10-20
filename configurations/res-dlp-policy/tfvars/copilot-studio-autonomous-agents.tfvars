@@ -1,5 +1,5 @@
 # Generated tfvars for DLP policy: Copilot Studio Autonomous Agents
-# Generated on: 2025-10-20T01:57:53Z
+# Generated on: 2025-10-20T02:18:40Z
 # Source: utl-generate-dlp-tfvars
 
 display_name                      = "Copilot Studio Autonomous Agents"
@@ -250,7 +250,6 @@ non_business_connectors = [
   }
 ]
 
-blocked_connectors = []
 
 custom_connectors_patterns = [
   {
