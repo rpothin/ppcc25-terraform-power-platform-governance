@@ -623,6 +623,112 @@
         },
         {
           "action": "executeTerminalCommand",
+          "command": "cp configurations/ptn-azure-vnet-extension/tfvars/template.tfvars configurations/ptn-azure-vnet-extension/tfvars/live-demo.tfvars",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "pause"
+        },
+        {
+          "action": "open",
+          "path": "configurations/ptn-azure-vnet-extension/tfvars/live-demo.tfvars"
+        },
+        {
+          "action": "pause"
+        },
+        {
+          "action": "replace",
+          "path": "configurations/ptn-azure-vnet-extension/tfvars/live-demo.tfvars",
+          "content": "paired_tfvars_file = \"live-demo\"",
+          "position": "19:19",
+          "highlightWholeLine": true,
+          "insertTypingMode": "character-by-character"
+        },
+        {
+          "action": "replace",
+          "path": "configurations/ptn-azure-vnet-extension/tfvars/live-demo.tfvars",
+          "content": "production_subscription_id = \"7d237ead-2d0d-4dda-b0d7-2a3ecf235a1c\"",
+          "position": "24:24",
+          "highlightWholeLine": true,
+          "insertTypingMode": "character-by-character"
+        },
+        {
+          "action": "replace",
+          "path": "configurations/ptn-azure-vnet-extension/tfvars/live-demo.tfvars",
+          "content": "non_production_subscription_id = \"7d237ead-2d0d-4dda-b0d7-2a3ecf235a1c\"",
+          "position": "29:29",
+          "highlightWholeLine": true,
+          "insertTypingMode": "character-by-character"
+        },
+        {
+          "action": "replace",
+          "path": "configurations/ptn-azure-vnet-extension/tfvars/live-demo.tfvars",
+          "content": "private_dns_zones = [\n  \"privatelink.vaultcore.azure.net\",   # Azure Key Vault\n  \"privatelink.database.windows.net\"   # Azure SQL Database\n]",
+          "position": "69:69",
+          "highlightWholeLine": true,
+          "insertTypingMode": "line-by-line"
+        },
+        {
+          "action": "pause"
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "git add configurations/ptn-azure-vnet-extension/tfvars/live-demo.tfvars",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "git commit -m \"feat: add live demo Azure VNet extension configuration\"",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "git push",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "pause"
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "gh workflow run terraform-plan-apply.yml -f configuration=ptn-azure-vnet-extension -f tfvars_file=live-demo -f apply=true -f extract_outputs=false",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "pause"
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "gh run list --workflow=terraform-plan-apply.yml --limit 1",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "pause"
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "gh run list --workflow=terraform-plan-apply.yml --limit 1 --json number,url,status,conclusion",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "pause"
+        },
+        {
+          "action": "executeTerminalCommand",
           "command": "git pull",
           "insertTypingMode": "character-by-character",
           "autoExecute": true,
