@@ -100,17 +100,22 @@ generate_resource_names() {
     # CONTEXT: Follow exact same patterns as defined in Terraform locals
     RESOURCE_GROUP_NAME="rg-${project}-${workspace_clean}-${env_suffix}-vnet-${location_abbrev}"
     
-    # WHY: Key Vault naming with length constraints
-    # CONTEXT: Key Vault names have 24 character limit, use shortened workspace name
+    # WHY: Key Vault naming with length constraints and consecutive hyphen avoidance
+    # CONTEXT: Key Vault names have 24 character limit and cannot have consecutive hyphens
+    # IMPACT: Remove all hyphens from workspace portion to avoid consecutive hyphen issues
     local workspace_short
     if [[ ${#workspace_clean} -gt 12 ]]; then
-        # Create meaningful abbreviation for long workspace names
-        workspace_short=$(echo "$workspace_clean" | sed 's/workspace/ws/g' | cut -c1-12)
+        # Create meaningful abbreviation for long workspace names, remove hyphens
+        workspace_short=$(echo "$workspace_clean" | sed 's/workspace/ws/g' | sed 's/-//g' | cut -c1-12)
     else
-        workspace_short="$workspace_clean"
+        # Remove hyphens from workspace name to avoid consecutive hyphen issues
+        workspace_short=$(echo "$workspace_clean" | sed 's/-//g')
     fi
     
-    KEY_VAULT_NAME="kv-${project}-${workspace_short}-${env_suffix}-${location_abbrev}"
+    # WHY: Key Vault names cannot contain hyphens - only alphanumeric characters allowed
+    # CONTEXT: Azure Key Vault naming constraints: 3-24 chars, alphanumeric only
+    # IMPACT: Must match setup script's naming pattern exactly for cleanup to work
+    KEY_VAULT_NAME="kv${project}${workspace_short}${env_suffix}${location_abbrev}"
     PE_PRIMARY_NAME="pe-kv-${project}-${workspace_short}-${env_suffix}-${location_abbrev}"
     LEGACY_PE_FAILOVER_NAME="pe-kv-${project}-${workspace_short}-${env_suffix}-${failover_abbrev}"
     
@@ -251,14 +256,20 @@ cleanup_private_endpoints() {
     print_step "Cleaning up private endpoints..."
     
     local endpoints_cleaned=0
+    local endpoints_failed=0
     
     # Remove primary region private endpoint
     if az network private-endpoint show --name "$PE_PRIMARY_NAME" --resource-group "$RESOURCE_GROUP_NAME" &> /dev/null; then
         print_info "Removing primary private endpoint: $PE_PRIMARY_NAME"
-        az network private-endpoint delete \
+        if az network private-endpoint delete \
             --name "$PE_PRIMARY_NAME" \
-            --resource-group "$RESOURCE_GROUP_NAME"
-        ((endpoints_cleaned++))
+            --resource-group "$RESOURCE_GROUP_NAME" 2>&1; then
+            ((endpoints_cleaned++))
+            print_success "Primary private endpoint deleted successfully"
+        else
+            ((endpoints_failed++))
+            print_error "Failed to delete primary private endpoint (continuing cleanup...)"
+        fi
     else
         print_info "Primary private endpoint not found (may already be deleted)"
     fi
@@ -266,19 +277,33 @@ cleanup_private_endpoints() {
     # Remove legacy failover private endpoint if it still exists
     if az network private-endpoint show --name "$LEGACY_PE_FAILOVER_NAME" --resource-group "$RESOURCE_GROUP_NAME" &> /dev/null; then
         print_info "Removing legacy failover private endpoint: $LEGACY_PE_FAILOVER_NAME"
-        az network private-endpoint delete \
+        if az network private-endpoint delete \
             --name "$LEGACY_PE_FAILOVER_NAME" \
-            --resource-group "$RESOURCE_GROUP_NAME"
-        ((endpoints_cleaned++))
+            --resource-group "$RESOURCE_GROUP_NAME" 2>&1; then
+            ((endpoints_cleaned++))
+            print_success "Legacy private endpoint deleted successfully"
+        else
+            ((endpoints_failed++))
+            print_error "Failed to delete legacy private endpoint (continuing cleanup...)"
+        fi
     else
         print_info "Legacy failover private endpoint not found (already removed or never created)"
     fi
     
     if [[ $endpoints_cleaned -gt 0 ]]; then
         print_success "Cleaned up $endpoints_cleaned private endpoints"
-    else
+    fi
+    
+    if [[ $endpoints_failed -gt 0 ]]; then
+        print_warning "Failed to clean up $endpoints_failed private endpoints"
+    fi
+    
+    if [[ $endpoints_cleaned -eq 0 && $endpoints_failed -eq 0 ]]; then
         print_info "No private endpoints required cleanup"
     fi
+    
+    # Return success even if some deletions failed (continue with rest of cleanup)
+    return 0
 }
 
 # WHY: DNS cleanup removes stale private endpoint A records
@@ -294,16 +319,20 @@ cleanup_dns_records() {
         --name "$KEY_VAULT_NAME" &> /dev/null; then
         
         print_info "Removing DNS A records for Key Vault"
-        az network private-dns record-set a delete \
+        if az network private-dns record-set a delete \
             --resource-group "$RESOURCE_GROUP_NAME" \
             --zone-name "$PRIVATE_DNS_ZONE" \
             --name "$KEY_VAULT_NAME" \
-            --yes &> /dev/null
-        
-        print_success "DNS records cleaned up"
+            --yes 2>&1; then
+            print_success "DNS records cleaned up"
+        else
+            print_warning "Failed to delete DNS records (continuing cleanup...)"
+        fi
     else
         print_info "No DNS records found for cleanup"
     fi
+    
+    return 0
 }
 
 # WHY: Key Vault cleanup with soft-delete handling
@@ -327,14 +356,20 @@ cleanup_key_vault() {
         if az keyvault list-deleted --query "[?name=='$KEY_VAULT_NAME']" | grep -q "$KEY_VAULT_NAME"; then
             print_warning "Key Vault found in soft-deleted state"
             print_info "Purging soft-deleted Key Vault to enable name reuse..."
-            az keyvault purge --name "$KEY_VAULT_NAME"
-            print_success "Soft-deleted Key Vault purged"
+            if az keyvault purge --name "$KEY_VAULT_NAME" 2>&1; then
+                print_success "Soft-deleted Key Vault purged"
+            else
+                print_warning "Failed to purge soft-deleted Key Vault"
+            fi
         fi
         return 0
     fi
     
     print_info "Deleting Key Vault: $KEY_VAULT_NAME"
-    az keyvault delete --name "$KEY_VAULT_NAME" --resource-group "$RESOURCE_GROUP_NAME"
+    if ! az keyvault delete --name "$KEY_VAULT_NAME" --resource-group "$RESOURCE_GROUP_NAME" 2>&1; then
+        print_error "Failed to delete Key Vault (it may require manual cleanup)"
+        return 1
+    fi
     
     # WHY: Purge soft-deleted Key Vault to enable name reuse
     # CONTEXT: Azure Key Vault soft-delete prevents immediate name reuse
@@ -344,12 +379,17 @@ cleanup_key_vault() {
     
     if az keyvault list-deleted --query "[?name=='$KEY_VAULT_NAME']" | grep -q "$KEY_VAULT_NAME"; then
         print_info "Purging soft-deleted Key Vault to enable name reuse..."
-        az keyvault purge --name "$KEY_VAULT_NAME"
-        print_success "Key Vault completely removed"
+        if az keyvault purge --name "$KEY_VAULT_NAME" 2>&1; then
+            print_success "Key Vault completely removed"
+        else
+            print_warning "Failed to purge soft-deleted Key Vault - manual purge may be required"
+        fi
     else
         print_warning "Key Vault not found in soft-deleted state"
         print_info "Manual purge may be required if name reuse is needed"
     fi
+    
+    return 0
 }
 
 # WHY: Role assignment cleanup prevents permission accumulation
@@ -363,14 +403,20 @@ cleanup_role_assignments() {
     
     if [[ -n "$current_user_id" && -n "${KEY_VAULT_RESOURCE_ID:-}" ]]; then
         print_info "Removing Key Vault Secrets Officer role assignment..."
-        az role assignment delete \
+        if az role assignment delete \
             --role "Key Vault Secrets Officer" \
             --assignee "$current_user_id" \
             --scope "$KEY_VAULT_RESOURCE_ID" \
-            --output none 2>/dev/null || print_info "Role assignment not found or already removed"
+            --output none 2>&1; then
+            print_success "Role assignment removed successfully"
+        else
+            print_info "Role assignment not found or already removed"
+        fi
     else
         print_info "Skipping role assignment cleanup (insufficient context)"
     fi
+    
+    return 0
 }
 
 # WHY: Comprehensive cleanup validation ensures complete resource removal
