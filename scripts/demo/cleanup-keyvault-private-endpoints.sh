@@ -600,10 +600,13 @@ EOF
     fi
     
     # Execute cleanup steps in proper order
+    # WHY: Clean up role assignments BEFORE deleting Key Vault
+    # CONTEXT: Role assignments require Key Vault resource ID, which becomes invalid after deletion
+    # IMPACT: Prevents ResourceNotFound errors during role assignment cleanup
     cleanup_private_endpoints
     cleanup_dns_records
-    cleanup_key_vault "$keep_keyvault"
     cleanup_role_assignments
+    cleanup_key_vault "$keep_keyvault"
     
     # Validate cleanup completion
     validate_cleanup
