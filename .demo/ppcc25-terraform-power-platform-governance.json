@@ -494,6 +494,104 @@
         },
         {
           "action": "executeTerminalCommand",
+          "command": "cp configurations/ptn-environment-group/tfvars/template.tfvars configurations/ptn-environment-group/tfvars/live-demo.tfvars",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "pause"
+        },
+        {
+          "action": "open",
+          "path": "configurations/ptn-environment-group/tfvars/live-demo.tfvars"
+        },
+        {
+          "action": "pause"
+        },
+        {
+          "action": "replace",
+          "path": "configurations/ptn-environment-group/tfvars/live-demo.tfvars",
+          "content": "name = \"LiveDemoWorkspace\"",
+          "position": "21:21",
+          "highlightWholeLine": true,
+          "insertTypingMode": "character-by-character"
+        },
+        {
+          "action": "replace",
+          "path": "configurations/ptn-environment-group/tfvars/live-demo.tfvars",
+          "content": "description = \"Live demonstration workspace for PPCC25 session - real-time governance and IaC showcase\"",
+          "position": "24:24",
+          "highlightWholeLine": true,
+          "insertTypingMode": "character-by-character"
+        },
+        {
+          "action": "replace",
+          "path": "configurations/ptn-environment-group/tfvars/live-demo.tfvars",
+          "content": "security_group_id = \"6a199811-5433-4076-81e8-1ca7ad8ffb67\"",
+          "position": "45:45",
+          "highlightWholeLine": true,
+          "insertTypingMode": "character-by-character"
+        },
+        {
+          "action": "pause"
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "git add configurations/ptn-environment-group/tfvars/live-demo.tfvars",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "git commit -m \"feat: add live demo workspace environment group configuration\"",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "git push",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "pause"
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "gh workflow run terraform-plan-apply.yml -f configuration=ptn-environment-group -f tfvars_file=live-demo -f apply=true -f extract_outputs=false",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "pause"
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "gh run list --workflow=terraform-plan-apply.yml --limit 1",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "pause"
+        },
+        {
+          "action": "executeTerminalCommand",
+          "command": "gh run list --workflow=terraform-plan-apply.yml --limit 1 --json number,url,status,conclusion",
+          "insertTypingMode": "character-by-character",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "pause"
+        },
+        {
+          "action": "executeTerminalCommand",
           "command": "git pull",
           "insertTypingMode": "character-by-character",
           "autoExecute": true,
