@@ -238,12 +238,15 @@ output "orchestration_summary" {
     all_environments_ready = local.deployment_validation.all_environments_created
     group_assignment_valid = local.deployment_validation.group_assignment_valid
 
-    # Resource metrics (including settings modules)
-    total_resources_created = 1 + local.pattern_metadata.environment_count + length(module.environment_settings) # Group + environments + settings
+    # Resource metrics (complete orchestration count)
+    # WHY: Accurate count of ALL resources created by pattern for capacity planning and governance transparency
+    # Formula: 1 environment group + N environments + N settings modules + N application admin modules
+    total_resources_created = 1 + local.pattern_metadata.environment_count + length(module.environment_settings) + length(module.environment_application_admin)
     environment_group_id    = module.environment_group.environment_group_id
     environments_created    = local.pattern_metadata.environment_count
     # managed_environments_count removed - will be restored when integrated into res-environment
     environment_settings_count = length(module.environment_settings)
+    application_admin_count    = length(module.environment_application_admin)
 
     # Template processing results
     template_processing = {

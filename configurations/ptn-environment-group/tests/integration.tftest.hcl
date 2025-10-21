@@ -540,10 +540,22 @@ run "runtime_validation" {
     error_message = "Template processing should be successful"
   }
 
-  # Resource count validation
+  # Resource count validation - complete orchestration
+  # WHY: Pattern orchestrates 4 resource types: 1 group + N environments + N settings + N app admins
+  # Formula: 1 + (3 × environment_count) for complete pattern orchestration
   assert {
-    condition     = output.orchestration_summary.total_resources_created == (1 + local.pattern_metadata.environment_count)
-    error_message = "Should create 1 environment group + N template environments"
+    condition     = output.orchestration_summary.total_resources_created == (1 + (3 * local.pattern_metadata.environment_count))
+    error_message = "Should create 1 environment group + N environments + N settings + N application admins (1 + 3×${local.pattern_metadata.environment_count} = ${1 + (3 * local.pattern_metadata.environment_count)} resources)"
+  }
+
+  # Individual resource count validation - granular verification
+  assert {
+    condition = (
+      output.orchestration_summary.environments_created == local.pattern_metadata.environment_count &&
+      output.orchestration_summary.environment_settings_count == local.pattern_metadata.environment_count &&
+      output.orchestration_summary.application_admin_count == local.pattern_metadata.environment_count
+    )
+    error_message = "Each resource type count should match template environment count: environments=${output.orchestration_summary.environments_created}, settings=${output.orchestration_summary.environment_settings_count}, app_admins=${output.orchestration_summary.application_admin_count}, expected=${local.pattern_metadata.environment_count}"
   }
 
   # Pattern configuration summary validation
