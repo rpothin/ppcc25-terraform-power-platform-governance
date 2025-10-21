@@ -34,27 +34,27 @@ network_configuration = {
   primary = {
     # Azure region for primary VNets (should align with Power Platform location)
     location = "Canada Central"
-    
+
     # Base CIDR for primary region - supports up to 16 environments with /16 each
     # Each environment gets unique /16: env0=10.100.0.0/16, env1=10.101.0.0/16, etc.
-    vnet_address_space_base = "10.100.0.0/12"  # 10.100.0.0 - 10.111.255.255
+    vnet_address_space_base = "10.100.0.0/12" # 10.100.0.0 - 10.111.255.255
   }
-  
+
   failover = {
     # Azure region for failover VNets (different region for disaster recovery)
     location = "Canada East"
-    
+
     # Base CIDR for failover region - must NOT overlap with primary
     # Each environment gets unique /16: env0=10.112.0.0/16, env1=10.113.0.0/16, etc.
-    vnet_address_space_base = "10.112.0.0/12"  # 10.112.0.0 - 10.123.255.255
+    vnet_address_space_base = "10.112.0.0/12" # 10.112.0.0 - 10.123.255.255
   }
-  
+
   # Standardized subnet allocation within each environment's /16 block
   subnet_allocation = {
-    power_platform_subnet_size   = 24  # /24 = 256 IPs for Power Platform delegation
-    private_endpoint_subnet_size = 24  # /24 = 256 IPs for Azure service connectivity
-    power_platform_offset        = 1   # Power Platform subnet at .1.0/24 within /16
-    private_endpoint_offset      = 2   # Private Endpoint subnet at .2.0/24 within /16
+    power_platform_subnet_size   = 24 # /24 = 256 IPs for Power Platform delegation
+    private_endpoint_subnet_size = 24 # /24 = 256 IPs for Azure service connectivity
+    power_platform_offset        = 1  # Power Platform subnet at .1.0/24 within /16
+    private_endpoint_offset      = 2  # Private Endpoint subnet at .2.0/24 within /16
   }
 }
 

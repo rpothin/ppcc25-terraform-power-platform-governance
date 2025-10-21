@@ -183,10 +183,10 @@ run "static_validation" {
     error_message = "Environments module should use for_each with template_environments"
   }
 
-  # Environment group name generation validation
+  # Environment group name generation validation - direct assignment without suffix
   assert {
-    condition     = length(regexall("\\$\\{var\\.name\\}.*Environment Group", file("${path.module}/main.tf"))) > 0
-    error_message = "Environment group name should be generated from workspace name"
+    condition     = length(regexall("display_name\\s*=\\s*var\\.name", file("${path.module}/main.tf"))) > 0
+    error_message = "Environment group name should be directly assigned from var.name (Keep It Simple principle)"
   }
 
   # Environment group ID assignment validation
@@ -340,10 +340,10 @@ run "runtime_validation" {
     error_message = "Environments modules must be deployed and accessible"
   }
 
-  # Environment group name validation
+  # Environment group name validation - direct assignment from var.name
   assert {
-    condition     = endswith(module.environment_group.environment_group_name, "Environment Group")
-    error_message = "Environment group name should end with 'Environment Group'"
+    condition     = module.environment_group.environment_group_name == var.name
+    error_message = "Environment group name should match var.name (Keep It Simple principle)"
   }
 
   # Environments modules count validation against template
@@ -379,31 +379,31 @@ run "runtime_validation" {
     error_message = "Should create one settings module per template environment"
   }
 
-  # Settings configuration validation
+  # Settings configuration validation - using existing applied_settings_summary output
   assert {
     condition = alltrue([
       for idx, settings_module in module.environment_settings :
-      can(settings_module.deployment_summary)
+      can(settings_module.applied_settings_summary)
     ])
-    error_message = "All environment settings modules must deploy successfully"
+    error_message = "All environment settings modules must deploy successfully with applied_settings_summary"
   }
 
-  # Settings dependency validation (environment ID assignment)
+  # Settings dependency validation (environment ID assignment) - using existing output structure
   assert {
     condition = alltrue([
       for idx, settings_module in module.environment_settings :
-      can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", settings_module.deployment_summary.environment_id))
+      can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", settings_module.applied_settings_summary.environment_id))
     ])
-    error_message = "All settings modules should be linked to valid environment IDs"
+    error_message = "All settings modules should be linked to valid environment IDs via applied_settings_summary"
   }
 
-  # Environment-specific settings application validation
+  # Environment-specific settings application validation - using configuration_applied field
   assert {
     condition = alltrue([
       for idx, settings_module in module.environment_settings :
-      settings_module.deployment_summary.settings_applied == true
+      settings_module.applied_settings_summary.configuration_applied == "environment_settings"
     ])
-    error_message = "All environment settings should be applied successfully"
+    error_message = "All environment settings should be applied successfully with correct configuration type"
   }
 
   # === ENVIRONMENT APPLICATION ADMIN MODULE ORCHESTRATION VALIDATION (3 assertions) ===
