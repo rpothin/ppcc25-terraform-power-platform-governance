@@ -250,6 +250,33 @@
           "action": "pause"
         },
         {
+          "action": "open",
+          "path": "configurations/res-dlp-policy/main.tf"
+        },
+        {
+          "action": "pause"
+        },
+        {
+          "action": "highlight",
+          "path": "configurations/res-dlp-policy/main.tf",
+          "zoom": 10,
+          "position": "19:29",
+          "highlightWholeLine": true
+        },
+        {
+          "action": "pause"
+        },
+        {
+          "action": "highlight",
+          "path": "configurations/res-dlp-policy/main.tf",
+          "zoom": 10,
+          "position": "32:42",
+          "highlightWholeLine": true
+        },
+        {
+          "action": "pause"
+        },
+        {
           "action": "executeTerminalCommand",
           "command": "gh run list --workflow=terraform-plan-apply.yml --limit 1",
           "insertTypingMode": "character-by-character",
@@ -571,6 +598,43 @@
           "action": "pause"
         },
         {
+          "action": "open",
+          "path": "configurations/ptn-environment-group/locals.tf"
+        },
+        {
+          "action": "pause"
+        },
+        {
+          "action": "highlight",
+          "path": "configurations/ptn-environment-group/locals.tf",
+          "zoom": 10,
+          "position": "30:38",
+          "highlightWholeLine": true
+        },
+        {
+          "action": "pause"
+        },
+        {
+          "action": "highlight",
+          "path": "configurations/ptn-environment-group/locals.tf",
+          "zoom": 10,
+          "position": "87:109",
+          "highlightWholeLine": true
+        },
+        {
+          "action": "pause"
+        },
+        {
+          "action": "highlight",
+          "path": "configurations/ptn-environment-group/locals.tf",
+          "zoom": 10,
+          "position": "15:15",
+          "highlightWholeLine": true
+        },
+        {
+          "action": "pause"
+        },
+        {
           "action": "executeTerminalCommand",
           "command": "gh run list --workflow=terraform-plan-apply.yml --limit 1",
           "insertTypingMode": "character-by-character",
@@ -703,6 +767,57 @@
           "insertTypingMode": "character-by-character",
           "autoExecute": true,
           "terminalId": "demo"
+        },
+        {
+          "action": "pause"
+        },
+        {
+          "action": "open",
+          "path": "configurations/ptn-azure-vnet-extension/data.tf"
+        },
+        {
+          "action": "pause"
+        },
+        {
+          "action": "highlight",
+          "path": "configurations/ptn-azure-vnet-extension/data.tf",
+          "zoom": 10,
+          "position": "22:42",
+          "highlightWholeLine": true
+        },
+        {
+          "action": "pause"
+        },
+        {
+          "action": "open",
+          "path": "configurations/ptn-azure-vnet-extension/locals.tf"
+        },
+        {
+          "action": "pause"
+        },
+        {
+          "action": "highlight",
+          "path": "configurations/ptn-azure-vnet-extension/locals.tf",
+          "zoom": 10,
+          "position": "15:33",
+          "highlightWholeLine": true
+        },
+        {
+          "action": "pause"
+        },
+        {
+          "action": "open",
+          "path": "configurations/ptn-azure-vnet-extension/main.tf"
+        },
+        {
+          "action": "pause"
+        },
+        {
+          "action": "highlight",
+          "path": "configurations/ptn-azure-vnet-extension/main.tf",
+          "zoom": 10,
+          "position": "19:30",
+          "highlightWholeLine": true
         },
         {
           "action": "pause"
