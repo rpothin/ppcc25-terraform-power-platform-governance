@@ -38,6 +38,7 @@ crash.*.log
 .idea/
 *.swp
 *.swo
+*.code-workspace
 
 # Operating system files
 .DS_Store
