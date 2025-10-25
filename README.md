@@ -17,7 +17,8 @@
 
 ## 🎯 About
 
-> **"Enhancing Power Platform Governance Through Terraform: Embracing Infrastructure as Code"**  
+> [!INFO]
+> [**"Enhancing Power Platform Governance Through Terraform: Embracing Infrastructure as Code"**](https://powerplatformconf.com/#!/session/Enhancing%20Power%20Platform%20Governance%20Through%20Terraform:%20Embracing%20Infrastructure%20as%20Code/7663)
 > *Presented at Power Platform Community Conference 2025 by [Raphael Pothin](https://github.com/rpothin)*
 
 ### The Problem
@@ -39,8 +40,6 @@ This repository demonstrates how **Infrastructure as Code (IaC)** transforms Pow
 | 😰 Error-prone        | ✅ Validated and tested      |
 | 🐌 Slow to scale      | 🚀 Instantly replicable      |
 | 🔧 Hard to maintain   | 🔄 Self-documenting          |
-
----
 
 ## 🚀 Quick Start
 
@@ -83,8 +82,6 @@ nano config.env  # Set GITHUB_OWNER and GITHUB_REPO
 - Terraform backend storage configuration
 - GitHub secrets configuration
 - Initial workspace setup
-
----
 
 ## 📁 Project Structure
 
@@ -157,8 +154,6 @@ The `configurations/` directory follows a naming convention inspired by Azure Ve
 - **`ptn-*`** (Pattern): Complete implementation patterns combining multiple resources
 - **`res-*`** (Resource): Individual resource configurations
 - **`utl-*`** (Utility): Helper configurations for operations like exports and generation
-
----
 
 ## 🔧 Configuration Examples
 
@@ -246,8 +241,6 @@ custom_connectors_patterns = [
 
 </details>
 
----
-
 ## 🤝 Contributing & Feedback
 
 ### 📣 We Value Your Feedback!
@@ -290,13 +283,9 @@ This repository serves as **reference implementation** for the PPCC25 session. K
 
 Your understanding and support are greatly appreciated! 🙏
 
----
-
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
 
 ## 🙏 Acknowledgments
 
