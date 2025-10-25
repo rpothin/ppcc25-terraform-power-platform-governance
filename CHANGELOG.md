@@ -119,7 +119,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **docs.instructions.md** - Documentation standards using Diataxis framework
 - **github-automation.instructions.md** - GitHub Actions optimization and standards
 
----
-
 <!-- No releases/tags yet; add [unreleased] link after first release -->
 [unreleased]: https://github.com/rpothin/ppcc25-terraform-power-platform-governance
