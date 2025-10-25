@@ -16,10 +16,20 @@
         },
         {
           "action": "executeTerminalCommand",
+          "command": "unset GH_TOKEN",
+          "insertTypingMode": "instant",
+          "autoExecute": true,
+          "terminalId": "demo"
+        },
+        {
+          "action": "executeTerminalCommand",
           "command": "unset GITHUB_TOKEN",
           "insertTypingMode": "instant",
           "autoExecute": true,
           "terminalId": "demo"
+        },
+        {
+          "action": "pause"
         },
         {
           "action": "executeTerminalCommand",
