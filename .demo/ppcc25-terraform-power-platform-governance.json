@@ -60,6 +60,14 @@
           "action": "openWebsite",
           "url": "https://admin.powerplatform.microsoft.com/security/dataprotection/dlp",
           "openInVSCode": false
+        },
+        {
+          "action": "pause"
+        },
+        {
+          "action": "openWebsite",
+          "url": "https://portal.azure.com/#@rpothinmvp.onmicrosoft.com/resource/subscriptions/7d237ead-2d0d-4dda-b0d7-2a3ecf235a1c/resourceGroups",
+          "openInVSCode": false
         }
       ]
     },
