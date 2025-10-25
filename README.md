@@ -292,6 +292,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ### Contributors
 
 <!-- ALL-CONTRIBUTORS-LIST:START -->
+<div align="center">
 <table>
   <tr>
     <td align="center">
@@ -307,6 +308,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
   </tr>
 </table>
 <!-- ALL-CONTRIBUTORS-LIST:END -->
+</div>
 
 ### Inspiration
 
