@@ -30,6 +30,7 @@ perform_github_login() {
     print_status "🔐 Authenticating with GitHub..."
     
     # Clear any existing token that might have insufficient scopes
+    unset GH_TOKEN
     unset GITHUB_TOKEN
     
     # First, check if we're already properly authenticated
@@ -70,6 +71,7 @@ authenticate_github() {
     print_status "Checking GitHub authentication..."
     
     # Clear any existing GITHUB_TOKEN that might interfere
+    unset GH_TOKEN
     unset GITHUB_TOKEN
     
     # First, check if user is logged in to GitHub at all

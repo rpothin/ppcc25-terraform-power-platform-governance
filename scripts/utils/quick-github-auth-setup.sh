@@ -15,6 +15,7 @@ echo "Setting up GitHub CLI with billing permissions..."
 echo ""
 
 # Clear existing authentication
+unset GH_TOKEN
 unset GITHUB_TOKEN 2>/dev/null || true
 gh auth logout 2>/dev/null || echo "No active session found"
 

@@ -150,6 +150,7 @@ cleanup() {
     
     # Unset sensitive variables
     unset AZURE_CLIENT_SECRET
+    unset GH_TOKEN
     unset GITHUB_TOKEN
     
     # Restore original state if needed
