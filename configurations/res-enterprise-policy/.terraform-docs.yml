@@ -1,139 +1,63 @@
-version: ">= 0.18"
+---
+### To generate the output file to partially incorporate in the README.md,
+### Execute this command in the Terraform configuration's folder:
+# terraform-docs -c .terraform-docs.yml .
 
-formatter: "markdown"
+formatter: "markdown document" # this is required
+
+version: "0.20.0"
+
+header-from: "_header.md"
+footer-from: "_footer.md"
+
+recursive:
+  enabled: false
+  path: modules
+
+sections:
+  hide: []
+  show: []
 
 content: |-
-  # Enterprise Policy Resource Module
-
   {{ .Header }}
 
-  This module deploys Microsoft.PowerPlatform/enterprisePolicies resources using the Azure API provider (azapi). Enterprise policies enable advanced Power Platform governance capabilities including Azure VNet integration and customer-managed key encryption.
-
-  ## Key Features
-
-  - **Network Injection Support**: Configure VNet integration for secure Power Platform connectivity
-  - **Customer-Managed Encryption**: Deploy encryption policies using Azure Key Vault keys
-  - **AVM Compliance**: Child module design compatible with meta-arguments (for_each, count)
-  - **Comprehensive Validation**: Strong typing with extensive input validation
-  - **Anti-Corruption Layer**: Clean outputs that abstract azapi implementation details
-  - **Lifecycle Management**: Production-ready resource lifecycle and timeout configuration
-
-  ## Policy Types
-
-  ### NetworkInjection
-  Enables Azure VNet integration for Power Platform environments, allowing secure connectivity to Azure resources while maintaining network isolation.
-
-  ### Encryption  
-  Configures customer-managed key encryption for Power Platform data, providing enhanced security control over data encryption keys.
-
-  ## Prerequisites
-
-  - Azure subscription with PowerPlatform resource provider registered
-  - For NetworkInjection: Azure VNet with Microsoft.PowerPlatform/environments subnet delegation
-  - For Encryption: Azure Key Vault with encryption keys and appropriate RBAC permissions
-  - azapi Terraform provider ~> 2.2
-
+  <!-- markdownlint-disable MD033 -->
   {{ .Requirements }}
 
   {{ .Providers }}
 
-  {{ .Modules }}
-
   {{ .Resources }}
 
+  <!-- markdownlint-disable MD013 -->
   {{ .Inputs }}
 
   {{ .Outputs }}
 
-  ## Usage Examples
-
-  ### Network Injection Policy
-
-  ```hcl
-  module "vnet_integration_policy" {
-    source = "./configurations/res-enterprise-policy"
-
-    policy_configuration = {
-      name              = "ep-vnet-integration"
-      location          = "europe"
-      policy_type       = "NetworkInjection"
-      resource_group_id = azurerm_resource_group.governance.id
-
-      network_injection_config = {
-        virtual_networks = [{
-          id     = azurerm_virtual_network.powerplatform.id
-          subnet = { name = "snet-powerplatform" }
-        }]
-      }
-    }
-
-    common_tags = {
-      environment = "production"
-      project     = "powerplatform-governance"
-    }
-  }
-  ```
-
-  ### Encryption Policy
-
-  ```hcl
-  module "encryption_policy" {
-    source = "./configurations/res-enterprise-policy"
-
-    policy_configuration = {
-      name              = "ep-encryption"
-      location          = "europe"
-      policy_type       = "Encryption"
-      resource_group_id = azurerm_resource_group.governance.id
-
-      encryption_config = {
-        key_vault = {
-          id = azurerm_key_vault.powerplatform.id
-          key = {
-            name    = "powerplatform-key"
-            version = "latest"
-          }
-        }
-        state = "Enabled"
-      }
-    }
-
-    common_tags = {
-      environment = "production"
-      project     = "powerplatform-governance"
-    }
-  }
-  ```
-
-  ## Integration with Power Platform
-
-  After deploying the enterprise policy, link it to Power Platform environments:
-
-  ```hcl
-  resource "powerplatform_enterprise_policy" "link" {
-    location             = module.enterprise_policy.policy_location
-    enterprise_policy_id = module.enterprise_policy.enterprise_policy_system_id
-  }
-  ```
-
-  ## Security Considerations
-
-  - Enterprise policies automatically create system-assigned managed identities
-  - For encryption policies, grant managed identity access to Key Vault (Key Vault Crypto Officer role)
-  - For network injection, ensure appropriate network security group rules
-  - Review and validate policy configuration before deployment to production environments
+  {{ .Modules }}
 
   {{ .Footer }}
 
-outputs:
-  file: "README.md"
-  mode: inject
+output:
+  file: README.md
+  mode: replace
+  template: |-
+    <!-- BEGIN_TF_DOCS -->
+    {{ .Content }}
+    <!-- END_TF_DOCS -->
+
+output-values:
+  enabled: false
+  from: ""
+
+sort:
+  enabled: true
+  by: required
 
 settings:
   anchor: true
   color: true
   default: true
-  description: true
+  description: false
   escape: true
   hide-empty: false
   html: true
@@ -143,11 +67,3 @@ settings:
   required: true
   sensitive: true
   type: true
-
-sections:
-  hide: []
-  show: []
-
-sort:
-  enabled: true
-  by: name
