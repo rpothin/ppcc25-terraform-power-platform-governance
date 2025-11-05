@@ -1,82 +1,54 @@
-# Provider and version constraints for ptn-azure-vnet-extension
+# Provider and version constraints for ptn-azure-vnet-extension pattern
 #
-# This file defines the required Terraform and provider versions for the dual VNet extension pattern
-# following AVM standards with multi-cloud provider integration.
+# Pattern modules orchestrate multiple resource modules and include provider/backend blocks
+# as root modules following AVM specification PMNFR2.
 #
-# Key Requirements:
-# - Provider Versions: Using centralized standards (~> 3.8 Power Platform, ~> 4.0 Azure RM)
-# - OIDC Authentication: Secure, keyless authentication for all providers and backend
-# - State Backend: Azure Storage with OIDC for secure, centralized state management
-# - Dual Provider Support: Both Power Platform and Azure for VNet integration scenarios
-#
-# Pattern Context:
-# - Root Module: Contains provider and backend blocks for pattern orchestration
-# - Multi-Subscription: Supports production/non-production subscription deployment
-# - Enterprise Policy: Enables Microsoft.PowerPlatform/enterprisePolicies deployment
+# Baseline Requirements:
+# - Terraform: >= 1.5.0 (consistent with repository baseline)
+# - Provider: microsoft/power-platform ~> 3.8 (centralized version standard)
+# - Provider: hashicorp/azurerm ~> 4.0 (AVM-compatible version)
+# - Provider: azure/azapi ~> 2.6 (for enterprise policies)
+# - Backend: Azure Storage with OIDC (keyless authentication)
 
 terraform {
-  # WHY: Terraform 1.9+ required for advanced validation and lifecycle features
-  # CONTEXT: Pattern uses complex validation logic and sensitive variable handling
-  # IMPACT: Ensures reliable dual VNet configuration validation and deployment
   required_version = ">= 1.5.0"
 
   required_providers {
     powerplatform = {
-      source = "microsoft/power-platform"
-      # WHY: Version ~> 3.8 provides stable Power Platform resource management
-      # CONTEXT: Centralized version standard across all PPCC25 configurations
-      # IMPACT: Enables consistent enterprise policy and environment integration
+      source  = "microsoft/power-platform"
       version = "~> 3.8"
     }
     azurerm = {
-      source = "hashicorp/azurerm"
-      # WHY: Use AVM-compatible version 4.x for DNS and NSG module integration
-      # CONTEXT: AVM modules require provider version 4.x for latest features
-      # IMPACT: Enables full AVM module compatibility with latest Azure features
-      # STRATEGY: Migrate to 4.x series for AVM module compatibility
+      source  = "hashicorp/azurerm"
       version = "~> 4.0"
-      # WHY: Configuration aliases required for multi-subscription deployment
-      # CONTEXT: AVM specification TFNFR27 compliant provider alias handling
-      # IMPACT: Enables production/non-production subscription routing
+      # Configuration aliases for multi-subscription deployment
       configuration_aliases = [azurerm.production]
     }
     azapi = {
-      source = "azure/azapi"
-      # WHY: Use latest stable 2.x series - mature API with active development
-      # CONTEXT: Version 2.x is stable, 3.x is preview with potential breaking changes
-      # IMPACT: Access to latest Azure preview APIs while maintaining stability
-      # STRATEGY: Pin to latest 2.x minor version for new features with stability
+      source  = "azure/azapi"
       version = "~> 2.6"
     }
   }
 
-  # WHY: Azure backend with OIDC eliminates stored credentials security risk
-  # CONTEXT: Enterprise environments require Zero Trust authentication patterns
-  # IMPACT: Enables secure, auditable state management for sensitive infrastructure
+  # Azure backend with OIDC for secure state management
   backend "azurerm" {
     use_oidc = true
   }
 }
 
-# WHY: OIDC authentication eliminates client secret management overhead
-# CONTEXT: Power Platform governance requires secure, auditable API access
-# IMPACT: Enables keyless authentication aligned with enterprise security standards
+# Provider configuration using OIDC authentication
 provider "powerplatform" {
   use_oidc = true
 }
 
-# WHY: OIDC authentication with features block enables secure Azure resource management
-# CONTEXT: Default provider for non-production environments (Dev, Test, Staging)
-# IMPACT: Enables secure Azure resource provisioning for non-production workloads
+# Default provider for non-production environments
 provider "azurerm" {
   use_oidc        = true
   subscription_id = var.non_production_subscription_id
   features {}
 }
 
-# WHY: Production environments require dedicated subscription for governance
-# CONTEXT: Production workloads deployed to separate subscription for isolation
-# IMPACT: Enables proper subscription-level governance and cost management
+# Production provider for production workloads
 provider "azurerm" {
   alias           = "production"
   use_oidc        = true
@@ -84,9 +56,7 @@ provider "azurerm" {
   features {}
 }
 
-# WHY: azapi provider required for res-enterprise-policy module integration
-# CONTEXT: Enterprise policy creation uses preview APIs requiring azapi resources
-# IMPACT: Enables Microsoft.PowerPlatform/enterprisePolicies deployment
+# Azure API provider for enterprise policies
 provider "azapi" {
   use_oidc = true
 }
