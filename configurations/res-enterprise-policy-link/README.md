@@ -102,58 +102,297 @@ graph TB
 - **Automation**: Integrate with CI/CD pipelines
 - **Compliance**: Meet enterprise governance requirements
 
-## Usage
-
-Basic usage:
-
-```hcl
-module "enterprise_policy" {
-  source = "../res-enterprise-policy-link"
-  
-  environment_id = "36f603f9-0af2-e33d-98a5-64b02c1bac19"
-  policy_type    = "NetworkInjection"
-  system_id      = "/regions/unitedstates/providers/Microsoft.PowerPlatform/enterprisePolicies/abcdef12-3456-789a-bcde-f123456789ab"
-}
-```
-
+<!-- markdownlint-disable MD033 -->
 ## Requirements
 
-| Name | Version |
-|------|---------|
-| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.5.0 |
-| <a name="requirement_powerplatform"></a> [powerplatform](#requirement\_powerplatform) | ~> 3.8 |
+The following requirements are needed by this module:
+
+- <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) (>= 1.5.0)
+
+- <a name="requirement_powerplatform"></a> [powerplatform](#requirement\_powerplatform) (~> 3.8)
 
 ## Providers
 
-| Name | Version |
-|------|---------|
-| <a name="provider_powerplatform"></a> [powerplatform](#provider\_powerplatform) | ~> 3.8 |
+The following providers are used by this module:
+
+- <a name="provider_powerplatform"></a> [powerplatform](#provider\_powerplatform) (~> 3.8)
 
 ## Resources
 
-| Name | Type |
-|------|------|
-| [powerplatform_enterprise_policy.this](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/resources/enterprise_policy) | resource |
+The following resources are used by this module:
 
-## Inputs
+- [powerplatform_enterprise_policy.this](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/resources/enterprise_policy) (resource)
 
-| Name | Description | Type | Default | Required |
-|------|-------------|------|---------|:--------:|
-| <a name="input_environment_id"></a> [environment\_id](#input\_environment\_id) | Target Power Platform environment ID for enterprise policy assignment.<br/><br/>This variable specifies which Power Platform environment will have the enterprise<br/>policy applied. The environment must exist and be accessible for policy assignment.<br/><br/>Usage Context:<br/>- Used to bind enterprise policies to specific Power Platform environments<br/>- Must be a valid GUID representing an existing Power Platform environment<br/>- Environment must support the specified policy type (NetworkInjection/Encryption)<br/><br/>Validation Rules:<br/>- Must be a valid GUID format (8-4-4-4-12 hexadecimal pattern)<br/>- Environment must be accessible with current authentication<br/>- For NetworkInjection: Environment should have Dataverse enabled<br/>- For Encryption: Environment must be configured as managed environment<br/><br/>Example Values:<br/>- "36f603f9-0af2-e33d-98a5-64b02c1bac19" (development environment)<br/>- "abcdef12-3456-789a-bcde-f123456789ab" (production environment)<br/><br/>Security Considerations:<br/>- Environment IDs are not sensitive but should be validated for existence<br/>- Ensure proper RBAC permissions for policy assignment to the target environment | `string` | n/a | yes |
-| <a name="input_policy_type"></a> [policy\_type](#input\_policy\_type) | Type of enterprise policy to assign to the environment.<br/><br/>This variable determines which type of enterprise policy will be applied to the<br/>target environment. Different policy types provide different governance capabilities.<br/><br/>Supported Policy Types:<br/>- NetworkInjection: Enables VNet integration and subnet delegation for the environment<br/>- Encryption: Applies customer-managed key encryption using Azure Key Vault<br/><br/>Usage Context:<br/>- NetworkInjection: Used for environments requiring private connectivity to Azure resources<br/>- Encryption: Used for environments requiring enhanced data protection with CMK<br/>- Policy type must match the capabilities of the target Azure policy resource<br/><br/>Prerequisites by Policy Type:<br/>- NetworkInjection: Requires Azure VNet, subnet with delegation, and proper networking setup<br/>- Encryption: Requires Azure Key Vault, managed environment configuration, and proper permissions<br/><br/>Example Values:<br/>- "NetworkInjection" (for VNet integration scenarios)<br/>- "Encryption" (for customer-managed key scenarios)<br/><br/>Validation Rules:<br/>- Must be exactly "NetworkInjection" or "Encryption" (case-sensitive)<br/>- Policy type must be supported by the Power Platform provider version | `string` | n/a | yes |
-| <a name="input_system_id"></a> [system\_id](#input\_system\_id) | Enterprise policy system ID in Azure Resource Manager format.<br/><br/>This variable specifies the Azure resource identifier for the enterprise policy<br/>that will be assigned to the target environment. The system ID must reference<br/>an existing Azure enterprise policy resource.<br/><br/>Format Requirements:<br/>- Must follow ARM resource ID pattern<br/>- Format: /regions/<location>/providers/Microsoft.PowerPlatform/enterprisePolicies/<policy-id><br/>- Location must match the Power Platform environment's Azure region<br/>- Policy ID must be a valid GUID representing an existing enterprise policy<br/><br/>Usage Context:<br/>- Links Power Platform environment to Azure-based enterprise policy<br/>- Enables governance control through Azure Policy and Azure Resource Manager<br/>- Policy must be pre-created in Azure before assignment<br/><br/>Example Values:<br/>- "/regions/unitedstates/providers/Microsoft.PowerPlatform/enterprisePolicies/36f603f9-0af2-e33d-98a5-64b02c1bac19"<br/>- "/regions/europe/providers/Microsoft.PowerPlatform/enterprisePolicies/abcdef12-3456-789a-bcde-f123456789ab"<br/><br/>Validation Rules:<br/>- Must match the exact ARM resource ID format<br/>- Region must be valid Power Platform region identifier<br/>- Policy ID must be a valid GUID format<br/>- Referenced policy resource must exist in Azure<br/><br/>Security Considerations:<br/>- System IDs are not sensitive but should reference valid, authorized policies<br/>- Ensure proper Azure RBAC permissions for policy resource access | `string` | n/a | yes |
+<!-- markdownlint-disable MD013 -->
+## Required Inputs
+
+The following input variables are required:
+
+### <a name="input_environment_id"></a> [environment\_id](#input\_environment\_id)
+
+Description: Target Power Platform environment ID for enterprise policy assignment.
+
+This variable specifies which Power Platform environment will have the enterprise  
+policy applied. The environment must exist and be accessible for policy assignment.
+
+Usage Context:
+- Used to bind enterprise policies to specific Power Platform environments
+- Must be a valid GUID representing an existing Power Platform environment
+- Environment must support the specified policy type (NetworkInjection/Encryption)
+
+Validation Rules:
+- Must be a valid GUID format (8-4-4-4-12 hexadecimal pattern)
+- Environment must be accessible with current authentication
+- For NetworkInjection: Environment should have Dataverse enabled
+- For Encryption: Environment must be configured as managed environment
+
+Example Values:
+- "36f603f9-0af2-e33d-98a5-64b02c1bac19" (development environment)
+- "abcdef12-3456-789a-bcde-f123456789ab" (production environment)
+
+Security Considerations:
+- Environment IDs are not sensitive but should be validated for existence
+- Ensure proper RBAC permissions for policy assignment to the target environment
+
+Type: `string`
+
+### <a name="input_policy_type"></a> [policy\_type](#input\_policy\_type)
+
+Description: Type of enterprise policy to assign to the environment.
+
+This variable determines which type of enterprise policy will be applied to the  
+target environment. Different policy types provide different governance capabilities.
+
+Supported Policy Types:
+- NetworkInjection: Enables VNet integration and subnet delegation for the environment
+- Encryption: Applies customer-managed key encryption using Azure Key Vault
+
+Usage Context:
+- NetworkInjection: Used for environments requiring private connectivity to Azure resources
+- Encryption: Used for environments requiring enhanced data protection with CMK
+- Policy type must match the capabilities of the target Azure policy resource
+
+Prerequisites by Policy Type:
+- NetworkInjection: Requires Azure VNet, subnet with delegation, and proper networking setup
+- Encryption: Requires Azure Key Vault, managed environment configuration, and proper permissions
+
+Example Values:
+- "NetworkInjection" (for VNet integration scenarios)
+- "Encryption" (for customer-managed key scenarios)
+
+Validation Rules:
+- Must be exactly "NetworkInjection" or "Encryption" (case-sensitive)
+- Policy type must be supported by the Power Platform provider version
+
+Type: `string`
+
+### <a name="input_system_id"></a> [system\_id](#input\_system\_id)
+
+Description: Enterprise policy system ID in Azure Resource Manager format.
+
+This variable specifies the Azure resource identifier for the enterprise policy  
+that will be assigned to the target environment. The system ID must reference  
+an existing Azure enterprise policy resource.
+
+Format Requirements:
+- Must follow ARM resource ID pattern
+- Format: /regions/<location>/providers/Microsoft.PowerPlatform/enterprisePolicies/<policy-id>
+- Location must match the Power Platform environment's Azure region
+- Policy ID must be a valid GUID representing an existing enterprise policy
+
+Usage Context:
+- Links Power Platform environment to Azure-based enterprise policy
+- Enables governance control through Azure Policy and Azure Resource Manager
+- Policy must be pre-created in Azure before assignment
+
+Example Values:
+- "/regions/unitedstates/providers/Microsoft.PowerPlatform/enterprisePolicies/36f603f9-0af2-e33d-98a5-64b02c1bac19"
+- "/regions/europe/providers/Microsoft.PowerPlatform/enterprisePolicies/abcdef12-3456-789a-bcde-f123456789ab"
+
+Validation Rules:
+- Must match the exact ARM resource ID format
+- Region must be valid Power Platform region identifier
+- Policy ID must be a valid GUID format
+- Referenced policy resource must exist in Azure
+
+Security Considerations:
+- System IDs are not sensitive but should reference valid, authorized policies
+- Ensure proper Azure RBAC permissions for policy resource access
+
+Type: `string`
+
+## Optional Inputs
+
+No optional inputs.
 
 ## Outputs
 
-| Name | Description |
-|------|-------------|
-| <a name="output_deployment_summary"></a> [deployment\_summary](#output\_deployment\_summary) | Comprehensive summary of the enterprise policy assignment deployment for validation and compliance.<br/><br/>This output aggregates all key deployment information into a single object<br/>suitable for reporting, validation, and integration with external systems.<br/>Follows AVM patterns for configuration summary outputs.<br/><br/>IMPORTANT: This module assigns existing Azure enterprise policies to Power Platform environments.<br/>The Azure enterprise policy must be pre-created (typically using azapi\_resource).<br/><br/>Summary Components:<br/>- Resource Information: IDs, types, and identifiers<br/>- Configuration Details: Policy type and assignment parameters<br/>- Deployment Metadata: Timestamps, module version, and operational details<br/>- Assignment Status: Policy assignment completion and validation<br/><br/>Usage Examples:<br/>- Automated compliance reporting and audit trails<br/>- Integration with governance dashboards and monitoring<br/>- Validation in CI/CD pipelines and deployment verification<br/>- Documentation generation and deployment artifacts<br/><br/>Data Quality:<br/>- All timestamps are in RFC3339 format for consistency<br/>- Version information tracks module evolution<br/>- Status fields provide clear deployment state indication<br/><br/>Security: Contains no sensitive information, designed for external consumption |
-| <a name="output_enterprise_policy_id"></a> [enterprise\_policy\_id](#output\_enterprise\_policy\_id) | The unique identifier of the enterprise policy assignment.<br/><br/>This output provides the primary key for referencing this policy assignment<br/>in other Terraform configurations or external systems. The ID represents the<br/>specific binding between the Power Platform environment and the Azure enterprise policy.<br/><br/>Usage Examples:<br/>- Reference in other modules: module.enterprise\_policy.enterprise\_policy\_id<br/>- Export for external systems integration<br/>- Use in dependency chains for resource ordering<br/>- Include in governance reporting and audit trails<br/><br/>Format: Typically a GUID assigned by the Power Platform service<br/>Example: "36f603f9-0af2-e33d-98a5-64b02c1bac19"<br/><br/>Security Note: This ID is not sensitive and can be safely logged or exported. |
-| <a name="output_environment_assignments"></a> [environment\_assignments](#output\_environment\_assignments) | Summary of policy assignments to environments for governance tracking.<br/><br/>This output provides a consolidated view of the environment-policy relationship<br/>established by this module. Designed for governance reporting, audit trails,<br/>and integration with policy management systems.<br/><br/>Included Information:<br/>- environment\_id: Target Power Platform environment<br/>- assignment\_id: Unique identifier for this policy assignment<br/>- policy\_type: Type of enterprise policy applied<br/>- system\_id: Azure enterprise policy resource reference<br/>- assignment\_status: Status of the policy assignment<br/><br/>Usage Examples:<br/>- Governance dashboards showing policy coverage<br/>- Audit reports for compliance verification<br/>- Integration with enterprise policy management systems<br/>- Automated policy assignment validation<br/><br/>Data Structure: Object with comprehensive assignment metadata<br/>Update Frequency: Changes when policy assignments are modified<br/>Security: Contains no sensitive data, safe for external reporting |
-| <a name="output_module_metadata"></a> [module\_metadata](#output\_module\_metadata) | Metadata about the res-enterprise-policy-link module deployment.<br/><br/>This output provides operational information about the module itself,<br/>including version, capabilities, and configuration options. Useful for<br/>module management, troubleshooting, and integration validation.<br/><br/>Metadata Components:<br/>- module\_type: Always "res-enterprise-policy-link" for identification<br/>- module\_version: Semantic version of this module implementation<br/>- supported\_policy\_types: List of enterprise policy types supported<br/>- avm\_compliance: AVM specification compliance information<br/>- provider\_requirements: Power Platform provider version requirements<br/><br/>Usage Examples:<br/>- Module inventory and version management<br/>- Compatibility checking in parent modules<br/>- Documentation generation and module catalogs<br/>- Troubleshooting and support ticket information<br/><br/>Data Stability: Module metadata changes only with module updates<br/>Format: Structured object with consistent field names across AVM modules<br/>Security: Contains no sensitive operational information |
-| <a name="output_policy_assignment_details"></a> [policy\_assignment\_details](#output\_policy\_assignment\_details) | Comprehensive details of the enterprise policy assignment configuration.<br/><br/>This output provides a structured summary of the policy assignment including<br/>all key configuration parameters. Useful for validation, reporting, and<br/>downstream module consumption.<br/><br/>Included Information:<br/>- environment\_id: Target Power Platform environment identifier<br/>- policy\_type: Type of enterprise policy (NetworkInjection/Encryption)<br/>- system\_id: Azure enterprise policy resource identifier<br/>- assignment\_id: Power Platform policy assignment identifier<br/><br/>Usage Examples:<br/>- Validation: Confirm policy was assigned correctly<br/>- Reporting: Include in governance dashboards<br/>- Integration: Pass to monitoring or audit systems<br/>- Documentation: Auto-generate deployment reports<br/><br/>Data Structure: Object with string properties<br/>Security: Contains no sensitive information, safe for logging |
-| <a name="output_policy_type"></a> [policy\_type](#output\_policy\_type) | The type of enterprise policy assigned to the environment.<br/><br/>This discrete output provides the policy type for downstream consumption<br/>without exposing the full resource object. Useful for conditional logic<br/>in parent modules and policy type validation.<br/><br/>Valid Values:<br/>- "NetworkInjection" - VNet integration and subnet delegation policy<br/>- "Encryption" - Customer-managed key encryption policy<br/><br/>Usage Examples:<br/>- Conditional resource creation based on policy type<br/>- Validation in parent modules or patterns<br/>- Documentation generation and reporting<br/>- Integration with monitoring systems<br/><br/>Format: String value matching the input policy\_type variable<br/>Security: Policy type is not sensitive information |
-| <a name="output_target_environment_id"></a> [target\_environment\_id](#output\_target\_environment\_id) | The Power Platform environment ID that received the policy assignment.<br/><br/>This discrete output provides the target environment identifier for<br/>downstream consumption and validation. Useful for chaining modules<br/>and creating dependency relationships.<br/><br/>Usage Examples:<br/>- Reference in dependent modules requiring the same environment<br/>- Validation that policy was applied to correct environment<br/>- Documentation and audit trail generation<br/>- Integration with environment management systems<br/><br/>Format: GUID string representing the Power Platform environment<br/>Example: "36f603f9-0af2-e33d-98a5-64b02c1bac19"<br/>Source: Directly from the powerplatform\_enterprise\_policy resource |
+The following outputs are exported:
+
+### <a name="output_deployment_summary"></a> [deployment\_summary](#output\_deployment\_summary)
+
+Description: Comprehensive summary of the enterprise policy assignment deployment for validation and compliance.
+
+This output aggregates all key deployment information into a single object  
+suitable for reporting, validation, and integration with external systems.  
+Follows AVM patterns for configuration summary outputs.
+
+IMPORTANT: This module assigns existing Azure enterprise policies to Power Platform environments.  
+The Azure enterprise policy must be pre-created (typically using azapi\_resource).
+
+Summary Components:
+- Resource Information: IDs, types, and identifiers
+- Configuration Details: Policy type and assignment parameters
+- Deployment Metadata: Timestamps, module version, and operational details
+- Assignment Status: Policy assignment completion and validation
+
+Usage Examples:
+- Automated compliance reporting and audit trails
+- Integration with governance dashboards and monitoring
+- Validation in CI/CD pipelines and deployment verification
+- Documentation generation and deployment artifacts
+
+Data Quality:
+- All timestamps are in RFC3339 format for consistency
+- Version information tracks module evolution
+- Status fields provide clear deployment state indication
+
+Security: Contains no sensitive information, designed for external consumption
+
+### <a name="output_enterprise_policy_id"></a> [enterprise\_policy\_id](#output\_enterprise\_policy\_id)
+
+Description: The unique identifier of the enterprise policy assignment.
+
+This output provides the primary key for referencing this policy assignment  
+in other Terraform configurations or external systems. The ID represents the  
+specific binding between the Power Platform environment and the Azure enterprise policy.
+
+Usage Examples:
+- Reference in other modules: module.enterprise\_policy.enterprise\_policy\_id
+- Export for external systems integration
+- Use in dependency chains for resource ordering
+- Include in governance reporting and audit trails
+
+Format: Typically a GUID assigned by the Power Platform service  
+Example: "36f603f9-0af2-e33d-98a5-64b02c1bac19"
+
+Security Note: This ID is not sensitive and can be safely logged or exported.
+
+### <a name="output_environment_assignments"></a> [environment\_assignments](#output\_environment\_assignments)
+
+Description: Summary of policy assignments to environments for governance tracking.
+
+This output provides a consolidated view of the environment-policy relationship  
+established by this module. Designed for governance reporting, audit trails,  
+and integration with policy management systems.
+
+Included Information:
+- environment\_id: Target Power Platform environment
+- assignment\_id: Unique identifier for this policy assignment
+- policy\_type: Type of enterprise policy applied
+- system\_id: Azure enterprise policy resource reference
+- assignment\_status: Status of the policy assignment
+
+Usage Examples:
+- Governance dashboards showing policy coverage
+- Audit reports for compliance verification
+- Integration with enterprise policy management systems
+- Automated policy assignment validation
+
+Data Structure: Object with comprehensive assignment metadata  
+Update Frequency: Changes when policy assignments are modified  
+Security: Contains no sensitive data, safe for external reporting
+
+### <a name="output_module_metadata"></a> [module\_metadata](#output\_module\_metadata)
+
+Description: Metadata about the res-enterprise-policy-link module deployment.
+
+This output provides operational information about the module itself,  
+including version, capabilities, and configuration options. Useful for  
+module management, troubleshooting, and integration validation.
+
+Metadata Components:
+- module\_type: Always "res-enterprise-policy-link" for identification
+- module\_version: Semantic version of this module implementation
+- supported\_policy\_types: List of enterprise policy types supported
+- avm\_compliance: AVM specification compliance information
+- provider\_requirements: Power Platform provider version requirements
+
+Usage Examples:
+- Module inventory and version management
+- Compatibility checking in parent modules
+- Documentation generation and module catalogs
+- Troubleshooting and support ticket information
+
+Data Stability: Module metadata changes only with module updates  
+Format: Structured object with consistent field names across AVM modules  
+Security: Contains no sensitive operational information
+
+### <a name="output_policy_assignment_details"></a> [policy\_assignment\_details](#output\_policy\_assignment\_details)
+
+Description: Comprehensive details of the enterprise policy assignment configuration.
+
+This output provides a structured summary of the policy assignment including  
+all key configuration parameters. Useful for validation, reporting, and  
+downstream module consumption.
+
+Included Information:
+- environment\_id: Target Power Platform environment identifier
+- policy\_type: Type of enterprise policy (NetworkInjection/Encryption)
+- system\_id: Azure enterprise policy resource identifier
+- assignment\_id: Power Platform policy assignment identifier
+
+Usage Examples:
+- Validation: Confirm policy was assigned correctly
+- Reporting: Include in governance dashboards
+- Integration: Pass to monitoring or audit systems
+- Documentation: Auto-generate deployment reports
+
+Data Structure: Object with string properties  
+Security: Contains no sensitive information, safe for logging
+
+### <a name="output_policy_type"></a> [policy\_type](#output\_policy\_type)
+
+Description: The type of enterprise policy assigned to the environment.
+
+This discrete output provides the policy type for downstream consumption  
+without exposing the full resource object. Useful for conditional logic  
+in parent modules and policy type validation.
+
+Valid Values:
+- "NetworkInjection" - VNet integration and subnet delegation policy
+- "Encryption" - Customer-managed key encryption policy
+
+Usage Examples:
+- Conditional resource creation based on policy type
+- Validation in parent modules or patterns
+- Documentation generation and reporting
+- Integration with monitoring systems
+
+Format: String value matching the input policy\_type variable  
+Security: Policy type is not sensitive information
+
+### <a name="output_target_environment_id"></a> [target\_environment\_id](#output\_target\_environment\_id)
+
+Description: The Power Platform environment ID that received the policy assignment.
+
+This discrete output provides the target environment identifier for  
+downstream consumption and validation. Useful for chaining modules  
+and creating dependency relationships.
+
+Usage Examples:
+- Reference in dependent modules requiring the same environment
+- Validation that policy was applied to correct environment
+- Documentation and audit trail generation
+- Integration with environment management systems
+
+Format: GUID string representing the Power Platform environment  
+Example: "36f603f9-0af2-e33d-98a5-64b02c1bac19"  
+Source: Directly from the powerplatform\_enterprise\_policy resource
+
+## Modules
+
+No modules.
 
 ## 🔍 Examples
 
