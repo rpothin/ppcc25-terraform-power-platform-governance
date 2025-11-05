@@ -1,10 +1,18 @@
-formatter: "markdown"
+---
+### To generate the output file to partially incorporate in the README.md,
+### Execute this command in the Terraform configuration's folder:
+# terraform-docs -c .terraform-docs.yml .
+
+formatter: "markdown document" # this is required
+
+version: "0.20.0"
 
 header-from: "_header.md"
 footer-from: "_footer.md"
 
 recursive:
   enabled: false
+  path: modules
 
 sections:
   hide: []
@@ -12,44 +20,38 @@ sections:
 
 content: |-
   {{ .Header }}
-  
-  ## Usage
-  
-  Basic usage:
-  
-  ```hcl
-  module "enterprise_policy" {
-    source = "../res-enterprise-policy-link"
-    
-    environment_id = "36f603f9-0af2-e33d-98a5-64b02c1bac19"
-    policy_type    = "NetworkInjection"
-    system_id      = "/regions/unitedstates/providers/Microsoft.PowerPlatform/enterprisePolicies/abcdef12-3456-789a-bcde-f123456789ab"
-  }
-  ```
-  
+
+  <!-- markdownlint-disable MD033 -->
   {{ .Requirements }}
-  
+
   {{ .Providers }}
-  
+
   {{ .Resources }}
-  
+
+  <!-- markdownlint-disable MD013 -->
   {{ .Inputs }}
-  
+
   {{ .Outputs }}
-  
+
+  {{ .Modules }}
+
   {{ .Footer }}
 
 output:
-  file: "README.md"
-  mode: inject
+  file: README.md
+  mode: replace
   template: |-
     <!-- BEGIN_TF_DOCS -->
     {{ .Content }}
     <!-- END_TF_DOCS -->
 
+output-values:
+  enabled: false
+  from: ""
+
 sort:
   enabled: true
-  by: name
+  by: required
 
 settings:
   anchor: true
