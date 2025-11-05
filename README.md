@@ -1,327 +1,432 @@
-# 🚀 Power Platform Governance with Terraform
+# terraform-docs
 
-<div align="center">
+[![Build Status](https://github.com/terraform-docs/terraform-docs/workflows/ci/badge.svg)](https://github.com/terraform-docs/terraform-docs/actions) [![GoDoc](https://pkg.go.dev/badge/github.com/terraform-docs/terraform-docs)](https://pkg.go.dev/github.com/terraform-docs/terraform-docs) [![Go Report Card](https://goreportcard.com/badge/github.com/terraform-docs/terraform-docs)](https://goreportcard.com/report/github.com/terraform-docs/terraform-docs) [![Codecov Report](https://codecov.io/gh/terraform-docs/terraform-docs/branch/master/graph/badge.svg)](https://codecov.io/gh/terraform-docs/terraform-docs) [![License](https://img.shields.io/github/license/terraform-docs/terraform-docs)](https://github.com/terraform-docs/terraform-docs/blob/master/LICENSE) [![Latest release](https://img.shields.io/github/v/release/terraform-docs/terraform-docs)](https://github.com/terraform-docs/terraform-docs/releases)
 
-![Power Platform + Terraform](https://img.shields.io/badge/Power%20Platform-❤️-742774?style=for-the-badge&logo=microsoft)
-![Infrastructure as Code](https://img.shields.io/badge/IaC-Terraform-623CE4?style=for-the-badge&logo=terraform)
-![PPCC25](https://img.shields.io/badge/PPCC-2025-blue?style=for-the-badge)
+![terraform-docs-teaser](./images/terraform-docs-teaser.png)
 
-**Transform your Power Platform governance from ClickOps to Infrastructure as Code**
+## What is terraform-docs
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![GitHub Stars](https://img.shields.io/github/stars/rpothin/ppcc25-terraform-power-platform-governance?style=social)](https://github.com/rpothin/ppcc25-terraform-power-platform-governance/stargazers)
+A utility to generate documentation from Terraform modules in various output formats.
 
-[📚 Documentation](docs/) • [🎯 Quick Start](#-quick-start) <!--• [🎬 Demo Video](#)-->
+## Installation
 
-</div>
-
-## 🎯 About
-
-> [!NOTE]
-> [**"Enhancing Power Platform Governance Through Terraform: Embracing Infrastructure as Code"**](https://powerplatformconf.com/#!/session/Enhancing%20Power%20Platform%20Governance%20Through%20Terraform:%20Embracing%20Infrastructure%20as%20Code/7663)
-> *Presented at Power Platform Community Conference 2025 by [Raphael Pothin](https://github.com/rpothin)*
-
-### The Problem
-
-Power Platform administrators face critical challenges:
-- **Manual Configuration Drift** - ClickOps leads to inconsistent environments
-- **Audit Trail Gaps** - No version history for governance changes  
-- **Scale Limitations** - Manual processes don't scale with enterprise growth
-- **Recovery Complexity** - No easy rollback when things go wrong
-
-### The Solution
-
-This repository demonstrates how **Infrastructure as Code (IaC)** transforms Power Platform governance and can provide the following key benefits:
-
-| Traditional ClickOps | Infrastructure as Code      |
-| -------------------- | --------------------------- |
-| 🖱️ Manual clicks      | 📝 Declarative configuration |
-| 🔍 No audit trail     | 📊 Complete version history  |
-| 😰 Error-prone        | ✅ Validated and tested      |
-| 🐌 Slow to scale      | 🚀 Instantly replicable      |
-| 🔧 Hard to maintain   | 🔄 Self-documenting          |
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-<details>
-<summary>Click to expand prerequisites</summary>
-
-- [ ] **Power Platform** admin access ([Join the Microsoft 365 Developer Program](https://developer.microsoft.com/en-us/microsoft-365/dev-program) --> [Try Power Platform for free](https://www.microsoft.com/en-us/power-platform/products/power-apps/free))
-- [ ] **Azure subscription** ([Free trial available](https://azure.microsoft.com/free))
-- [ ] **GitHub account** ([Sign up free](https://github.com/signup))
-- [ ] **Development tools**:
+macOS users can install using [Homebrew]:
 
 ```bash
-# Check if you have required tools
-terraform version  # >= 1.5.0
-az version        # >= 2.50.0
-gh version        # >= 2.0.0
+brew install terraform-docs
 ```
 
-</details>
-
-### 30-Second Setup
+or
 
 ```bash
-# 1️⃣ Clone and configure
-git clone https://github.com/rpothin/ppcc25-terraform-power-platform-governance.git
-cd ppcc25-terraform-power-platform-governance
-cp config.env.example config.env
-
-# 2️⃣ Edit config (only 2 required values!)
-nano config.env  # Set GITHUB_OWNER and GITHUB_REPO
-
-# 3️⃣ Run automated setup
-./setup.sh
+brew install terraform-docs/tap/terraform-docs
 ```
 
-**That's it!** 🎉 The setup script handles:
-- Azure service principal creation with OIDC
-- Terraform backend storage configuration
-- GitHub secrets configuration
-- Initial workspace setup
-
-## 📁 Project Structure
-
-```plaintext
-🏗️ ppcc25-terraform-power-platform-governance/
-│
-├── 📦 configurations/                  # Ready-to-deploy Terraform configurations
-│   ├── ptn-azure-vnet-extension/      # Azure VNet extension pattern
-│   ├── ptn-environment-group/         # Environment grouping pattern
-│   ├── res-dlp-policy/                # Data Loss Prevention policies
-│   ├── res-enterprise-policy/         # Enterprise policy resources
-│   ├── res-enterprise-policy-link/    # Enterprise policy linking
-│   ├── res-environment/               # Environment creation
-│   ├── res-environment-application-admin/ # Environment admin setup
-│   ├── res-environment-group/         # Environment group resources
-│   ├── res-environment-settings/      # Environment configuration
-│   ├── utl-export-connectors/         # Export available connectors
-│   ├── utl-export-dlp-policies/       # Export existing DLP policies
-│   └── utl-generate-dlp-tfvars/       # Generate DLP tfvars from export
-│
-├── 🤖 .github/                         # GitHub automation
-│   ├── workflows/                     # CI/CD pipelines
-│   │   ├── terraform-plan-apply.yml   # Main deployment workflow
-│   │   ├── terraform-test.yml         # Configuration validation
-│   │   ├── terraform-docs.yml         # Documentation generation
-│   │   └── ...                        # Additional workflows
-│   ├── actions/                       # Custom GitHub Actions
-│   │   ├── detect-terraform-changes/  # Change detection
-│   │   ├── generate-workflow-metadata/ # Metadata generation
-│   │   ├── jit-network-access/        # Just-in-time access
-│   │   └── terraform-init-with-backend/ # Terraform initialization
-│   ├── instructions/                  # AI agent guidelines
-│   │   ├── baseline.instructions.md   # Core principles
-│   │   ├── terraform-iac.instructions.md # Terraform standards
-│   │   └── ...                        # Additional guidelines
-│   └── prompts/                       # AI prompts for development
-│
-├── 📚 docs/                           # Documentation
-│   ├── index.md                      # Documentation home
-│   ├── explanations/                 # Concept explanations
-│   ├── guides/                       # How-to guides
-│   ├── references/                   # API/configuration references
-│   └── troubleshooting/             # Common issues and solutions
-│
-├── 🛠️ scripts/                        # Automation scripts
-│   ├── setup/                        # Initial setup scripts
-│   │   └── setup-azure-backend.sh   # Azure backend configuration
-│   ├── cleanup/                      # Resource cleanup scripts
-│   ├── demo/                         # Demonstration utilities
-│   └── utils/                        # Helper utilities
-│
-├── 🔧 .devcontainer/                  # Development container config
-│   ├── devcontainer.json             # Container definition
-│   └── post-create.sh                # Post-creation setup
-│
-├── 📝 Configuration Files
-│   ├── config.env.example            # Environment configuration template
-│   ├── CHANGELOG.md                  # Version history
-│   ├── LICENSE                       # MIT License
-│   └── .gitignore                    # Git ignore patterns
-│
-└── 🎭 .demo/                          # Demo scripts
-    └──ppcc25-terraform-power-platform-governance.json
-```
-
-### Configuration Categories
-
-The `configurations/` directory follows a naming convention inspired by Azure Verified Modules (AVM):
-
-- **`ptn-*`** (Pattern): Complete implementation patterns combining multiple resources
-- **`res-*`** (Resource): Individual resource configurations
-- **`utl-*`** (Utility): Helper configurations for operations like exports and generation
-
-## 🔧 Configuration Examples
-
-### Example: Deploy DLP Policy for Finance
-
-<details>
-<summary>View complete example</summary>
-
-#### Step 1: Copy the template
+Windows users can install using [Scoop]:
 
 ```bash
-# Navigate to the DLP policy configuration
-cd configurations/res-dlp-policy/tfvars/
-
-# Create your finance policy from the template
-cp template.tfvars finance.tfvars
+scoop bucket add terraform-docs https://github.com/terraform-docs/scoop-bucket
+scoop install terraform-docs
 ```
 
-#### Step 2: Edit the finance policy
+or [Chocolatey]:
 
-```hcl
-# finance.tfvars - Edit the following values:
-
-# REQUIRED: Update the display name
-display_name = "Finance Department Data Protection"
-
-# OPTIONAL: Set to "Blocked" for maximum security (default if omitted)
-default_connectors_classification = "Blocked"
-
-# OPTIONAL: Apply to specific environments only
-environment_type = "OnlyEnvironments"
-environments = [
-  "00000000-0000-0000-0000-000000000001",  # Replace with your Production environment ID
-  "00000000-0000-0000-0000-000000000002"   # Replace with your Finance UAT environment ID
-]
-
-# BUSINESS CONNECTORS: Essential finance systems
-# WHY: These connectors are required for financial operations and reporting
-business_connectors = [
-  {
-    id = "/providers/Microsoft.PowerApps/apis/shared_sql"
-    default_action_rule_behavior = "Allow"
-    # Block dangerous SQL operations while allowing reads
-    action_rules = [
-      { action_id = "DeleteItem_V2", behavior = "Block" },
-      { action_id = "ExecutePassThroughNativeQuery_V2", behavior = "Block" }
-    ]
-    # Only allow connections to finance databases
-    endpoint_rules = [
-      { endpoint = "finance-db.database.windows.net", behavior = "Allow", order = 1 },
-      { endpoint = "*", behavior = "Block", order = 2 }
-    ]
-  },
-  {
-    id = "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
-    default_action_rule_behavior = "Allow"
-    # Finance document library access only
-    endpoint_rules = [
-      { endpoint = "contoso.sharepoint.com/sites/finance", behavior = "Allow", order = 1 }
-    ]
-  },
-  {
-    id = "/providers/Microsoft.PowerApps/apis/shared_teams"
-    default_action_rule_behavior = "Allow"
-  }
-]
-
-# CUSTOM CONNECTORS: Restrict to internal APIs only
-# WHY: Prevent data exfiltration through unapproved custom connectors
-custom_connectors_patterns = [
-  { order = 1, host_url_pattern = "*", data_group = "Blocked" }  # Block everything else
-]
+```bash
+choco install terraform-docs
 ```
 
-#### Step 3: Deploy via GitHub Actions
+Stable binaries are also available on the [releases] page. To install, download the
+binary for your platform from "Assets" and place this into your `$PATH`:
 
-1. Go to **Actions** → **[Terraform Plan and Apply](../../actions/workflows/terraform-plan-apply.yml)**
-2. Click **Run workflow**
-3. Select:
-   - Configuration: `res-dlp-policy`
-   - Terraform vars file: `finance.tfvars`
-   - Keep the `Apply` option unchecked (review first)
-4. Review the plan output
-5. If satisfied, run again with the `Apply` option checked to deploy
+```bash
+curl -Lo ./terraform-docs.tar.gz https://github.com/terraform-docs/terraform-docs/releases/download/v0.20.0/terraform-docs-v0.20.0-$(uname)-amd64.tar.gz
+tar -xzf terraform-docs.tar.gz
+chmod +x terraform-docs
+mv terraform-docs /usr/local/bin/terraform-docs
+```
 
-</details>
+**NOTE:** Windows releases are in `ZIP` format.
 
-## 🤝 Contributing & Feedback
+The latest version can be installed using `go install` or `go get`:
 
-### 📣 We Value Your Feedback!
+```bash
+# go1.17+
+go install github.com/terraform-docs/terraform-docs@v0.20.0
+```
 
-While this repository was specifically created as demonstration material for the **Power Platform Community Conference 2025** session and is not accepting code contributions, **your feedback is incredibly valuable**!
+```bash
+# go1.16
+GO111MODULE="on" go get github.com/terraform-docs/terraform-docs@v0.20.0
+```
 
-### How You Can Help
+**NOTE:** please use the latest Go to do this, minimum `go1.16` is required.
 
-- **🐛 Report Issues** - Found a bug, security concern, or potential improvement? Please [open an issue](https://github.com/rpothin/ppcc25-terraform-power-platform-governance/issues)
-- **💡 Share Ideas** - Have suggestions for better approaches? We'd love to hear them!
-- **❓ Ask Questions** - Something unclear? Use [Discussions](https://github.com/rpothin/ppcc25-terraform-power-platform-governance/discussions) to get clarification
-- **⭐ Star the Repository** - Show your support and help others discover this resource
-- **📢 Share Your Experience** - Used these patterns in your organization? Let us know how it went!
+This will put `terraform-docs` in `$(go env GOPATH)/bin`. If you encounter the error
+`terraform-docs: command not found` after installation then you may need to either add
+that directory to your `$PATH` as shown [here] or do a manual installation by cloning
+the repo and run `make build` from the repository which will put `terraform-docs` in:
 
-### Direct Feedback
+```bash
+$(go env GOPATH)/src/github.com/terraform-docs/terraform-docs/bin/$(uname | tr '[:upper:]' '[:lower:]')-amd64/terraform-docs
+```
 
-For direct feedback, security concerns, or private discussions about this demonstration:
-- 📧 Reach out to [Raphael Pothin](https://github.com/rpothin) directly
-- 💼 Connect on [LinkedIn](https://www.linkedin.com/in/raphael-pothin-642bb657/)
+## Usage
 
-### 🚀 What's Next?
+### Running the binary directly
 
-**Coming Soon**: A community-driven initiative building on these concepts!
+To run and generate documentation into README within a directory:
 
-While this demonstration repository remains read-only, I'm working on launching a collaborative initiative that will:
-- Welcome contributions
-- Expand on the patterns demonstrated here
-- Create a comprehensive library of configurations
-- Build a supportive community around Power Platform IaC
+```bash
+terraform-docs markdown table --output-file README.md --output-mode inject /path/to/module
+```
 
-Stay tuned for announcements! Follow this repository to be notified when the new initiative launches.
+Check [`output`] configuration for more details and examples.
 
-### Why This Approach?
+### Using docker
 
-This repository serves as **reference implementation** for the PPCC25 session. Keeping it stable ensures:
-- ✅ Consistent experience for all session attendees
-- ✅ Reliable demonstration material
-- ✅ Clear educational narrative
-- ✅ Preservation of the original presentation context
+terraform-docs can be run as a container by mounting a directory with `.tf`
+files in it and run the following command:
 
-Your understanding and support are greatly appreciated! 🙏
+```bash
+docker run --rm --volume "$(pwd):/terraform-docs" -u $(id -u) quay.io/terraform-docs/terraform-docs:0.20.0 markdown /terraform-docs
+```
 
-## 📄 License
+If `output.file` is not enabled for this module, generated output can be redirected
+back to a file:
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+```bash
+docker run --rm --volume "$(pwd):/terraform-docs" -u $(id -u) quay.io/terraform-docs/terraform-docs:0.20.0 markdown /terraform-docs > doc.md
+```
 
-## 🙏 Acknowledgments
+**NOTE:** Docker tag `latest` refers to _latest_ stable released version and `edge`
+refers to HEAD of `master` at any given point in time.
 
-### Contributors
+### Using GitHub Actions
 
-<!-- ALL-CONTRIBUTORS-LIST:START -->
-<div align="center">
-<table>
-  <tr>
-    <td align="center">
-      <a href="https://github.com/rpothin">
-        <img src="https://github.com/rpothin.png" width="100px;" alt="Raphael Pothin"/>
-        <br />
-        <sub><b>Raphael Pothin</b></sub>
-      </a>
-      <br />
-      💻 📖 🎨
-    </td>
-    <!-- Add more contributors here -->
-  </tr>
-</table>
-<!-- ALL-CONTRIBUTORS-LIST:END -->
-</div>
+To use terraform-docs GitHub Action, configure a YAML workflow file (e.g.
+`.github/workflows/documentation.yml`) with the following:
 
-### Inspiration
+```yaml
+name: Generate terraform docs
+on:
+  - pull_request
 
-This project was inspired by:
-- [Azure Verified Modules](https://azure.github.io/Azure-Verified-Modules/)
-- [Power Platform Provider](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs)
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        ref: ${{ github.event.pull_request.head.ref }}
 
----
+    - name: Render terraform docs and push changes back to PR
+      uses: terraform-docs/gh-actions@main
+      with:
+        working-dir: .
+        output-file: README.md
+        output-method: inject
+        git-push: "true"
+```
 
-<div align="center">
+Read more about [terraform-docs GitHub Action] and its configuration and
+examples.
 
-**Made with ❤️ for the Power Platform Community**
+### pre-commit hook
 
-[⬆ Back to top](#-power-platform-governance-with-terraform)
+With pre-commit, you can ensure your Terraform module documentation is kept
+up-to-date each time you make a commit.
 
-</div>
+First [install pre-commit] and then create or update a `.pre-commit-config.yaml`
+in the root of your Git repo with at least the following content:
+
+```yaml
+repos:
+  - repo: https://github.com/terraform-docs/terraform-docs
+    rev: "v0.20.0"
+    hooks:
+      - id: terraform-docs-go
+        args: ["markdown", "table", "--output-file", "README.md", "./mymodule/path"]
+```
+
+Then run:
+
+```bash
+pre-commit install
+pre-commit install-hooks
+```
+
+Further changes to your module's `.tf` files will cause an update to documentation
+when you make a commit.
+
+## Configuration
+
+terraform-docs can be configured with a yaml file. The default name of this file is
+`.terraform-docs.yml` and the path order for locating it is:
+
+1. root of module directory
+1. `.config/` folder at root of module directory
+1. current directory
+1. `.config/` folder at current directory
+1. `$HOME/.tfdocs.d/`
+
+```yaml
+formatter: "" # this is required
+
+version: ""
+
+header-from: main.tf
+footer-from: ""
+
+recursive:
+  enabled: false
+  path: modules
+  include-main: true
+
+sections:
+  hide: []
+  show: []
+
+content: ""
+
+output:
+  file: ""
+  mode: inject
+  template: |-
+    <!-- BEGIN_TF_DOCS -->
+    {{ .Content }}
+    <!-- END_TF_DOCS -->
+
+output-values:
+  enabled: false
+  from: ""
+
+sort:
+  enabled: true
+  by: name
+
+settings:
+  anchor: true
+  color: true
+  default: true
+  description: false
+  escape: true
+  hide-empty: false
+  html: true
+  indent: 2
+  lockfile: true
+  read-comments: true
+  required: true
+  sensitive: true
+  type: true
+```
+
+## Content Template
+
+Generated content can be customized further away with `content` in configuration.
+If the `content` is empty the default order of sections is used.
+
+Compatible formatters for customized content are `asciidoc` and `markdown`. `content`
+will be ignored for other formatters.
+
+`content` is a Go template with following additional variables:
+
+- `{{ .Header }}`
+- `{{ .Footer }}`
+- `{{ .Inputs }}`
+- `{{ .Modules }}`
+- `{{ .Outputs }}`
+- `{{ .Providers }}`
+- `{{ .Requirements }}`
+- `{{ .Resources }}`
+
+and following functions:
+
+- `{{ include "relative/path/to/file" }}`
+
+These variables are the generated output of individual sections in the selected
+formatter. For example `{{ .Inputs }}` is Markdown Table representation of _inputs_
+when formatter is set to `markdown table`.
+
+Note that sections visibility (i.e. `sections.show` and `sections.hide`) takes
+precedence over the `content`.
+
+Additionally there's also one extra special variable avaialble to the `content`:
+
+- `{{ .Module }}`
+
+As opposed to the other variables mentioned above, which are generated sections
+based on a selected formatter, the `{{ .Module }}` variable is just a `struct`
+representing a [Terraform module].
+
+````yaml
+content: |-
+  Any arbitrary text can be placed anywhere in the content
+
+  {{ .Header }}
+
+  and even in between sections
+
+  {{ .Providers }}
+
+  and they don't even need to be in the default order
+
+  {{ .Outputs }}
+
+  include any relative files
+
+  {{ include "relative/path/to/file" }}
+
+  {{ .Inputs }}
+
+  # Examples
+
+  ```hcl
+  {{ include "examples/foo/main.tf" }}
+  ```
+
+  ## Resources
+
+  {{ range .Module.Resources }}
+  - {{ .GetMode }}.{{ .Spec }} ({{ .Position.Filename }}#{{ .Position.Line }})
+  {{- end }}
+````
+
+## Build on top of terraform-docs
+
+terraform-docs primary use-case is to be utilized as a standalone binary, but
+some parts of it is also available publicly and can be imported in your project
+as a library.
+
+```go
+import (
+    "github.com/terraform-docs/terraform-docs/format"
+    "github.com/terraform-docs/terraform-docs/print"
+    "github.com/terraform-docs/terraform-docs/terraform"
+)
+
+// buildTerraformDocs for module root `path` and provided content `tmpl`.
+func buildTerraformDocs(path string, tmpl string) (string, error) {
+    config := print.DefaultConfig()
+    config.ModuleRoot = path // module root path (can be relative or absolute)
+
+    module, err := terraform.LoadWithOptions(config)
+    if err != nil {
+        return "", err
+    }
+
+    // Generate in Markdown Table format
+    formatter := format.NewMarkdownTable(config)
+
+    if err := formatter.Generate(module); err != nil {
+        return "", err
+    }
+
+    // // Note: if you don't intend to provide additional template for the generated
+    // // content, or the target format doesn't provide templating (e.g. json, yaml,
+    // // xml, or toml) you can use `Content()` function instead of `Render()`.
+    // // `Content()` returns all the sections combined with predefined order.
+    // return formatter.Content(), nil
+
+    return formatter.Render(tmpl)
+}
+```
+
+## Plugin
+
+Generated output can be heavily customized with [`content`], but if using that
+is not enough for your use-case, you can write your own plugin.
+
+In order to install a plugin the following steps are needed:
+
+- download the plugin and place it in `~/.tfdocs.d/plugins` (or `./.tfdocs.d/plugins`)
+- make sure the plugin file name is `tfdocs-format-<NAME>`
+- modify [`formatter`] of `.terraform-docs.yml` file to be `<NAME>`
+
+**Important notes:**
+
+- if the plugin file name is different than the example above, terraform-docs won't
+be able to to pick it up nor register it properly
+- you can only use plugin thorough `.terraform-docs.yml` file and it cannot be used
+with CLI arguments
+
+To create a new plugin create a new repository called `tfdocs-format-<NAME>` with
+following `main.go`:
+
+```go
+package main
+
+import (
+    _ "embed" //nolint
+
+    "github.com/terraform-docs/terraform-docs/plugin"
+    "github.com/terraform-docs/terraform-docs/print"
+    "github.com/terraform-docs/terraform-docs/template"
+    "github.com/terraform-docs/terraform-docs/terraform"
+)
+
+func main() {
+    plugin.Serve(&plugin.ServeOpts{
+        Name:    "<NAME>",
+        Version: "0.1.0",
+        Printer: printerFunc,
+    })
+}
+
+//go:embed sections.tmpl
+var tplCustom []byte
+
+// printerFunc the function being executed by the plugin client.
+func printerFunc(config *print.Config, module *terraform.Module) (string, error) {
+    tpl := template.New(config,
+        &template.Item{Name: "custom", Text: string(tplCustom)},
+    )
+
+    rendered, err := tpl.Render("custom", module)
+    if err != nil {
+        return "", err
+    }
+
+    return rendered, nil
+}
+```
+
+Please refer to [tfdocs-format-template] for more details. You can create a new
+repository from it by clicking on `Use this template` button.
+
+## Documentation
+
+- **Users**
+  - Read the [User Guide] to learn how to use terraform-docs
+  - Read the [Formats Guide] to learn about different output formats of terraform-docs
+  - Refer to [Config File Reference] for all the available configuration options
+- **Developers**
+  - Read [Contributing Guide] before submitting a pull request
+
+Visit [our website] for all documentation.
+
+## Community
+
+- Discuss terraform-docs on [Slack]
+
+## License
+
+MIT License - Copyright (c) 2021 The terraform-docs Authors.
+
+[Chocolatey]: https://www.chocolatey.org
+[Config File Reference]: https://terraform-docs.io/user-guide/configuration/
+[`content`]: https://terraform-docs.io/user-guide/configuration/content/
+[Contributing Guide]: CONTRIBUTING.md
+[Formats Guide]: https://terraform-docs.io/reference/terraform-docs/
+[`formatter`]: https://terraform-docs.io/user-guide/configuration/formatter/
+[here]: https://golang.org/doc/code.html#GOPATH
+[Homebrew]: https://brew.sh
+[install pre-commit]: https://pre-commit.com/#install
+[`output`]: https://terraform-docs.io/user-guide/configuration/output/
+[releases]: https://github.com/terraform-docs/terraform-docs/releases
+[Scoop]: https://scoop.sh/
+[Slack]: https://slack.terraform-docs.io/
+[terraform-docs GitHub Action]: https://github.com/terraform-docs/gh-actions
+[Terraform module]: https://pkg.go.dev/github.com/terraform-docs/terraform-docs/terraform#Module
+[tfdocs-format-template]: https://github.com/terraform-docs/tfdocs-format-template
+[our website]: https://terraform-docs.io/
+[User Guide]: https://terraform-docs.io/user-guide/introduction/
