@@ -12,10 +12,7 @@
 # - Provider Choice: Using microsoft/power-platform for direct API access
 # - Backend Strategy: Azure Storage with OIDC for secure, keyless authentication
 # - Resource Organization: Data source only, no stateful resources
-
-provider "powerplatform" {
-  use_oidc = true
-}
+# - Provider Configuration: Centralized in versions.tf (utility module pattern)
 
 data "powerplatform_connectors" "all" {}
 
