@@ -18,7 +18,7 @@
 ## 🎯 About
 
 > [!NOTE]
-> [**"Enhancing Power Platform Governance Through Terraform: Embracing Infrastructure as Code"**](https://powerplatformconf.com/#!/session/Enhancing%20Power%20Platform%20Governance%20Through%20Terraform:%20Embracing%20Infrastructure%20as%20Code/7663)
+> [**"Enhancing Power Platform Governance Through Terraform: Embracing Infrastructure as Code"**](https://github.com/rpothin/Presentations/tree/main/20251029_PowerPlatformCommunityConference#enhancing-power-platform-governance-through-terraform-embracing-infrastructure-as-code)
 > *Presented at Power Platform Community Conference 2025 by [Raphael Pothin](https://github.com/rpothin)*
 
 ### The Problem
