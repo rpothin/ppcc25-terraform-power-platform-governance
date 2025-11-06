@@ -16,6 +16,23 @@ All configurations are organized in the `configurations/` directory following Az
 - **`res-*`**: Resource modules (individual resource types)
 - **`utl-*`**: Utility modules (exports, generators, helpers)
 
+### 🎯 Standalone vs Child Modules
+
+**Standalone Configurations** can be deployed directly via GitHub Actions workflows:
+- All `ptn-*` pattern modules
+- All `utl-*` utility modules  
+- `res-dlp-policy`
+
+**Child Modules** are designed to be called by pattern modules:
+- `res-environment` - Used by `ptn-environment-group`
+- `res-environment-settings` - Used by `ptn-environment-group`
+- `res-environment-group` - Used by `ptn-environment-group`
+- `res-environment-application-admin` - Used by `ptn-environment-group`
+- `res-enterprise-policy` - Used by `ptn-azure-vnet-extension`
+- `res-enterprise-policy-link` - Used by `ptn-azure-vnet-extension`
+
+💡 **Note**: Child modules follow the same security standards but are orchestrated by patterns rather than deployed individually.
+
 ---
 
 ## Pattern Modules (`ptn-*`)
@@ -179,16 +196,17 @@ environments = ["<env-id-1>", "<env-id-2>"]
 
 **Complexity**: ⭐⭐ Easy  
 **Deployment Time**: 5-10 minutes (15-20 with Dataverse)  
-**Dependencies**: None
+**Dependencies**: None  
+**Usage**: 🧩 **Child Module** (used by `ptn-environment-group`)
 
 **What it creates**:
 - Power Platform environment
 - Dataverse database (optional)
 
 **Use when**:
-- Creating a new environment
-- Need fine-grained control over environment settings
-- Part of a larger orchestration
+- Called by `ptn-environment-group` pattern
+- Building custom environment orchestrations
+- Part of a larger environment lifecycle pattern
 
 **Key Parameters**:
 
@@ -226,19 +244,20 @@ dataverse = {
 
 **Complexity**: ⭐⭐⭐ Medium  
 **Deployment Time**: 1-2 minutes  
-**Dependencies**: Existing environment
+**Dependencies**: Existing environment  
+**Usage**: 🧩 **Child Module** (used by `ptn-environment-group`)
 
 **What it configures**:
-- Maker onboarding settings
-- Canvas app sharing limits
-- Power Platform theme
-- Environment-specific features
+- Audit and logging settings
+- Security and firewall rules
+- Feature enablement controls
+- Email and file handling limits
 
 **Use when**:
-- Customizing maker experience
-- Enforcing sharing restrictions
-- Branding environments
-- Configuring governance settings
+- Called by `ptn-environment-group` after environment creation
+- Building custom environment configuration patterns
+- Post-creation configuration management in orchestrated workflows
+- Compliance and governance enforcement within patterns
 
 **Key Parameters**:
 
@@ -270,15 +289,16 @@ max_limit_user_sharing = 10
 
 **Complexity**: ⭐ Simple  
 **Deployment Time**: 1-2 minutes  
-**Dependencies**: None
+**Dependencies**: None  
+**Usage**: 🧩 **Child Module** (used by `ptn-environment-group`)
 
 **What it creates**:
 - Environment group resource
 
 **Use when**:
-- Grouping related environments
-- Organizing by department or project
-- Need logical container for environments
+- Called by `ptn-environment-group` pattern
+- Building custom environment group orchestrations
+- Need standalone environment group container
 
 **Key Parameters**:
 
@@ -305,16 +325,17 @@ environment_group_config = {
 
 **Complexity**: ⭐⭐ Easy  
 **Deployment Time**: 1-2 minutes  
-**Dependencies**: Existing environment, Azure AD application
+**Dependencies**: Existing environment, Azure AD application  
+**Usage**: 🧩 **Child Module** (used by `ptn-environment-group`)
 
 **What it creates**:
 - Application user in environment
 - System Administrator role assignment
 
 **Use when**:
-- Granting service principals access to environments
-- Automation scenarios
-- CI/CD pipelines
+- Called by `ptn-environment-group` pattern
+- Building custom automation workflows
+- Need standalone service principal access
 
 **Key Parameters**:
 
@@ -339,16 +360,17 @@ application_id = "11111111-1111-1111-1111-111111111111"
 
 **Complexity**: ⭐⭐⭐⭐ Advanced  
 **Deployment Time**: 5-10 minutes  
-**Dependencies**: Azure subscription, VNet
+**Dependencies**: Azure subscription, VNet  
+**Usage**: 🧩 **Child Module** (used by `ptn-azure-vnet-extension`)
 
 **What it creates**:
 - Enterprise policy resource in Azure
 - Network configuration
 
 **Use when**:
-- Setting up VNet integration
-- Part of `ptn-azure-vnet-extension` pattern
-- Need advanced network policies
+- Called by `ptn-azure-vnet-extension` pattern
+- Building custom VNet integration patterns
+- Need standalone enterprise policy resource
 
 **Documentation**: [configurations/res-enterprise-policy/README.md](../../configurations/res-enterprise-policy/README.md)
 
@@ -360,14 +382,16 @@ application_id = "11111111-1111-1111-1111-111111111111"
 
 **Complexity**: ⭐⭐⭐ Medium  
 **Deployment Time**: 2-3 minutes  
-**Dependencies**: Enterprise policy, Power Platform environment
+**Dependencies**: Enterprise policy, Power Platform environment  
+**Usage**: 🧩 **Child Module** (used by `ptn-azure-vnet-extension`)
 
 **What it creates**:
 - Link between Azure policy and environment
 
 **Use when**:
-- Connecting environment to VNet
-- Part of network integration setup
+- Called by `ptn-azure-vnet-extension` pattern
+- Building custom VNet integration patterns
+- Need standalone policy-to-environment link
 
 **Documentation**: [configurations/res-enterprise-policy-link/README.md](../../configurations/res-enterprise-policy-link/README.md)
 
@@ -496,23 +520,22 @@ output_file_name = "finance-dlp-generated.tfvars"
 
 ### By Use Case
 
-| Use Case | Configuration | Complexity |
-|----------|--------------|------------|
-| Create single environment | `res-environment` | ⭐⭐ |
-| Create multiple related environments | `ptn-environment-group` | ⭐⭐⭐⭐ |
-| Create DLP policy | `res-dlp-policy` | ⭐⭐ |
-| Configure environment settings | `res-environment-settings` | ⭐⭐⭐ |
-| Connect to Azure VNet | `ptn-azure-vnet-extension` | ⭐⭐⭐⭐⭐ |
-| Export current connectors | `utl-export-connectors` | ⭐ |
-| Export current DLP policies | `utl-export-dlp-policies` | ⭐ |
-| Migrate existing DLP policy | `utl-generate-dlp-tfvars` | ⭐⭐ |
+| Use Case | Configuration | Type | Complexity |
+|----------|--------------|------|------------|
+| Create environment group | `ptn-environment-group` | 🎯 Standalone | ⭐⭐⭐⭐ |
+| Create DLP policy | `res-dlp-policy` | 🎯 Standalone | ⭐⭐ |
+| Connect to Azure VNet | `ptn-azure-vnet-extension` | 🎯 Standalone | ⭐⭐⭐⭐⭐ |
+| Export current connectors | `utl-export-connectors` | 🎯 Standalone | ⭐ |
+| Export current DLP policies | `utl-export-dlp-policies` | 🎯 Standalone | ⭐ |
+| Migrate existing DLP policy | `utl-generate-dlp-tfvars` | 🎯 Standalone | ⭐⭐ |
+| Build custom patterns | Child modules | 🧩 Module | Varies |
 
 ### By Deployment Time
 
 | Time | Configurations |
 |------|----------------|
 | < 5 minutes | `utl-export-connectors`, `utl-export-dlp-policies`, `utl-generate-dlp-tfvars`, `res-environment-group` |
-| 5-15 minutes | `res-dlp-policy`, `res-environment` (no Dataverse), `res-environment-settings` |
+| 5-15 minutes | `res-dlp-policy` |
 | 15-30 minutes | `res-environment` (with Dataverse) |
 | 30-60 minutes | `ptn-environment-group`, `ptn-azure-vnet-extension` |
 
@@ -521,8 +544,8 @@ output_file_name = "finance-dlp-generated.tfvars"
 | Level | Configurations |
 |-------|----------------|
 | ⭐ Simple | `utl-*` utilities, `res-environment-group` |
-| ⭐⭐ Easy | `res-dlp-policy`, `res-environment`, `res-environment-application-admin` |
-| ⭐⭐⭐ Medium | `res-environment-settings`, `res-enterprise-policy-link` |
+| ⭐⭐ Easy | `res-dlp-policy`, `res-environment-application-admin` |
+| ⭐⭐⭐ Medium | `res-enterprise-policy-link` |
 | ⭐⭐⭐⭐ Advanced | `ptn-environment-group`, `res-enterprise-policy` |
 | ⭐⭐⭐⭐⭐ Expert | `ptn-azure-vnet-extension` |
 
@@ -540,10 +563,10 @@ output_file_name = "finance-dlp-generated.tfvars"
 │ ├─ Vars file: your-policy.tfvars                          │
 │ └─ Time: ~10 minutes                                       │
 │                                                             │
-│ CREATE ENVIRONMENT                                          │
-│ ├─ Configuration: res-environment                          │
-│ ├─ Vars file: your-environment.tfvars                     │
-│ └─ Time: ~10 minutes (+ Dataverse: +10 min)              │
+│ CREATE ENVIRONMENT GROUP                                    │
+│ ├─ Configuration: ptn-environment-group                    │
+│ ├─ Vars file: your-environment-group.tfvars               │
+│ └─ Time: ~15-20 minutes                                    │
 │                                                             │
 │ EXPORT CONNECTORS                                           │
 │ ├─ Configuration: utl-export-connectors                    │

@@ -46,13 +46,29 @@ Read our **explanations** for deeper insights:
 
 ## 📊 Configuration Quick Reference
 
+### 🎯 Standalone Configurations (Deploy Directly)
+
 | Configuration              | Purpose                                     | Complexity    | Deployment Time |
 | -------------------------- | ------------------------------------------- | ------------- | --------------- |
 | `utl-export-connectors`    | Export connector list                       | ⭐ Simple      | 2 min           |
 | `utl-export-dlp-policies`  | Export existing DLP policies                | ⭐ Simple      | 2 min           |
+| `utl-generate-dlp-tfvars`  | Generate tfvars from exported policies      | ⭐ Simple      | 2 min           |
 | `res-dlp-policy`           | Create/update DLP policies                  | ⭐⭐ Easy       | 5 min           |
 | `ptn-environment-group`    | Provision environment group (Dev/Test/Prod) | ⭐⭐⭐⭐ Advanced | 15-20 min       |
 | `ptn-azure-vnet-extension` | Add Azure VNet integration                  | ⭐⭐⭐⭐ Advanced | 5-10 min        |
+
+### 🧩 Child Modules (Used Within Patterns)
+
+These are orchestrated by pattern modules but follow the same security and quality standards:
+
+| Module                              | Used By                    | Purpose                            |
+| ----------------------------------- | -------------------------- | ---------------------------------- |
+| `res-environment`                   | `ptn-environment-group`    | Provision single environment       |
+| `res-environment-settings`          | `ptn-environment-group`    | Configure environment settings     |
+| `res-environment-group`             | `ptn-environment-group`    | Create environment group container |
+| `res-environment-application-admin` | `ptn-environment-group`    | Assign app admin permissions       |
+| `res-enterprise-policy`             | `ptn-azure-vnet-extension` | Create Azure enterprise policy     |
+| `res-enterprise-policy-link`        | `ptn-azure-vnet-extension` | Link policy to environment         |
 
 **📖 Complete catalog**: [Configuration Catalog](reference/configuration-catalog.md)
 

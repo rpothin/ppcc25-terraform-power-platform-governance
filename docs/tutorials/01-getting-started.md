@@ -192,6 +192,12 @@ Now for the exciting part - deploying infrastructure!
 
 We'll deploy a simple utility to export available connectors.
 
+💡 **About Configurations**: This repository includes **standalone configurations** 
+(like utilities and patterns which you deploy directly) and **child modules** 
+(like individual environment and settings resources orchestrated by pattern configurations). 
+You'll deploy a standalone utility configuration for this first step. Learn more 
+in the [Configuration Catalog](../reference/configuration-catalog.md).
+
 1. **Go to GitHub Actions**:
    - Open your GitHub repository in a browser
    - Click the "Actions" tab at the top

@@ -20,6 +20,23 @@ This document explains the major architectural decisions made in the PPCC25 Powe
 
 When designing the infrastructure code structure, we faced a choice: should pattern modules (ptn-*) directly create resources, or should they orchestrate separate resource modules (res-*)?
 
+### Understanding Module Types
+
+**Standalone Configurations** can be deployed directly via GitHub Actions:
+- **Pattern modules (ptn-*)**: Complete orchestrated solutions (e.g., `ptn-environment-group`, `ptn-azure-vnet-extension`)
+- **Utility modules (utl-*)**: Export and generation tools (e.g., `utl-export-connectors`)
+- **Some resource modules (res-*)**: Self-contained resources (e.g., `res-dlp-policy`)
+
+**Child Modules** are designed for orchestration by patterns:
+- `res-environment` - Used by `ptn-environment-group`
+- `res-environment-settings` - Used by `ptn-environment-group`
+- `res-environment-group` - Used by `ptn-environment-group`
+- `res-environment-application-admin` - Used by `ptn-environment-group`
+- `res-enterprise-policy` - Used by `ptn-azure-vnet-extension`
+- `res-enterprise-policy-link` - Used by `ptn-azure-vnet-extension`
+
+💡 **Note**: This categorization aligns with the demonstration flow where environment provisioning is shown through the complete `ptn-environment-group` pattern rather than individual resource modules.
+
 ### Problem
 
 **Direct Resource Creation (Anti-Pattern)**:
@@ -78,11 +95,13 @@ Each resource module has a single responsibility. This makes:
 - Maintenance simpler
 
 #### Reusability
-Resource modules can be used by multiple pattern modules:
+Resource modules can be used by multiple pattern modules or custom orchestrations:
 ```hcl
-# Both of these can use res-environment:
+# res-environment used by pattern:
 ptn-environment-group → res-environment
-res-environment (standalone) → (itself)
+
+# Can also be used in custom patterns:
+custom-pattern → res-environment
 ```
 
 #### AVM Compliance
