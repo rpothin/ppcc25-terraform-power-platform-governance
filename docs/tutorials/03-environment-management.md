@@ -493,6 +493,4 @@ gh workflow run terraform-destroy.yml \
 
 ⚠️ **Warning**: Destroying environment groups will delete all environments and their data. This action cannot be undone!
 
----
-
 **Tutorial Complete** | [← Previous: DLP Policies](02-first-dlp-policy.md) | [Documentation Home](../README.md)

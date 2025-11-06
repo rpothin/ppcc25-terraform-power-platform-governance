@@ -487,9 +487,3 @@ terraform apply -target=module.specific_resource
 - **[Common Patterns](common-patterns.md)** - Reusable patterns and examples
 - **[Troubleshooting Guide](../guides/troubleshooting.md)** - Common issues and solutions
 - **[Terraform Provider Documentation](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs)**
-
----
-
-**Last Updated**: 2025-01-06  
-**Version**: 1.0.0  
-**Feedback**: [Improve this reference](https://github.com/rpothin/ppcc25-terraform-power-platform-governance/discussions)

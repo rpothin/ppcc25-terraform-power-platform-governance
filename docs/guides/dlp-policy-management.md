@@ -634,9 +634,3 @@ strategy:
 - **[Power Platform DLP Documentation](https://learn.microsoft.com/power-platform/admin/wp-data-loss-prevention)**
 - **[Terraform Provider Documentation](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/resources/data_loss_prevention_policy)**
 - **[Configuration README](../../configurations/res-dlp-policy/README.md)**
-
----
-
-**Last Updated**: 2025-01-06  
-**Version**: 1.0.0  
-**Feedback**: [Share your suggestions](https://github.com/rpothin/ppcc25-terraform-power-platform-governance/discussions)

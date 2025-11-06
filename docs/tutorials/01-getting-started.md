@@ -300,9 +300,3 @@ Now that you have a working environment, continue your learning:
 2. **Review setup logs**: Look for error messages in the setup script output
 3. **Ask for help**: [Open a discussion](https://github.com/rpothin/ppcc25-terraform-power-platform-governance/discussions)
 4. **Report bugs**: [Create an issue](https://github.com/rpothin/ppcc25-terraform-power-platform-governance/issues)
-
----
-
-**Tutorial Version**: 1.0.0  
-**Last Updated**: 2025-01-06  
-**Feedback**: Help us improve this tutorial! [Share your experience](https://github.com/rpothin/ppcc25-terraform-power-platform-governance/discussions)

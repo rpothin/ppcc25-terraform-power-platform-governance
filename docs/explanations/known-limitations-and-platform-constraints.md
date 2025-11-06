@@ -674,9 +674,3 @@ Perfect automation is impossible.
 Good-enough automation with clear
 limitations is better than no automation.
 ```
-
----
-
-**Last Updated**: 2025-01-06  
-**Version**: 2.0.0 (Converted to FAQ format)  
-**Contribute**: [Share your experiences](https://github.com/rpothin/ppcc25-terraform-power-platform-governance/discussions)

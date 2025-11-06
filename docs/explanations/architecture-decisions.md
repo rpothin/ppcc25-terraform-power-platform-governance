@@ -743,10 +743,3 @@ These architectural decisions create a foundation that:
 - Flexibility vs control
 
 The decisions documented here reflect the current best understanding of the requirements for the PPCC25 demonstration. As the project evolves and the community grows, these decisions should be revisited and refined based on real-world experience and feedback.
-
----
-
-**Last Updated**: 2025-01-06  
-**Version**: 1.0.0  
-**Maintained By**: PPCC25 Core Team  
-**Feedback**: [GitHub Discussions](https://github.com/rpothin/ppcc25-terraform-power-platform-governance/discussions)

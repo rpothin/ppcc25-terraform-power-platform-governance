@@ -780,9 +780,3 @@ Use this checklist to gather information before asking for help:
 - Ignore warnings
 - Hard-code sensitive values
 - Delete state files manually
-
----
-
-**Last Updated**: 2025-01-06  
-**Version**: 1.0.0  
-**Contribute**: Help improve this guide by [sharing your solutions](https://github.com/rpothin/ppcc25-terraform-power-platform-governance/discussions)

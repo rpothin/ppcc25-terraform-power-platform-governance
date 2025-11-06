@@ -618,9 +618,3 @@ shared_facebook           # Facebook
 - Or remove the manual policy first
 
 **More help**: [Troubleshooting Guide](../guides/troubleshooting.md)
-
----
-
-**Tutorial Version**: 1.0.0  
-**Last Updated**: 2025-01-06  
-**Feedback**: [Share your experience](https://github.com/rpothin/ppcc25-terraform-power-platform-governance/discussions)

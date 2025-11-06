@@ -673,9 +673,3 @@ After completing migration:
 **Community experiences**:
 - Share your migration story!
 - Help others by documenting your journey
-
----
-
-**Last Updated**: 2025-01-06  
-**Version**: 1.0.0  
-**Success Stories**: [Share yours!](https://github.com/rpothin/ppcc25-terraform-power-platform-governance/discussions)

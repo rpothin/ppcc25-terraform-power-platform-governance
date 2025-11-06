@@ -80,7 +80,3 @@ graph TD
 - **🐛 Found an issue?** [Report it here](https://github.com/rpothin/ppcc25-terraform-power-platform-governance/issues)
 - **💬 Have questions?** [Start a discussion](https://github.com/rpothin/ppcc25-terraform-power-platform-governance/discussions)
 - **📧 Direct feedback?** Contact [Raphael Pothin](https://github.com/rpothin)
-
----
-
-**Last Updated**: 2025-01-06 | **Documentation Version**: 1.0.0

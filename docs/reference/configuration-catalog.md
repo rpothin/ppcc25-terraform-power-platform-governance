@@ -567,9 +567,3 @@ output_file_name = "finance-dlp-generated.tfvars"
 - **[Common Patterns](common-patterns.md)** - Reusable configuration patterns
 - **[Tutorials](../tutorials/)** - Step-by-step learning guides
 - **[How-to Guides](../guides/)** - Task-oriented instructions
-
----
-
-**Last Updated**: 2025-01-06  
-**Version**: 1.0.0  
-**Contribute**: [Suggest additions](https://github.com/rpothin/ppcc25-terraform-power-platform-governance/discussions)

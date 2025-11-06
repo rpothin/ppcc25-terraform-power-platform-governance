@@ -629,9 +629,3 @@ variable "display_name" {
 - **[Module Reference](module-reference.md)** - Detailed parameter documentation
 - **[Tutorials](../tutorials/)** - Step-by-step learning
 - **[DLP Policy Management](../guides/dlp-policy-management.md)** - Complete DLP guide
-
----
-
-**Last Updated**: 2025-01-06  
-**Version**: 1.0.0  
-**Contribute**: [Share your patterns](https://github.com/rpothin/ppcc25-terraform-power-platform-governance/discussions)
