@@ -34,27 +34,27 @@ Read our **explanations** for deeper insights:
 
 ## 🚀 Quick Links
 
-| I want to...                          | Start here                                         |
-| -------------------------------------- | -------------------------------------------------- |
-| Set up my first deployment             | [Getting Started Tutorial](tutorials/01-getting-started.md) |
-| Work with DLP policies                 | [DLP Policies Tutorial](tutorials/02-first-dlp-policy.md) |
-| Manage DLP policies in production      | [DLP Policy Management Guide](guides/dlp-policy-management.md) |
-| Create environment groups              | [Environment Groups Tutorial](tutorials/03-environment-management.md) |
-| Understand the architecture            | [Architecture Decisions](explanations/architecture-decisions.md) |
-| Find a specific configuration          | [Configuration Catalog](reference/configuration-catalog.md) |
-| Fix an error                           | [Troubleshooting Guide](guides/troubleshooting.md) |
+| I want to...                      | Start here                                                            |
+| --------------------------------- | --------------------------------------------------------------------- |
+| Set up my first deployment        | [Getting Started Tutorial](tutorials/01-getting-started.md)           |
+| Work with DLP policies            | [DLP Policies Tutorial](tutorials/02-first-dlp-policy.md)             |
+| Manage DLP policies in production | [DLP Policy Management Guide](guides/dlp-policy-management.md)        |
+| Create environment groups         | [Environment Groups Tutorial](tutorials/03-environment-management.md) |
+| Understand the architecture       | [Architecture Decisions](explanations/architecture-decisions.md)      |
+| Find a specific configuration     | [Configuration Catalog](reference/configuration-catalog.md)           |
+| Fix an error                      | [Troubleshooting Guide](guides/troubleshooting.md)                    |
 
 ## 📊 Configuration Quick Reference
 
-| Configuration | Purpose | Complexity | Deployment Time |
-|--------------|---------|------------|----------------|
-| `utl-export-connectors` | Export connector list | ⭐ Simple | 2 min |
-| `utl-export-dlp-policies` | Export existing DLP policies | ⭐ Simple | 2 min |
-| `res-dlp-policy` | Create/update DLP policies | ⭐⭐ Easy | 5 min |
-| `res-environment` | Provision single environment | ⭐⭐ Easy | 5-10 min |
-| `res-environment-settings` | Configure environment settings | ⭐⭐⭐ Medium | 2 min |
-| `ptn-environment-group` | Provision environment group (Dev/Test/Prod) | ⭐⭐⭐⭐ Advanced | 15-20 min |
-| `ptn-azure-vnet-extension` | Add Azure VNet integration | ⭐⭐⭐⭐ Advanced | 5-10 min |
+| Configuration              | Purpose                                     | Complexity    | Deployment Time |
+| -------------------------- | ------------------------------------------- | ------------- | --------------- |
+| `utl-export-connectors`    | Export connector list                       | ⭐ Simple      | 2 min           |
+| `utl-export-dlp-policies`  | Export existing DLP policies                | ⭐ Simple      | 2 min           |
+| `res-dlp-policy`           | Create/update DLP policies                  | ⭐⭐ Easy       | 5 min           |
+| `res-environment`          | Provision single environment                | ⭐⭐ Easy       | 5-10 min        |
+| `res-environment-settings` | Configure environment settings              | ⭐⭐⭐ Medium    | 2 min           |
+| `ptn-environment-group`    | Provision environment group (Dev/Test/Prod) | ⭐⭐⭐⭐ Advanced | 15-20 min       |
+| `ptn-azure-vnet-extension` | Add Azure VNet integration                  | ⭐⭐⭐⭐ Advanced | 5-10 min        |
 
 **📖 Complete catalog**: [Configuration Catalog](reference/configuration-catalog.md)
 
@@ -64,7 +64,7 @@ Read our **explanations** for deeper insights:
 ```mermaid
 graph TD
     A[📖 Getting Started Tutorial] --> B[🛡️ DLP Policies Tutorial]
-    B --> C[🌍 Environment Groups Tutorial]
+    B --> C[🌍 Environment Groups<br/>Tutorial]
     C --> D[📚 How-to Guides]
     D --> E[🚀 Production Deployment]
 ```
