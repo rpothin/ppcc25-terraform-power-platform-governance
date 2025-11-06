@@ -1,15 +1,14 @@
-# Provider and version constraints for ptn-environment-group
+# Provider and version constraints for ptn-environment-group pattern
 #
-# This file defines the required Terraform and provider versions for the pattern configuration
-# following AVM standards with Power Platform provider adaptations.
+# Pattern modules orchestrate multiple resource modules and include provider/backend blocks
+# as root modules following AVM specification PMNFR2.
 #
-# Key Requirements:
-# - Provider Version: Using centralized standard ~> 3.8 for microsoft/power-platform
-# - OIDC Authentication: Secure, keyless authentication for both provider and backend
-# - State Backend: Azure Storage with OIDC for secure, centralized state management
+# Baseline Requirements:
+# - Terraform: >= 1.5.0 (consistent with repository baseline)
+# - Provider: microsoft/power-platform ~> 3.8 (centralized version standard)
+# - Backend: Azure Storage with OIDC (keyless authentication)
 
 terraform {
-  # Version constraints ensure consistent behavior across environments
   required_version = ">= 1.5.0"
 
   required_providers {
@@ -27,13 +26,13 @@ terraform {
     }
   }
 
-  # Azure backend with OIDC for secure, keyless authentication
+  # Azure backend with OIDC for secure state management
   backend "azurerm" {
     use_oidc = true
   }
 }
 
-# Provider configuration using OIDC for enhanced security
+# Provider configuration using OIDC authentication
 provider "powerplatform" {
   use_oidc = true
 }

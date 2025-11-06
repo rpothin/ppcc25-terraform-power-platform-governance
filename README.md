@@ -48,17 +48,11 @@ This repository demonstrates how **Infrastructure as Code (IaC)** transforms Pow
 <details>
 <summary>Click to expand prerequisites</summary>
 
-- [ ] **Power Platform** admin access ([Join the Microsoft 365 Developer Program](https://developer.microsoft.com/en-us/microsoft-365/dev-program) --> [Try Power Platform for free](https://www.microsoft.com/en-us/power-platform/products/power-apps/free))
+- [ ] **Power Platform** admin access ([Join the Microsoft 365 Developer Program](https://developer.microsoft.com/en-us/microsoft-365/dev-program) → [Try Power Platform for free](https://www.microsoft.com/en-us/power-platform/products/power-apps/free))
 - [ ] **Azure subscription** ([Free trial available](https://azure.microsoft.com/free))
 - [ ] **GitHub account** ([Sign up free](https://github.com/signup))
-- [ ] **Development tools**:
 
-```bash
-# Check if you have required tools
-terraform version  # >= 1.5.0
-az version        # >= 2.50.0
-gh version        # >= 2.0.0
-```
+> **Note**: Development tools (Terraform, Azure CLI, GitHub CLI) are validated automatically during setup.
 
 </details>
 
@@ -240,6 +234,58 @@ custom_connectors_patterns = [
 5. If satisfied, run again with the `Apply` option checked to deploy
 
 </details>
+
+## 🔬 Technical Reference
+
+### Terraform & Provider Versions
+
+This repository follows strict version requirements to ensure consistency, reliability, and security across all Terraform configurations.
+
+**Terraform Core**: All configurations require **Terraform >= 1.5.0** which provides:
+- Enhanced validation capabilities for complex governance scenarios
+- Improved lifecycle management for production workloads
+- Better error messages and debugging support
+
+**Provider Version Standards**:
+
+| Provider                     | Version Constraint | Purpose                                                                     |
+| ---------------------------- | ------------------ | --------------------------------------------------------------------------- |
+| **microsoft/power-platform** | `~> 3.8`           | Power Platform resource management (DLP policies, environments, connectors) |
+| **hashicorp/azurerm**        | `~> 4.0`           | Azure resources for VNet integration and enterprise policies                |
+| **azure/azapi**              | `~> 2.6`           | Azure preview API access for enterprise policy resources                    |
+| **hashicorp/null**           | `~> 3.0`           | Lifecycle management and validation triggers                                |
+| **hashicorp/time**           | `~> 0.13`          | Time-based resource management                                              |
+| **hashicorp/local**          | `~> 2.4`           | Local file generation for exports and utilities                             |
+
+### Authentication & Security
+
+All configurations use **OIDC (OpenID Connect)** authentication for enhanced security:
+
+- **Zero stored credentials** - No client secrets in configuration or environment variables
+- **Azure Storage backend** - Centralized state management with encryption at rest
+- **Keyless authentication** - Leverages Azure AD workload identity federation
+
+```hcl
+# Standard backend configuration
+terraform {
+  backend "azurerm" {
+    use_oidc = true
+  }
+}
+
+# Standard provider configuration
+provider "powerplatform" {
+  use_oidc = true
+}
+```
+
+### Module Architecture
+
+Configurations follow Azure Verified Module (AVM) inspired patterns:
+
+- **`ptn-*`** (Pattern modules): Root modules with backend/provider blocks for orchestration
+- **`res-*`** (Resource modules): Child modules without backend/provider blocks (inherited from parent)
+- **`utl-*`** (Utility modules): Standalone modules with backend blocks for independent operations
 
 ## 🤝 Contributing & Feedback
 
