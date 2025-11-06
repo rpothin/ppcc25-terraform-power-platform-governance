@@ -77,9 +77,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **cleanup-key-vault-private-endpoint.sh** - Demo resource cleanup
 
 **Utility Scripts (scripts/utils/)**
-- **analyze-repository-actions-consumption.sh** - GitHub Actions usage analysis with detailed reporting
-- **github-actions-data.sh** - Workflow run data fetching module
-- **github-actions-report.sh** - Consumption report generation
 - **terraform-local-validation.sh** - Local Terraform validation with auto-fix
 - **validate-yaml.sh** - YAML validation with auto-fix capabilities
 - **yaml-tools-installer.sh** - YAML tools installation (yamllint, actionlint, yq)
