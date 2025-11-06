@@ -43,18 +43,17 @@ This repository demonstrates how **Infrastructure as Code (IaC)** transforms Pow
 
 ## 🚀 Quick Start
 
+**New to this?** → Start with our **[📚 Complete Documentation](docs/README.md)** for detailed guidance.
+
 ### Prerequisites
 
-<details>
-<summary>Click to expand prerequisites</summary>
+- Power Platform admin access
+- Azure subscription  
+- GitHub account
 
-- [ ] **Power Platform** admin access ([Join the Microsoft 365 Developer Program](https://developer.microsoft.com/en-us/microsoft-365/dev-program) → [Try Power Platform for free](https://www.microsoft.com/en-us/power-platform/products/power-apps/free))
-- [ ] **Azure subscription** ([Free trial available](https://azure.microsoft.com/free))
-- [ ] **GitHub account** ([Sign up free](https://github.com/signup))
-
-> **Note**: Development tools (Terraform, Azure CLI, GitHub CLI) are validated automatically during setup.
-
-</details>
+> **💡 Tip**: Get free access through the [Microsoft 365 Developer Program](https://developer.microsoft.com/microsoft-365/dev-program). Development tools are validated automatically during setup.
+>
+> **📖 Need detailed prerequisites?** See [Getting Started Tutorial](docs/tutorials/01-getting-started.md#prerequisites)
 
 ### 30-Second Setup
 
@@ -77,215 +76,79 @@ nano config.env  # Set GITHUB_OWNER and GITHUB_REPO
 - GitHub secrets configuration
 - Initial workspace setup
 
+**📖 What's Next?** Follow the [Getting Started Tutorial](docs/tutorials/01-getting-started.md) for your first deployment!
+
 ## 📁 Project Structure
 
 ```plaintext
 🏗️ ppcc25-terraform-power-platform-governance/
-│
-├── 📦 configurations/                  # Ready-to-deploy Terraform configurations
-│   ├── ptn-azure-vnet-extension/      # Azure VNet extension pattern
-│   ├── ptn-environment-group/         # Environment grouping pattern
-│   ├── res-dlp-policy/                # Data Loss Prevention policies
-│   ├── res-enterprise-policy/         # Enterprise policy resources
-│   ├── res-enterprise-policy-link/    # Enterprise policy linking
-│   ├── res-environment/               # Environment creation
-│   ├── res-environment-application-admin/ # Environment admin setup
-│   ├── res-environment-group/         # Environment group resources
-│   ├── res-environment-settings/      # Environment configuration
-│   ├── utl-export-connectors/         # Export available connectors
-│   ├── utl-export-dlp-policies/       # Export existing DLP policies
-│   └── utl-generate-dlp-tfvars/       # Generate DLP tfvars from export
-│
-├── 🤖 .github/                         # GitHub automation
-│   ├── workflows/                     # CI/CD pipelines
-│   │   ├── terraform-plan-apply.yml   # Main deployment workflow
-│   │   ├── terraform-test.yml         # Configuration validation
-│   │   ├── terraform-docs.yml         # Documentation generation
-│   │   └── ...                        # Additional workflows
-│   ├── actions/                       # Custom GitHub Actions
-│   │   ├── detect-terraform-changes/  # Change detection
-│   │   ├── generate-workflow-metadata/ # Metadata generation
-│   │   ├── jit-network-access/        # Just-in-time access
-│   │   └── terraform-init-with-backend/ # Terraform initialization
-│   ├── instructions/                  # AI agent guidelines
-│   │   ├── baseline.instructions.md   # Core principles
-│   │   ├── terraform-iac.instructions.md # Terraform standards
-│   │   └── ...                        # Additional guidelines
-│   └── prompts/                       # AI prompts for development
-│
-├── 📚 docs/                           # Documentation
-│   ├── index.md                      # Documentation home
-│   ├── explanations/                 # Concept explanations
-│   ├── guides/                       # How-to guides
-│   ├── references/                   # API/configuration references
-│   └── troubleshooting/             # Common issues and solutions
-│
-├── 🛠️ scripts/                        # Automation scripts
-│   ├── setup/                        # Initial setup scripts
-│   │   └── setup-azure-backend.sh   # Azure backend configuration
-│   ├── cleanup/                      # Resource cleanup scripts
-│   ├── demo/                         # Demonstration utilities
-│   └── utils/                        # Helper utilities
-│
-├── 🔧 .devcontainer/                  # Development container config
-│   ├── devcontainer.json             # Container definition
-│   └── post-create.sh                # Post-creation setup
-│
-├── 📝 Configuration Files
-│   ├── config.env.example            # Environment configuration template
-│   ├── CHANGELOG.md                  # Version history
-│   ├── LICENSE                       # MIT License
-│   └── .gitignore                    # Git ignore patterns
-│
-└── 🎭 .demo/                          # Demo scripts
-    └──ppcc25-terraform-power-platform-governance.json
+├── 📦 configurations/     # Ready-to-deploy Terraform configurations
+│   ├── ptn-*             # Complete implementation patterns
+│   ├── res-*             # Individual resource configurations
+│   └── utl-*             # Utility configurations (exports, generation)
+├── 📚 docs/              # Complete documentation (tutorials, guides, references)
+├── 🤖 .github/           # GitHub workflows and automation
+├── 🛠️ scripts/           # Setup, cleanup, and utility scripts
+└── 🔧 .devcontainer/     # Development container configuration
 ```
 
-### Configuration Categories
+**📖 Complete structure details**: See [Configuration Catalog](docs/reference/configuration-catalog.md)
 
-The `configurations/` directory follows a naming convention inspired by Azure Verified Modules (AVM):
+## 🎯 What Can You Build?
 
-- **`ptn-*`** (Pattern): Complete implementation patterns combining multiple resources
-- **`res-*`** (Resource): Individual resource configurations
-- **`utl-*`** (Utility): Helper configurations for operations like exports and generation
+### 🛡️ Data Loss Prevention (DLP) Policies
+Control which connectors can be used together to prevent data leakage.
 
-## 🔧 Configuration Examples
+**Example**: Finance department policy restricting data flow between SharePoint and external services.
 
-### Example: Deploy DLP Policy for Finance
+### 🌍 Environment Provisioning
+Create and configure Power Platform environments consistently.
 
-<details>
-<summary>View complete example</summary>
+**Example**: Dev/Test/Prod environment group with standardized settings.
 
-#### Step 1: Copy the template
+### 🔗 Azure Integration
+Extend environments with Azure VNet for secure hybrid connectivity.
 
-```bash
-# Navigate to the DLP policy configuration
-cd configurations/res-dlp-policy/tfvars/
+**Example**: Private connectivity between Power Platform and Azure SQL.
 
-# Create your finance policy from the template
-cp template.tfvars finance.tfvars
-```
+---
 
-#### Step 2: Edit the finance policy
+**📖 See complete examples**: 
+- [DLP Policy Management Guide](docs/guides/dlp-policy-management.md)
+- [Configuration Catalog](docs/reference/configuration-catalog.md)
+- [Common Patterns](docs/reference/common-patterns.md)
 
-```hcl
-# finance.tfvars - Edit the following values:
+## 🔬 Key Technical Details
 
-# REQUIRED: Update the display name
-display_name = "Finance Department Data Protection"
+- **Terraform**: >= 1.5.0 required
+- **Authentication**: OIDC (zero stored credentials)
+- **State Management**: Azure Storage backend
+- **Provider**: microsoft/power-platform ~> 3.8
 
-# OPTIONAL: Set to "Blocked" for maximum security (default if omitted)
-default_connectors_classification = "Blocked"
+**🔗 Complete technical reference**: [Architecture Decisions](docs/explanations/architecture-decisions.md)
 
-# OPTIONAL: Apply to specific environments only
-environment_type = "OnlyEnvironments"
-environments = [
-  "00000000-0000-0000-0000-000000000001",  # Replace with your Production environment ID
-  "00000000-0000-0000-0000-000000000002"   # Replace with your Finance UAT environment ID
-]
+---
 
-# BUSINESS CONNECTORS: Essential finance systems
-# WHY: These connectors are required for financial operations and reporting
-business_connectors = [
-  {
-    id = "/providers/Microsoft.PowerApps/apis/shared_sql"
-    default_action_rule_behavior = "Allow"
-    # Block dangerous SQL operations while allowing reads
-    action_rules = [
-      { action_id = "DeleteItem_V2", behavior = "Block" },
-      { action_id = "ExecutePassThroughNativeQuery_V2", behavior = "Block" }
-    ]
-    # Only allow connections to finance databases
-    endpoint_rules = [
-      { endpoint = "finance-db.database.windows.net", behavior = "Allow", order = 1 },
-      { endpoint = "*", behavior = "Block", order = 2 }
-    ]
-  },
-  {
-    id = "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
-    default_action_rule_behavior = "Allow"
-    # Finance document library access only
-    endpoint_rules = [
-      { endpoint = "contoso.sharepoint.com/sites/finance", behavior = "Allow", order = 1 }
-    ]
-  },
-  {
-    id = "/providers/Microsoft.PowerApps/apis/shared_teams"
-    default_action_rule_behavior = "Allow"
-  }
-]
+## 📖 Documentation & Learning
 
-# CUSTOM CONNECTORS: Restrict to internal APIs only
-# WHY: Prevent data exfiltration through unapproved custom connectors
-custom_connectors_patterns = [
-  { order = 1, host_url_pattern = "*", data_group = "Blocked" }  # Block everything else
-]
-```
+### 🎯 Start Here
+**New to this project?** Our documentation follows a progressive learning approach:
 
-#### Step 3: Deploy via GitHub Actions
+1. **📚 [Documentation Home](docs/README.md)** - Your starting point for all documentation
+2. **🎓 [Tutorials](docs/tutorials/)** - Step-by-step learning (beginner-friendly)
+3. **🔧 [How-to Guides](docs/guides/)** - Task-specific instructions (for when you're working)
+4. **📖 [Reference](docs/reference/)** - Complete configuration details (for lookups)
+5. **💡 [Explanations](docs/explanations/)** - Deep dives into concepts (for understanding)
 
-1. Go to **Actions** → **[Terraform Plan and Apply](../../actions/workflows/terraform-plan-apply.yml)**
-2. Click **Run workflow**
-3. Select:
-   - Configuration: `res-dlp-policy`
-   - Terraform vars file: `finance.tfvars`
-   - Keep the `Apply` option unchecked (review first)
-4. Review the plan output
-5. If satisfied, run again with the `Apply` option checked to deploy
+### 🚀 Quick Paths
 
-</details>
-
-## 🔬 Technical Reference
-
-### Terraform & Provider Versions
-
-This repository follows strict version requirements to ensure consistency, reliability, and security across all Terraform configurations.
-
-**Terraform Core**: All configurations require **Terraform >= 1.5.0** which provides:
-- Enhanced validation capabilities for complex governance scenarios
-- Improved lifecycle management for production workloads
-- Better error messages and debugging support
-
-**Provider Version Standards**:
-
-| Provider                     | Version Constraint | Purpose                                                                     |
-| ---------------------------- | ------------------ | --------------------------------------------------------------------------- |
-| **microsoft/power-platform** | `~> 3.8`           | Power Platform resource management (DLP policies, environments, connectors) |
-| **hashicorp/azurerm**        | `~> 4.0`           | Azure resources for VNet integration and enterprise policies                |
-| **azure/azapi**              | `~> 2.6`           | Azure preview API access for enterprise policy resources                    |
-| **hashicorp/null**           | `~> 3.0`           | Lifecycle management and validation triggers                                |
-| **hashicorp/time**           | `~> 0.13`          | Time-based resource management                                              |
-| **hashicorp/local**          | `~> 2.4`           | Local file generation for exports and utilities                             |
-
-### Authentication & Security
-
-All configurations use **OIDC (OpenID Connect)** authentication for enhanced security:
-
-- **Zero stored credentials** - No client secrets in configuration or environment variables
-- **Azure Storage backend** - Centralized state management with encryption at rest
-- **Keyless authentication** - Leverages Azure AD workload identity federation
-
-```hcl
-# Standard backend configuration
-terraform {
-  backend "azurerm" {
-    use_oidc = true
-  }
-}
-
-# Standard provider configuration
-provider "powerplatform" {
-  use_oidc = true
-}
-```
-
-### Module Architecture
-
-Configurations follow Azure Verified Module (AVM) inspired patterns:
-
-- **`ptn-*`** (Pattern modules): Root modules with backend/provider blocks for orchestration
-- **`res-*`** (Resource modules): Child modules without backend/provider blocks (inherited from parent)
-- **`utl-*`** (Utility modules): Standalone modules with backend blocks for independent operations
+| Your Goal | Recommended Path |
+|-----------|------------------|
+| **First time setup** | [Getting Started Tutorial](docs/tutorials/01-getting-started.md) → [DLP Policies Tutorial](docs/tutorials/02-first-dlp-policy.md) |
+| **Deploy DLP policies** | [DLP Policies Tutorial](docs/tutorials/02-first-dlp-policy.md) → [DLP Management Guide](docs/guides/dlp-policy-management.md) |
+| **Provision environments** | [Environment Groups Tutorial](docs/tutorials/03-environment-management.md) → [Configuration Catalog](docs/reference/configuration-catalog.md) |
+| **Migrate from ClickOps** | [Why IaC?](docs/explanations/why-infrastructure-as-code.md) → [Migration Guide](docs/guides/migrate-from-clickops.md) |
+| **Troubleshoot issues** | [Troubleshooting Guide](docs/guides/troubleshooting.md) → [Known Limitations](docs/explanations/known-limitations-and-platform-constraints.md) |
 
 ## 🤝 Contributing & Feedback
 
