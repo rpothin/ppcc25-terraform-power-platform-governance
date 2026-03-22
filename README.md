@@ -28,7 +28,7 @@ This repository demonstrates how **Infrastructure as Code (IaC)** with Terraform
 
 | Traditional ClickOps | Infrastructure as Code       |
 | -------------------- | ---------------------------- |
-| ���️ Manual clicks      | 📝 Declarative configuration |
+| 🖱️ Manual clicks      | 📝 Declarative configuration |
 | 🔍 No audit trail     | 📊 Complete version history  |
 | 😰 Error-prone        | ✅ Validated and tested       |
 | 🐌 Slow to scale      | 🚀 Instantly replicable       |
